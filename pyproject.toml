@@ -1,0 +1,49 @@
+[build-system]
+requires = ["setuptools>=61", "setuptools_scm"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "bris"
+authors = [
+    {name = "Magnus Sikora Ingstad", email = "magnusi@met.no"},
+    {name = "Aram Salihi", email = "arams@met.no"},
+    {name = "Thomas Nipen", email = "thomasn@met.no"},
+]
+description = "Package for running inference of Anemoi models"
+keywords = ["meteorology", "forecast", ]
+license = { file = "LICENSE" }
+readme = "README.md"
+
+classifiers = [
+      "Development Status :: 4 - Beta",
+      "Operating System :: OS Independent",
+      "Programming Language :: Python :: 3 :: Only",
+      "Development Status :: 5 - Production/Stable",
+    ]
+dependencies = [
+    "argparse",
+    "numpy",
+    "tqdm",
+    "zarr<=2.17",
+    "verif",
+]
+dynamic = ["version"]
+
+[project.optional-dependencies]
+test = ["coverage",  "pep8"]
+
+[tool.setuptools]
+# Any setuptools-specific configuration (e.g., package data, entry points) goes here
+include-package-data = true
+
+[tool.setuptools.packages.find]
+include = ["bris"]
+
+[tool.setuptools.dynamic]
+version = {attr = "bris.__version__"}
+
+[tool.setuptools.package-data]
+# bris = ["schema/*.json"]
+
+[project.scripts]
+bris = "bris:main"
