@@ -12,7 +12,7 @@ class Inference:
         self,
         model,
         datamodule,
-        writer: CustomWriter,
+        callbacks,
         num_gpus_per_node=1,
         num_nodes=1,
         precision=None,
@@ -21,16 +21,14 @@ class Inference:
     ):
 
         self.checkpoint = checkpoint
-        self.writer = writer
+        self.callbacks = callbacks
+        self.datamodule = datamodule
         self.deterministic = deterministic
 
         self._device = device
 
     def run(self):
-        model = self.model
-        datamodule = self.checkpoint.datamodule
-
-        self.trainer.predict(model, datamodule=datamodule, return_predictions=False)
+        self.trainer.predict(self.model, datamodule=self.datamodule, return_predictions=False)
 
     @cached_property
     def trainer(self) -> pl.Trainer:
@@ -47,7 +45,7 @@ class Inference:
             precision=self.config.training.precision,
             inference_mode=True,
             use_distributed_sampler=False,
-            callbacks=[self.writer],
+            callbacks=self.callbacks,
         )
         return trainer
 

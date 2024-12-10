@@ -42,7 +42,7 @@ def main():
         # Fetch the metadata that describes what predict_step gives
         # TODO: Figure out what the leadtimes are based on the config
         leadtimes = range(0, 66)
-        # TODO: Get variables, lats, lons from the data module, or checkpoint?
+        # TODO: Get variables, lats, lons from the data module?
         variables = []
         lats = []
         lons = []
@@ -57,7 +57,10 @@ def main():
     # Forecaster must know about what leadtimes to output
     model = BrisForecaster()
 
-    inference = Inference(model, datamodule, writer)
+    callbacks = list()
+    callbacks += [write]
+
+    inference = Inference(model, datamodule, callbacks)
     inference.run()
 
     print("Hello world")
