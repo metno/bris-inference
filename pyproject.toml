@@ -14,17 +14,30 @@ keywords = ["meteorology", "forecast", ]
 license = { file = "LICENSE" }
 readme = "README.md"
 
+requires-python = ">=3.9"
 classifiers = [
       "Development Status :: 4 - Beta",
+      "License :: OSI Approved :: Apache Software License",
       "Operating System :: OS Independent",
       "Programming Language :: Python :: 3 :: Only",
+      "Programming Language :: Python :: 3.9",
+      "Programming Language :: Python :: 3.10",
+      "Programming Language :: Python :: 3.11",
+      "Programming Language :: Python :: 3.12",
+      "Programming Language :: Python :: Implementation :: CPython",
+      "Programming Language :: Python :: Implementation :: PyPy",
       "Development Status :: 5 - Production/Stable",
     ]
 dependencies = [
+    "anemoi-datasets",
+    "anemoi-models",
+    "anemoi-training",
     "argparse",
     "numpy",
+    "pytorch-lightning>=2.1",
     "tqdm",
     "zarr<=2.17",
+    "torch",
     "verif",
 ]
 dynamic = ["version"]

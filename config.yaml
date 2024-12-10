@@ -1,0 +1,46 @@
+run_options:
+    gpus: 1
+    model_parallel: 1
+model:
+  - 
+
+start_date: 
+end_date: 
+
+# Send this to open_dataset
+datasets:
+  from_config:
+    - path: ifs_*.nc
+    - path: meps_*.nc
+  make_it_easy:
+    - path: ifs_*.nc
+    - path: meps_*.nc
+
+checkpoints:
+  - my_interpolator:
+    type: interpolator
+    path: interpolator.ckpt
+  - my_forecaster:
+    type: forecaster
+    path: forecast.ckpt
+
+outputs:
+  global:
+    - netcdf:
+        filename: "%Y/%m/%d/test_%Y%m%dT%HZ.nc"
+        variables: [air_temperature_2m, wind_speed_10m, relative_humidity_2m]
+    - verif:
+      filename: t2m_point_verification_%V.nc
+      variables: air_temperature_2m
+      obs:
+        - netcdf:
+            path: path_with_obs.nc
+        - frost:
+            frost_client_id: 123
+            station_list: norway_wmo
+    - verif:
+      filename: t2m_grid_verification_%V.nc
+      variable: air_temperature_2m
+      thinning: 40
+  lam1:
+    - netcdf: 1

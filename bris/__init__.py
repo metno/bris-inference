@@ -5,4 +5,3 @@ def main():
     import bris.__main__
 
     bris.__main__.main()
-
