@@ -58,7 +58,7 @@ def main():
     model = BrisForecaster()
 
     callbacks = list()
-    callbacks += [write]
+    callbacks += [writer]
 
     inference = Inference(model, datamodule, callbacks)
     inference.run()
