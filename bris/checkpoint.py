@@ -7,6 +7,8 @@ from anemoi.utils.checkpoints import load_metadata
 
 from .forecaster import BrisForecaster
 from .datamodule import DataModule
+from .indices import DataIndices
+from .indices import ModelIndices
 
 
 class Checkpoint:
@@ -93,11 +95,13 @@ class Checkpoint:
         return model
 
     @cached_property
-    def data_indices(self) -> dict:
+    def data_indices(self) -> DataIndices:
+        # TODO:
         return self._metadata.data_indices.data
 
     @cached_property
-    def model_indices(self) -> dict:
+    def model_indices(self) -> ModelIndices:
+        # TODO:
         return self._metadata.data_indices.model
 
     @cached_property
