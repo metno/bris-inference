@@ -48,8 +48,8 @@ def main():
         lons = []
         pm = PredictMetadata(variables, lats, lons, leadtimes)
 
-        for o in c:
-            output = output.instantiate(o, pm)
+        for o, args in c.items():
+            output = output.instantiate(o, pm, args)
             outputs[name]["outputs"] += [output]
 
     writer = CustomWriter(outputs, write_interval="batch")
@@ -62,6 +62,12 @@ def main():
 
     inference = Inference(model, datamodule, callbacks)
     inference.run()
+
+    # Finalize all output, so they can flush to disk if needed
+    # TODO: Only do this on rank 0 (maybe this is already the case at this stage of the code?
+    for name, o in outputs.items():
+        for output in o["outputs"]:
+            output.finalize()
 
     print("Hello world")
 

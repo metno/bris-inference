@@ -1,5 +1,8 @@
-import outputs
+import numpy as np
+
+
 from .predict_metadata import PredictMetadata
+from bris import outputs
 
 
 def instantiate(name, predict_metadata: PredictMetadata, init_args):
@@ -32,24 +35,22 @@ class Output:
 
         self.pm = predict_metadata
 
-    def add_forecast(self, forecast_reference_time: int, pred: np.array):
+    def add_forecast(self, forecast_reference_time: int, ensemble_member: int, pred: np.array):
         """
         Args:
             timestamp: Seconds since 1970
             pred: 2D array (location, variable)
         """
-        assert array.shape[0] == len(self.pm.lats)
-        assert array.shape[1] == len(self.pm.variables)
+        assert pred.shape[0] == len(self.pm.leadtimes)
+        assert pred.shape[1] == len(self.pm.lats)
+        assert pred.shape[2] == len(self.pm.variables)
+        assert ensemble_member >= 0
+        assert ensemble_member < self.pm.num_members
 
-        self._add(forecast_reference_time, pred)
+        self._add_forecast(forecast_reference_time, ensemble_member, pred)
 
-    @abstractmethod
-    def _add_forecast(self, forecast_reference_time: int, pred: np.array):
+    def _add_forecast(self, forecast_reference_time: int, ensemble_member: int, pred: np.array):
         raise NotImplementedError()
-
-    def flush(self):
-        """Flushes data to disk. Subclasses can override this if necessary."""
-        pass
 
     def finalize(self):
         """Finalizes the output. Subclasses can override this if necessary."""

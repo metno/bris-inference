@@ -8,6 +8,10 @@ def get_list(variable_names):
             variable_definitions: {air_temperature_2m: height1}
             variable_to_ncname_and_index: {2t: (air_temperature_2m, 0)}
     """
+    # Algorithm
+    # v_850 -> [y_wind, pressure, 850] -> (y_wind, pressure) -> (1000, 850, 500, 250)
+    #                                              pressure -> (1000, 850, 500, 250)
+
     # Get the levels for each leveltype for each cfname
     cfname_to_levels = dict()
     for v, variable in enumerate(variable_names):
@@ -57,7 +61,7 @@ def get_list(variable_names):
 
     return dims_to_add, ncname_to_level_dim, variable_to_ncname_and_index
 
-def get_variable_metadata(variable: str): -> tuple
+def get_variable_metadata(variable: str) -> tuple:
     """Extract metadata about a variable
         Args:
             variable: Anemoi variable name (e.g. u_800)
@@ -114,8 +118,47 @@ def get_ncname(cfname: str, leveltype: str, levels: list):
 
     return ncname
 
-def get_units_from_leveltype(self, leveltype):
+def get_attributes_from_leveltype(leveltype):
     if leveltype == "pressure":
-        return "hPa"
+        return {
+                "units": "hPa",
+                "description": "pressure",
+                "standard_name": "air_pressure",
+                "positive": "up",
+            }
     elif leveltype == "height":
-        return "m"
+        return {"units": "m", "description": "height above ground", "long_name": "height", "positive": "up"}
+
+def get_attributes_from_ncname(ncname):
+    if ncname == "forecast_reference_time":
+        return {
+                "units": "seconds since 1970-01-01 00:00:00 +00:00",
+                "standard_name": "forecast_reference_time"
+                }
+    elif ncname == "time":
+        return {
+                "units": "seconds since 1970-01-01 00:00:00 +00:00",
+                "standard_name": "time"
+                }
+    elif ncname == "latitude":
+        return {
+                "units": "degrees_north",
+                "standard_name": "latitude"
+            }
+    elif ncname == "longitude":
+        return {
+                "units": "degrees_east",
+                "standard_name": "longitude"
+            }
+    elif ncname == "x":
+        return {
+                "units": "m",
+                "standard_name": "projection_x_coordinate"
+                }
+    elif ncname == "y":
+        return {
+                "units": "m",
+                "standard_name": "projection_y_coordinate"
+                }
+    else:
+        raise ValueError(f"Unknown ncname {ncname}")

@@ -1,4 +1,5 @@
 from ..output import Output
+from .intermediate import Intermediate
 from ..predict_metadata import PredictMetadata
 
 
@@ -69,18 +70,24 @@ class Verif(Output):
         )
         self.ds = xr.Dataset(coords=coords)
 
-    def _add_forecast(self, forecast_reference_time: float, pred: np.array):
+        # The intermediate will only store the final output locations
+        intermediate_om = PredictMetadata([variable], obs_lats, obs_lons, predict_metadata.leadtimes, predict_metadata.num_members)
+        self.intermediate = Intermediate(intermediate_pm)
+
+    def _add_forecast(self, forecast_reference_time: int, ensemble_member: int, pred: np.array):
         """Add forecasts to this object. Will be written when .write() is called
 
         Args:
             forecast_reference_time: Unix time of the forecast initialization [s]
             pred: 3D array of forecasts with dimensions (time, y, x)
         """
-        # assert pred.shape[0] == len(self.pm.leadtimes)
-        # assert len(pred.shape) == 3
-        # assert pred.shape[1] == self.grid.size()[0]
-        # assert pred.shape[2] == self.grid.size()[1]
+        # 1. Interpolate to points
+        # 2. Store to intermediate file
+        num_leadtimes, num_locations, num_variables = pred.shape
+        shape = [num_leadtimes, self._num_locations, 1]
+        interpolated_pred = np.nan * np.zeros(shape, np.float32)
 
+        """
         if self.elev_gradient is None:
             self.fcst[forecast_reference_time] = gridpp.bilinear(
                 self.grid, self.points, pred
@@ -90,6 +97,13 @@ class Verif(Output):
             self.fcst[forecast_reference_time] = gridpp.simple_gradient(
                 self.grid, self.points, pred, self.elev_gradient, gridpp.Bilinear
             )
+        """
+
+        self.intermediate.add(forecast_reference_time, ensemble_member, interpolated_pred)
+
+    @property
+    def _num_locations(self):
+        return len(self.obs_lats)
 
     def finalize(self):
         """Write forecasts and observations to file"""
