@@ -1,65 +1,13 @@
 from collections import defaultdict
 
-
-def get_list(variable_names):
-    """ Converts Anemoi variable names to CF-standard metadata for MET Norway's NetCDF files
-        returns:
-            dimension_definitions: {height1: (height, [2])}
-            variable_definitions: {air_temperature_2m: height1}
-            variable_to_ncname_and_index: {2t: (air_temperature_2m, 0)}
-    """
-    # Algorithm
-    # v_850 -> [y_wind, pressure, 850] -> (y_wind, pressure) -> (1000, 850, 500, 250)
-    #                                              pressure -> (1000, 850, 500, 250)
-
-    # Get the levels for each leveltype for each cfname
-    cfname_to_levels = dict()
-    for v, variable in enumerate(variable_names):
-        _, cfname, leveltype, level = get_variable_metadata(variable)
-        if cfname not in cfname_to_levels:
-            cfname_to_levels[cfname] = dict()
-        if leveltype not in cfname_to_levels[cfname]:
-            cfname_to_levels[cfname][leveltype] = list()
-        cfname_to_levels[cfname][leveltype] += [level]
-    # Sort levels
-    for cfname, v in cfname_to_levels.items():
-        for leveltype, vv in v.items():
-            v[leveltype] = sorted(vv)
-    # air_temperature -> pressure -> [1000, 925, 800, 700]
-
-    # Determine unique dimensions to add
-    dims_to_add = dict()   # height1 -> [height, [2]]
-    ncname_to_level_dim = dict()
-    for cfname, v in cfname_to_levels.items():
-        for leveltype, levels in v.items():
-            ncname = get_ncname(cfname, leveltype, levels)
-
-            if (leveltype, levels) in dims_to_add.values():
-                # Reuse
-                pass
-            else:
-                count = 0
-                for curr_leveltype, _ in dims_to_add.values():
-                    if curr_leveltype == leveltype:
-                        count += 1
-                if count == 0:
-                    name = leveltype  # height
-                else:
-                    name = f"{leveltype}{count}" # height1
-            dims_to_add[name] = (leveltype, levels)
-            ncname_to_level_dim[ncname] = name
-
-    # Determine what ncname and index each variable belongs to
-    variable_to_ncname_and_index = dict()  # air_temperature_2m 0
-    for v, variable in enumerate(variable_names):
-        ncname, cfname, leveltype, level = get_variable_metadata(variable)
-        # Find the name of the level dimension
-        dimname = ncname_to_level_dim[ncname]
-        # Find the index in this dimension
-        index = dims_to_add[dimname][1].index(level)
-        variable_to_ncname_and_index[variable] = (ncname, index)
-
-    return dims_to_add, ncname_to_level_dim, variable_to_ncname_and_index
+variable_metadata = {
+        "2t": {
+            "cfname": "air_temperature",
+            "leveltype": "height",
+            "level": 2,
+            "ncname": f"air_temperature_2m",
+            },
+        }
 
 def get_variable_metadata(variable: str) -> tuple:
     """Extract metadata about a variable
@@ -129,36 +77,3 @@ def get_attributes_from_leveltype(leveltype):
     elif leveltype == "height":
         return {"units": "m", "description": "height above ground", "long_name": "height", "positive": "up"}
 
-def get_attributes_from_ncname(ncname):
-    if ncname == "forecast_reference_time":
-        return {
-                "units": "seconds since 1970-01-01 00:00:00 +00:00",
-                "standard_name": "forecast_reference_time"
-                }
-    elif ncname == "time":
-        return {
-                "units": "seconds since 1970-01-01 00:00:00 +00:00",
-                "standard_name": "time"
-                }
-    elif ncname == "latitude":
-        return {
-                "units": "degrees_north",
-                "standard_name": "latitude"
-            }
-    elif ncname == "longitude":
-        return {
-                "units": "degrees_east",
-                "standard_name": "longitude"
-            }
-    elif ncname == "x":
-        return {
-                "units": "m",
-                "standard_name": "projection_x_coordinate"
-                }
-    elif ncname == "y":
-        return {
-                "units": "m",
-                "standard_name": "projection_y_coordinate"
-                }
-    else:
-        raise ValueError(f"Unknown ncname {ncname}")

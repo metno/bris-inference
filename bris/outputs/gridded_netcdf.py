@@ -1,4 +1,5 @@
 from collections import defaultdict
+from functools import cached_property
 import numpy as np
 import xarray as xr
 
@@ -30,6 +31,8 @@ class GriddedNetcdf(Output):
         if self.pm.num_members > 1:
             workdir = "test/"
             self.intermediate = Intermediate(predict_metadata, workdir)
+
+        self.variable_list = VariableList(self.pm.variables)
 
     def _add_forecast(self, forecast_reference_time: int, ensemble_member: int, pred: np.array):
         if self.pm.num_members > 1:
@@ -66,9 +69,9 @@ class GriddedNetcdf(Output):
         coords["y"] = y
 
         if self.pm.num_members > 1:
-            coords["ensemble_member"] = range(self.pm.num_members)
+            coords["ensemble_member"] = np.arange(self.pm.num_members).astype(np.int32)
 
-        dims_to_add, ncname_to_level_dim, variable_to_ncname_and_index = cf.get_list(self.pm.variables)
+        dims_to_add = self.variable_list.dimensions
 
         attrs = dict()
         # Add dimensions
@@ -76,9 +79,9 @@ class GriddedNetcdf(Output):
             coords[dimname] = np.array(levels).astype(np.float32)
             attrs[dimname] = cf.get_attributes_from_leveltype(level_type)
 
-        for k,v in self._get_attrs().items():
-            if k in coords:
-                attrs[k] = v
+        # for k,v in self._get_attrs().items():
+        #     if k in coords:
+        #         attrs[k] = v
         self.ds = xr.Dataset(coords=coords)
 
         # Add attributes of coordinates
@@ -93,20 +96,25 @@ class GriddedNetcdf(Output):
         self.ds["latitude"] = (["y", "x"], lats)
         self.ds["longitude"] = (["y", "x"], lons)
 
-        for ncname in ["forecast_reference_time", "time", "latitude", "longitude", "x", "y"]:
-            self.ds[ncname].attrs = cf.get_attributes_from_ncname(ncname)
+        for ncname in ["forecast_reference_time", "time", "latitude", "longitude", "x", "y",
+        "ensemble_member"]:
+            if ncname in self.ds:
+                self.ds[ncname].attrs = self.variable_list.get_attributes_from_ncname(ncname)
 
         # Set up all prediction variables
         for variable_index, variable in enumerate(self.pm.variables):
-            ncname, level_index = variable_to_ncname_and_index[variable]
+
+            level_index = self.variable_list.get_level_index(variable)
+            ncname = self.variable_list.get_ncname(variable)
 
             if ncname not in self.ds:
-                dim_name = ncname_to_level_dim[ncname]
+                dim_name = self.variable_list.get_level_dimname(ncname)
                 if self.pm.num_members > 1:
                     dims = ["time", dim_name, "ensemble_member", "y", "x"]
+                    shape = [len(times), len(self.ds[dim_name]), self.pm.num_members, len(y), len(x)]
                 else:
                     dims = ["time", dim_name, "y", "x"]
-                shape = [len(times), len(self.ds[dim_name]), len(y), len(x)]
+                    shape = [len(times), len(self.ds[dim_name]), len(y), len(x)]
                 ar = np.zeros(shape, np.float32)
                 self.ds[ncname] = (dims, ar)
             if self.pm.num_members > 1:
@@ -117,7 +125,7 @@ class GriddedNetcdf(Output):
 
             if self.pm.num_members > 1:
                 # Move ensemble dimension into the middle position
-                ar = np.moveaxes(ar, [0, 1, 2, 3, 4], [0, 1, 3, 4, 2])
+                ar = np.moveaxis(ar, [0, 1, 2, 3], [0, 2, 3, 1])
 
             self.ds[ncname][:, level_index, ...] = ar
             # TODO:
@@ -145,47 +153,111 @@ class GriddedNetcdf(Output):
                         pred[..., m] = curr
 
                 filename = self.get_filename(forecast_reference_time)
-                self.write(filename, forecast_reference_times, pred)
+                self.write(filename, forecast_reference_time, pred)
 
-    def _get_attrs(self):
-        attrs = dict()
-        attrs["forecast_reference_time"] = {
-                "units": "seconds since 1970-01-01 00:00:00 +00:00",
-                "standard_name": "forecast_reference_time"
-            }
-        attrs["time"] = {
-                "units": "seconds since 1970-01-01 00:00:00 +00:00",
-                "standard_name": "time"
-            }
-        attrs["latitude"] = {
-                "units": "degrees_north",
-                "standard_name": "latitude"
-            }
-        attrs["longitude"] = {
-                "units": "degrees_east",
-                "standard_name": "longitude"
-            }
-        attrs["x"] = {
-                "units": "m",
-                "standard_name": "projection_x_coordinate"
-                }
-        attrs["y"] = {
-                "units": "m",
-                "standard_name": "projection_y_coordinate"
-                }
-        return attrs
-
-"""
 class VariableList:
     def __init__(self, anemoi_names):
         self.anemoi_names = anemoi_names
+        self.dimensions, self._ncname_to_level_dim = self.load_dimensions()
 
-    def get_dimension_definitions(self):
+    @cached_property
+    def cfname_to_levels(self):
+        cfname_to_levels = dict()
+        for v, variable in enumerate(self.anemoi_names):
+            _, cfname, leveltype, level = cf.get_variable_metadata(variable)
+            if cfname not in cfname_to_levels:
+                cfname_to_levels[cfname] = dict()
+            if leveltype not in cfname_to_levels[cfname]:
+                cfname_to_levels[cfname][leveltype] = list()
+            cfname_to_levels[cfname][leveltype] += [level]
+        # Sort levels
+        for cfname, v in cfname_to_levels.items():
+            for leveltype, vv in v.items():
+                v[leveltype] = sorted(vv)
+        # air_temperature -> pressure -> [1000, 925, 800, 700]
+        return cfname_to_levels
+
+    def load_dimensions(self):
+        # Determine unique dimensions to add
+        dims_to_add = dict()   # height1 -> [height, [2]]
+        ncname_to_level_dim = dict()
+        for cfname, v in self.cfname_to_levels.items():
+            for leveltype, levels in v.items():
+                ncname = cf.get_ncname(cfname, leveltype, levels)
+
+                if (leveltype, levels) in dims_to_add.values():
+                    # Reuse
+                    pass
+                else:
+                    count = 0
+                    for curr_leveltype, _ in dims_to_add.values():
+                        if curr_leveltype == leveltype:
+                            count += 1
+                    if count == 0:
+                        name = leveltype  # height
+                    else:
+                        name = f"{leveltype}{count}" # height1
+                dims_to_add[name] = (leveltype, levels)
+                ncname_to_level_dim[ncname] = name
+        return dims_to_add, ncname_to_level_dim
+
+    def get_level_dimname(self, ncname):
+        """Get the name of the level dimension for this NetCDF variable"""
+        return self._ncname_to_level_dim[ncname]
+
+    def get_level_index(self, anemoi_name):
+        """Get the index into the level dimension that this anemoi variable belongs to"""
+        # Determine what ncname and index each variable belongs to
+        ncname, cfname, leveltype, level = cf.get_variable_metadata(anemoi_name)
+        # Find the name of the level dimension
+        dimname = self._ncname_to_level_dim[ncname]
+        # Find the index in this dimension
+        index = self.dimensions[dimname][1].index(level)
+        return index
+
+    def get_ncname(self, anemoi_name):
+        """Get the NetCDF variable name corresponding to this anemoi variable name"""
+        # Determine what ncname and index each variable belongs to
+        ncname, _, _, _ = cf.get_variable_metadata(anemoi_name)
+        return ncname
+
+    def get_var_attributes(self, ncname):
         pass
 
-    def get_variable_definitions(self):
-        pass
-
-    def get_ncname(anemoi_name):
-    pass
-"""
+    def get_attributes_from_ncname(self, ncname):
+        if ncname == "forecast_reference_time":
+            return {
+                    "units": "seconds since 1970-01-01 00:00:00 +00:00",
+                    "standard_name": "forecast_reference_time"
+                    }
+        elif ncname == "time":
+            return {
+                    "units": "seconds since 1970-01-01 00:00:00 +00:00",
+                    "standard_name": "time"
+                    }
+        elif ncname == "latitude":
+            return {
+                    "units": "degrees_north",
+                    "standard_name": "latitude"
+                }
+        elif ncname == "longitude":
+            return {
+                    "units": "degrees_east",
+                    "standard_name": "longitude"
+                }
+        elif ncname == "x":
+            return {
+                    "units": "m",
+                    "standard_name": "projection_x_coordinate"
+                    }
+        elif ncname == "y":
+            return {
+                    "units": "m",
+                    "standard_name": "projection_y_coordinate"
+                    }
+        elif ncname == "ensemble_member":
+            return {
+                    "standard_name": "realization",
+                    }
+        else:
+            raise ValueError(f"Unknown ncname {ncname}")
