@@ -1,22 +1,20 @@
+from omegaconf import DictConfig
 import torch
 
 from anemoi.models.data_indices.collection import IndexCollection
 from anemoi.training.train.forecaster import GraphForecaster
-from omegaconf import DictConfig
 
 
 class BrisForecaster(GraphForecaster):
     def __init__(
         self,
-        *,
         config: DictConfig,
         statistics: dict,
         data_indices: IndexCollection,
         graph_data: dict,
         metadata: dict,
-        select_indices=None,
-        select_indices_truth=None,
-        grid_points_range=None,
+        variable_indices=None,
+        point_indices=None,
     ) -> None:
         super().__init__(
             config=config,
@@ -25,9 +23,8 @@ class BrisForecaster(GraphForecaster):
             graph_data=graph_data,
             metadata=metadata,
         )
-        self.select_indices = select_indices
-        self.select_indices_truth = select_indices_truth
-        self.grid_points_range = grid_points_range
+        self.variable_indices = variable_indices
+        self.point_indices = point_indices
 
     def advance_input_predict(
         self, x: torch.Tensor, y_pred: torch.Tensor, forcing: torch.Tensor
@@ -44,17 +41,15 @@ class BrisForecaster(GraphForecaster):
 
         return x
 
-    def predict_step(
-        self, batch: torch.Tensor, batch_idx: int
-    ) -> tuple[torch.Tensor, int, int]:
+    def predict_step(self, batch: torch.Tensor, batch_idx: int) -> dict:
         with torch.no_grad():
             batch, forcing, time_stamp = batch
             y_preds = np.zeros(
                 (
                     batch.shape[0],
                     self.rollout + 1,
-                    self.grid_points_range[1] - self.grid_points_range[0],
-                    len(self.select_indices),
+                    len(self.point_indices),
+                    len(self.variable_indices),
                 ),
                 dtype=np.float32,
             )
@@ -63,8 +58,8 @@ class BrisForecaster(GraphForecaster):
                     :,
                     self.multi_step - 1,
                     0,
-                    self.grid_points_range[0] : self.grid_points_range[1],
-                    self.select_indices_truth,
+                    self.point_indices,
+                    self.variable_indices,
                 ]
                 .cpu()
                 .numpy()
@@ -85,16 +80,16 @@ class BrisForecaster(GraphForecaster):
                     self.model.post_processors(y_pred, in_place=False)[
                         :,
                         0,
-                        self.grid_points_range[0] : self.grid_points_range[1],
-                        self.select_indices,
+                        self.point_indices,
+                        self.variable_indices,
                     ]
                     .cpu()
                     .numpy()
                 )
 
-            return [
-                y_preds,
-                self.model_comm_group_rank,
-                self.model_comm_group_id,
-                time_stamp,
-            ]  # return the model parallel rank so that only one process per model writes to file.
+            return dict(
+                    pred: y_preds,
+                    group_rank: self.model_comm_group_rank,
+                    group_id: self.model_comm_group_id,
+                    time_stamp: time_stamp,
+                    )

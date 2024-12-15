@@ -24,12 +24,15 @@ class CustomWriter(BasePredictionWriter):
         batch_idx,
         dataloader_idx,
     ):
-        # TODO: What are the different elements of the prediction list?
-        # This comes from predict_step in forecaster...
+        """
+            Args:
+                prediction: This comes from predict_step in forecaster
+        """
 
-        timestamp = prediction[3][0].split(":")[0]
+        timestamp = prediction["time_stamp"][0].split(":")[0]
 
-        if prediction[1] == 0:  # if on first model parallel gpu of data parallel group
+        # TODO: Why is this here, don'ẗ we want all data-parallel processes to write to disk?
+        if prediction["group_rank"] == 0:  # if on first model parallel gpu of data parallel group
             # pred = prediction[0]
             # time_index = int(self.avail_samples//self.data_par_num * prediction[2] + batch_idx)
             # pred = pred[0] #remove batch dimension for now since we will always use data parallel for larger batches.
@@ -38,9 +41,9 @@ class CustomWriter(BasePredictionWriter):
                 if "start" in grid_config:
                     start_index = grid_config["start"]
                     end_index = grid_config["end"]
-                    pred = prediction[0][0, :, start_index:end_index]
+                    pred = prediction["pred"][0, :, start_index:end_index]
                 else:
-                    pred = prediction[0][0, :, :]
+                    pred = prediction["pred"][0, :, :]
 
                 # This should be done by the output class
                 # pred = self.I.to_grid(pred, grid)
