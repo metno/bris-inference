@@ -27,7 +27,7 @@ checkpoints:
 outputs:
   global:
     - netcdf:
-        filename: "%Y/%m/%d/test_%Y%m%dT%HZ.nc"
+        filename_pattern: "%Y/%m/%d/test_%Y%m%dT%HZ.nc"
         variables: [air_temperature_2m, wind_speed_10m, relative_humidity_2m]
     - verif:
       filename: t2m_point_verification_%V.nc
