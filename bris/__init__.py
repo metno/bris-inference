@@ -10,5 +10,5 @@ def main():
 from . import callbacks
 from . import output
 from . import outputs
-from . import cf
+from . import conventions
 from . import utils
