@@ -8,7 +8,7 @@ from bris.observations import Observations
 from bris.observations import Location
 
 
-class VerifNetcdf(Source):
+class Verif(Source):
     """Loads observations from a Verif file (https:://github.com/WFRT/Verif)
 
     Fetches observations across times and leadtimes to maximize the number of observations available

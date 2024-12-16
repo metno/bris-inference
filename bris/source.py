@@ -10,8 +10,8 @@ def instantiate(name, predict_metadata: PredictMetadata, workdir: str, init_args
     """
     if name == "frost":
         return sources.Frost(init_args["frost_variable_name"])
-    elif name == "verif_netcdf":
-        return sources.VerifNetcdf(init_args["filename"])
+    elif name == "verif":
+        return sources.Verif(init_args["filename"])
 
 def expand_tokens(string, variable):
     return string.replace("%V", variable)
