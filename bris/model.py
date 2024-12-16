@@ -119,13 +119,12 @@ class BrisPredictor(BasePredictor):
         return self.model(x, self.model_comm_group)
     
     def advance_input_predict(self, x, y_pred):
-        x = x.roll(-1, dims=1)
+        pass
 
     @torch.inference_mode
     def predict_step(self, batch: torch.Tensor, batch_idx: int) -> torch.Tensor:
-        
-        
-    
+        pass
+
 class NetatmoPredictor(BasePredictor):
     def __init__(
             self,
