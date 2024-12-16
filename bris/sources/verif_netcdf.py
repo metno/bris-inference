@@ -1,5 +1,6 @@
-import xarray as xr
+from functools import cached_property
 import numpy as np
+import xarray as xr
 
 
 from bris.source import Source
@@ -17,31 +18,40 @@ class VerifNetcdf(Source):
     def __init__(self, filename: str):
         self.file = xr.open_dataset(filename)
 
-    def get(self, variable, start_time, end_time, frequency):
+    @cached_property
+    def locations(self):
         num_locations = len(self.file["location"])
-        locations = list()
+        _locations = list()
         for i in range(num_locations):
             location = Location(
-                self.file["lat"],
-                self.file["lon"],
-                self.file["altitude"],
-                self.file["location"],
+                self.file["lat"].values[i],
+                self.file["lon"].values[i],
+                self.file["altitude"].values[i],
+                self.file["location"].values[i],
             )
-            locations += [location]
+            _locations += [location]
+        return _locations
 
+    @cached_property
+    def _all_times(self):
         a, b = np.meshgrid(
             self.file["leadtime"].values * 3600, self.file["time"].values
         )
-        all_times = a + b  # (time, leadtime)
-        times = np.sort(np.unique(all_times[:]))
-        num_times = len(times)
+        return (a + b)[:]  # (time, leadtime)
+
+    @cached_property
+    def times(self):
+        return np.sort(np.unique(self._all_times))
+
+    def get(self, variable, start_time, end_time, frequency):
+        num_times = len(self.times)
 
         raw_obs = self.file["obs"].values
-        data = np.zeros([num_times, num_locations], np.float32)
+        data = np.zeros([num_times, len(self.locations)], np.float32)
         for t in range(num_times):
-            i, j = np.where(all_times == times[t])
+            i, j = np.where(self._all_times == self.times[t])
             if len(i) > 0:
                 data[t, :] = raw_obs[i[0], j[0], :]
 
-        observations = Observations(locations, times, {variable: data})
+        observations = Observations(self.locations, self.times, {variable: data})
         return observations

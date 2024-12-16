@@ -12,6 +12,7 @@ class Intermediate(Output):
     cache data. It saves one forecast run in each file (i.e. a separate file for each
     forecast_reference_time and ensemble_member
     """
+
     def __init__(self, predict_metadata, workdir):
         self.pm = predict_metadata
         self.workdir = workdir
@@ -23,23 +24,23 @@ class Intermediate(Output):
         np.save(filename, pred)
 
     def get_filename(self, forecast_reference_time, ensemble_member):
-        return f"{self.workdir}/{forecast_reference_time:d}_{ensemble_member:d}.npy"
+        return f"{self.workdir}/{forecast_reference_time:.0f}_{ensemble_member:.0f}.npy"
 
     def get_forecast_reference_times(self):
         """Returns all forecast reference times that have been saved"""
         filenames = self.get_filenames()
         frts = list()
         for filename in filenames:
-            frt, _ = filename.split('/')[-1].split('_')
+            frt, _ = filename.split("/")[-1].split("_")
             frts += [int(frt)]
 
         frts = list(set(frts))
         frts.sort()
 
-        return frts
+        return np.array(frts, np.int32)
 
     def get_forecast(self, forecast_reference_time, ensemble_member):
-        assert isinstance(forecast_reference_time, int)
+        assert utils.is_number(forecast_reference_time)
         assert isinstance(ensemble_member, int)
 
         filename = self.get_filename(forecast_reference_time, ensemble_member)

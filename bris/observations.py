@@ -18,12 +18,14 @@ class Observations:
     def variables(self):
         return self.data.keys()
 
-    def get_data(self, unixtime):
+    def get_data(self, variable, unixtime):
+        # print(self.times, unixtime)
         indices = np.where(self.times == unixtime)[0]
         if len(indices) == 0:
             return None
         else:
-            return indices[0]
+            index = indices[0]
+            return self.data[variable][index, ...]
 
     def __str__(self):
         string = "Observations:\n"

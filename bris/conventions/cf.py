@@ -70,6 +70,8 @@ def get_attributes(cfname):
         ret = {
             "units": "degrees_north",
         }
+    elif cfname == "surface_altitude":
+        ret = {"units": "m"}
     elif cfname == "longitude":
         ret = {
             "units": "degrees_east",

@@ -1,3 +1,4 @@
+import numbers
 import os
 
 
@@ -11,3 +12,5 @@ def create_directory(filename):
     if dir != "":
         os.makedirs(dir, exist_ok=True)
 
+def is_number(value):
+    return isinstance(value, numbers.Number)

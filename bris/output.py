@@ -35,7 +35,9 @@ class Output:
 
         self.pm = predict_metadata
 
-    def add_forecast(self, forecast_reference_time: int, ensemble_member: int, pred: np.array):
+    def add_forecast(
+        self, forecast_reference_time: int, ensemble_member: int, pred: np.array
+    ):
         """
         Args:
             timestamp: Seconds since 1970
@@ -49,9 +51,29 @@ class Output:
 
         self._add_forecast(forecast_reference_time, ensemble_member, pred)
 
-    def _add_forecast(self, forecast_reference_time: int, ensemble_member: int, pred: np.array):
+    def _add_forecast(
+        self, forecast_reference_time: int, ensemble_member: int, pred: np.array
+    ):
         raise NotImplementedError()
 
     def finalize(self):
         """Finalizes the output. Subclasses can override this if necessary."""
         pass
+
+    def reshape_pred(self, pred):
+        """Reshape predictor matrix from points to 2D based on field_shape"""
+        assert self.pm.field_shape is not None
+
+        T, L, V = pred.shape
+        shape = [T, self.pm.field_shape[0], self.pm.field_shape[1], V]
+        pred = np.reshape(pred, shape)
+        return pred
+
+    def flatten_pred(self, pred):
+        """Reshape predictor matrix on 2D points back to the original 1D set of points"""
+        assert len(pred.shape) == 4
+        T, Y, X, V = pred.shape
+
+        shape = [T, self.pm.field_shape[0] * self.pm.field_shape[1], V]
+        pred = np.reshape(pred, shape)
+        return pred

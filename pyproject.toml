@@ -33,6 +33,7 @@ dependencies = [
     "anemoi-models",
     "anemoi-training",
     "argparse",
+    "gridpp",
     "numpy",
     "pytest",
     "pytorch-lightning>=2.1",
