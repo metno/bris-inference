@@ -32,6 +32,24 @@ class VerifNetcdf(Source):
             _locations += [location]
         return _locations
 
+    def get(self, variable, start_time, end_time, frequency):
+        assert frequency > 0
+        assert end_time >= start_time
+
+        requested_times = np.arange(start_time, end_time + 1, frequency)
+        num_requested_times = len(requested_times)
+
+        raw_obs = self.file["obs"].values
+
+        data = np.nan * np.zeros([num_requested_times, len(self.locations)], np.float32)
+        for t, requested_time in enumerate(requested_times):
+            i, j = np.where(self._all_times == requested_time)
+            if len(i) > 0:
+                data[t, :] = raw_obs[i[0], j[0], :]
+
+        observations = Observations(self.locations, requested_times, {variable: data})
+        return observations
+
     @cached_property
     def _all_times(self):
         a, b = np.meshgrid(
@@ -40,18 +58,5 @@ class VerifNetcdf(Source):
         return (a + b)[:]  # (time, leadtime)
 
     @cached_property
-    def times(self):
+    def _times(self):
         return np.sort(np.unique(self._all_times))
-
-    def get(self, variable, start_time, end_time, frequency):
-        num_times = len(self.times)
-
-        raw_obs = self.file["obs"].values
-        data = np.zeros([num_times, len(self.locations)], np.float32)
-        for t in range(num_times):
-            i, j = np.where(self._all_times == self.times[t])
-            if len(i) > 0:
-                data[t, :] = raw_obs[i[0], j[0], :]
-
-        observations = Observations(self.locations, self.times, {variable: data})
-        return observations

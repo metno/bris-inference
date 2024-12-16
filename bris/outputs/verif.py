@@ -176,6 +176,10 @@ class Verif(Output):
         # valid_times = np.sort(np.unique(valid_times.flatten()))
         unique_valid_times = np.sort(np.unique(valid_times.flatten()))
 
+        start_time = int(np.min(unique_valid_times))
+        end_time = int(np.max(unique_valid_times))
+        frequency = int(np.min(np.diff(unique_valid_times)))
+
         # Fill in retrieved observations into our obs array.
         obs = np.nan * np.zeros(
             [
@@ -187,7 +191,7 @@ class Verif(Output):
         )
         count = 0
         for obs_source in self.obs_sources:
-            curr = obs_source.get(self.variable, None, None, None)
+            curr = obs_source.get(self.variable, start_time, end_time, frequency)
             for t, valid_time in enumerate(unique_valid_times):
                 I = np.where(valid_times == valid_time)
                 data = curr.get_data(self.variable, valid_time)
