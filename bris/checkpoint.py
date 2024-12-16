@@ -120,9 +120,11 @@ class Checkpoint:
             if path:
                 assert os.path.exists(path), f"Cannot locate graph file. Got path: {path}"
                 external_graph = torch.load(path, map_location = "cpu")
+                LOGGER.info("Loaded external graph from path")
                 try:
                     self._model_instance.graph_data = external_graph
                     self.UPDATE_GRAPH = True 
+                    LOGGER.info("Successfully changed internal graph with external graph!")
                     return self._model_instance.graph_data
                 
                 except Exception as e:
