@@ -1,4 +1,5 @@
 from functools import cached_property
+import gridpp
 import numpy as np
 import xarray as xr
 
@@ -18,12 +19,24 @@ class GriddedNetcdf(Output):
     files. If we are producing a single deterministic run, then we can directly write data to file
     as soon as we get it. Otherwise write the data to disk in an intermediate format and then merge
     files on finalize. This comes at a penalty since the data is written to disk twice.
+
+    This output can write three types of outputs:
+    1) Gridded regional projected data. This requires field_shape to be set in predict_metadata
+    2) Irregular grids interpolated to a lat/lon grid. Use interp_res.
+    3) Irregular grids. This means the output only has one location dimension.
     """
 
-    def __init__(self, predict_metadata: PredictMetadata, workdir: str, filename_pattern: str):
+    def __init__(
+        self,
+        predict_metadata: PredictMetadata,
+        workdir: str,
+        filename_pattern: str,
+        interp_res=None,
+    ):
         """
         Args:
             filename_pattern: Save predictions to this filename after time tokens are expanded
+            interp_res: Interpolate to this resolution [degrees] on a lat/lon grid
         """
         super().__init__(predict_metadata)
         self.filename_pattern = filename_pattern
@@ -37,6 +50,7 @@ class GriddedNetcdf(Output):
         # Conventions specify the names of variables in the output
         # CF-standard names are added in the standard_name attributes
         self.conventions = Metno()
+        self.interp_res = interp_res
 
     def _add_forecast(
         self, forecast_reference_time: int, ensemble_member: int, pred: np.array
@@ -58,6 +72,15 @@ class GriddedNetcdf(Output):
     def get_filename(self, forecast_reference_time):
         return utils.expand_time_tokens(self.filename_pattern, forecast_reference_time)
 
+    @property
+    def _is_gridded(self):
+        """Is the output gridded?"""
+        return self.pm.field_shape is not None or self.interp_res is not None
+
+    @property
+    def _interpolate(self):
+        return self.interp_res is None
+
     def write(self, filename: str, forecast_reference_time: int, pred: np.array):
         """Write prediction to NetCDF
         Args:
@@ -74,11 +97,37 @@ class GriddedNetcdf(Output):
         times = [forecast_reference_time + lt for lt in self.pm.leadtimes]
         coords[c("time")] = np.array(times).astype(np.double)
 
-        # TODO: Deal with non-regular grids
-        x = np.arange(self.pm.field_shape[1]).astype(np.float32)
-        y = np.arange(self.pm.field_shape[0]).astype(np.float32)
-        coords[c("projection_x_coordinate")] = x
-        coords[c("projection_y_coordinate")] = y
+        if self._is_gridded:
+            if self._interpolate:
+                x = np.arange(self.pm.field_shape[1]).astype(np.float32)
+                y = np.arange(self.pm.field_shape[0]).astype(np.float32)
+                x_dim_name = c("projection_x_coordinate")
+                y_dim_name = c("projection_y_coordinate")
+            else:
+                # Find a bounding-box for interpolation
+                min_lat = self.get_lower(self.pm.lats)
+                max_lat = self.get_upper(self.pm.lats)
+                min_lon = self.get_lower(self.pm.lons)
+                max_lon = self.get_upper(self.pm.lons)
+                y = np.arange(
+                    min_lat,
+                    max_lat + self.interp_res,
+                    self.interp_res,
+                )
+                x = np.arange(
+                    min_lon,
+                    max_lon + self.interp_res,
+                    self.interp_res,
+                )
+                x_dim_name = c("longitude")
+                y_dim_name = c("latitude")
+            coords[x_dim_name] = x
+            coords[y_dim_name] = y
+            spatial_dims = (y_dim_name, x_dim_name)
+        else:
+            y = np.arange(len(self.pm.lats)).astype(np.int32)
+            coords["location"] = y
+            spatial_dims = ("location",)
 
         if self.pm.num_members > 1:
             coords[c("realization")] = np.arange(self.pm.num_members).astype(np.int32)
@@ -102,23 +151,39 @@ class GriddedNetcdf(Output):
         self.ds[c("forecast_reference_time")] = ([], float(forecast_reference_time))
 
         # Set up grid definitions
-        lats = np.reshape(self.pm.lats, self.pm.field_shape).astype(np.double)
-        lons = np.reshape(self.pm.lons, self.pm.field_shape).astype(np.double)
-        self.ds[c("latitude")] = (
-            [c("projection_y_coordinate"), c("projection_x_coordinate")],
-            lats,
-        )
-        self.ds[c("longitude")] = (
-            [c("projection_y_coordinate"), c("projection_x_coordinate")],
-            lons,
-        )
-        proj_attrs = dict()
-        proj_attrs["grid_mapping_name"] = "lambert_conformal_conic"
-        proj_attrs["standard_parallel"] = (63.3, 63.3)
-        proj_attrs["longitude_of_central_meridian"] = 15.0
-        proj_attrs["latitude_of_projection_origin"] = 63.3
-        proj_attrs["earth_radius"] = 6371000.0
-        self.ds[c("projection")] = ([], 0, proj_attrs)
+        if self._is_gridded:
+            if self._interpolate:
+                lats = np.reshape(self.pm.lats, self.pm.field_shape).astype(np.double)
+                lons = np.reshape(self.pm.lons, self.pm.field_shape).astype(np.double)
+                self.ds[c("latitude")] = (
+                    spatial_dims,
+                    lats,
+                )
+                self.ds[c("longitude")] = (
+                    spatial_dims,
+                    lons,
+                )
+                proj_attrs = dict()
+                proj_attrs["grid_mapping_name"] = "lambert_conformal_conic"
+                proj_attrs["standard_parallel"] = (63.3, 63.3)
+                proj_attrs["longitude_of_central_meridian"] = 15.0
+                proj_attrs["latitude_of_projection_origin"] = 63.3
+                proj_attrs["earth_radius"] = 6371000.0
+                self.ds[c("projection")] = ([], 0, proj_attrs)
+            else:
+                proj_attrs = dict()
+                proj_attrs["grid_mapping_name"] = "latitude_longitude"
+                proj_attrs["earth_radius"] = 6371000.0
+                self.ds["projection"] = ([], 1, proj_attrs)
+        else:
+            self.ds[c("latitude")] = (
+                spatial_dims,
+                self.pm.lats,
+            )
+            self.ds[c("longitude")] = (
+                spatial_dims,
+                self.pm.lons,
+            )
 
         for cfname in [
             "forecast_reference_time",
@@ -144,27 +209,45 @@ class GriddedNetcdf(Output):
                 dims = [
                     c("time"),
                     dim_name,
-                    c("projection_y_coordinate"),
-                    c("projection_x_coordinate"),
+                    *spatial_dims,
                 ]
-                shape = [len(times), len(self.ds[dim_name]), len(y), len(x)]
+                if self._is_gridded:
+                    shape = [len(times), len(self.ds[dim_name]), len(y), len(x)]
+                else:
+                    shape = [len(times), len(self.ds[dim_name]), len(y)]
 
                 if self.pm.num_members > 1:
                     dims.insert(2, c("ensemble_member"))
                     shape.insert(2, self.pm.num_members)
 
-                ar = np.zeros(shape, np.float32)
+                ar = np.nan * np.zeros(shape, np.float32)
                 self.ds[ncname] = (dims, ar)
 
-            if self.pm.num_members > 1:
+            if self._is_gridded:
                 shape = [len(times), len(y), len(x), self.pm.num_members]
             else:
-                shape = [len(times), len(y), len(x)]
-            ar = np.reshape(pred[..., variable_index, :], shape)
+                shape = [len(times), len(y), self.pm.num_members]
+
+            if self._interpolate:
+                ar = np.reshape(pred[..., variable_index, :], shape)
+            else:
+                ipoints = gridpp.Points(self.pm.lats, self.pm.lons)
+                yy, xx = np.meshgrid(y, x)
+                ogrid = gridpp.Grid(yy.transpose(), xx.transpose())
+
+                curr = pred[..., variable_index, :]
+                ar = np.nan * np.zeros(
+                    [len(times), len(y), len(x), self.pm.num_members], np.float32
+                )
+                for i in range(self.pm.num_members):
+                    ar[:, :, :, i] = gridpp.nearest(ipoints, ogrid, curr[:, :, i])
 
             if self.pm.num_members > 1:
                 # Move ensemble dimension into the middle position
-                ar = np.moveaxis(ar, [0, 1, 2, 3], [0, 2, 3, 1])
+                ar = np.moveaxis(ar, [-1], [1])
+            else:
+                # Remove ensemble dimension
+                ar = ar[..., 0]
 
             self.ds[ncname][:, level_index, ...] = ar
 
@@ -191,6 +274,14 @@ class GriddedNetcdf(Output):
 
                 filename = self.get_filename(forecast_reference_time)
                 self.write(filename, forecast_reference_time, pred)
+
+    def get_lower(self, array):
+        m = np.min(array)
+        return np.floor(m / self.interp_res) * self.interp_res
+
+    def get_upper(self, array):
+        m = np.max(array)
+        return np.ceil(m / self.interp_res) * self.interp_res
 
 
 class VariableList:
