@@ -30,6 +30,7 @@ class CustomWriter(BasePredictionWriter):
         """
 
         timestamp = prediction["time_stamp"][0].split(":")[0]
+        ensemble_member = prediction["ensemble_member"]
 
         # TODO: Why is this here, don'ẗ we want all data-parallel processes to write to disk?
         if prediction["group_rank"] == 0:  # if on first model parallel gpu of data parallel group
@@ -53,4 +54,4 @@ class CustomWriter(BasePredictionWriter):
                 # )
 
                 for output in grid_config["outputs"]:
-                    output.add(timestamp, pred)
+                    output.add_forecast(timestamp, ensemble_member, pred)

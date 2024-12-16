@@ -44,6 +44,9 @@ class BrisForecaster(GraphForecaster):
     def predict_step(self, batch: torch.Tensor, batch_idx: int) -> dict:
         with torch.no_grad():
             batch, forcing, time_stamp = batch
+
+            # TODO: How do we know what member this prediction is for?
+            ensemble_member = 0
             y_preds = np.zeros(
                 (
                     batch.shape[0],
@@ -92,4 +95,5 @@ class BrisForecaster(GraphForecaster):
                     group_rank: self.model_comm_group_rank,
                     group_id: self.model_comm_group_id,
                     time_stamp: time_stamp,
+                    ensemble_member: ensemble_member,
                     )
