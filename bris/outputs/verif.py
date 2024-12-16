@@ -4,7 +4,7 @@ import xarray as xr
 
 
 from bris.output import Output
-from .intermediate import Intermediate
+from bris.outputs.intermediate import Intermediate
 from bris.predict_metadata import PredictMetadata
 from bris.utils import create_directory
 from bris.conventions import cf

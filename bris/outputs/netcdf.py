@@ -12,7 +12,7 @@ from bris import utils
 from bris.outputs.intermediate import Intermediate
 
 
-class GriddedNetcdf(Output):
+class Netcdf(Output):
     """Write predictions to NetCDF, using CF-standards and local conventions
 
     Since ensemble is done data-parallel, we do not have all members available when writing the
@@ -200,7 +200,6 @@ class GriddedNetcdf(Output):
 
         # Set up all prediction variables
         for variable_index, variable in enumerate(self.pm.variables):
-
             level_index = self.variable_list.get_level_index(variable)
             ncname = self.variable_list.get_ncname_from_anemoi_name(variable)
 

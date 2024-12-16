@@ -3,7 +3,7 @@ import glob
 import os
 
 
-from ..output import Output
+from bris.output import Output
 from bris import utils
 
 
