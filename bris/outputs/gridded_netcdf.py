@@ -20,7 +20,7 @@ class GriddedNetcdf(Output):
     files on finalize. This comes at a penalty since the data is written to disk twice.
     """
 
-    def __init__(self, predict_metadata: PredictMetadata, filename_pattern: str):
+    def __init__(self, predict_metadata: PredictMetadata, workdir: str, filename_pattern: str):
         """
         Args:
             filename_pattern: Save predictions to this filename after time tokens are expanded
@@ -30,7 +30,6 @@ class GriddedNetcdf(Output):
 
         self.intermediate = None
         if self.pm.num_members > 1:
-            workdir = "test/"
             self.intermediate = Intermediate(predict_metadata, workdir)
 
         self.variable_list = VariableList(self.pm.variables)
