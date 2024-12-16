@@ -10,8 +10,13 @@ class PredictMetadata:
             assert np.prod(field_shape) == len(lats)
 
         self.variables = variables
+
+        # Ensure lons are on the interval -180, 180
         self.lats = np.array(lats)
         self.lons = np.array(lons)
+        self.lons[self.lons < -180] += 360
+        self.lons[self.lons > 180] -= 360
+
         # TODO
         self.elevs = np.zeros(lats.shape)
         self.leadtimes = np.array(leadtimes)
