@@ -1,4 +1,8 @@
-from ..source import Source
+from functools import cached_property
+import numpy as np
+
+
+from bris.source import Source
 
 
 class Frost(Source):
