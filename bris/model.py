@@ -1,8 +1,9 @@
 import os
 import math 
 import logging 
+import numpy as np
 from abc import abstractmethod
-from typing import Optional, Any
+from typing import Optional, Any, Iterable
 
 import torch 
 import pytorch_lightning as pl
@@ -12,7 +13,7 @@ from indices import Indices
 
 LOGGER = logging.getLogger(__name__)
 
-class BaseForecaster(pl.LightningModule):
+class BasePredictor(pl.LightningModule):
     def __init__(
             self, 
             *args: Any, 
@@ -52,6 +53,10 @@ class BaseForecaster(pl.LightningModule):
         self.model_comm_group = model_comm_group
 
     @abstractmethod
+    def get_static_forcings(self, datareader):
+        pass
+
+    @abstractmethod
     def forward(self, x: torch.Tensor) -> torch.Tensor:
         pass 
 
@@ -63,17 +68,79 @@ class BaseForecaster(pl.LightningModule):
     def predict_step(self, batch: torch.Tensor, batch_idx : int) -> torch.Tensor:
         pass 
 
-class CustomForecaster(BaseForecaster):
+    
+class BrisPredictor(BasePredictor):
     def __init__(
             self,
             *args,
             config: DictConfig,
             model: torch.nn.Module, 
             metadata: DictConfig, 
+            data_reader: Iterable,
             **kwargs
             ) -> None:
         super().__init__(
             *args,**kwargs)
+        
+        self.model=model
+        self.config = config
+        self.metadata = metadata
+
+        self.get_static_forcings(data_reader, self.metadata["config"]["data"]["forcing"])
+        del data_reader
+
+    
+    def get_static_forcings(self, data_reader, selection):
+        
+        self.static_forcings = {}
+        data = data_reader[0]
+        data_normalized = self.model.pre_processors(data)
+
+        if "cos_latitude" in selection:
+            self.static_forcings["cos_latitude"] = np.cos(data_reader.latitudes)
+
+        if "sin_latitude" in selection:    
+            self.static_forcings["sin_latitude"] = np.sin(data_reader.latitudes)
+            
+        if "cos_longitude" in selection:
+            self.static_forcings["cos_longitude"] = np.cos(data_reader.longitudes)
+        
+        if "sin_longitude" in selection:
+            self.static_forcings["sin_longitude"] = np.sin(data_reader.longitudes)
+
+        if "lsm" in selection:
+            self.static_forcings["lsm"] = data_normalized.squeeze().swapaxes(0,1)[..., data_reader.name_to_index["lsm"]]
+
+        if "z" in selection:
+            self.static_forcings["z"] = data_normalized.squeeze().swapaxes(0,1)[..., data_reader.name_to_index["z"]]
+
+
+    def forward(self, x: torch.Tensor)-> torch.Tensor:
+        return self.model(x, self.model_comm_group)
+    
+    def advance_input_predict(self, x, y_pred):
+        x = x.roll(-1, dims=1)
+
+    @torch.inference_mode
+    def predict_step(self, batch: torch.Tensor, batch_idx: int) -> torch.Tensor:
+        
+        
+    
+class NetatmoPredictor(BasePredictor):
+    def __init__(
+            self,
+            *args,
+            config: DictConfig,
+            model: torch.nn.Module, 
+            metadata: DictConfig, 
+            datareader: Iterable,
+            **kwargs
+            ) -> None:
+        super().__init__(
+            *args,**kwargs)
+        self.model = model
+        self.metadata = metadata
+        self.config = config
     
     def forward(self, x: torch.Tensor)-> torch.Tensor:
         return self(x, self.model_comm_group)
@@ -83,5 +150,4 @@ class CustomForecaster(BaseForecaster):
     
     @torch.inference_mode
     def predict_step(self, batch: torch.Tensor, batch_idx: int) -> torch.Tensor:
-        pass 
-    
+        pass
