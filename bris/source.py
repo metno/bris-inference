@@ -1,3 +1,22 @@
+from bris.predict_metadata import PredictMetadata
+
+
+def instantiate(name, predict_metadata: PredictMetadata, workdir: str, init_args):
+    """Creates an object of type name with config
+
+    Args:
+        predict_metadata: Contains metadata about the bathc the output will recive
+        init_args: Arguments to pass to Output constructor
+    """
+    if name == "frost":
+        return sources.Frost(init_args["frost_variable_name"])
+    elif name == "verif_netcdf":
+        return sources.VerifNetcdf(init_args["filename"])
+
+def expand_tokens(string, variable):
+    return string.replace("%V", variable)
+
+
 class Source:
     """Abstract base class that retrieves observations"""
 
