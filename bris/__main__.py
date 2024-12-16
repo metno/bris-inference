@@ -5,6 +5,7 @@ from .inference import Inference
 from .checkpoint import Checkpoint
 from .datamodule import DataModule
 from .writer import CustomWriter
+from bris import utils
 
 
 def main():
@@ -49,7 +50,8 @@ def main():
         pm = PredictMetadata(variables, lats, lons, leadtimes)
 
         for o, args in c.items():
-            output = output.instantiate(o, pm, args)
+            workdir = utils.get_workdir(args["path"])
+            output = output.instantiate(o, pm, workdir, args)
             outputs[name]["outputs"] += [output]
 
     writer = CustomWriter(outputs, write_interval="batch")

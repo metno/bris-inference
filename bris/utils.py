@@ -1,5 +1,6 @@
 import numbers
 import os
+import uuid
 
 
 def expand_time_tokens(string, unixtime):
@@ -14,3 +15,7 @@ def create_directory(filename):
 
 def is_number(value):
     return isinstance(value, numbers.Number)
+
+def get_workdir(path):
+    v = uuid.uuid4()
+    return path + "/" + str(v)

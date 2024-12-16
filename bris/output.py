@@ -5,7 +5,7 @@ from .predict_metadata import PredictMetadata
 from bris import outputs
 
 
-def instantiate(name, predict_metadata: PredictMetadata, init_args):
+def instantiate(name, predict_metadata: PredictMetadata, workdir: str, init_args):
     """Creates an object of type name with config
 
     Args:
@@ -14,9 +14,11 @@ def instantiate(name, predict_metadata: PredictMetadata, init_args):
     """
     if name == "verif":
         filename = expand_tokens(init_args["filename"], init_args["variable"])
-        return outputs.Verif(filename, init_args["frost_variable_name"])
-    elif name == "netcdf":
-        return outputs.Netcdf(init_args["filename"])
+        # Parse obs sources
+        # init_args["obs_sources"] = [source.instantiate(s) for s in init_args["obs_sources"])]
+        return outputs.Verif(init_args["filename"], workdir, **init_args)
+    elif name == "gridded_netcdf":
+        return outputs.Netcdf(init_args["filename"], workdir, **init_args)
 
 
 def expand_tokens(string, variable):
