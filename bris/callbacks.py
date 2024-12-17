@@ -1,18 +1,19 @@
-import json 
+import json
 import logging
-from pathlib import Path 
+from pathlib import Path
 from typing import Optional
 from zipfile import ZipFile
 
-import torch 
-import torchinfo 
 import pytorch_lightning as pl
+import torch
+import torchinfo
 from anemoi.utils.config import DotDict
 from omegaconf import DictConfig
 from pytorch_lightning.callbacks.model_checkpoint import ModelCheckpoint
 from pytorch_lightning.utilities import rank_zero_only
 
 LOGGER = logging.getLogger(__name__)
+
 
 class NewModelCheckpoint(ModelCheckpoint):
     """A checkpoint callback that saves the model after every validation epoch."""
@@ -26,8 +27,14 @@ class NewModelCheckpoint(ModelCheckpoint):
 
     def _torch_drop_down(self, trainer: pl.Trainer) -> torch.nn.Module:
         # Get the model from the DataParallel wrapper, for single and multi-gpu cases
-        assert hasattr(trainer, "model"), "Trainer has no attribute 'model'! Is the Pytorch Lightning version correct?"
-        return trainer.model.module.model if hasattr(trainer.model, "module") else trainer.model.model
+        assert hasattr(
+            trainer, "model"
+        ), "Trainer has no attribute 'model'! Is the Pytorch Lightning version correct?"
+        return (
+            trainer.model.module.model
+            if hasattr(trainer.model, "module")
+            else trainer.model.model
+        )
 
     @rank_zero_only
     def model_metadata(self, model):
@@ -36,7 +43,9 @@ class NewModelCheckpoint(ModelCheckpoint):
 
         self._model_metadata = {
             "model": model.__class__.__name__,
-            "trainable_parameters": sum(p.numel() for p in model.parameters() if p.requires_grad),
+            "trainable_parameters": sum(
+                p.numel() for p in model.parameters() if p.requires_grad
+            ),
             "total_parameters": sum(p.numel() for p in model.parameters()),
             "summary": repr(
                 torchinfo.summary(
@@ -50,17 +59,22 @@ class NewModelCheckpoint(ModelCheckpoint):
 
         return self._model_metadata
 
-    def _save_checkpoint(self, trainer: pl.Trainer, lightning_checkpoint_filepath: str) -> None:
+    def _save_checkpoint(
+        self, trainer: pl.Trainer, lightning_checkpoint_filepath: str
+    ) -> None:
         if trainer.is_global_zero:
             model = self._torch_drop_down(trainer)
-            print("inside")
             # We want a different uuid each time we save the model
             # so we can tell them apart in the catalogue (i.e. different epochs)
             checkpoint_uuid = self.ckpt_metadata.uuid
             trainer.lightning_module._hparams["metadata"]["uuid"] = checkpoint_uuid
 
-            trainer.lightning_module._hparams["metadata"]["model"] = self.model_metadata(model)
-            trainer.lightning_module._hparams["metadata"]["tracker"] = self.ckpt_metadata.tracker
+            trainer.lightning_module._hparams["metadata"]["model"] = (
+                self.model_metadata(model)
+            )
+            trainer.lightning_module._hparams["metadata"][
+                "tracker"
+            ] = self.ckpt_metadata.tracker
 
             trainer.lightning_module._hparams["metadata"]["training"] = {
                 "current_epoch": self.ckpt_metadata.training.current_epoch,
@@ -68,7 +82,9 @@ class NewModelCheckpoint(ModelCheckpoint):
                 "elapsed_time": self.ckpt_metadata.training.elapsed_time,
             }
 
-            Path(lightning_checkpoint_filepath).parent.mkdir(parents=True, exist_ok=True)
+            Path(lightning_checkpoint_filepath).parent.mkdir(
+                parents=True, exist_ok=True
+            )
 
             save_config = model.config
             model.config = None
@@ -78,7 +94,9 @@ class NewModelCheckpoint(ModelCheckpoint):
 
             metadata = dict(**save_metadata)
 
-            inference_checkpoint_filepath = Path(lightning_checkpoint_filepath).parent / Path(
+            inference_checkpoint_filepath = Path(
+                lightning_checkpoint_filepath
+            ).parent / Path(
                 "inference-" + str(Path(lightning_checkpoint_filepath).name),
             )
 
@@ -110,7 +128,10 @@ class NewModelCheckpoint(ModelCheckpoint):
             for logger in trainer.loggers:
                 logger.after_save_checkpoint(proxy(self))
 
-def get_callbacks(*,filename: str, ckpt_metadata: DotDict, config: Optional[DictConfig] = None) -> list:
+
+def get_callbacks(
+    *, filename: str, ckpt_metadata: DotDict, config: Optional[DictConfig] = None
+) -> list:
     """Setup callbacks for PyTorch Lightning trainer.
 
     Parameters
@@ -145,40 +166,8 @@ def get_callbacks(*,filename: str, ckpt_metadata: DotDict, config: Optional[Dict
             ),
         ],
     )
-    
-    #trainer_callbacks.append(ParentUUIDCallback(ckpt_metadata.config))
-    #trainer_callbacks.append(ConfigDumper(ckpt_metadata.config))
+
+    # trainer_callbacks.append(ParentUUIDCallback(ckpt_metadata.config))
+    # trainer_callbacks.append(ConfigDumper(ckpt_metadata.config))
 
     return trainer_callbacks
-
-if __name__ == "__main__":
-    from checkpoint import Checkpoint
-
-    ckpt = "/lustre/storeB/project/nwp/bris/aram/fix-memory-issue/experiments2/inference-aifs-by_step-epoch_000-step_000150.ckpt"
-    metadata = Checkpoint(ckpt=ckpt)
-    filename = "/home/arams/Documents/project/anemoi-inference-stretched-grid/inference/checkpoint/test.ckpt"
-    clbk = get_callbacks(filename=filename, ckpt_metadata=metadata)
-    trainer = pl.Trainer(
-            logger=False,
-            accelerator="cpu",
-            deterministic= False,
-            detect_anomaly=False,
-            #strategy=DDPGroupStrategy(
-            #    self.num_gpus_per_model,
-            #    static_graph=False, 
-            #),
-            devices=1,#self.num_gpus_per_node,
-            num_nodes=1,#self.num_nodes,
-            precision="bf16", 
-            inference_mode = True,
-            use_distributed_sampler=False,
-            callbacks = clbk,
-        )
-    
-    #trainer.fit(torch.load(ckpt,map_location="cpu"))
-    for callback in trainer.callbacks:
-        print(callback)
-        if hasattr(callback, "_save_checkpoint"):
-            callback._save_checkpoint(trainer, filename)
-    #for func in clbk:
-    #    func(trainer())
