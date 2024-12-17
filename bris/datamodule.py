@@ -9,7 +9,7 @@ from anemoi.utils.config import DotDict
 from torch_geometric.data import HeteroData
 from omegaconf import DictConfig
 from hydra.utils import instantiate
-from checkpoint import Checkpoint
+from .checkpoint import Checkpoint
 import pytorch_lightning as pl
 from torch.utils.data import get_worker_info
 from torch.utils.data import DataLoader

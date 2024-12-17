@@ -18,7 +18,7 @@ def test_instantiate():
     filename = "%Y%m%d.nc"
     workdir = "test_dir"
 
-    args = {"filename": filename}
+    args = {"filename_pattern": filename}
 
     out = output.instantiate("netcdf", pm, workdir, args)
 

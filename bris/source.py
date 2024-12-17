@@ -12,6 +12,8 @@ def instantiate(name: str, init_args: dict):
         return sources.frost.Frost(init_args["frost_variable_name"])
     elif name == "verif":
         return sources.verif.Verif(init_args["filename"])
+    else:
+        raise ValueError(f"Invalid source: {name}")
 
 
 def expand_tokens(string, variable):
@@ -32,3 +34,6 @@ class Source:
     def locations(self):
         """Returns a list of the available locations"""
         raise NotImplementedError
+
+import bris.sources.frost
+import bris.sources.verif

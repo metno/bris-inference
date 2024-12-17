@@ -44,9 +44,10 @@ class Verif(Output):
         for level in self.quantile_levels:
             assert level >= 0 and level <= 1, f"level={level} must be between 0 and 1"
 
-        self.igrid = gridpp.Grid(
-            self.pm.grid_lats, self.pm.grid_lons, self.pm.grid_elevs
-        )
+        if self._is_gridded_input:
+            self.igrid = gridpp.Grid(
+                self.pm.grid_lats, self.pm.grid_lons, self.pm.grid_elevs
+            )
 
         self.ipoints = gridpp.Points(self.pm.lats, self.pm.lons, self.pm.elevs)
 

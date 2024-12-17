@@ -1,6 +1,6 @@
 import numpy as np
 
-from bris import outputs, source
+from bris import source
 
 from .predict_metadata import PredictMetadata
 
@@ -15,13 +15,17 @@ def instantiate(name: str, predict_metadata: PredictMetadata, workdir: str, init
     if name == "verif":
         # Parse obs sources
         obs_sources = list()
-        for name, opts in init_args["obs_sources"].items():
-            obs_sources += [source.instantiate(name, opts)]
+        for s in init_args["obs_sources"]:
+            for name, opts in s.items():
+                obs_sources += [source.instantiate(name, opts)]
         init_args["obs_sources"] = obs_sources
-        return outputs.Verif(predict_metadata, workdir, **init_args)
+        return bris.outputs.verif.Verif(predict_metadata, workdir, **init_args)
 
-    elif name == "gridded_netcdf":
-        return outputs.Netcdf(predict_metadata, workdir, **init_args)
+    elif name == "netcdf":
+        return bris.outputs.netcdf.Netcdf(predict_metadata, workdir, **init_args)
+
+    else:
+        raise ValueError(f"Invalid output: {name}")
 
 
 def expand_tokens(string, variable):
@@ -82,3 +86,8 @@ class Output:
         shape = [T, self.pm.field_shape[0] * self.pm.field_shape[1], V]
         pred = np.reshape(pred, shape)
         return pred
+
+
+import bris.outputs.intermediate
+import bris.outputs.netcdf
+import bris.outputs.verif

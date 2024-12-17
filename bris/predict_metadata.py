@@ -3,9 +3,8 @@ import numpy as np
 
 class PredictMetadata:
     """This class stores metadata about each dimension of a batch"""
-    def __init__(self, variables, lats, lons, leadtimes, num_members, field_shape=None):
-        assert lats.shape == lons.shape, (lats.shape, lons.shape)
 
+    def __init__(self, variables, lats, lons, leadtimes, num_members, field_shape=None):
         if field_shape is not None:
             assert np.prod(field_shape) == len(lats)
 
@@ -14,11 +13,14 @@ class PredictMetadata:
         # Ensure lons are on the interval -180, 180
         self.lats = np.array(lats)
         self.lons = np.array(lons)
+
+        assert self.lats.shape == self.lons.shape, (self.lats.shape, self.lons.shape)
+
         self.lons[self.lons < -180] += 360
         self.lons[self.lons > 180] -= 360
 
         # TODO
-        self.elevs = np.zeros(lats.shape)
+        self.elevs = np.zeros(self.lats.shape)
         self.leadtimes = np.array(leadtimes)
         self.num_members = num_members
         self.field_shape = field_shape
