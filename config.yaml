@@ -1,20 +1,57 @@
 run_options:
-    gpus: 1
-    model_parallel: 1
-model:
-  - 
+    num_gpus_per_node: 1
+    num_gpus_per_model: 1
+    num_nodes: 1
 
-start_date: 
-end_date: 
+start_date: 2020-02-06
+end_date: 2020-02-07
 
 # Send this to open_dataset
 datasets:
-  from_config:
-    - path: ifs_*.nc
-    - path: meps_*.nc
-  make_it_easy:
-    - path: ifs_*.nc
-    - path: meps_*.nc
+  cutout:
+    - dataset : ${hardware.paths.datasets.data}/${hardware.files.lam_dataset}
+      #thinning: 4
+    - dataset : ${hardware.paths.datasets.data}/${hardware.files.global_dataset}
+  adjust: all
+  min_distance_km : 0
+  neighbours: 2
+
+dataset_obs:
+    dataset: ${hardware.paths.datasets.data_obs}/${hardware.files.dataset_obs}
+
+dataset:
+  zip:
+    - dataset: ${datasets}
+    - dataset: ${dataset_obs}
+  adjust: ["start", "end"]
+
+dataloader:
+  batch_size: 1
+  prefetch_factor: 2
+  num_workers: 1
+  pin_memory: True 
+
+datamodule:
+  _target_: anemoi.training.data.dataset.ZipDataset
+  _convert_: all
+
+hardware:
+  paths:
+    datasets:
+      data: null
+      data_obs: null
+  files:
+    lam_dataset: name_of_dataset 
+    global_dataset: name_of_dataset 
+    dataset_obs: name_of_dataset
+  
+
+model:
+  graph:
+    #path: something
+    # maybe add information on how to build graph
+    # if path is not provided and the user wish to
+    # build and assign new graph
 
 checkpoints:
   - my_interpolator:
