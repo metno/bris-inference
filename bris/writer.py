@@ -33,7 +33,20 @@ class CustomWriter(BasePredictionWriter):
         ensemble_member = prediction["ensemble_member"]
 
         # TODO: Why is this here, don'ẗ we want all data-parallel processes to write to disk?
-        if prediction["group_rank"] == 0:  # if on first model parallel gpu of data parallel group
+        if prediction["group_rank"] == 0:  # related to model parallel? 
+            
+            for domain_name, output_dict in self.outputs.items():
+                pred = prediction["pred"][output_dict["decoder_index"]] 
+
+                for output in output_dict["outputs"]:
+                    pred_output = pred[...,output_dict["start"], output_dict["end"], output["select_variables"]]
+                    output["output_object"].add_forecast(timestamp, ensemble_member, pred_output)
+
+
+                
+
+'''
+
             # pred = prediction[0]
             # time_index = int(self.avail_samples//self.data_par_num * prediction[2] + batch_idx)
             # pred = pred[0] #remove batch dimension for now since we will always use data parallel for larger batches.
@@ -55,3 +68,4 @@ class CustomWriter(BasePredictionWriter):
 
                 for output in grid_config["outputs"]:
                     output.add_forecast(timestamp, ensemble_member, pred)
+'''

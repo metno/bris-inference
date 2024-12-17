@@ -135,8 +135,12 @@ class BrisPredictor(BasePredictor):
 
         forcings = get_dynamic_forcings(time, self.latitudes, self.longitudes, self.metadata["config"]["data"]["forcing"])
         forcings.update(self.static_forcings)
+
         for forcing, value in forcing.items():
-            x[:, -1, :, :, data_indices.internal_model.input.name_to_index[forcing]] = value
+            if type(value) == np.ndarray:
+                x[:, -1, :, :, data_indices.internal_model.input.name_to_index[forcing]] = torch.from_numpy(value)
+            else:
+                x[:, -1, :, :, data_indices.internal_model.input.name_to_index[forcing]] = value
 
         return x
 
@@ -146,15 +150,14 @@ class BrisPredictor(BasePredictor):
         multistep = self.metadata["config"]["training"]["multistep_input"]
 
         batch, time_stamp = batch
-        time = np.datetime64(time_stamp, 'h')
-        y_preds = []
-        times = []
+        time = np.datetime64(time_stamp, 'h') #Consider not forcing 'h' here and instead generalize time + self.frequency
+
+        y_preds = np.zeros((batch.shape[0], self.forecast_length + 1, batch.shape[-2], len(data_indices.internal_data.output.full)))
 
         #Insert analysis for t=0
-        y_analysis = batch[:,multistep-1,...]
+        y_analysis = batch[:,multistep-1,0,...]
         y_analysis[...,data_indices.internal_data.output.diagnostic] = 0. #Set diagnostic variables to zero
-        y_preds.extend(y_analysis[...,data_indices.internal_data.output.full].cpu())
-        times.extend(time)
+        y_preds[:,0,...] = y_analysis[...,data_indices.internal_data.output.full].cpu().to(torch.float32).numpy()
 
         #Possibly have to extend this to handle imputer, see _step in forecaster.
         with torch.no_grad():
@@ -162,17 +165,13 @@ class BrisPredictor(BasePredictor):
             x = batch[..., data_indices.internal_data.input.full]
             for fcast_step in range(self.forecast_length):
                 y_pred = self(x)
-                time = time + self.frequency
-                x = self.advance_input_predict(x, y_pred, time)
-                y_preds.extend(self.model.post_processors(y_pred, in_place=False).cpu().to(torch.float32).numpy())
-                times.extend(time)
+                x = self.advance_input_predict(x, y_pred, time + fcast_step * self.frequency)
+                y_preds[:, fcast_step+1, ...] = self.model.post_processors(y_pred, in_place=False)[:,0,...].cpu().to(torch.float32).numpy()
 
-        return y_preds, times
-            
-
-            
-            
-        
+        # Send predictions to cpu on the fly, then concatenate on cpu after all the fcast steps
+        # Could change to pre-allocate y_preds as np array on cpu and then write to it, concat might be expensive..
+        return {"pred": [y_preds], "time_stamp": time_stamp, "group_rank": self.model_comm_group_rank, "ensemble_member": 0}
+                  
 
 class NetatmoPredictor(BasePredictor):
     def __init__(
