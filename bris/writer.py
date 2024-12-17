@@ -37,13 +37,10 @@ class CustomWriter(BasePredictionWriter):
             
             for domain_name, output_dict in self.outputs.items():
                 pred = prediction["pred"][output_dict["decoder_index"]] 
+                pred = pred[...,output_dict["start"]:output_dict["end"],:]
 
                 for output in output_dict["outputs"]:
-                    pred_output = pred[...,output_dict["start"], output_dict["end"], output["select_variables"]]
-                    output["output_object"].add_forecast(timestamp, ensemble_member, pred_output)
-
-
-                
+                    output.add_forecast(timestamp, ensemble_member, pred)
 
 '''
 

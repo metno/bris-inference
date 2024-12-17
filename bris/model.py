@@ -91,6 +91,7 @@ class BrisPredictor(BasePredictor):
         self.forecast_length = 12
         self.latitudes = data_reader.latitudes
         self.longitudes = data_reader.longitudes
+        self.select_indices = [0,2,3] #TODO take this from config?
         
 
         self.set_static_forcings(data_reader, self.metadata["config"]["data"]["forcing"])
@@ -152,12 +153,12 @@ class BrisPredictor(BasePredictor):
         batch, time_stamp = batch
         time = np.datetime64(time_stamp, 'h') #Consider not forcing 'h' here and instead generalize time + self.frequency
 
-        y_preds = np.zeros((batch.shape[0], self.forecast_length + 1, batch.shape[-2], len(data_indices.internal_data.output.full)))
+        y_preds = np.zeros((batch.shape[0], self.forecast_length + 1, batch.shape[-2], len(self.select_indices)))
 
         #Insert analysis for t=0
         y_analysis = batch[:,multistep-1,0,...]
         y_analysis[...,data_indices.internal_data.output.diagnostic] = 0. #Set diagnostic variables to zero
-        y_preds[:,0,...] = y_analysis[...,data_indices.internal_data.output.full].cpu().to(torch.float32).numpy()
+        y_preds[:,0,...] = y_analysis[...,self.select_indices].cpu().to(torch.float32).numpy()
 
         #Possibly have to extend this to handle imputer, see _step in forecaster.
         with torch.no_grad():
@@ -166,7 +167,7 @@ class BrisPredictor(BasePredictor):
             for fcast_step in range(self.forecast_length):
                 y_pred = self(x)
                 x = self.advance_input_predict(x, y_pred, time + fcast_step * self.frequency)
-                y_preds[:, fcast_step+1, ...] = self.model.post_processors(y_pred, in_place=False)[:,0,...].cpu().to(torch.float32).numpy()
+                y_preds[:, fcast_step+1, ...] = self.model.post_processors(y_pred, in_place=False)[:,0,...,self.select_indices].cpu().to(torch.float32).numpy()
 
         # Send predictions to cpu on the fly, then concatenate on cpu after all the fcast steps
         # Could change to pre-allocate y_preds as np array on cpu and then write to it, concat might be expensive..
