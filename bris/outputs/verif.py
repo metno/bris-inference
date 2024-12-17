@@ -43,8 +43,8 @@ class Verif(Output):
         self.consensus_method = consensus_method
         self.elev_gradient = elev_gradient
 
-        for q in self.quantile_level:
-            assert q >= 0 and q <= 1, q
+        for level in self.quantile_levels:
+            assert level >= 0 and level <= 1, f"level={level} must be between 0 and 1"
 
         self.igrid = gridpp.Grid(
             self.pm.grid_lats, self.pm.grid_lons, self.pm.grid_elevs
@@ -157,14 +157,14 @@ class Verif(Output):
         )
         if len(self.thresholds) > 0:
             coords["threshold"] = (
-                    ["threshold"],
-                    self.thresholds,
-                    )
+                ["threshold"],
+                self.thresholds,
+            )
         if len(self.quantile_levels) > 0:
             coords["quantile"] = (
-                    ["quantile"],
-                    self.quantile_levels,
-                    )
+                ["quantile"],
+                self.quantile_levels,
+            )
         self.ds = xr.Dataset(coords=coords)
 
         frts = self.intermediate.get_forecast_reference_times().astype(np.double)
@@ -199,7 +199,7 @@ class Verif(Output):
             for i, frt in enumerate(frts):
                 curr = self.intermediate.get_forecast(frt)[..., 0, :]
                 for t, threshold in enumerate(self.thresholds):
-                    cdf[i, ..., t] = np.mean(curr <= threshold, axis=-1)
+                    cdf[i, ..., t] = self.compute_threshold_prob(curr, threshold)
 
             self.ds["cdf"] = (["time", "leadtime", "location", "threshold"], cdf)
 
@@ -215,9 +215,11 @@ class Verif(Output):
                 np.float32,
             )
             for i, frt in enumerate(frts):
-                curr = self.intermediate.get_forecast(frt)[:, :, 0, :]  # Remove variable dimension
+                curr = self.intermediate.get_forecast(frt)[
+                    :, :, 0, :
+                ]  # Remove variable dimension
                 for t, quantile_level in enumerate(self.quantile_levels):
-                    x[i, ..., t] = np.percentile(curr, quantile_level * 100, axis=-1)
+                    x[i, ..., t] = self.compute_quantile(curr, quantile_level)
 
             self.ds["x"] = (["time", "leadtime", "location", "quantile"], x)
 
@@ -275,4 +277,55 @@ class Verif(Output):
         elif self.consensus_method == "mean":
             return np.mean(pred, axis=-1)
         else:
-            raise NotImplementedError(f"Unknown consensus method {self.consensus_method}")
+            raise NotImplementedError(
+                f"Unknown consensus method {self.consensus_method}"
+            )
+
+    def compute_quantile(self, ar, level, fair=True):
+        """Extracts a quantile from an array
+
+        Args:
+            ar: N-D numpy array, where last dimension is ensemble
+            level: a number between 0 and 1
+            fair: Adjust for sampling error
+
+        Returns:
+            (N-1)-D numpy array with quantiles
+        """
+        assert level >= 0 and level <= 1, f"level={level} must be between 0 and 1"
+
+        if fair:
+            # What quantile level do we assign the lowest member?
+            # For 10 members we want 0.05, 0.15, ..., 0.95
+            num_members = ar.shape[-1]
+            lower = 0.5 * 1 / num_members
+            upper = 1 - lower
+
+            percentile = (level - lower) / (upper - lower) * 100
+            percentile = max(min(percentile, 100), 0)
+        else:
+            percentile = level
+
+        q = np.percentile(ar, percentile, axis=-1)
+        return q
+
+    def compute_threshold_prob(self, ar, threshold, fair=True):
+        """Compute probability less than a threshold for an ensemble
+        Args:
+            ar: N-D numpy array, where last dimensions is ensmelbe
+            threshold: Threshold to compute fraction of members that are less than this
+            fair: Adjust for sampling error
+
+        Returns:
+            (N-1)-D numpy array of probabilities
+        """
+        p = np.mean(ar <= threshold, axis=-1)
+        if fair:
+            num_members = ar.shape[-1]
+            lower = 0.5 * 1 / num_members
+            upper = 1 - lower
+
+            p *= (upper - lower) + lower
+            p[p > 1] = 1
+            p[p < 0] = 0
+        return p
