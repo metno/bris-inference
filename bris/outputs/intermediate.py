@@ -39,15 +39,35 @@ class Intermediate(Output):
 
         return np.array(frts, np.int32)
 
-    def get_forecast(self, forecast_reference_time, ensemble_member):
-        assert utils.is_number(forecast_reference_time)
-        assert isinstance(ensemble_member, int)
+    def get_forecast(self, forecast_reference_time, ensemble_member=None):
+        """Fetches forecasts from stored numpy files
 
-        filename = self.get_filename(forecast_reference_time, ensemble_member)
-        if os.path.exists(filename):
-            pred = np.load(filename)
+        Args:
+            forecast_reference_time: Unixtime of forecast initialization [seconds]
+            ensemble_member: If an integer, retrieve this member number otherwise retrieve the full
+                ensemble
+
+        Returns:
+            np.array: 3D (leadtime, points, variables) if member is selected
+                      4D otherwise (leadtime, points, variables, members)
+        """
+        assert utils.is_number(forecast_reference_time)
+
+        if ensemble_member is None:
+            shape = [self.pm.num_leadtimes, self.pm.num_points, self.pm.num_variables, self.pm.num_members]
+            pred = np.nan * np.zeros(shape)
+            for e in range(self.pm.num_members):
+                filename = self.get_filename(forecast_reference_time, e)
+                if os.path.exists(filename):
+                    pred[..., e] = np.load(filename)
         else:
-            pred = None
+            assert isinstance(ensemble_member, int)
+
+            filename = self.get_filename(forecast_reference_time, ensemble_member)
+            if os.path.exists(filename):
+                pred = np.load(filename)
+            else:
+                pred = None
 
         return pred
 

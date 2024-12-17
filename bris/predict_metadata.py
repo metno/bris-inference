@@ -28,6 +28,14 @@ class PredictMetadata:
         return len(self.lats)
 
     @property
+    def num_leadtimes(self):
+        return len(self.leadtimes)
+
+    @property
+    def num_variables(self):
+        return len(self.variables)
+
+    @property
     def shape(self):
         """The shape that you can expect predict_step to provide. Note that ensemble is done in
         data parallel, so not included in this shape.

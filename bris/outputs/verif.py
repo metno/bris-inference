@@ -20,7 +20,10 @@ class Verif(Output):
         filename: str,
         variable: str,
         units: str,
-        obs_sources=list(),
+        obs_sources=list,
+        thresholds=[],
+        quantile_levels=[],
+        consensus_method="control",
         elev_gradient=None,
     ):
         """
@@ -35,7 +38,13 @@ class Verif(Output):
         self.fcst = dict()
         self.variable = variable
         self.units = units
+        self.thresholds = thresholds
+        self.quantile_levels = quantile_levels
+        self.consensus_method = consensus_method
         self.elev_gradient = elev_gradient
+
+        for q in self.quantile_level:
+            assert q >= 0 and q <= 1, q
 
         self.igrid = gridpp.Grid(
             self.pm.grid_lats, self.pm.grid_lons, self.pm.grid_elevs
@@ -146,6 +155,16 @@ class Verif(Output):
             self.obs_elevs,
             cf.get_attributes("surface_altitude"),
         )
+        if len(self.thresholds) > 0:
+            coords["threshold"] = (
+                    ["threshold"],
+                    self.thresholds,
+                    )
+        if len(self.quantile_levels) > 0:
+            coords["quantile"] = (
+                    ["quantile"],
+                    self.quantile_levels,
+                    )
         self.ds = xr.Dataset(coords=coords)
 
         frts = self.intermediate.get_forecast_reference_times().astype(np.double)
@@ -161,9 +180,46 @@ class Verif(Output):
             np.float32,
         )
         for i, frt in enumerate(frts):
-            fcst[i, ...] = self.intermediate.get_forecast(frt, 0)[..., 0]
+            curr = self.intermediate.get_forecast(frt)[..., 0, :]
+            fcst[i, ...] = self.compute_consensus(curr)
 
         self.ds["fcst"] = (["time", "leadtime", "location"], fcst)
+
+        # Load threshold forecasts
+        if len(self.thresholds) > 0:
+            cdf = np.nan * np.zeros(
+                [
+                    len(frts),
+                    len(self.intermediate.pm.leadtimes),
+                    self.intermediate.pm.num_points,
+                    len(self.thresholds),
+                ],
+                np.float32,
+            )
+            for i, frt in enumerate(frts):
+                curr = self.intermediate.get_forecast(frt)[..., 0, :]
+                for t, threshold in enumerate(self.thresholds):
+                    cdf[i, ..., t] = np.mean(curr <= threshold, axis=-1)
+
+            self.ds["cdf"] = (["time", "leadtime", "location", "threshold"], cdf)
+
+        # Load quantile forecasts
+        if len(self.quantile_levels) > 0:
+            x = np.nan * np.zeros(
+                [
+                    len(frts),
+                    len(self.intermediate.pm.leadtimes),
+                    self.intermediate.pm.num_points,
+                    len(self.quantile_levels),
+                ],
+                np.float32,
+            )
+            for i, frt in enumerate(frts):
+                curr = self.intermediate.get_forecast(frt)[:, :, 0, :]  # Remove variable dimension
+                for t, quantile_level in enumerate(self.quantile_levels):
+                    x[i, ..., t] = np.percentile(curr, quantile_level * 100, axis=-1)
+
+            self.ds["x"] = (["time", "leadtime", "location", "quantile"], x)
 
         # Find which valid times we need observations for
         a, b = np.meshgrid(frts, np.array(self.intermediate.pm.leadtimes) * 3600)
@@ -210,3 +266,13 @@ class Verif(Output):
 
         create_directory(self.filename)
         self.ds.to_netcdf(self.filename, mode="w", engine="netcdf4")
+
+    def compute_consensus(self, pred):
+        assert len(pred.shape) == 3, pred.shape
+
+        if self.consensus_method == "control":
+            return pred[..., 0]
+        elif self.consensus_method == "mean":
+            return np.mean(pred, axis=-1)
+        else:
+            raise NotImplementedError(f"Unknown consensus method {self.consensus_method}")
