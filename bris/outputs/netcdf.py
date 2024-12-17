@@ -1,15 +1,12 @@
-from functools import cached_property
 import gridpp
 import numpy as np
 import xarray as xr
-
-
-from bris.output import Output
-from bris.predict_metadata import PredictMetadata
+from bris import utils
 from bris.conventions import cf
 from bris.conventions.metno import Metno
-from bris import utils
+from bris.output import Output
 from bris.outputs.intermediate import Intermediate
+from bris.predict_metadata import PredictMetadata
 
 
 class Netcdf(Output):
@@ -91,7 +88,8 @@ class Netcdf(Output):
         coords = dict()
 
         # Function to easily convert from cf names to conventions
-        c = lambda x: self.conventions.get_name(x)
+        def c(x):
+            return self.conventions.get_name(x)
 
         # TODO: Seconds or hours for leadtimes?
         times = [forecast_reference_time + lt for lt in self.pm.leadtimes]

@@ -1,7 +1,6 @@
-import numpy as np
 import os
 
-
+import numpy as np
 from bris.sources.verif import Verif
 
 

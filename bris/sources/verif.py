@@ -1,11 +1,10 @@
 from functools import cached_property
+
 import numpy as np
 import xarray as xr
 
-
+from bris.observations import Location, Observations
 from bris.source import Source
-from bris.observations import Observations
-from bris.observations import Location
 
 
 class Verif(Source):

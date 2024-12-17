@@ -1,4 +1,3 @@
-from bris.predict_metadata import PredictMetadata
 from bris import sources
 
 

@@ -1,9 +1,8 @@
-import numpy as np
 import os
 
-
-from bris.sources.verif import Verif
+import numpy as np
 from bris import source
+from bris.sources.verif import Verif
 
 
 def test_instantiate():

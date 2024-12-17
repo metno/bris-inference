@@ -1,13 +1,11 @@
 import gridpp
 import numpy as np
 import xarray as xr
-
-
+from bris.conventions import cf
 from bris.output import Output
 from bris.outputs.intermediate import Intermediate
 from bris.predict_metadata import PredictMetadata
 from bris.utils import create_directory
-from bris.conventions import cf
 
 
 class Verif(Output):
@@ -251,13 +249,13 @@ class Verif(Output):
         for obs_source in self.obs_sources:
             curr = obs_source.get(self.variable, start_time, end_time, frequency)
             for t, valid_time in enumerate(unique_valid_times):
-                I = np.where(valid_times == valid_time)
+                Itimes, Ileadtimes = np.where(valid_times == valid_time)
                 data = curr.get_data(self.variable, valid_time)
                 if data is not None:
                     Iout = range(count, len(obs_source.locations) + count)
-                    for i in range(len(I[0])):
+                    for i in range(len(Itimes)):
                         # Copy observation into all times/leadtimes that matches this valid time
-                        obs[I[0][i], I[1][i], Iout] = data
+                        obs[Itimes[i], Ileadtimes[i], Iout] = data
             count += len(obs_source.locations)
 
         self.ds["obs"] = (["time", "leadtime", "location"], obs)

@@ -1,6 +1,6 @@
 from functools import cached_property
-import numpy as np
 
+import numpy as np
 
 from bris.source import Source
 

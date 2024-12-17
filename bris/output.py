@@ -1,8 +1,8 @@
 import numpy as np
 
+from bris import outputs, source
 
 from .predict_metadata import PredictMetadata
-from bris import outputs
 
 
 def instantiate(name: str, predict_metadata: PredictMetadata, workdir: str, init_args):

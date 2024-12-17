@@ -1,11 +1,15 @@
 import argparse
 import yaml
 
-from .inference import Inference
+
 from .checkpoint import Checkpoint
 from .datamodule import DataModule
+from .forecaster import BrisForecaster
+from .inference import Inference
+from .predict_metadata import PredictMetadata
 from .writer import CustomWriter
-from bris import utils
+import bris.utils
+import bris.output
 
 
 def main():
@@ -26,7 +30,7 @@ def main():
     # Load checkpoint, and patch it if needed
     checkpoint = Checkpoint(args.checkpoint_path)
     checkpoint.update_paths(config.paths)
-    checkpoint.update_graph() # Pass in a new graph if needed
+    checkpoint.update_graph()  # Pass in a new graph if needed
 
     datamodule = DataModule(checkpoint.graph, checkpoint.dataset_config)
 
@@ -50,8 +54,8 @@ def main():
         pm = PredictMetadata(variables, lats, lons, leadtimes)
 
         for o, args in c.items():
-            workdir = utils.get_workdir(args["path"])
-            output = output.instantiate(o, pm, workdir, args)
+            workdir = bris.utils.get_workdir(args["path"])
+            output = bris.output.instantiate(o, pm, workdir, args)
             outputs[name]["outputs"] += [output]
 
     writer = CustomWriter(outputs, write_interval="batch")

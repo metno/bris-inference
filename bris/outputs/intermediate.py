@@ -1,10 +1,9 @@
-import numpy as np
 import glob
 import os
 
-
-from bris.output import Output
+import numpy as np
 from bris import utils
+from bris.output import Output
 
 
 class Intermediate(Output):
@@ -54,7 +53,12 @@ class Intermediate(Output):
         assert utils.is_number(forecast_reference_time)
 
         if ensemble_member is None:
-            shape = [self.pm.num_leadtimes, self.pm.num_points, self.pm.num_variables, self.pm.num_members]
+            shape = [
+                self.pm.num_leadtimes,
+                self.pm.num_points,
+                self.pm.num_variables,
+                self.pm.num_members,
+            ]
             pred = np.nan * np.zeros(shape)
             for e in range(self.pm.num_members):
                 filename = self.get_filename(forecast_reference_time, e)

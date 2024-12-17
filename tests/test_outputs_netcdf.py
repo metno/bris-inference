@@ -1,12 +1,9 @@
-import os
-
 import numpy as np
-from bris import output
+from bris.outputs.netcdf import Netcdf
 from bris.predict_metadata import PredictMetadata
-from bris.sources.verif import Verif
 
 
-def test_instantiate():
+def test_1():
     variables = ["u_800", "u_600", "2t", "v_500", "10u"]
     lats = np.array([1, 2])
     lons = np.array([2, 4])
@@ -14,14 +11,17 @@ def test_instantiate():
     num_members = 1
     field_shape = [1, 2]
     pm = PredictMetadata(variables, lats, lons, leadtimes, num_members, field_shape)
+    pattern = "test_%Y%m%dT00Z.nc"
+    workdir = "test_gridded"
+    output = Netcdf(pm, workdir, pattern, 0.2)
 
-    filename = "%Y%m%d.nc"
-    workdir = "test_dir"
+    pred = np.random.rand(*pm.shape)
+    frt = 0
+    for member in range(num_members):
+        output.add_forecast(frt, member, pred)
 
-    args = {"filename": filename}
-
-    out = output.instantiate("netcdf", pm, workdir, args)
+    output.finalize()
 
 
 if __name__ == "__main__":
-    test_instantiate()
+    test_1()
