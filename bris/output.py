@@ -13,9 +13,8 @@ def instantiate(name, predict_metadata: PredictMetadata, workdir: str, init_args
         init_args: Arguments to pass to Output constructor
     """
     if name == "verif":
-        filename = expand_tokens(init_args["filename"], init_args["variable"])
         # Parse obs sources
-        # init_args["obs_sources"] = [source.instantiate(s) for s in init_args["obs_sources"])]
+        init_args["obs_sources"] = [source.instantiate(s) for s in init_args["obs_sources"]]
         return outputs.Verif(init_args["filename"], workdir, **init_args)
     elif name == "gridded_netcdf":
         return outputs.Netcdf(init_args["filename"], workdir, **init_args)
