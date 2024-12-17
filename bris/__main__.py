@@ -1,6 +1,11 @@
 import argparse
+import logging
+
+import omegaconf
 import yaml
 
+import bris.output
+import bris.utils
 
 from .checkpoint import Checkpoint
 from .datamodule import DataModule
@@ -8,8 +13,8 @@ from .forecaster import BrisForecaster
 from .inference import Inference
 from .predict_metadata import PredictMetadata
 from .writer import CustomWriter
-import bris.utils
-import bris.output
+
+LOGGER = logging.getLogger(__name__)
 
 
 def main():
@@ -19,21 +24,50 @@ def main():
     parser.add_argument("--debug", action="store_true")
     parser.add_argument("--config", type=str, required=True)
     parser.add_argument("-c", type=str, dest="checkpoint_path", required=True)
-    parser.add_argument("-sd", type=int, dest="start_date")
-    parser.add_argument("-ed", type=int, dest="end_date")
-    parser.add_argument("-f", type=int, dest="frequency")
+    parser.add_argument("-sd", type=int, dest="start_date", default=None, const=None)
+    parser.add_argument("-ed", type=int, dest="end_date", default=None, const=None)
 
+    parser.add_argument(
+        "-p",
+        type=str,
+        dest="paths",
+        nargs="*",
+        help="List of paths for input data",
+        default=None,
+        const=None,
+    )
+    parser.add_argument("-f", type=str, dest="frequency", default=None, const=None)
+    parser.add_argument("-s", type=str, dest="timestep", default=None, const=None)
     args = parser.parse_args()
 
-    config = load_config(args.config)
+    try:
+        config = omegaconf.OmegaConf.load(args.config)
+        LOGGER.debug(f"config file from {args.config} is loaded")
+    except Exception as e:
+        raise e
 
+    # TODO: find a way to use start_date and end_date
+    start_date = config.start_date if not args.start_date else args.start_date
+    end_date = config.end_date if not args.end_date else args.end_date
+    paths = None if not args.paths else args.paths
     # Load checkpoint, and patch it if needed
     checkpoint = Checkpoint(args.checkpoint_path)
-    checkpoint.update_paths(config.paths)
-    checkpoint.update_graph()  # Pass in a new graph if needed
 
-    datamodule = DataModule(checkpoint.graph, checkpoint.dataset_config)
+    if hasattr(config.model.graph, "path"):
+        LOGGER.info("Update graph is enabled. Proceeding to change internal graph")
+        checkpoint.update_graph(
+            config.model.graph.path
+        )  # Pass in a new graph if needed
 
+    # TODO: should frequency and timestep be input args? conf based or both?
+    datamodule = DataModule(
+        config=config,
+        checkpoint_object=checkpoint,
+        paths=paths,
+        frequency=args.frequency,
+        timestep=args.timestep,
+        graph=checkpoint.graph,
+    )
     # Assemble outputs
     outputs = dict()
     for name, c in config["outputs"]:
