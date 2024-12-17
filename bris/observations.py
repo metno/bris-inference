@@ -41,3 +41,8 @@ class Location:
         self.lon = lon
         self.elev = elev
         self.id = id
+
+        if self.lon < -180:
+            self.lon += 360
+        if self.lon > 180:
+            self.lon -= 360
