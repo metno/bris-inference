@@ -42,10 +42,14 @@ dependencies = [
     "verif",
     "zarr<=2.17",
 ]
+optional-dependencies.tests = [
+    "black",
+    "coverage",
+    "pep8",
+    "pytest",
+    "isort",
+]
 dynamic = ["version"]
-
-[project.optional-dependencies]
-test = ["coverage",  "pep8"]
 
 [tool.setuptools]
 # Any setuptools-specific configuration (e.g., package data, entry points) goes here
