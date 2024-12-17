@@ -1,4 +1,5 @@
 import numpy as np
+import os
 import pytest
 
 
@@ -6,13 +7,15 @@ from bris.outputs.verif import Verif
 from bris.sources.verif import Verif as VerifInput
 from bris.predict_metadata import PredictMetadata
 
+
 @pytest.fixture
 def setup():
     stuff = 1
     yield stuff
 
+
 def test_1():
-    filename = "test.nc"
+    filename = os.path.dirname(os.path.abspath(__file__)) + "/files/verif_input.nc"
     sources = [VerifInput(filename)]
 
     variables = ["u_800", "u_600", "2t", "v_500", "10u"]
@@ -30,8 +33,16 @@ def test_1():
     pm = PredictMetadata(variables, lats, lons, leadtimes, num_members, field_shape)
     ofilename = "otest.nc"
     workdir = "verif_workdir"
-    output = Verif(pm, workdir, ofilename, "2t", "K", sources, thresholds=thresholds,
-            quantile_levels=quantile_levels)
+    output = Verif(
+        pm,
+        workdir,
+        ofilename,
+        "2t",
+        "K",
+        sources,
+        thresholds=thresholds,
+        quantile_levels=quantile_levels,
+    )
 
     frt = 1672552800
     for member in range(num_members):

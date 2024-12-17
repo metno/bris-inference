@@ -1,7 +1,8 @@
 from bris.predict_metadata import PredictMetadata
+from bris import sources
 
 
-def instantiate(name, predict_metadata: PredictMetadata, workdir: str, init_args):
+def instantiate(name: str, init_args: dict):
     """Creates an object of type name with config
 
     Args:
@@ -9,9 +10,10 @@ def instantiate(name, predict_metadata: PredictMetadata, workdir: str, init_args
         init_args: Arguments to pass to Output constructor
     """
     if name == "frost":
-        return sources.Frost(init_args["frost_variable_name"])
+        return sources.frost.Frost(init_args["frost_variable_name"])
     elif name == "verif":
-        return sources.Verif(init_args["filename"])
+        return sources.verif.Verif(init_args["filename"])
+
 
 def expand_tokens(string, variable):
     return string.replace("%V", variable)
