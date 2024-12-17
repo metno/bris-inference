@@ -2,8 +2,7 @@ from typing import Any
 
 import torch
 from numpy import datetime64
-from torch.utils.data import IterableDataset
-from torch.utils.data import get_worker_info
+from torch.utils.data import IterableDataset, get_worker_info
 
 
 class Dataset(IterableDataset):

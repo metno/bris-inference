@@ -1,11 +1,11 @@
-import os
 import logging
+import os
 from functools import cached_property
 from typing import Any, Optional
 
 import torch
-from anemoi.utils.config import DotDict
 from anemoi.utils.checkpoints import load_metadata
+from anemoi.utils.config import DotDict
 from torch_geometric.data import HeteroData
 
 LOGGER = logging.getLogger(__name__)
