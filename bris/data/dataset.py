@@ -2,7 +2,7 @@ from typing import Any
 
 import torch
 from numpy import datetime64
-from torch.utils.data import IterableDataset, get_worker_info
+from torch.utils.data import IterableDataset
 
 
 class Dataset(IterableDataset):
@@ -37,7 +37,7 @@ class Dataset(IterableDataset):
             Worker ID
 
         """
-        if hasattr(self.data, "per_worker_init"):
+        if hasattr(self.dataCls, "per_worker_init"):
             self.dataCls.per_worker_init(n_workers=n_workers, worker_id=worker_id)
         else:
             raise RuntimeError(
@@ -50,5 +50,5 @@ class Dataset(IterableDataset):
         self,
     ) -> tuple[torch.Tensor, datetime64] | tuple[tuple[torch.Tensor], datetime64]:
 
-        for idx, x in enumerate(iter(self.data)):
+        for idx, x in enumerate(iter(self.dataCls)):
             yield (x, str(self.data.dates[idx]))

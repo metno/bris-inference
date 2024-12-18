@@ -48,6 +48,8 @@ class BasePredictor(pl.LightningModule):
         self.model_comm_num_groups = math.ceil(
             num_devices_per_nodes * num_nodes / num_device_per_model
         )
+        self.model_comm_group = None
+        
 
     def set_model_comm_group(self, model_comm_group) -> None:
         LOGGER.debug("set_model_comm_group: %s", model_comm_group)
@@ -75,8 +77,6 @@ class BrisPredictor(BasePredictor):
             self,
             *args,
             config: DictConfig,
-#            model: torch.nn.Module, 
-#            metadata: DictConfig, 
             checkpoint: Checkpoint,
             data_reader: Iterable,
             **kwargs
@@ -90,16 +90,14 @@ class BrisPredictor(BasePredictor):
 
         #TODO: where should these come from, add asserts?
         self.frequency = 6
-        self.forecast_length = 12
+        self.forecast_length = 1
         self.latitudes = data_reader.latitudes
         self.longitudes = data_reader.longitudes
-        self.select_indices = [0,2,3] #TODO take this from config?
+        self.select_indices = [3] #TODO take this from config?
         
 
         self.set_static_forcings(data_reader, self.metadata["config"]["data"]["forcing"])
         
-
-    
     def set_static_forcings(self, data_reader, selection):
 
         self.static_forcings = {}
@@ -153,7 +151,8 @@ class BrisPredictor(BasePredictor):
         multistep = self.metadata["config"]["training"]["multistep_input"]
 
         batch, time_stamp = batch
-        time = np.datetime64(time_stamp, 'h') #Consider not forcing 'h' here and instead generalize time + self.frequency
+        print(batch.shape)
+        time = np.datetime64(time_stamp[0], 'h') #Consider not forcing 'h' here and instead generalize time + self.frequency
 
         y_preds = np.zeros((batch.shape[0], self.forecast_length + 1, batch.shape[-2], len(self.select_indices)))
 
@@ -169,7 +168,7 @@ class BrisPredictor(BasePredictor):
             for fcast_step in range(self.forecast_length):
                 y_pred = self(x)
                 x = self.advance_input_predict(x, y_pred, time + fcast_step * self.frequency)
-                y_preds[:, fcast_step+1, ...] = self.model.post_processors(y_pred, in_place=False)[:,0,...,self.select_indices].cpu().to(torch.float32).numpy()
+                y_preds[:, fcast_step+1, ...] = self.model.post_processors(y_pred, in_place=False)[:,0,...,self.select_indices].cpu().to(torch.float32).numpy() 
     
         return {"pred": [y_preds], "time_stamp": time_stamp, "group_rank": self.model_comm_group_rank, "ensemble_member": 0}
                   
