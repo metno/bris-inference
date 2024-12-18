@@ -10,6 +10,7 @@ import pytorch_lightning as pl
 from omegaconf import DictConfig
 
 from .forcings import get_dynamic_forcings
+from .checkpoint import Checkpoint
 
 LOGGER = logging.getLogger(__name__)
 
@@ -74,17 +75,18 @@ class BrisPredictor(BasePredictor):
             self,
             *args,
             config: DictConfig,
-            model: torch.nn.Module, 
-            metadata: DictConfig, 
+#            model: torch.nn.Module, 
+#            metadata: DictConfig, 
+            checkpoint: Checkpoint,
             data_reader: Iterable,
             **kwargs
             ) -> None:
         super().__init__(
             *args,**kwargs)
         
-        self.model=model
+        self.model=checkpoint.model
         self.config = config
-        self.metadata = metadata
+        self.metadata = checkpoint.metadata
 
         #TODO: where should these come from, add asserts?
         self.frequency = 6
@@ -101,7 +103,7 @@ class BrisPredictor(BasePredictor):
     def set_static_forcings(self, data_reader, selection):
 
         self.static_forcings = {}
-        data = torch.from_numpy(data_reader[0].squeeze(axis=2).swapaxes(0,1))
+        data = torch.from_numpy(data_reader[0].squeeze(axis=1).swapaxes(0,1))
         data_normalized = self.model.pre_processors(data)
 
         if "cos_latitude" in selection:
@@ -161,9 +163,9 @@ class BrisPredictor(BasePredictor):
         y_preds[:,0,...] = y_analysis[...,self.select_indices].cpu().to(torch.float32).numpy()
 
         #Possibly have to extend this to handle imputer, see _step in forecaster.
-        with torch.no_grad():
-            batch = self.model.pre_processors(batch, in_place=False)
-            x = batch[..., data_indices.internal_data.input.full]
+        batch = self.model.pre_processors(batch, in_place=False)
+        x = batch[..., data_indices.internal_data.input.full]
+        with torch.amp.autocast(device_type= "cuda", dtype=torch.bfloat16):
             for fcast_step in range(self.forecast_length):
                 y_pred = self(x)
                 x = self.advance_input_predict(x, y_pred, time + fcast_step * self.frequency)

@@ -23,6 +23,10 @@ class Checkpoint:
         self.path = path
 
     @cached_property
+    def metadata(self) -> dict:
+        return self._metadata
+
+    @cached_property
     def _metadata(self) -> dict:
         """
         Metadata of the model. This includes everything as in:
@@ -74,6 +78,10 @@ class Checkpoint:
             return self._metadata.config.training.multistep_input
         else:
             raise RuntimeError("Cannot find multistep")
+
+    @property
+    def model(self) -> Any:
+        return self._model_instance
 
     @cached_property
     def _model_instance(self) -> Any:

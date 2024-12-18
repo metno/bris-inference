@@ -281,10 +281,36 @@ class DataModule(pl.LightningDataModule):
         )
         return timestep // frequency
 
-    @property
+    @cached_property
     def grids(self):
-        """Returns a diction of grids and their grid point ranges"""
-        return {"global": {"start": 1, "end": 2}, "meps": {"start": 3, "end": 4}}
+        return self.data_reader.grids
+    
+    @cached_property
+    def latitudes(self):
+        return self.data_reader.latitudes
+    
+    @cached_property
+    def longitudes(self):
+        return self.data_reader.longitudes
+    
+    @cached_property
+    def field_shape(self):
+        if hasattr(self.data_reader, "datasets"):
+            field_shape = ()
+            for dataset in self.data_reader.datasets:
+                if hasattr(dataset, "datasets"):
+                    field_shape_dataset = ()
+                    for sub_dataset in dataset.datasets:
+                        field_shape_dataset += (sub_dataset.field_shape,)
+                else:
+                    field_shape_dataset = dataset.field_shape
+                
+                field_shape += (field_shape_dataset,)
+        else:
+            field_shape = self.data_reader.field_shape
+        return field_shape
+            
+
 
 
 def worker_init_func(worker_id: int) -> None:

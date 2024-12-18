@@ -1,17 +1,17 @@
 import numpy as np
 import torch
 
-def phase_of_day(time) -> np.float:
+def phase_of_day(time) -> float:
     hour = time.astype(int)
     return hour * 2 * np.pi / 24
 
-def phase_of_year(time) -> np.float:
+def phase_of_year(time) -> float:
     return (phase_of_day(time) - np.pi/2)/365.25   
 
-def cos_julian_day(time) -> np.float:
+def cos_julian_day(time) -> float:
     return np.cos(phase_of_year(time))
 
-def sin_julian_day(time) -> np.float:
+def sin_julian_day(time) -> float:
     return np.sin(phase_of_year(time))
 
 def local_phase_of_day(time, lons) -> np.ndarray:
