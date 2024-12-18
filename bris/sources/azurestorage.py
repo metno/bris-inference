@@ -55,10 +55,16 @@ class AzureStorage:
     def _check_dir(self):
         from pathlib import Path
 
-        PATH = Path(self.PATH)
+        if not self.PATH:
+            PATH = Path.cwd()
+        else:
+            PATH = Path(self.PATH)
+
         PATH = PATH / "input"
         if not PATH.exists():
+            LOGGER.info(f"Input folder does path exists. Creating folder at: {PATH}")
             PATH.mkdir()
+
         self.PATH = PATH
         LOGGER.info("Input folder path exists, will not create folder")
 
@@ -93,8 +99,8 @@ class AzureStorage:
             return blobs  # [:self.lagged]
 
         except Exception as e:
-            LOGGER.error(f"Error downloading/fetching blob. An exception occured: {e}")
-            raise
+            LOGGER.error(f"Error fetching blob information. An exception occured!" exc_info=True)
+            raise RuntimeError("Error fetching blob information.") from e
 
     @property
     def download_blob(self) -> None:
@@ -112,8 +118,8 @@ class AzureStorage:
                     download_stream = blob_client.download_blob()
                     currBlob.write(download_stream.readall())
             except Exception as e:
-                LOGGER.error(f"An exception were raised: {e}")
-                raise
+                LOGGER.error(f"Error in downloading blob to local filesystem.")
+                raise RuntimeError("Error in downloading blob.") from e
 
         with ThreadPoolExecutor(max_workers=4) as executor:
             futures = [
