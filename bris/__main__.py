@@ -26,8 +26,8 @@ def main():
     parser.add_argument("--debug", action="store_true")
     parser.add_argument("--config", type=str, required=True)
     parser.add_argument("-c", type=str, dest="checkpoint_path", required=True)
-    parser.add_argument("-sd", type=int, dest="start_date", default=None, const=None)
-    parser.add_argument("-ed", type=int, dest="end_date", default=None, const=None)
+    parser.add_argument("-sd", type=int, dest="start_date")
+    parser.add_argument("-ed", type=int, dest="end_date")
 
     parser.add_argument(
         "-p",
@@ -35,11 +35,9 @@ def main():
         dest="paths",
         nargs="*",
         help="List of paths for input data",
-        default=None,
-        const=None,
     )
-    parser.add_argument("-f", type=str, dest="frequency", default=None, const=None)
-    parser.add_argument("-s", type=str, dest="timestep", default=None, const=None)
+    parser.add_argument("-f", type=str, dest="frequency")
+    parser.add_argument("-s", type=str, dest="timestep")
     args = parser.parse_args()
 
     try:
