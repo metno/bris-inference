@@ -27,6 +27,22 @@ def instantiate(name: str, predict_metadata: PredictMetadata, workdir: str, init
     else:
         raise ValueError(f"Invalid output: {name}")
 
+def get_required_variables(name, init_args):
+    """What variables does this output require? Return None if it will process all variables
+    provided
+    """
+
+    if name == "netcdf":
+        if "variables" in init_args:
+            return init_args["variables"]
+        else:
+            return None
+
+    elif name == "verif":
+        return [init_args["variable"]]
+
+    else:
+        raise ValueError(f"Invalid output: {name}")
 
 def expand_tokens(string, variable):
     return string.replace("%V", variable)
@@ -39,7 +55,7 @@ class Output:
         """Creates an object of type name with config
 
         Args:
-            predict_metadata: Contains metadata about the bathc the output will recive
+            predict_metadata: Contains metadata about the batch the output will recieve
         """
 
         self.pm = predict_metadata

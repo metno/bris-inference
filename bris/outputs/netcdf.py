@@ -28,21 +28,28 @@ class Netcdf(Output):
         predict_metadata: PredictMetadata,
         workdir: str,
         filename_pattern: str,
+        variables=None,
         interp_res=None,
     ):
         """
         Args:
             filename_pattern: Save predictions to this filename after time tokens are expanded
             interp_res: Interpolate to this resolution [degrees] on a lat/lon grid
+            variables: If None, predict all variables
         """
         super().__init__(predict_metadata)
+
         self.filename_pattern = filename_pattern
+        if variables is None:
+            self.extract_variables = predict_metadata.variables
+        else:
+            self.extract_variables = variables
 
         self.intermediate = None
         if self.pm.num_members > 1:
             self.intermediate = Intermediate(predict_metadata, workdir)
 
-        self.variable_list = VariableList(self.pm.variables)
+        self.variable_list = VariableList(self.extract_variables)
 
         # Conventions specify the names of variables in the output
         # CF-standard names are added in the standard_name attributes

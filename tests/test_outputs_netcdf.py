@@ -13,7 +13,7 @@ def test_1():
     pm = PredictMetadata(variables, lats, lons, leadtimes, num_members, field_shape)
     pattern = "test_%Y%m%dT00Z.nc"
     workdir = "test_gridded"
-    output = Netcdf(pm, workdir, pattern, 0.2)
+    output = Netcdf(pm, workdir, pattern, interp_res=0.2)
 
     pred = np.random.rand(*pm.shape)
     frt = 0

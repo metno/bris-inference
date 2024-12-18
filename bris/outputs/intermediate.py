@@ -13,6 +13,7 @@ class Intermediate(Output):
     """
 
     def __init__(self, predict_metadata, workdir):
+        super().__init__(predict_metadata)
         self.pm = predict_metadata
         self.workdir = workdir
 
