@@ -137,7 +137,7 @@ class BrisPredictor(BasePredictor):
         forcings = get_dynamic_forcings(time, self.latitudes, self.longitudes, self.metadata["config"]["data"]["forcing"])
         forcings.update(self.static_forcings)
 
-        for forcing, value in forcing.items():
+        for forcing, value in forcings.items():
             if type(value) == np.ndarray:
                 x[:, -1, :, :, data_indices.internal_model.input.name_to_index[forcing]] = torch.from_numpy(value)
             else:
@@ -168,9 +168,7 @@ class BrisPredictor(BasePredictor):
                 y_pred = self(x)
                 x = self.advance_input_predict(x, y_pred, time + fcast_step * self.frequency)
                 y_preds[:, fcast_step+1, ...] = self.model.post_processors(y_pred, in_place=False)[:,0,...,self.select_indices].cpu().to(torch.float32).numpy()
-
-        # Send predictions to cpu on the fly, then concatenate on cpu after all the fcast steps
-        # Could change to pre-allocate y_preds as np array on cpu and then write to it, concat might be expensive..
+    
         return {"pred": [y_preds], "time_stamp": time_stamp, "group_rank": self.model_comm_group_rank, "ensemble_member": 0}
                   
 
