@@ -43,7 +43,10 @@ class DataModule(AnemoiDatasetsDataModule):
 
     @property
     def grids(self):
-        """Returns a diction of grids and their grid point ranges"""
+        """Returns a diction of grids and their grid point ranges:
+        """
+        #[[{"start": 0, "end": 10000}, {"start": 10001, "end": 20000}], [{"start": 0, "end": 100000}]]
+
         return {"global": {"start": 1, "end": 2}, "meps": {"start": 3, "end": 4}}
 
 
