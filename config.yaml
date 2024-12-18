@@ -42,23 +42,35 @@ checkpoints:
     type: forecaster
     path: forecast.ckpt
 
-outputs:
-  global:
-    - netcdf:
-        filename_pattern: "%Y/%m/%d/test_%Y%m%dT%HZ.nc"
-        variables: [air_temperature_2m, wind_speed_10m, relative_humidity_2m]
-    - verif:
-      filename: t2m_point_verification_%V.nc
-      variables: air_temperature_2m
-      obs:
-        - netcdf:
-            path: path_with_obs.nc
-        - frost:
-            frost_client_id: 123
-            station_list: norway_wmo
-    - verif:
-      filename: t2m_grid_verification_%V.nc
-      variable: air_temperature_2m
-      thinning: 40
-  lam1:
-    - netcdf: 1
+routing:
+  - decoder_index: 0
+    domain: 0
+    outputs:
+      - netcdf:
+          filename_pattern: pred_%Y%m%dT%HZ.nc
+          variables: [2t, mslp]
+  - decoder_index: 0
+    domain: 1
+    outputs:
+      - verif:
+          filename: global/2t/%R.nc   # global/2t/legendary_gnome.nc
+          variable: 2t
+          thresholds: [0, 10, 20]
+          quantile_levels: [0.1, 0.9]
+          obs:
+            - netcdf:
+                path: 2t.nc
+      - verif:
+          filename: global/mslp/%R.nc   # global/2t/legendary_gnome.nc
+          variable: mslp
+          thresholds: [970, 1000, 1020]
+          quantile_levels: [0.1, 0.9]
+          obs:
+            - netcdf:
+                path: mslp.nc
+
+  - decoder_index: 1
+    domain: 0
+    outputs:
+      - netcdf:
+          filename_pattern: netatmo_%Y%m%dT%HZ.nc
