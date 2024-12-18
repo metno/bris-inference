@@ -16,9 +16,11 @@ from torch.utils.data import DataLoader
 from torch_geometric.data import HeteroData
 
 
-from checkpoint import Checkpoint
-from data.dataset import Dataset
-from utils import check_anemoi_dataset_version
+from bris.checkpoint import Checkpoint
+from bris.data.dataset import Dataset
+from bris.utils import check_anemoi_dataset_version
+from bris.utils import check_anemoi_training
+
 
 LOGGER = logging.getLogger(__name__)
 
@@ -29,7 +31,6 @@ class DataModule(pl.LightningDataModule):
         config: DotDict = None,
         checkpoint_object: Checkpoint = None,
         paths: Optional[list[str]] = None,
-        graph: Optional[tuple[HeteroData, dict]] = None,
         **kwargs: Any,
     ) -> None:
         """
@@ -46,12 +47,9 @@ class DataModule(pl.LightningDataModule):
             config, DictConfig
         ), f"Expecting config to be DotDict object, but got {type(config)}"
 
-        assert isinstance(
-            graph, (HeteroData, dict)
-        ), f"Expecting graph to be of type torch_geometric.data.HeteroData or dict, got {type(graph)}"
 
         self.config = config
-        self.graph = graph
+        self.graph = checkpoint_object.graph
         self.ckptObj = checkpoint_object
 
         self.global_rank = int(os.environ.get("SLURM_PROCID", "0"))  # global rank
@@ -100,10 +98,9 @@ class DataModule(pl.LightningDataModule):
                     p
                 ), f"The given input data path does not exist. Got {p}"
             self.paths = paths
-        self.legacy = check_anemoi_dataset_version(metadata=self.ckptObj._metadata)
+        #self.legacy = check_anemoi_dataset_version(metadata=self.ckptObj._metadata)
+        self.legacy = not check_anemoi_training(metadata=self.ckptObj._metadata)
 
-        for i, b in enumerate(self.predict_dataloader()):
-            print(i, type(b[0]), b[1])
 
     def predict_dataloader(self) -> DataLoader:
         """
@@ -178,9 +175,10 @@ class DataModule(pl.LightningDataModule):
         return:
             an dataset class object
         """
-        if self.legacy[0]:
+        if self.legacy:
             # TODO: fix imports and pip packages for legacy version
-            LOGGER.info(f"Found legacy anemoi.datasets version: {self.legacy[-1]}")
+            LOGGER.info("""Did not find anemoi.training version in checkpoint metadata, assuming 
+                        the model was trained with aifs-mono and using legacy functionality""")
 
             spatial_mask = {}
             for mesh_name, mesh in self.graph.items():
@@ -211,21 +209,14 @@ class DataModule(pl.LightningDataModule):
                 f"Obtained data class for {dataCls.__name__}. Proceeding to wrap data class"
             )
         else:
-            LOGGER.info(f"Found non legacy anemoi.datasets version: {self.legacy[-1]}")
             dataCls = instantiate(
                 config=self.config.datamodule,
                 data_reader=data_reader,
                 rollout=0,  # we dont perform rollout during inference
                 multistep=self.ckptObj.multistep,
                 timeincrement=self.timeincrement,
-                model_comm_group_rank=self.model_comm_group_rank,
-                model_comm_group_id=self.model_comm_group_id,
-                model_comm_num_groups=self.model_comm_num_groups,
                 shuffle=False,
                 label="predict",
-            )
-            LOGGER.info(
-                f"Obtained data class for {dataCls.__name__}. Proceeding to wrap data class"
             )
 
         return Dataset(dataCls)

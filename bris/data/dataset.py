@@ -20,6 +20,7 @@ class Dataset(IterableDataset):
             self.data = dataCls.data
         else:
             raise RuntimeError("dataCls does not have attribute data")
+        self.dataCls = dataCls
 
     def per_worker_init(self, n_workers, worker_id):
         """
@@ -37,11 +38,13 @@ class Dataset(IterableDataset):
 
         """
         if hasattr(self.data, "per_worker_init"):
-            self.data.per_worker_init(n_workers=n_workers, worker_id=worker_id)
+            self.dataCls.per_worker_init(n_workers=n_workers, worker_id=worker_id)
         else:
             raise RuntimeError(
                 "Warning: Underlying dataset does not implement 'per_worker_init'."
             )
+    
+
 
     def __iter__(
         self,
