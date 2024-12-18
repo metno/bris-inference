@@ -259,7 +259,7 @@ class DataModule(pl.LightningDataModule):
 
             for d, p in zip(self.config.datasets.cutout, self.paths):
                 d["dataset"] = p if not p.endswith("/") else p.rstrip("/")
-            return open_dataset(self.config.datasets)
+            return open_dataset(self.config.dataset)
         return open_dataset(self.config.dataset)
 
     @cached_property
