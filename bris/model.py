@@ -8,6 +8,7 @@ from typing import Optional, Any, Iterable
 import torch 
 import pytorch_lightning as pl
 from omegaconf import DictConfig
+from torch.distributed.distributed_c10d import ProcessGroup
 
 from .forcings import get_dynamic_forcings
 from .checkpoint import Checkpoint
@@ -18,9 +19,6 @@ class BasePredictor(pl.LightningModule):
     def __init__(
             self, 
             *args: Any, 
-            num_device_per_model: Optional[int] = 1,
-            num_devices_per_nodes: Optional[int] = 1,
-            num_nodes: Optional[int] = 1,
             **kwargs : Any
             ):
         """ 
@@ -38,22 +36,36 @@ class BasePredictor(pl.LightningModule):
 
         super().__init__(*args, **kwargs)
 
-        assert num_device_per_model >= 1, f"Number of device per model is not greater or equal to 1. Got: {num_device_per_model}"
-        assert num_devices_per_nodes >= 1, f"Number of device per node is not greater or equal to 1. Got: {num_device_per_model}"
-        assert num_nodes >= 1, f"Number of nodes is not greater or equal to 1. Got : {num_nodes}" 
+        #assert num_device_per_model >= 1, f"Number of device per model is not greater or equal to 1. Got: {num_device_per_model}"
+        #assert num_devices_per_nodes >= 1, f"Number of device per node is not greater or equal to 1. Got: {num_device_per_model}"
+        #assert num_nodes >= 1, f"Number of nodes is not greater or equal to 1. Got : {num_nodes}" 
 
 
-        self.model_comm_group_id = int(os.environ.get("SLURM_PROCID", "0")) // num_device_per_model
-        self.model_comm_group_rank = int(os.environ.get("SLURM_PROCID", "0")) % num_device_per_model
-        self.model_comm_num_groups = math.ceil(
-            num_devices_per_nodes * num_nodes / num_device_per_model
-        )
+        #self.model_comm_group_id = int(os.environ.get("SLURM_PROCID", "0")) // num_device_per_model
+        #self.model_comm_group_rank = int(os.environ.get("SLURM_PROCID", "0")) % num_device_per_model
+        #self.model_comm_num_groups = math.ceil(
+        #    num_devices_per_nodes * num_nodes / num_device_per_model
+        #)
+
+        # lazy init model and reader group info, will be set by the DDPGroupStrategy:
         self.model_comm_group = None
-        
+        self.model_comm_group_id = 0
+        self.model_comm_group_rank = 0
+        self.model_comm_num_groups = 1
 
-    def set_model_comm_group(self, model_comm_group) -> None:
-        LOGGER.debug("set_model_comm_group: %s", model_comm_group)
+    def set_model_comm_group(
+        self,
+        model_comm_group: ProcessGroup,
+        model_comm_group_id: int,
+        model_comm_group_rank: int,
+        model_comm_num_groups: int,
+        model_comm_group_size: int,
+    ) -> None:
         self.model_comm_group = model_comm_group
+        self.model_comm_group_id = model_comm_group_id
+        self.model_comm_group_rank = model_comm_group_rank
+        self.model_comm_num_groups = model_comm_num_groups
+        self.model_comm_group_size = model_comm_group_size
 
     @abstractmethod
     def get_static_forcings(self, datareader):
@@ -76,24 +88,27 @@ class BrisPredictor(BasePredictor):
     def __init__(
             self,
             *args,
-            config: DictConfig,
             checkpoint: Checkpoint,
             data_reader: Iterable,
+            forecast_length: int,
+            select_indices,
             **kwargs
             ) -> None:
         super().__init__(
             *args,**kwargs)
         
         self.model=checkpoint.model
-        self.config = config
         self.metadata = checkpoint.metadata
 
         #TODO: where should these come from, add asserts?
-        self.frequency = 6
-        self.forecast_length = 1
+        self.frequency = self.metadata["config"]["data"]["frequency"]
+        if isinstance(self.frequency, str) and self.frequency[-1] == 'h':
+            self.frequency = self.frequency[0:-1]
+
+        self.forecast_length = forecast_length
         self.latitudes = data_reader.latitudes
         self.longitudes = data_reader.longitudes
-        self.select_indices = [3] #TODO take this from config?
+        self.select_indices = select_indices
         
 
         self.set_static_forcings(data_reader, self.metadata["config"]["data"]["forcing"])
@@ -177,7 +192,6 @@ class NetatmoPredictor(BasePredictor):
     def __init__(
             self,
             *args,
-            config: DictConfig,
             model: torch.nn.Module, 
             metadata: DictConfig, 
             datareader: Iterable,

@@ -6,24 +6,9 @@ run_options:
 start_date: 2020-02-06
 end_date: 2020-02-07
 
-# Send this to open_dataset
-datasets:
-  cutout:
-    - dataset : ${hardware.paths.datasets.data}/${hardware.files.lam_dataset}
-      #thinning: 4
-    - dataset : ${hardware.paths.datasets.data}/${hardware.files.global_dataset}
-  adjust: all
-  min_distance_km : 0
-  neighbours: 2
+forecast_length: 12 #In model steps
 
-dataset_obs:
-    dataset: ${hardware.paths.datasets.data_obs}/${hardware.files.dataset_obs}
-
-dataset:
-  zip:
-    - dataset: ${datasets}
-    - dataset: ${dataset_obs}
-  adjust: ["start", "end"]
+dataset: ${hardware.paths.data}${hardware.files.global_dataset}
 
 dataloader:
   batch_size: 1
@@ -32,26 +17,22 @@ dataloader:
   pin_memory: True 
 
 datamodule:
-  _target_: anemoi.training.data.dataset.ZipDataset
+  _target_: anemoi.training.data.dataset.NativeGridDataset #anemoi.training.data.dataset.ZipDataset
   _convert_: all
 
 hardware:
   paths:
-    datasets:
-      data: null
-      data_obs: null
+    data: /lustre/storeB/project/nwp/aifs/datasets/
   files:
     lam_dataset: name_of_dataset 
-    global_dataset: name_of_dataset 
+    global_dataset: aifs-od-an-oper-0001-mars-o96-2016-2023-6h-v6.zarr
     dataset_obs: name_of_dataset
   
 
 model:
-  graph:
-    #path: something
-    # maybe add information on how to build graph
-    # if path is not provided and the user wish to
-    # build and assign new graph
+  _target_: bris.model.BrisPredictor
+  _convert_: all
+
 
 checkpoints:
   - my_interpolator:

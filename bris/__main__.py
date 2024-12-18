@@ -3,6 +3,7 @@ import logging
 
 import omegaconf
 import yaml
+from hydra.utils import instantiate
 
 import bris.output
 import bris.utils
@@ -13,6 +14,7 @@ from .forecaster import BrisForecaster
 from .inference import Inference
 from .predict_metadata import PredictMetadata
 from .writer import CustomWriter
+
 
 LOGGER = logging.getLogger(__name__)
 
@@ -84,7 +86,13 @@ def main():
     writer = CustomWriter(decoder_outputs, write_interval="batch")
 
     # Forecaster must know about what leadtimes to output
-    model = BrisPredictor(config, model, metadata, data_reader, decoder_variables)
+    #model = BrisPredictor(config, model, metadata, data_reader, decoder_variables)
+    model = instantiate(config.model, 
+                        checkpoint = checkpoint,
+                        data_reader = datamodule.data_reader,
+                        forecast_length = config.forecast_length,
+                        select_indices = [0,1,2,3] #TODO: fix
+    )    
 
     callbacks = list()
     callbacks += [writer]
