@@ -49,7 +49,7 @@ class PredictMetadata:
 
     @property
     def is_gridded(self):
-        return self.field_shape is not None
+        return len(self.field_shape) == 2
 
     @property
     def grid_lats(self):

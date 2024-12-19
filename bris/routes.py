@@ -7,12 +7,12 @@ from bris.data.datamodule import DataModule
 from bris.predict_metadata import PredictMetadata
 
 
-def get(routing_config: dict, num_leadtimes: list, num_members: int, data_module: DataModule, run_name: str, workdir: str):
+def get(routing_config: dict, leadtimes: list, num_members: int, data_module: DataModule, run_name: str, workdir: str):
     """Returns outputs for each decoder and domain
 
     Args:
         routing_config: Dictionary from config file
-        num_leadtimes: Number of leadtimes in outptu
+        leadtimes: List of leadtimes that the model will produce
         data_module: Data module
         run_name: Name of this run used by outputs to set filenames
     Returns:
@@ -29,9 +29,6 @@ def get(routing_config: dict, num_leadtimes: list, num_members: int, data_module
         domain_index = config["domain"]
 
         curr_grids = data_module.grids[decoder_index]
-        if isinstance(curr_grids, int): #ugly fix
-            curr_grids = (curr_grids,)
-
         if domain_index == 0:
             start_gridpoint = 0
             end_gridpoint = curr_grids[domain_index]
@@ -43,11 +40,11 @@ def get(routing_config: dict, num_leadtimes: list, num_members: int, data_module
         for oc in config["outputs"]:
             # TODO: Get this from data_module
             variables = ["u_800", "u_600", "2t", "v_500", "10u"]
-            lats = [1, 2]
-            lons = [2, 3]
-            field_shape = None
+            lats = data_module.latitudes[decoder_index]
+            lons = data_module.longitudes[decoder_index]
+            field_shape = data_module.field_shape[decoder_index][domain_index]
 
-            pm = PredictMetadata(required_variables[decoder_index], lats, lons, num_leadtimes,
+            pm = PredictMetadata(required_variables[decoder_index], lats, lons, leadtimes,
                     num_members, field_shape)
 
             for output_type, args in oc.items():
@@ -72,15 +69,14 @@ def get(routing_config: dict, num_leadtimes: list, num_members: int, data_module
 
 def get_required_variables(routing_config: dict):
     """Returns a list of required variables for each decoder"""
-    required_variables = defaultdict(list)
+    required_variables = dict()
     for rc in routing_config:
         l = list()
         for oc in rc["outputs"]:
             for output_type, args in oc.items():
                 l += bris.outputs.get_required_variables(output_type, args)
-        required_variables[rc["decoder_index"]] += l
-    for k,v in required_variables.items():
-        required_variables[k] = sorted(list(set(v)))
+        l = sorted(list(set(l)))
+        required_variables[rc["decoder_index"]] = l
     return required_variables
 
 def expand_run_name(string, run_name):

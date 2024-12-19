@@ -1,4 +1,5 @@
 from pytorch_lightning.callbacks import BasePredictionWriter
+import numpy as np
 
 
 class CustomWriter(BasePredictionWriter):
@@ -37,7 +38,9 @@ class CustomWriter(BasePredictionWriter):
             
             for output_dict in self.outputs:
                 pred = prediction["pred"][output_dict["decoder_index"]] 
-                pred = pred[...,output_dict["start"]:output_dict["end"],:]
+                assert pred.shape[0] == 1, "Batchsize (per dataparallel) should be 1"
+                pred = np.squeeze(pred)
+                pred = pred[...,output_dict["start_gridpoint"]:output_dict["end_gridpoint"],:]
 
                 for output in output_dict["outputs"]:
                     output.add_forecast(times, ensemble_member, pred) #change timestamp to times

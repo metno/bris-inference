@@ -37,17 +37,21 @@ def main():
         config=config,
         checkpoint_object=checkpoint,
     )
+    print(type(datamodule.longitudes))
+    print(datamodule.longitudes)
+    print(datamodule.latitudes)
+    print(datamodule.field_shape)
+    print(datamodule.grids)
 
     # Assemble outputs
     run_name = "legendary_gnome"
     workdir = "testdir"
     # TODO: Figure out what the leadtimes are based on the config
-    leadtimes = range(0, 66) #Comes from prediction_step
     # TODO: Get this from the config
-    num_members = 2
+    num_members = 1
 
     # Get outputs and required_variables of each decoder
-    decoder_outputs = bris.routes.get(config["routing"], leadtimes, num_members, datamodule, run_name, workdir) #get num_leadtimes from config.leadtimes
+    decoder_outputs = bris.routes.get(config["routing"], config.leadtimes, num_members, datamodule, run_name, workdir) #get num_leadtimes from config.leadtimes
 #    decoder_variables = bris.routes.get_required_variables(config["routing"])
 
     writer = CustomWriter(decoder_outputs, write_interval="batch")

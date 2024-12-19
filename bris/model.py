@@ -165,7 +165,7 @@ class BrisPredictor(BasePredictor):
         batch, time_stamp = batch
         time = np.datetime64(time_stamp[0], 'h') #Consider not forcing 'h' here and instead generalize time + self.frequency
         times = [time]
-        y_preds = np.zeros((batch.shape[0], self.forecast_length + 1, batch.shape[-2], len(self.select_indices)))
+        y_preds = np.zeros((batch.shape[0], self.forecast_length, batch.shape[-2], len(self.select_indices)))
 
         #Insert analysis for t=0
         y_analysis = batch[:,multistep-1,0,...]
@@ -176,7 +176,7 @@ class BrisPredictor(BasePredictor):
         batch = self.model.pre_processors(batch, in_place=False)
         x = batch[..., data_indices.internal_data.input.full]
         with torch.amp.autocast(device_type= "cuda", dtype=torch.bfloat16):
-            for fcast_step in range(self.forecast_length):
+            for fcast_step in range(self.forecast_length-1):
                 y_pred = self(x)
                 time += self.frequency
                 x = self.advance_input_predict(x, y_pred, time)

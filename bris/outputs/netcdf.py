@@ -77,7 +77,7 @@ class Netcdf(Output):
     @property
     def _is_gridded(self):
         """Is the output gridded?"""
-        return self.pm.field_shape is not None or self.interp_res is not None
+        return len(self.pm.field_shape) == 2 or self.interp_res is not None
 
     @property
     def _interpolate(self):

@@ -3,7 +3,7 @@ end_date: 2020-02-07
 
 checkpoint_path: /lustre/storeB/project/nwp/aifs/havardhh/bris-inference/inference-anemoi-by_time-epoch_075-step_149656.ckpt
 
-leadtimes: 12 
+leadtimes: 4
 timestep: 6h
 frequency: 6h
 

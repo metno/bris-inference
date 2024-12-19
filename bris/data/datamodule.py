@@ -3,6 +3,7 @@ import os
 from functools import cached_property
 from typing import Any, Optional
 
+import numpy as np
 import pytorch_lightning as pl
 from anemoi.utils.config import DotDict
 from anemoi.utils.dates import frequency_to_seconds
@@ -222,21 +223,30 @@ class DataModule(pl.LightningDataModule):
         """
         Retrieves a tuple of flatten grid shape(s).
         """
-        return self.data_reader.grids
+        if isinstance(self.data_reader.grids[0], int):
+            return (self.data_reader.grids,)
+        else: 
+            return self.data_reader.grids
 
     @cached_property
     def latitudes(self) -> tuple:
         """
         Retrieves latitude from data_reader method
         """
-        return self.data_reader.latitudes
+        if isinstance(self.data_reader.latitudes, np.ndarray):
+            return (self.data_reader.latitudes,)
+        else:
+            return self.data_reader.latitudes
 
     @cached_property
     def longitudes(self) -> tuple:
         """
         Retrieves longitude from data_reader method
         """
-        return self.data_reader.longitudes
+        if isinstance(self.data_reader.longitudes, np.ndarray):
+            return (self.data_reader.longitudes,)
+        else:
+            return self.data_reader.longitudes
 
     @cached_property
     def field_shape(self) -> tuple:
@@ -260,8 +270,8 @@ class DataModule(pl.LightningDataModule):
 
                 field_shape += (field_shape_dataset,)
         else:
-            field_shape = self.data_reader.field_shape
-        return field_shape
+            field_shape = ((self.data_reader.field_shape,),) 
+        return field_shape #probably have to fix this for cutout
 
 
 def worker_init_func(worker_id: int) -> None:
