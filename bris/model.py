@@ -103,7 +103,7 @@ class BrisPredictor(BasePredictor):
         #TODO: where should these come from, add asserts?
         self.frequency = self.metadata["config"]["data"]["frequency"]
         if isinstance(self.frequency, str) and self.frequency[-1] == 'h':
-            self.frequency = self.frequency[0:-1]
+            self.frequency = int(self.frequency[0:-1])
 
         self.forecast_length = forecast_length
         self.latitudes = data_reader.latitudes
@@ -166,9 +166,8 @@ class BrisPredictor(BasePredictor):
         multistep = self.metadata["config"]["training"]["multistep_input"]
 
         batch, time_stamp = batch
-        print(batch.shape)
         time = np.datetime64(time_stamp[0], 'h') #Consider not forcing 'h' here and instead generalize time + self.frequency
-
+        times = [time]
         y_preds = np.zeros((batch.shape[0], self.forecast_length + 1, batch.shape[-2], len(self.select_indices)))
 
         #Insert analysis for t=0
@@ -182,10 +181,16 @@ class BrisPredictor(BasePredictor):
         with torch.amp.autocast(device_type= "cuda", dtype=torch.bfloat16):
             for fcast_step in range(self.forecast_length):
                 y_pred = self(x)
-                x = self.advance_input_predict(x, y_pred, time + fcast_step * self.frequency)
+                print(type(time))
+                print(time)
+                print(type(self.frequency))
+                print(self.frequency)
+                time += self.frequency
+                print(time)
+                x = self.advance_input_predict(x, y_pred, time)
                 y_preds[:, fcast_step+1, ...] = self.model.post_processors(y_pred, in_place=False)[:,0,...,self.select_indices].cpu().to(torch.float32).numpy() 
-    
-        return {"pred": [y_preds], "time_stamp": time_stamp, "group_rank": self.model_comm_group_rank, "ensemble_member": 0}
+                times.append(time)
+        return {"pred": [y_preds], "times": times, "group_rank": self.model_comm_group_rank, "ensemble_member": 0}
                   
 
 class NetatmoPredictor(BasePredictor):

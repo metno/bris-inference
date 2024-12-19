@@ -1,7 +1,7 @@
 start_date: 2020-02-06
 end_date: 2020-02-07
 
-checkpoint_path: #Path to checkpoint 
+checkpoint_path: /lustre/storeB/project/nwp/aifs/havardhh/bris-inference/inference-anemoi-by_time-epoch_075-step_149656.ckpt
 
 leadtimes: 12 
 timestep: 6h
@@ -18,6 +18,8 @@ dataloader:
   prefetch_factor: 2
   num_workers: 1
   pin_memory: True
+
+  read_group_size: ${run_options.num_gpus_per_model}
 
   predict:
     dataset: ${dataset}

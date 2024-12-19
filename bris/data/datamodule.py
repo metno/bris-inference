@@ -159,7 +159,7 @@ class DataModule(pl.LightningDataModule):
             return dataCls
         else:
             dataCls = instantiate(
-                config=self.config.datamodule,
+                config=self.config.dataloader.datamodule,
                 data_reader=data_reader,
                 rollout=0,  # we dont perform rollout during inference
                 multistep=self.ckptObj.multistep,
@@ -187,7 +187,7 @@ class DataModule(pl.LightningDataModule):
             An anemoi open_dataset object
         """
         from anemoi.datasets import open_dataset
-        return open_dataset(self.config.dataset)
+        return open_dataset(self.config.dataloader.predict)
 
     @cached_property
     def timeincrement(self) -> int:

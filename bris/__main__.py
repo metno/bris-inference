@@ -4,6 +4,7 @@ from argparse import ArgumentParser
 from hydra.utils import instantiate
 
 import bris.utils
+import bris.routes
 
 from .checkpoint import Checkpoint
 from bris.data.datamodule import DataModule
@@ -26,24 +27,22 @@ def main():
 
     # Load checkpoint, and patch it if needed
     checkpoint = Checkpoint(config.checkpoint_path)
-    if hasattr(config.model.graph, "path"):
+    if hasattr(config.model, "graph"):
         LOGGER.info("Update graph is enabled. Proceeding to change internal graph")
         checkpoint.update_graph(
-            config.model.graph.path
+            config.model.graph
         )  # Pass in a new graph if needed
 
-    # TODO: should frequency and timestep be input args? conf based or both?
     datamodule = DataModule(
         config=config,
         checkpoint_object=checkpoint,
-        graph=checkpoint.graph,
     )
-    # Assemble outputs
 
+    # Assemble outputs
     run_name = "legendary_gnome"
     workdir = "testdir"
     # TODO: Figure out what the leadtimes are based on the config
-    leadtimes = range(0, 66)
+    leadtimes = range(0, 66) #Comes from prediction_step
     # TODO: Get this from the config
     num_members = 2
 

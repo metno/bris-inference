@@ -86,6 +86,7 @@ def create_config(parser: ArgumentParser) -> OmegaConf:
         default=None,
         const=None,
     )
+    #TODO: Logic that can add dataset or cutout dataset to the dataloader config
 
     parser.add_argument("-f", type=str, dest="frequency", default=config.frequency)
     parser.add_argument("-s", type=str, dest="timestep", default=config.timestep)
