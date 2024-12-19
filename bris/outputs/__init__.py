@@ -1,7 +1,5 @@
 import numpy as np
-
 from bris import sources
-
 from bris.predict_metadata import PredictMetadata
 
 
@@ -26,6 +24,7 @@ def instantiate(name: str, predict_metadata: PredictMetadata, workdir: str, init
 
     else:
         raise ValueError(f"Invalid output: {name}")
+
 
 def get_required_variables(name, init_args):
     """What variables does this output require? Return None if it will process all variables
@@ -57,28 +56,24 @@ class Output:
 
         self.pm = predict_metadata
 
-    def add_forecast(
-        self, forecast_reference_time: int, ensemble_member: int, pred: np.array
-    ):
+    def add_forecast(self, times: list, ensemble_member: int, pred: np.array):
         """Registers a forecast from a single ensemble member in the output
 
         Args:
-            forecast_reference_time: Seconds since 1970
+            times: List of np.datetime64 objects
             ensemble_member: Which ensemble member is this?
             pred: 3D numpy array with dimensions (leadtime, location, variable)
         """
-        assert pred.shape[0] == len(self.pm.leadtimes)
+        assert pred.shape[0] == self.pm.num_leadtimes
         assert pred.shape[1] == len(self.pm.lats)
         assert pred.shape[2] == len(self.pm.variables)
         assert ensemble_member >= 0
         assert ensemble_member < self.pm.num_members
 
-        self._add_forecast(forecast_reference_time, ensemble_member, pred)
+        self._add_forecast(times, ensemble_member, pred)
 
-    def _add_forecast(
+    def _add_forecast(self, times: list, ensemble_member: int, pred: np.array):
         """Subclasses should implement this"""
-        self, forecast_reference_time: int, ensemble_member: int, pred: np.array
-    ):
         raise NotImplementedError()
 
     def finalize(self):

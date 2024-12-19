@@ -16,28 +16,35 @@ class Intermediate(Output):
         super().__init__(predict_metadata)
         self.pm = predict_metadata
         self.workdir = workdir
+        self.leadtimes = None
 
-    def _add_forecast(self, forecast_reference_time, ensemble_member, pred):
-        filename = self.get_filename(forecast_reference_time, ensemble_member)
+    def _add_forecast(self, times, ensemble_member, pred):
+        if self.leadtimes is None:
+            frt_ut = utils.datetime_to_unixtime(times[0])
+            self.leadtimes = utils.datetime_to_unixtime(times) - frt_ut
+
+        filename = self.get_filename(times[0], ensemble_member)
         utils.create_directory(filename)
 
         np.save(filename, pred)
 
     def get_filename(self, forecast_reference_time, ensemble_member):
-        return f"{self.workdir}/{forecast_reference_time:.0f}_{ensemble_member:.0f}.npy"
+        frt_ut = utils.datetime_to_unixtime(forecast_reference_time)
+        return f"{self.workdir}/{frt_ut:.0f}_{ensemble_member:.0f}.npy"
 
     def get_forecast_reference_times(self):
         """Returns all forecast reference times that have been saved"""
         filenames = self.get_filenames()
         frts = list()
         for filename in filenames:
-            frt, _ = filename.split("/")[-1].split("_")
-            frts += [int(frt)]
+            frt_ut, _ = filename.split("/")[-1].split("_")
+            frt = utils.unixtime_to_datetime(int(frt_ut))
+            frts += [frt]
 
         frts = list(set(frts))
         frts.sort()
 
-        return np.array(frts, np.int32)
+        return frts
 
     def get_forecast(self, forecast_reference_time, ensemble_member=None):
         """Fetches forecasts from stored numpy files
@@ -51,7 +58,6 @@ class Intermediate(Output):
             np.array: 3D (leadtime, points, variables) if member is selected
                       4D otherwise (leadtime, points, variables, members)
         """
-        assert utils.is_number(forecast_reference_time)
 
         if ensemble_member is None:
             shape = [

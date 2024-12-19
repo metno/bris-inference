@@ -1,11 +1,11 @@
 import gridpp
 import numpy as np
 import xarray as xr
+from bris import utils
 from bris.conventions import cf
 from bris.outputs import Output
 from bris.outputs.intermediate import Intermediate
 from bris.predict_metadata import PredictMetadata
-from bris.utils import create_directory
 
 
 class Verif(Output):
@@ -75,21 +75,18 @@ class Verif(Output):
             [variable],
             self.obs_lats,
             self.obs_lons,
-            predict_metadata.leadtimes,
+            predict_metadata.num_leadtimes,
             predict_metadata.num_members,
         )
         self.intermediate = Intermediate(intermediate_pm, workdir)
 
-    def _add_forecast(
-        self, forecast_reference_time: int, ensemble_member: int, pred: np.array
-    ):
+    def _add_forecast(self, times: list, ensemble_member: int, pred: np.array):
         """Add forecasts to this object. Will be written when .write() is called
 
         Args:
-            forecast_reference_time: Unix time of the forecast initialization [s]
+            times: List of np.datetime64 objects
             pred: 3D array of forecasts with dimensions (time, points, variables)
         """
-
         if self._is_gridded_input:
             pred = self.reshape_pred(pred)
             pred = pred[..., 0]  # Extract single variable
@@ -116,9 +113,7 @@ class Verif(Output):
                 interpolated_pred += self.elev_gradient * delev
             interpolated_pred = interpolated_pred[:, :, None]
 
-        self.intermediate.add_forecast(
-            forecast_reference_time, ensemble_member, interpolated_pred
-        )
+        self.intermediate.add_forecast(times, ensemble_member, interpolated_pred)
 
     @property
     def _is_gridded_input(self):
@@ -135,7 +130,7 @@ class Verif(Output):
         coords["time"] = (["time"], [], cf.get_attributes("time"))
         coords["leadtime"] = (
             ["leadtime"],
-            self.pm.leadtimes.astype(np.float32),
+            self.intermediate.leadtimes.astype(np.float32),
             {"units": "hour"},
         )
         coords["location"] = (["location"], self.obs_ids)
@@ -166,14 +161,14 @@ class Verif(Output):
             )
         self.ds = xr.Dataset(coords=coords)
 
-        frts = self.intermediate.get_forecast_reference_times().astype(np.double)
-        self.ds["time"] = frts
+        frts = self.intermediate.get_forecast_reference_times()
+        self.ds["time"] = utils.datetime_to_unixtime(frts).astype(np.double)
 
         # Load forecasts
         fcst = np.nan * np.zeros(
             [
                 len(frts),
-                len(self.intermediate.pm.leadtimes),
+                self.intermediate.pm.num_leadtimes,
                 self.intermediate.pm.num_points,
             ],
             np.float32,
@@ -189,7 +184,7 @@ class Verif(Output):
             cdf = np.nan * np.zeros(
                 [
                     len(frts),
-                    len(self.intermediate.pm.leadtimes),
+                    self.intermediate.pm.num_leadtimes,
                     self.intermediate.pm.num_points,
                     len(self.thresholds),
                 ],
@@ -207,7 +202,7 @@ class Verif(Output):
             x = np.nan * np.zeros(
                 [
                     len(frts),
-                    len(self.intermediate.pm.leadtimes),
+                    self.intermediate.pm.num_leadtimes,
                     self.intermediate.pm.num_points,
                     len(self.quantile_levels),
                 ],
@@ -223,11 +218,12 @@ class Verif(Output):
             self.ds["x"] = (["time", "leadtime", "location", "quantile"], x)
 
         # Find which valid times we need observations for
-        a, b = np.meshgrid(frts, np.array(self.intermediate.pm.leadtimes) * 3600)
+        frts_ut = utils.datetime_to_unixtime(frts)
+        a, b = np.meshgrid(frts_ut, np.array(self.intermediate.leadtimes))
         valid_times = a + b
         valid_times = valid_times.transpose()
         if len(valid_times) == 0:
-            print(frts, self.pm.leadtimes)
+            print(frts, self.intermediate.leadtimes)
             raise Exception("No valid times")
 
         # valid_times = np.sort(np.unique(valid_times.flatten()))
@@ -241,7 +237,7 @@ class Verif(Output):
         obs = np.nan * np.zeros(
             [
                 len(frts),
-                len(self.intermediate.pm.leadtimes),
+                self.intermediate.pm.num_leadtimes,
                 self.intermediate.pm.num_points,
             ],
             np.float32,
@@ -265,7 +261,7 @@ class Verif(Output):
         self.ds.attrs["verif_version"] = "1.0.0"
         self.ds.attrs["standard_name"] = cf.get_metadata(self.variable)["cfname"]
 
-        create_directory(self.filename)
+        utils.create_directory(self.filename)
         self.ds.to_netcdf(self.filename, mode="w", engine="netcdf4")
 
     def compute_consensus(self, pred):

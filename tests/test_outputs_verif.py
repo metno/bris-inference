@@ -20,7 +20,7 @@ def test_1():
     variables = ["u_800", "u_600", "2t", "v_500", "10u"]
     lats = np.arange(50, 70)
     lons = np.arange(5, 15)
-    leadtimes = [0, 6, 12, 18]
+    leadtimes = np.arange(0, 3600 * 4, 3600)
     num_members = 2
     thresholds = [0.2, 0.5]
     quantile_levels = [0.1, 0.9]
@@ -29,7 +29,7 @@ def test_1():
     lats, lons = np.meshgrid(lats, lons)
     lats = lats.flatten()
     lons = lons.flatten()
-    pm = PredictMetadata(variables, lats, lons, leadtimes, num_members, field_shape)
+    pm = PredictMetadata(variables, lats, lons, len(leadtimes), num_members, field_shape)
     ofilename = "otest.nc"
     workdir = "verif_workdir"
     output = Verif(
@@ -44,9 +44,10 @@ def test_1():
     )
 
     frt = 1672552800
+    times = frt + leadtimes
     for member in range(num_members):
         pred = np.random.rand(*pm.shape)
-        output.add_forecast(frt, member, pred)
+        output.add_forecast(times, member, pred)
 
     output.finalize()
 

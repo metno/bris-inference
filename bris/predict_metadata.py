@@ -1,10 +1,16 @@
 import numpy as np
 
+from bris import utils
+
 
 class PredictMetadata:
     """This class stores metadata about each dimension of a batch"""
 
-    def __init__(self, variables, lats, lons, leadtimes, num_members, field_shape=None):
+    def __init__(
+        self, variables, lats, lons, num_leadtimes, num_members, field_shape=None
+    ):
+        assert utils.is_number(num_leadtimes)
+
         if field_shape is not None:
             assert np.prod(field_shape) == len(lats)
 
@@ -21,17 +27,13 @@ class PredictMetadata:
 
         # TODO
         self.elevs = np.zeros(self.lats.shape)
-        self.leadtimes = np.array(leadtimes)
+        self.num_leadtimes = num_leadtimes
         self.num_members = num_members
         self.field_shape = field_shape
 
     @property
     def num_points(self):
         return len(self.lats)
-
-    @property
-    def num_leadtimes(self):
-        return len(self.leadtimes)
 
     @property
     def num_variables(self):
@@ -43,7 +45,7 @@ class PredictMetadata:
         data parallel, so not included in this shape.
         """
         # This is goverend by predict_step in forecaster.py
-        return [len(self.leadtimes), len(self.lats), len(self.variables)]
+        return [self.num_leadtimes, len(self.lats), len(self.variables)]
 
     @property
     def is_gridded(self):

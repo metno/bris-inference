@@ -56,22 +56,20 @@ class Netcdf(Output):
         self.conventions = Metno()
         self.interp_res = interp_res
 
-    def _add_forecast(
-        self, forecast_reference_time: int, ensemble_member: int, pred: np.array
-    ):
+    def _add_forecast(self, times: list, ensemble_member: int, pred: np.array):
         if self.pm.num_members > 1:
             # Cache data with intermediate
-            self.intermediate.add_forecast(
-                forecast_reference_time, ensemble_member, pred
-            )
+            self.intermediate.add_forecast(times, ensemble_member, pred)
             return
         else:
             assert ensemble_member == 0
 
+            forecast_reference_time = times[0].astype("datetime64[s]").astype("int")
+
             filename = self.get_filename(forecast_reference_time)
 
             # Add ensemble dimension to the last
-            self.write(filename, forecast_reference_time, pred[..., None])
+            self.write(filename, times, pred[..., None])
 
     def get_filename(self, forecast_reference_time):
         return utils.expand_time_tokens(self.filename_pattern, forecast_reference_time)
@@ -85,10 +83,10 @@ class Netcdf(Output):
     def _interpolate(self):
         return self.interp_res is None
 
-    def write(self, filename: str, forecast_reference_time: int, pred: np.array):
+    def write(self, filename: str, times: list, pred: np.array):
         """Write prediction to NetCDF
         Args:
-            forecast_reference_time: Time that this forecast is for
+            times: List of np.datetime64 objects that this forecast is for
             pred: 4D numpy array with dimensions (leadtimes, points, variables, members)
         """
 
@@ -99,8 +97,9 @@ class Netcdf(Output):
             return self.conventions.get_name(x)
 
         # TODO: Seconds or hours for leadtimes?
-        times = [forecast_reference_time + lt for lt in self.pm.leadtimes]
-        coords[c("time")] = np.array(times).astype(np.double)
+        times_ut = utils.datetime_to_unixtime(times)
+        frt_ut = times_ut[0]
+        coords[c("time")] = np.array(times_ut).astype(np.double)
 
         if self._is_gridded:
             if self._interpolate:
@@ -153,7 +152,7 @@ class Netcdf(Output):
             self.ds[var].attrs = var_attrs
 
         # Set up other coordinate variables
-        self.ds[c("forecast_reference_time")] = ([], float(forecast_reference_time))
+        self.ds[c("forecast_reference_time")] = ([], frt_ut)
 
         # Set up grid definitions
         if self._is_gridded:
@@ -267,7 +266,7 @@ class Netcdf(Output):
     def finalize(self):
         if self.intermediate is not None:
             # Load data from the intermediate and write to disk
-            forecast_reference_times = self.intermediate.get_forecast_reference_times()
+            forecast_reference_times = self.intermediate.get_time_sets()
             for forecast_reference_time in forecast_reference_times:
                 # Arange all ensemble members
                 pred = np.zeros(self.pm.shape + [self.pm.num_members], np.float32)

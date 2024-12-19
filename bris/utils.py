@@ -1,14 +1,14 @@
+import logging
 import numbers
 import os
 import re
 import time
 import uuid
 from argparse import ArgumentParser
-from omegaconf import OmegaConf
-import logging
 
-
+import numpy as np
 from anemoi.utils.config import DotDict
+from omegaconf import OmegaConf
 
 LOGGER = logging.getLogger(__name__)
 
@@ -36,15 +36,17 @@ def get_workdir(path):
     v = uuid.uuid4()
     return path + "/" + str(v)
 
+
 def check_anemoi_training(metadata) -> bool:
     assert isinstance(
         metadata, DotDict
-    ), f"Expected metadata to be a DotDict, got {type(metadata)}"    
+    ), f"Expected metadata to be a DotDict, got {type(metadata)}"
     if hasattr(metadata.provenance_training, "module_versions"):
         if hasattr(metadata.provenance_training.module_versions, "anemoi.training"):
             return True
         else:
             return False
+
 
 def check_anemoi_dataset_version(metadata) -> tuple[bool, str]:
     assert isinstance(
@@ -63,19 +65,26 @@ def check_anemoi_dataset_version(metadata) -> tuple[bool, str]:
     else:
         raise RuntimeError("metadata.provenance_training does not module_versions")
 
+
 def create_config(parser: ArgumentParser) -> OmegaConf:
     args, _ = parser.parse_known_args()
-    
+
     try:
         config = OmegaConf.load(args.config)
         LOGGER.debug(f"config file from {args.config} is loaded")
     except Exception as e:
-        raise e  
-    
-    parser.add_argument("-c", type=str, dest="checkpoint_path", default=config.checkpoint_path)
+        raise e
+
+    parser.add_argument(
+        "-c", type=str, dest="checkpoint_path", default=config.checkpoint_path
+    )
     parser.add_argument("-ed", type=str, dest="end_date", default=config.end_date)
-    parser.add_argument("-sd", type=str, dest="start_date", default=None, const=None)#default=config.start_date)
-    parser.add_argument("-p", type=str, dest="dataset_path", help="Path to dataset", default=None)
+    parser.add_argument(
+        "-sd", type=str, dest="start_date", default=None, const=None
+    )  # default=config.start_date)
+    parser.add_argument(
+        "-p", type=str, dest="dataset_path", help="Path to dataset", default=None
+    )
 
     parser.add_argument(
         "-pc",
@@ -86,7 +95,7 @@ def create_config(parser: ArgumentParser) -> OmegaConf:
         default=None,
         const=None,
     )
-    #TODO: Logic that can add dataset or cutout dataset to the dataloader config
+    # TODO: Logic that can add dataset or cutout dataset to the dataloader config
 
     parser.add_argument("-f", type=str, dest="frequency", default=config.frequency)
     parser.add_argument("-s", type=str, dest="timestep", default=config.timestep)
@@ -94,8 +103,15 @@ def create_config(parser: ArgumentParser) -> OmegaConf:
     args = parser.parse_args()
 
     args_dict = vars(args)
-    
-    #TODO: change start_date and end_date to numpy datetime
+
+    # TODO: change start_date and end_date to numpy datetime
     return OmegaConf.merge(config, OmegaConf.create(args_dict))
 
-        
+
+def datetime_to_unixtime(dt):
+    """Converts a np.datetime64 object or list of objects to unixtime"""
+    return np.array(dt).astype("datetime64[s]").astype("int")
+
+
+def unixtime_to_datetime(ut):
+    return np.datetime64(ut, "s")
