@@ -16,7 +16,7 @@ class FakeDataModule:
 
     @property
     def latitudes(self):
-        return [[[1],[1,2]], [1]]
+        return [[1,1,2], [1]]
 
     @property
     def longitudes(self):

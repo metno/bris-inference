@@ -40,8 +40,8 @@ def get(routing_config: dict, num_leadtimes: int, num_members: int, data_module:
         for oc in config["outputs"]:
             # TODO: Get this from data_module
             variables = ["u_800", "u_600", "2t", "v_500", "10u"]
-            lats = data_module.latitudes[decoder_index][domain_index]
-            lons = data_module.longitudes[decoder_index][domain_index]
+            lats = data_module.latitudes[decoder_index][start_gridpoint:end_gridpoint]
+            lons = data_module.longitudes[decoder_index][start_gridpoint:end_gridpoint]
             field_shape = data_module.field_shape[decoder_index][domain_index]
 
             curr_required_variables = required_variables[decoder_index]
