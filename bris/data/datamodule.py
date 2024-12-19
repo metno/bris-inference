@@ -47,7 +47,6 @@ class DataModule(pl.LightningDataModule):
             config, DictConfig
         ), f"Expecting config to be DotDict object, but got {type(config)}"
 
-
         self.config = config
         self.graph = checkpoint_object.graph
         self.ckptObj = checkpoint_object
@@ -98,9 +97,8 @@ class DataModule(pl.LightningDataModule):
                     p
                 ), f"The given input data path does not exist. Got {p}"
             self.paths = paths
-        #self.legacy = check_anemoi_dataset_version(metadata=self.ckptObj._metadata)
+        # self.legacy = check_anemoi_dataset_version(metadata=self.ckptObj._metadata)
         self.legacy = not check_anemoi_training(metadata=self.ckptObj._metadata)
-
 
     def predict_dataloader(self) -> DataLoader:
         """
@@ -177,8 +175,12 @@ class DataModule(pl.LightningDataModule):
         """
         if self.legacy:
             # TODO: fix imports and pip packages for legacy version
-            LOGGER.info("""Did not find anemoi.training version in checkpoint metadata, assuming 
-                        the model was trained with aifs-mono and using legacy functionality""")
+            LOGGER.info(
+                """Did not find anemoi.training version in checkpoint metadata, assuming 
+                        the model was trained with aifs-mono and using legacy functionality"""
+            )
+            LOGGER.warning("Ensemble legacy mode has yet to be implemented!")
+            from .legacy.dataset import NativeGridDataset, EnsNativeGridDataset
 
             spatial_mask = {}
             for mesh_name, mesh in self.graph.items():
@@ -192,8 +194,7 @@ class DataModule(pl.LightningDataModule):
                 self.ckptObj._metadata.config.graphs.encoders[0]["src_mesh"]
             ]
 
-            dataCls = instantiate(
-                config=self.config.datamodule,
+            dataCls = NativeGridDataset(
                 data_reader=data_reader,
                 rollout=0,  # we dont perform rollout during inference
                 multistep=self.ckptObj.multistep,
@@ -205,9 +206,7 @@ class DataModule(pl.LightningDataModule):
                 shuffle=False,
                 label="predict",
             )
-            LOGGER.info(
-                f"Obtained data class for {dataCls.__name__}. Proceeding to wrap data class"
-            )
+            return dataCls
         else:
             dataCls = instantiate(
                 config=self.config.datamodule,
@@ -282,19 +281,36 @@ class DataModule(pl.LightningDataModule):
         return timestep // frequency
 
     @cached_property
-    def grids(self):
+    def grids(self) -> tuple:
+        """
+        Retrieves a tuple of flatten grid shape(s).
+        """
         return self.data_reader.grids
-    
+
     @cached_property
-    def latitudes(self):
+    def latitudes(self) -> tuple:
+        """
+        Retrieves latitude from data_reader method
+        """
         return self.data_reader.latitudes
-    
+
     @cached_property
-    def longitudes(self):
+    def longitudes(self) -> tuple:
+        """
+        Retrieves longitude from data_reader method
+        """
         return self.data_reader.longitudes
-    
+
     @cached_property
-    def field_shape(self):
+    def field_shape(self) -> tuple:
+        """
+        Retrieves the field shape(s) for different
+        type of grids. For XY-regular grid the field shape
+        is on (x,y) format. For non-regular grids e.g gaussian
+        grid the field shape is the flatten shape of the array.
+        For example o96 -> (40320,)
+
+        """
         if hasattr(self.data_reader, "datasets"):
             field_shape = ()
             for dataset in self.data_reader.datasets:
@@ -304,13 +320,11 @@ class DataModule(pl.LightningDataModule):
                         field_shape_dataset += (sub_dataset.field_shape,)
                 else:
                     field_shape_dataset = dataset.field_shape
-                
+
                 field_shape += (field_shape_dataset,)
         else:
             field_shape = self.data_reader.field_shape
         return field_shape
-            
-
 
 
 def worker_init_func(worker_id: int) -> None:
