@@ -5,7 +5,7 @@ import bris.routes
 
 class FakeDataModule:
     def __init__(self):
-        pass
+        self.field_shape = [[None, [1, 2]], [None]]
 
     @property
     def grids(self):
@@ -13,6 +13,21 @@ class FakeDataModule:
         ret[0] = [1, 2]
         ret[1] = [1]
         return ret
+
+    @property
+    def latitudes(self):
+        return [[[1],[1,2]], [1]]
+
+    @property
+    def longitudes(self):
+        return self.latitudes
+
+    @property
+    def data_reader(self):
+        class Reader:
+            def __init__(self):
+                self.name_to_index = [{"2t": 0, "10u": 1}, {"2t": 0}]
+        return Reader()
 
 def test_get():
     config = list()
@@ -41,7 +56,6 @@ def test_get():
                 {
                     "netcdf": {
                         "filename_pattern": "%Y%m%d.nc",
-                        "variables": ["2t", "10u"],
                     }
                 }
             ],
@@ -53,14 +67,15 @@ def test_get():
                 {
                     "netcdf": {
                         "filename_pattern": "%Y%m%d.nc",
-                        "variables": ["v_800", "u_800"],
+                        "variables": ["2t", "10u"],
                     }
                 }
             ],
         }
     ]
     required_variables = bris.routes.get_required_variables(config)
-    assert required_variables == {0: ["10u", "2t"], 1: ["u_800", "v_800"]}
+    print(required_variables)
+    assert required_variables == {0: None, 1: ["10u", "2t"]}
 
     data_module = FakeDataModule()
     run_name = "legendary_gnome"

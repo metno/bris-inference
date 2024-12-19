@@ -7,12 +7,12 @@ from bris.data.datamodule import DataModule
 from bris.predict_metadata import PredictMetadata
 
 
-def get(routing_config: dict, leadtimes: list, num_members: int, data_module: DataModule, run_name: str, workdir: str):
+def get(routing_config: dict, num_leadtimes: int, num_members: int, data_module: DataModule, run_name: str, workdir: str):
     """Returns outputs for each decoder and domain
 
     Args:
         routing_config: Dictionary from config file
-        leadtimes: List of leadtimes that the model will produce
+        num_leadtimes: Number of leadtimes that the model will produce
         data_module: Data module
         run_name: Name of this run used by outputs to set filenames
     Returns:
@@ -40,8 +40,8 @@ def get(routing_config: dict, leadtimes: list, num_members: int, data_module: Da
         for oc in config["outputs"]:
             # TODO: Get this from data_module
             variables = ["u_800", "u_600", "2t", "v_500", "10u"]
-            lats = data_module.latitudes[decoder_index]
-            lons = data_module.longitudes[decoder_index]
+            lats = data_module.latitudes[decoder_index][domain_index]
+            lons = data_module.longitudes[decoder_index][domain_index]
             field_shape = data_module.field_shape[decoder_index][domain_index]
 
             curr_required_variables = required_variables[decoder_index]
@@ -49,8 +49,8 @@ def get(routing_config: dict, leadtimes: list, num_members: int, data_module: Da
                 # Convert None to all available variables
                 # TODO: This is not tested yet
                 name_to_index = data_module.data_reader.name_to_index[decoder_index]
-                available_names = name_to_index.keys():
-                curr_required_variables = [i for i in range(len(available_names)]
+                available_names = name_to_index.keys()
+                curr_required_variables = [i for i in range(len(available_names))]
                 for name, index in name_to_index.items():
                     curr_required_variables[index] = name
 
