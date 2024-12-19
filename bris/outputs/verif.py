@@ -2,7 +2,7 @@ import gridpp
 import numpy as np
 import xarray as xr
 from bris.conventions import cf
-from bris.output import Output
+from bris.outputs import Output
 from bris.outputs.intermediate import Intermediate
 from bris.predict_metadata import PredictMetadata
 from bris.utils import create_directory

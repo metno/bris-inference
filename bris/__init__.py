@@ -8,7 +8,7 @@ def main():
 
 
 from . import callbacks
-from . import output
 from . import outputs
+from . import sources
 from . import conventions
 from . import utils

@@ -1,7 +1,7 @@
 from collections import defaultdict
 import numpy as np
 
-import bris.output
+import bris.outputs
 from bris import utils
 from bris.data.datamodule import DataModule
 from bris.predict_metadata import PredictMetadata
@@ -52,7 +52,7 @@ def get(routing_config: dict, leadtimes: list, num_members: int, data_module: Da
                     args["filename"] = expand_run_name(args["filename"], run_name)
 
                 curr_workdir = utils.get_workdir(workdir)
-                output = bris.output.instantiate(output_type, pm, curr_workdir, args)
+                output = bris.outputs.instantiate(output_type, pm, curr_workdir, args)
                 outputs += [output]
 
         ret += [

@@ -5,7 +5,6 @@ import omegaconf
 import yaml
 from hydra.utils import instantiate
 
-import bris.output
 import bris.utils
 
 from .checkpoint import Checkpoint

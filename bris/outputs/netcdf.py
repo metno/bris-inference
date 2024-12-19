@@ -4,7 +4,7 @@ import xarray as xr
 from bris import utils
 from bris.conventions import cf
 from bris.conventions.metno import Metno
-from bris.output import Output
+from bris.outputs import Output
 from bris.outputs.intermediate import Intermediate
 from bris.predict_metadata import PredictMetadata
 

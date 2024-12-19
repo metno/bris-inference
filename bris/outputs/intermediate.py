@@ -3,7 +3,7 @@ import os
 
 import numpy as np
 from bris import utils
-from bris.output import Output
+from bris.outputs import Output
 
 
 class Intermediate(Output):
