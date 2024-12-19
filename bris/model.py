@@ -183,10 +183,6 @@ class BrisPredictor(BasePredictor):
         with torch.amp.autocast(device_type= "cuda", dtype=torch.bfloat16):
             for fcast_step in range(self.forecast_length):
                 y_pred = self(x)
-                print(type(time))
-                print(time)
-                print(type(self.frequency))
-                print(self.frequency)
                 time += self.frequency
                 print(time)
                 x = self.advance_input_predict(x, y_pred, time)

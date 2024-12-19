@@ -30,6 +30,8 @@ class CustomWriter(BasePredictionWriter):
         """
 
         timestamp = prediction["time_stamp"][0].split(":")[0]
+        times = prediction["time"]
+        # Get times from prediciton in datetime64
         ensemble_member = prediction["ensemble_member"]
 
         # TODO: Why is this here, don'ẗ we want all data-parallel processes to write to disk?
@@ -40,29 +42,4 @@ class CustomWriter(BasePredictionWriter):
                 pred = pred[...,output_dict["start"]:output_dict["end"],:]
 
                 for output in output_dict["outputs"]:
-                    output.add_forecast(timestamp, ensemble_member, pred)
-
-'''
-
-            # pred = prediction[0]
-            # time_index = int(self.avail_samples//self.data_par_num * prediction[2] + batch_idx)
-            # pred = pred[0] #remove batch dimension for now since we will always use data parallel for larger batches.
-            for grid_name, grid_config in self.outputs.items():
-                # Filter grid points
-                if "start" in grid_config:
-                    start_index = grid_config["start"]
-                    end_index = grid_config["end"]
-                    pred = prediction["pred"][0, :, start_index:end_index]
-                else:
-                    pred = prediction["pred"][0, :, :]
-
-                # This should be done by the output class
-                # pred = self.I.to_grid(pred, grid)
-                # pred = self.I.map_to_dict(pred, self.I.inf_conf.select.vars)
-                # pred["wind_speed_10m"] = np.sqrt(
-                #     pred["x_wind_10m"] ** 2 + pred["y_wind_10m"] ** 2
-                # )
-
-                for output in grid_config["outputs"]:
-                    output.add_forecast(timestamp, ensemble_member, pred)
-'''
+                    output.add_forecast(time, ensemble_member, pred) #change timestamp to times

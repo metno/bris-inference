@@ -47,7 +47,7 @@ def main():
     num_members = 2
 
     # Get outputs and required_variables of each decoder
-    decoder_outputs = bris.routes.get(config["routing"], leadtimes, num_members, datamodule, run_name, workdir)
+    decoder_outputs = bris.routes.get(config["routing"], leadtimes, num_members, datamodule, run_name, workdir) #get num_leadtimes from config.leadtimes
     decoder_variables = bris.routes.get_required_variables(config["routing"])
 
     writer = CustomWriter(decoder_outputs, write_interval="batch")
@@ -57,7 +57,7 @@ def main():
     model = instantiate(config.model, 
                         checkpoint = checkpoint,
                         data_reader = datamodule.data_reader,
-                        forecast_length = config.forecast_length,
+                        forecast_length = config.leadtimes,
                         select_indices = [0,1,2,3] #TODO: fix
     )    
 
