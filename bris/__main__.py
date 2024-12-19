@@ -1,4 +1,3 @@
-import argparse
 import logging
 
 from argparse import ArgumentParser
@@ -49,7 +48,7 @@ def main():
     num_members = 2
 
     # Get outputs and required_variables of each decoder
-    decoder_outputs = bris.routes.get(config["routing"], leadtimes, num_members, data_module, run_name, workdir)
+    decoder_outputs = bris.routes.get(config["routing"], leadtimes, num_members, datamodule, run_name, workdir)
     decoder_variables = bris.routes.get_required_variables(config["routing"])
 
     writer = CustomWriter(decoder_outputs, write_interval="batch")

@@ -8,6 +8,7 @@ authors = [
     {name = "Magnus Sikora Ingstad", email = "magnusi@met.no"},
     {name = "Aram Salihi", email = "arams@met.no"},
     {name = "Thomas Nipen", email = "thomasn@met.no"},
+    {name = "Håvard H. Haugen", email = "havardhh@met.no"}
 ]
 description = "Package for running inference of Anemoi models"
 keywords = ["meteorology", "forecast", ]

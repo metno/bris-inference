@@ -64,17 +64,11 @@ def check_anemoi_dataset_version(metadata) -> tuple[bool, str]:
         raise RuntimeError("metadata.provenance_training does not module_versions")
 
 def create_config(parser: ArgumentParser) -> OmegaConf:
-#def create_config() -> OmegaConf:
-#    parser = ArgumentParser()
-
-    # TODO: Come up with argument list
-#    parser.add_argument("--debug", action="store_true")
-#    parser.add_argument("--config", type=str, required=True)   
     args, _ = parser.parse_known_args()
     
     try:
         config = OmegaConf.load(args.config)
-#        LOGGER.debug(f"config file from {args.config} is loaded")
+        LOGGER.debug(f"config file from {args.config} is loaded")
     except Exception as e:
         raise e  
     
@@ -99,7 +93,8 @@ def create_config(parser: ArgumentParser) -> OmegaConf:
     args = parser.parse_args()
 
     args_dict = vars(args)
-
+    
+    #TODO: change start_date and end_date to numpy datetime
     return OmegaConf.merge(config, OmegaConf.create(args_dict))
 
         
