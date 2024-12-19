@@ -8,8 +8,7 @@ from hydra.utils import instantiate
 import bris.utils
 
 from .checkpoint import Checkpoint
-from .datamodule import DataModule
-from .forecaster import BrisForecaster
+from .data.datamodule import DataModule
 from .inference import Inference
 from .predict_metadata import PredictMetadata
 from .writer import CustomWriter
