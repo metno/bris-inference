@@ -165,6 +165,8 @@ class BrisPredictor(BasePredictor):
         data_indices = self.model.data_indices
         multistep = self.metadata["config"]["training"]["multistep_input"]
 
+        batch = self.allgather_batch(batch)
+
         batch, time_stamp = batch
         time = np.datetime64(time_stamp[0], 'h') #Consider not forcing 'h' here and instead generalize time + self.frequency
         times = [time]
@@ -191,6 +193,44 @@ class BrisPredictor(BasePredictor):
                 y_preds[:, fcast_step+1, ...] = self.model.post_processors(y_pred, in_place=False)[:,0,...,self.select_indices].cpu().to(torch.float32).numpy() 
                 times.append(time)
         return {"pred": [y_preds], "times": times, "group_rank": self.model_comm_group_rank, "ensemble_member": 0}
+    
+    def allgather_batch(self, batch: torch.Tensor) -> torch.Tensor:
+        """Allgather the batch-shards across the reader group.
+
+        Parameters
+        ----------
+        batch : torch.Tensor
+            Batch-shard of current reader rank
+
+        Returns
+        -------
+        torch.Tensor
+            Allgathered (full) batch
+        """
+        grid_size = len(self.latlons_data)  # number of points
+
+        if grid_size == batch.shape[-2]:
+            return batch  # already have the full grid
+
+        grid_shard_size = grid_size // self.reader_group_size
+        last_grid_shard_size = grid_size - (grid_shard_size * (self.reader_group_size - 1))
+
+        # prepare tensor list with correct shapes for all_gather
+        shard_shape = list(batch.shape)
+        shard_shape[-2] = grid_shard_size
+        last_shard_shape = list(batch.shape)
+        last_shard_shape[-2] = last_grid_shard_size
+
+        tensor_list = [torch.empty(tuple(shard_shape), device=self.device) for _ in range(self.reader_group_size - 1)]
+        tensor_list.append(torch.empty(last_shard_shape, device=self.device))
+
+        torch.distributed.all_gather(
+            tensor_list,
+            batch,
+            group=self.reader_groups[self.reader_group_id],
+        )
+
+        return torch.cat(tensor_list, dim=-2)
                   
 
 class NetatmoPredictor(BasePredictor):

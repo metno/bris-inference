@@ -19,7 +19,7 @@ dataloader:
   num_workers: 1
   pin_memory: True
 
-  read_group_size: ${run_options.num_gpus_per_model}
+  read_group_size: 1
 
   predict:
     dataset: ${dataset}
