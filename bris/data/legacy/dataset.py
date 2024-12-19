@@ -246,7 +246,7 @@ class NativeGridDataset(IterableDataset):
             )
             self.ensemble_dim = 1
 
-            yield torch.from_numpy(x), str(self.data.dates)
+            yield torch.from_numpy(x), str(self.data.dates[i])
 
     def __getitem__(self, t_idx):
         """
@@ -473,7 +473,7 @@ class EnsNativeGridDataset(NativeGridDataset):
                 perturbation_shape=list(sample[1].shape) if len(sample) > 1 else "n/a",
             )
 
-            yield sample, str(self.data.dates)
+            yield sample, str(self.data.dates[i])
 
 
 def worker_init_func(worker_id: int) -> None:
