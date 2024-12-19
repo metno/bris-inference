@@ -16,23 +16,26 @@ def instantiate(name: str, init_args: dict):
         raise ValueError(f"Invalid source: {name}")
 
 
-def expand_tokens(string, variable):
-    return string.replace("%V", variable)
-
-
 class Source:
     """Abstract base class that retrieves observations"""
 
     def __init__(self):
         pass
 
-    def get(self, variable, start_time, end_time, frequency):
-        """Extracts data for a given variable for a time period"""
+    def get(self, variable:str, start_time:int, end_time:int, frequency:int):
+        """Extracts data for a given variable for a time period
+
+        Args:
+            variable: Name of variable to retrieve
+            start_time: Starting date to retrieve observation from
+            start_time: End date to retrieve observation to
+            frequency: Frequency in seconds to retrieve observations for
+        """
         raise NotImplementedError()
 
     @property
-    def locations(self):
-        """Returns a list of the available locations"""
+    def locations(self) -> list:
+        """Returns a list of bris.observations.Location. Subclasses must override this."""
         raise NotImplementedError
 
 from .frost import Frost

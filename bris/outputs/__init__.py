@@ -44,9 +44,6 @@ def get_required_variables(name, init_args):
     else:
         raise ValueError(f"Invalid output: {name}")
 
-def expand_tokens(string, variable):
-    return string.replace("%V", variable)
-
 
 class Output:
     """This class writes output for a specific part of the domain"""
@@ -63,10 +60,12 @@ class Output:
     def add_forecast(
         self, forecast_reference_time: int, ensemble_member: int, pred: np.array
     ):
-        """
+        """Registers a forecast from a single ensemble member in the output
+
         Args:
-            timestamp: Seconds since 1970
-            pred: 2D array (location, variable)
+            forecast_reference_time: Seconds since 1970
+            ensemble_member: Which ensemble member is this?
+            pred: 3D numpy array with dimensions (leadtime, location, variable)
         """
         assert pred.shape[0] == len(self.pm.leadtimes)
         assert pred.shape[1] == len(self.pm.lats)
@@ -77,16 +76,25 @@ class Output:
         self._add_forecast(forecast_reference_time, ensemble_member, pred)
 
     def _add_forecast(
+        """Subclasses should implement this"""
         self, forecast_reference_time: int, ensemble_member: int, pred: np.array
     ):
         raise NotImplementedError()
 
     def finalize(self):
-        """Finalizes the output. Subclasses can override this if necessary."""
+        """Finalizes the output. This gets called after all add_forecast calls are done. Subclasses
+        can override this, if necessary."""
         pass
 
     def reshape_pred(self, pred):
-        """Reshape predictor matrix from points to 2D based on field_shape"""
+        """Reshape predictor matrix from points to x,y based on field_shape
+
+        Args:
+            pred: 3D numpy array with dimensions (leadtime, location, variable)
+
+        Returns:
+            4D numy array with dimensions (leadtime, y, x, variable)
+        """
         assert self.pm.field_shape is not None
 
         T, L, V = pred.shape
@@ -95,7 +103,14 @@ class Output:
         return pred
 
     def flatten_pred(self, pred):
-        """Reshape predictor matrix on 2D points back to the original 1D set of points"""
+        """Reshape predictor matrix on 2D points back to the original 1D set of points
+
+        Args:
+            pred: 4D numy array with dimensions (leadtime, y, x, variable)
+
+        Returns:
+            3D numpy array with dimensions (leadtime, location, variable)
+        """
         assert len(pred.shape) == 4
         T, Y, X, V = pred.shape
 
