@@ -11,6 +11,7 @@ class FakeDataModule:
     def grids(self):
         ret = dict()
         ret[0] = [1, 2]
+        ret[1] = [1]
         return ret
 
 def test_get():
@@ -32,9 +33,34 @@ def test_get():
                     }
                 }
             ],
+        },
+        {
+            "decoder_index": 0,
+            "domain": 1,
+            "outputs": [
+                {
+                    "netcdf": {
+                        "filename_pattern": "%Y%m%d.nc",
+                        "variables": ["2t", "10u"],
+                    }
+                }
+            ],
+        },
+        {
+            "decoder_index": 1,
+            "domain": 0,
+            "outputs": [
+                {
+                    "netcdf": {
+                        "filename_pattern": "%Y%m%d.nc",
+                        "variables": ["v_800", "u_800"],
+                    }
+                }
+            ],
         }
     ]
-    assert bris.routes.get_required_variables(config) == {0: ["2t"]}
+    required_variables = bris.routes.get_required_variables(config)
+    assert required_variables == {0: ["10u", "2t"], 1: ["u_800", "v_800"]}
 
     data_module = FakeDataModule()
     run_name = "legendary_gnome"
@@ -43,7 +69,6 @@ def test_get():
     num_members = 2
 
     routes = bris.routes.get(config, len(leadtimes), num_members, data_module, run_name, workdir)
-    print(routes)
 
 
 if __name__ == "__main__":
