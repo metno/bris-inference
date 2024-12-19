@@ -57,7 +57,9 @@ class Inference:
 
             return DDPGroupStrategy(
                 self.config.run_options.num_gpus_per_model,
-                self.config.run_options.num_gpus_per_model,
+                self.config.dataloader.get(
+                    "read_group_size", self.config.run_options.num_gpus_per_model
+                ),
                 static_graph=not self.checkpoint.config.training.accum_grad_batches > 1,
             )
         else:
