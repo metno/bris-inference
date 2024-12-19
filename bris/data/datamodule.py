@@ -1,26 +1,19 @@
-import os
 import logging
-
-from omegaconf import OmegaConf, errors
+import os
 from functools import cached_property
-from typing import Optional, Any
+from typing import Any, Optional
 
 import pytorch_lightning as pl
-
 from anemoi.utils.config import DotDict
 from anemoi.utils.dates import frequency_to_seconds
-from omegaconf import DictConfig
 from hydra.utils import instantiate
-from torch.utils.data import get_worker_info
-from torch.utils.data import DataLoader
+from omegaconf import DictConfig, OmegaConf, errors
+from torch.utils.data import DataLoader, get_worker_info
 from torch_geometric.data import HeteroData
-
 
 from bris.checkpoint import Checkpoint
 from bris.data.dataset import Dataset
-from bris.utils import check_anemoi_dataset_version
-from bris.utils import check_anemoi_training
-
+from bris.utils import check_anemoi_dataset_version, check_anemoi_training
 
 LOGGER = logging.getLogger(__name__)
 
@@ -50,33 +43,6 @@ class DataModule(pl.LightningDataModule):
         self.config = config
         self.graph = checkpoint_object.graph
         self.ckptObj = checkpoint_object
-
-        self.global_rank = int(os.environ.get("SLURM_PROCID", "0"))  # global rank
-        self.model_comm_group_id = (
-            self.global_rank // self.config.run_options.num_gpus_per_model
-        )  # id of the model communication group the rank is participating in
-        self.model_comm_group_rank = (
-            self.global_rank % self.config.run_options.num_gpus_per_model
-        )  # rank within one model communication group
-        total_gpus = (
-            self.config.run_options.num_gpus_per_node
-            * self.config.run_options.num_nodes
-        )
-        assert (
-            total_gpus
-        ) % self.config.run_options.num_gpus_per_model == 0, f"GPUs per model {self.config.run_options.num_gpus_per_model} does not divide total GPUs {total_gpus}"
-        self.model_comm_num_groups = (
-            self.config.run_options.num_gpus_per_node
-            * self.config.run_options.num_nodes
-            // self.config.run_options.num_gpus_per_model
-        )  # number of model communication groups
-
-        LOGGER.debug(
-            "Rank %d model communication group number %d, with local model communication group rank %d",
-            self.global_rank,
-            self.model_comm_group_id,
-            self.model_comm_group_rank,
-        )
 
         if not kwargs.get("frequency", None) and not kwargs.get("timestep", None):
             try:
@@ -180,7 +146,12 @@ class DataModule(pl.LightningDataModule):
                         the model was trained with aifs-mono and using legacy functionality"""
             )
             LOGGER.warning("Ensemble legacy mode has yet to be implemented!")
-            from .legacy.dataset import NativeGridDataset, EnsNativeGridDataset
+            from .legacy.dataset import EnsNativeGridDataset, NativeGridDataset
+            from .legacy.utils import _legacy_slurm_proc_id
+
+            model_comm_group_rank, model_comm_group_id, model_comm_num_groups = (
+                _legacy_slurm_proc_id(self.config)
+            )
 
             spatial_mask = {}
             for mesh_name, mesh in self.graph.items():
@@ -199,9 +170,9 @@ class DataModule(pl.LightningDataModule):
                 rollout=0,  # we dont perform rollout during inference
                 multistep=self.ckptObj.multistep,
                 timeincrement=self.timeincrement,
-                model_comm_group_rank=self.model_comm_group_rank,
-                model_comm_group_id=self.model_comm_group_id,
-                model_comm_num_groups=self.model_comm_num_groups,
+                model_comm_group_rank=model_comm_group_rank,
+                model_comm_group_id=model_comm_group_id,
+                model_comm_num_groups=model_comm_num_groups,
                 spatial_index=spatial_index,
                 shuffle=False,
                 label="predict",

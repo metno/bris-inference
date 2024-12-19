@@ -9,6 +9,9 @@ import sys
 import time
 
 import numpy as np
+from anemoi.utils.config import DotDict
+
+LOGGER = logging.getLogger(__name__)
 
 
 def get_code_logger(name: str, debug: bool = True) -> logging.Logger:
@@ -116,3 +119,43 @@ def get_usable_indices(
         ]
 
     return usable_indices
+
+
+def _legacy_slurm_proc_id(config: DotDict) -> None:
+    """
+    Set up model communication groups, rank and id
+    based on slurm proccess ID's
+
+    args:
+        config (DotDict): configuration file (Yaml)
+
+    return:
+    model_comm_group_rank (int), model_comm_group_id (int),
+    model_comm_num_groups (int)
+
+    """
+    global_rank = int(os.environ.get("SLURM_PROCID", "0"))  # global rank
+    model_comm_group_id = (
+        global_rank // config.run_options.num_gpus_per_model
+    )  # id of the model communication group the rank is participating in
+    model_comm_group_rank = (
+        global_rank % config.run_options.num_gpus_per_model
+    )  # rank within one model communication group
+    total_gpus = config.run_options.num_gpus_per_node * config.run_options.num_nodes
+    assert (
+        total_gpus
+    ) % config.run_options.num_gpus_per_model == 0, f"GPUs per model {config.run_options.num_gpus_per_model} does not divide total GPUs {total_gpus}"
+    model_comm_num_groups = (
+        config.run_options.num_gpus_per_node
+        * config.run_options.num_nodes
+        // config.run_options.num_gpus_per_model
+    )  # number of model communication groups
+
+    LOGGER.debug(
+        "Rank %d model communication group number %d, with local model communication group rank %d",
+        global_rank,
+        model_comm_group_id,
+        model_comm_group_rank,
+    )
+
+    return model_comm_group_rank, model_comm_group_id, model_comm_num_groups
