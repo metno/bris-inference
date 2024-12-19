@@ -3,8 +3,14 @@ import os
 import re
 import time
 import uuid
+from argparse import ArgumentParser
+from omegaconf import OmegaConf
+import logging
+
 
 from anemoi.utils.config import DotDict
+
+LOGGER = logging.getLogger(__name__)
 
 
 def expand_time_tokens(filename, unixtime):
@@ -56,3 +62,44 @@ def check_anemoi_dataset_version(metadata) -> tuple[bool, str]:
             raise e
     else:
         raise RuntimeError("metadata.provenance_training does not module_versions")
+
+def create_config(parser: ArgumentParser) -> OmegaConf:
+#def create_config() -> OmegaConf:
+#    parser = ArgumentParser()
+
+    # TODO: Come up with argument list
+#    parser.add_argument("--debug", action="store_true")
+#    parser.add_argument("--config", type=str, required=True)   
+    args, _ = parser.parse_known_args()
+    
+    try:
+        config = OmegaConf.load(args.config)
+#        LOGGER.debug(f"config file from {args.config} is loaded")
+    except Exception as e:
+        raise e  
+    
+    parser.add_argument("-c", type=str, dest="checkpoint_path", default=config.checkpoint_path)
+    parser.add_argument("-ed", type=str, dest="end_date", default=config.end_date)
+    parser.add_argument("-sd", type=str, dest="start_date", default=None, const=None)#default=config.start_date)
+    parser.add_argument("-p", type=str, dest="dataset_path", help="Path to dataset", default=None)
+
+    parser.add_argument(
+        "-pc",
+        type=str,
+        dest="dataset_path_cutout",
+        nargs="*",
+        help="List of paths for the input datasets in a cutout dataset",
+        default=None,
+        const=None,
+    )
+
+    parser.add_argument("-f", type=str, dest="frequency", default=config.frequency)
+    parser.add_argument("-s", type=str, dest="timestep", default=config.timestep)
+    parser.add_argument("-l", type=int, dest="leadtimes", default=config.leadtimes)
+    args = parser.parse_args()
+
+    args_dict = vars(args)
+
+    return OmegaConf.merge(config, OmegaConf.create(args_dict))
+
+        
