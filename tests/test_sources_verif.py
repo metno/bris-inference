@@ -1,13 +1,13 @@
 import os
 
 import numpy as np
-from bris.sources.verif import Verif
+from bris import sources
 
 
 def test_read():
     # Simple test to see if no errors occur when reading a Verif as input
     filename = os.path.dirname(os.path.abspath(__file__)) + "/files/verif_input.nc"
-    source = Verif(filename)
+    source = sources.Verif(filename)
     variable = "test"
 
     start_time = 1672552800  # 20230101 06:00:00

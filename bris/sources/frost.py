@@ -2,7 +2,7 @@ from functools import cached_property
 
 import numpy as np
 
-from bris.source import Source
+from bris.sources import Source
 
 
 class Frost(Source):

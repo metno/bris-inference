@@ -4,7 +4,7 @@ import numpy as np
 import xarray as xr
 
 from bris.observations import Location, Observations
-from bris.source import Source
+from bris.sources import Source
 
 
 class Verif(Source):
