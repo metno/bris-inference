@@ -42,7 +42,7 @@ def test_get():
     leadtimes = range(66)
     num_members = 2
 
-    routes = bris.routes.get(config, leadtimes, num_members, data_module, run_name, workdir)
+    routes = bris.routes.get(config, len(leadtimes), num_members, data_module, run_name, workdir)
     print(routes)
 
 
