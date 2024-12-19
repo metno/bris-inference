@@ -35,7 +35,7 @@ def get_required_variables(name, init_args):
         if "variables" in init_args:
             return init_args["variables"]
         else:
-            return None
+            return [None]
 
     elif name == "verif":
         return [init_args["variable"]]

@@ -44,7 +44,17 @@ def get(routing_config: dict, leadtimes: list, num_members: int, data_module: Da
             lons = data_module.longitudes[decoder_index]
             field_shape = data_module.field_shape[decoder_index][domain_index]
 
-            pm = PredictMetadata(required_variables[decoder_index], lats, lons, leadtimes,
+            curr_required_variables = required_variables[decoder_index]
+            if curr_required_variables is None:
+                # Convert None to all available variables
+                # TODO: This is not tested yet
+                name_to_index = data_module.data_reader.name_to_index[decoder_index]
+                available_names = name_to_index.keys():
+                curr_required_variables = [i for i in range(len(available_names)]
+                for name, index in name_to_index.items():
+                    curr_required_variables[index] = name
+
+            pm = PredictMetadata(curr_required_variables, lats, lons, num_leadtimes,
                     num_members, field_shape)
 
             for output_type, args in oc.items():
@@ -69,14 +79,20 @@ def get(routing_config: dict, leadtimes: list, num_members: int, data_module: Da
 
 def get_required_variables(routing_config: dict):
     """Returns a list of required variables for each decoder"""
-    required_variables = dict()
+    required_variables = defaultdict(list)
     for rc in routing_config:
         l = list()
         for oc in rc["outputs"]:
             for output_type, args in oc.items():
                 l += bris.outputs.get_required_variables(output_type, args)
-        l = sorted(list(set(l)))
-        required_variables[rc["decoder_index"]] = l
+        required_variables[rc["decoder_index"]] += l
+
+    for k,v in required_variables.items():
+        if None in v:
+            required_variables[k] = None
+        else:
+            required_variables[k] = sorted(list(set(v)))
+
     return required_variables
 
 def expand_run_name(string, run_name):
