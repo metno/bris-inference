@@ -1,15 +1,18 @@
+import logging
+
+from functools import cached_property
 from typing import Any, Optional
 
-import torch
-from functools import cached_property
 import pytorch_lightning as pl
-
-from anemoi.training.distributed.strategy import DDPGroupStrategy
+import torch
 from anemoi.utils.config import DotDict
 
 from .checkpoint import Checkpoint
-from .writer import CustomWriter
 from .data.datamodule import DataModule
+from .utils import check_anemoi_dataset_version
+from .writer import CustomWriter
+
+LOGGER = logging.getLogger(__name__)
 
 
 class Inference:
@@ -37,11 +40,36 @@ class Inference:
     def device(self) -> str:
         if self._device is None:
             if torch.cuda.is_available() and torch.backends.cuda.is_built():
+                LOGGER.info(f"Specified device not set. Found GPU")
                 return "cuda"
             else:
+                LOGGER.info(f"Specified device not set. Could not find gpu, using CPU")
                 return "cpu"
         else:
+            LOGGER.info(f"Using specified device: {self._device}")
             return self._device
+
+    @cached_property
+    def strategy(self):
+        if check_anemoi_dataset_version(self.checkpoint._metadata):
+            LOGGER.info("Anemoi training package found, using its strategy")
+            from anemoi.training.distributed.strategy import DDPGroupStrategy
+
+            return DDPGroupStrategy(
+                self.config.run_options.num_gpus_per_model,
+                self.config.run_options.num_gpus_per_model,
+                static_graph=not self.checkpoint.config.training.accum_grad_batches > 1,
+            )
+        else:
+            LOGGER.info(
+                "Anemoi training package not found! Using aifs-mono legacy strategy"
+            )
+            from bris.data.legacy.distributed.strategy import DDPGroupStrategy
+
+            return DDPGroupStrategy(
+                self.config.run_options.num_gpus_per_model,
+                static_graph=not self.checkpoint.config.training.accum_grad_batches > 1,
+            )
 
     @cached_property
     def trainer(self) -> pl.Trainer:
@@ -49,10 +77,7 @@ class Inference:
             accelerator=self.device,
             deterministic=self.deterministic,
             detect_anomaly=self.config.diagnostics.debug.anomaly_detection,
-            strategy=DDPGroupStrategy(
-                self.config.hardware.num_gpus_per_model,
-                static_graph=not self.config.training.accum_grad_batches > 1,
-            ),
+            strategy=self.strategy,
             devices=self.config.hardware.num_gpus_per_node,
             num_nodes=self.config.hardware.num_nodes,
             precision=self.config.precision if not self.precision else self.precision,
