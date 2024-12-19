@@ -17,7 +17,7 @@ def instantiate(name: str, predict_metadata: PredictMetadata, workdir: str, init
         obs_sources = list()
         for s in init_args["obs_sources"]:
             for name, opts in s.items():
-                obs_sources += [source.instantiate(name, opts)]
+                obs_sources += [sources.instantiate(name, opts)]
         init_args["obs_sources"] = obs_sources
         return Verif(predict_metadata, workdir, **init_args)
 

@@ -74,7 +74,7 @@ def get_required_variables(routing_config: dict):
         l = list()
         for oc in rc["outputs"]:
             for output_type, args in oc.items():
-                l += bris.output.get_required_variables(output_type, args)
+                l += bris.outputs.get_required_variables(output_type, args)
         l = sorted(list(set(l)))
         required_variables[rc["decoder_index"]] = l
     return required_variables

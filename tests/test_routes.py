@@ -3,6 +3,15 @@ import numpy as np
 
 import bris.routes
 
+class FakeDataModule:
+    def __init__(self):
+        pass
+
+    @property
+    def grids(self):
+        ret = dict()
+        ret[0] = [1, 2]
+        return ret
 
 def test_get():
     config = list()
@@ -27,7 +36,7 @@ def test_get():
     ]
     assert bris.routes.get_required_variables(config) == {0: ["2t"]}
 
-    data_module = None
+    data_module = FakeDataModule()
     run_name = "legendary_gnome"
     workdir = "testdir"
     leadtimes = range(66)
