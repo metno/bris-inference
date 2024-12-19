@@ -48,7 +48,7 @@ def main():
 
     # Get outputs and required_variables of each decoder
     decoder_outputs = bris.routes.get(config["routing"], leadtimes, num_members, datamodule, run_name, workdir) #get num_leadtimes from config.leadtimes
-    decoder_variables = bris.routes.get_required_variables(config["routing"])
+#    decoder_variables = bris.routes.get_required_variables(config["routing"])
 
     writer = CustomWriter(decoder_outputs, write_interval="batch")
 
@@ -58,13 +58,18 @@ def main():
                         checkpoint = checkpoint,
                         data_reader = datamodule.data_reader,
                         forecast_length = config.leadtimes,
-                        select_indices = [0,1,2,3] #TODO: fix
+                        select_indices = [3,4] #TODO: fix
     )    
 
     callbacks = list()
     callbacks += [writer]
 
-    inference = Inference(model, datamodule, callbacks)
+    inference = Inference(config=config,
+                          model=model,
+                          callbacks=callbacks,
+                          checkpoint=checkpoint,
+                          datamodule=datamodule,
+                          )
     inference.run()
 
     # Finalize all output, so they can flush to disk if needed

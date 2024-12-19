@@ -44,6 +44,22 @@ class Dataset(IterableDataset):
                 "Warning: Underlying dataset does not implement 'per_worker_init'."
             )
     
+    def set_comm_group_info(
+        self,
+        global_rank: int,
+        model_comm_group_id: int,
+        model_comm_group_rank: int,
+        model_comm_num_groups: int,
+        reader_group_rank: int,
+        reader_group_size: int,
+    ) -> None:
+
+        self.global_rank = global_rank
+        self.model_comm_group_id = model_comm_group_id
+        self.model_comm_group_rank = model_comm_group_rank
+        self.model_comm_num_groups = model_comm_num_groups
+        self.reader_group_rank = reader_group_rank
+        self.reader_group_size = reader_group_size
 
 
     def __iter__(

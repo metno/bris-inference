@@ -29,6 +29,9 @@ def get(routing_config: dict, num_leadtimes: list, num_members: int, data_module
         domain_index = config["domain"]
 
         curr_grids = data_module.grids[decoder_index]
+        if isinstance(curr_grids, int): #ugly fix
+            curr_grids = (curr_grids,)
+
         if domain_index == 0:
             start_gridpoint = 0
             end_gridpoint = curr_grids[domain_index]

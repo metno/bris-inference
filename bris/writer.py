@@ -29,17 +29,15 @@ class CustomWriter(BasePredictionWriter):
                 prediction: This comes from predict_step in forecaster
         """
 
-        timestamp = prediction["time_stamp"][0].split(":")[0]
-        times = prediction["time"]
-        # Get times from prediciton in datetime64
+        times = prediction["times"]
         ensemble_member = prediction["ensemble_member"]
 
         # TODO: Why is this here, don'ẗ we want all data-parallel processes to write to disk?
         if prediction["group_rank"] == 0:  # related to model parallel? 
             
-            for domain_name, output_dict in self.outputs.items():
+            for output_dict in self.outputs:
                 pred = prediction["pred"][output_dict["decoder_index"]] 
                 pred = pred[...,output_dict["start"]:output_dict["end"],:]
 
                 for output in output_dict["outputs"]:
-                    output.add_forecast(time, ensemble_member, pred) #change timestamp to times
+                    output.add_forecast(times, ensemble_member, pred) #change timestamp to times

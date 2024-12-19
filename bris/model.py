@@ -22,13 +22,7 @@ class BasePredictor(pl.LightningModule):
             **kwargs : Any
             ):
         """ 
-            THIS IS NOT THE FINALIZED SETUP FOR THE BASEFORACASTER,
-            CHANGES MAY OCCUR.
-            
-            Generic forecaster which handles multi or single
-            GPU/Node setup. Includes abstract methods which
-            needs to be overwritten by custom forecasters i.e
-            interpolator, multi-enc-dec, ensemble, etc..
+            Base predictor class, overwrite all the class methods
     
         """
         
@@ -36,18 +30,7 @@ class BasePredictor(pl.LightningModule):
 
         super().__init__(*args, **kwargs)
 
-        #assert num_device_per_model >= 1, f"Number of device per model is not greater or equal to 1. Got: {num_device_per_model}"
-        #assert num_devices_per_nodes >= 1, f"Number of device per node is not greater or equal to 1. Got: {num_device_per_model}"
-        #assert num_nodes >= 1, f"Number of nodes is not greater or equal to 1. Got : {num_nodes}" 
-
-
-        #self.model_comm_group_id = int(os.environ.get("SLURM_PROCID", "0")) // num_device_per_model
-        #self.model_comm_group_rank = int(os.environ.get("SLURM_PROCID", "0")) % num_device_per_model
-        #self.model_comm_num_groups = math.ceil(
-        #    num_devices_per_nodes * num_nodes / num_device_per_model
-        #)
-
-        # lazy init model and reader group info, will be set by the DDPGroupStrategy:
+        #Lazy init
         self.model_comm_group = None
         self.model_comm_group_id = 0
         self.model_comm_group_rank = 0
@@ -66,6 +49,18 @@ class BasePredictor(pl.LightningModule):
         self.model_comm_group_rank = model_comm_group_rank
         self.model_comm_num_groups = model_comm_num_groups
         self.model_comm_group_size = model_comm_group_size
+
+    def set_reader_groups(
+        self,
+        reader_groups: list[ProcessGroup],
+        reader_group_id: int,
+        reader_group_rank: int,
+        reader_group_size: int,
+    ) -> None:
+        self.reader_groups = reader_groups
+        self.reader_group_id = reader_group_id
+        self.reader_group_rank = reader_group_rank
+        self.reader_group_size = reader_group_size
 
     @abstractmethod
     def get_static_forcings(self, datareader):
@@ -184,49 +179,13 @@ class BrisPredictor(BasePredictor):
             for fcast_step in range(self.forecast_length):
                 y_pred = self(x)
                 time += self.frequency
-                print(time)
                 x = self.advance_input_predict(x, y_pred, time)
                 y_preds[:, fcast_step+1, ...] = self.model.post_processors(y_pred, in_place=False)[:,0,...,self.select_indices].cpu().to(torch.float32).numpy() 
                 times.append(time)
         return {"pred": [y_preds], "times": times, "group_rank": self.model_comm_group_rank, "ensemble_member": 0}
     
     def allgather_batch(self, batch: torch.Tensor) -> torch.Tensor:
-        """Allgather the batch-shards across the reader group.
-
-        Parameters
-        ----------
-        batch : torch.Tensor
-            Batch-shard of current reader rank
-
-        Returns
-        -------
-        torch.Tensor
-            Allgathered (full) batch
-        """
-        grid_size = len(self.latlons_data)  # number of points
-
-        if grid_size == batch.shape[-2]:
-            return batch  # already have the full grid
-
-        grid_shard_size = grid_size // self.reader_group_size
-        last_grid_shard_size = grid_size - (grid_shard_size * (self.reader_group_size - 1))
-
-        # prepare tensor list with correct shapes for all_gather
-        shard_shape = list(batch.shape)
-        shard_shape[-2] = grid_shard_size
-        last_shard_shape = list(batch.shape)
-        last_shard_shape[-2] = last_grid_shard_size
-
-        tensor_list = [torch.empty(tuple(shard_shape), device=self.device) for _ in range(self.reader_group_size - 1)]
-        tensor_list.append(torch.empty(last_shard_shape, device=self.device))
-
-        torch.distributed.all_gather(
-            tensor_list,
-            batch,
-            group=self.reader_groups[self.reader_group_id],
-        )
-
-        return torch.cat(tensor_list, dim=-2)
+        return batch #Not implemented properly
                   
 
 class NetatmoPredictor(BasePredictor):

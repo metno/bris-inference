@@ -56,9 +56,9 @@ class Inference:
             from anemoi.training.distributed.strategy import DDPGroupStrategy
 
             return DDPGroupStrategy(
-                self.config.run_options.num_gpus_per_model,
+                self.config.hardware.num_gpus_per_model,
                 self.config.dataloader.get(
-                    "read_group_size", self.config.run_options.num_gpus_per_model
+                    "read_group_size", self.config.hardware.num_gpus_per_model
                 ),
                 static_graph=not self.checkpoint.config.training.accum_grad_batches > 1,
             )
@@ -69,7 +69,7 @@ class Inference:
             from bris.data.legacy.distributed.strategy import DDPGroupStrategy
 
             return DDPGroupStrategy(
-                self.config.run_options.num_gpus_per_model,
+                self.config.hardware.num_gpus_per_model,
                 static_graph=not self.checkpoint.config.training.accum_grad_batches > 1,
             )
 
@@ -78,11 +78,11 @@ class Inference:
         trainer = pl.Trainer(
             accelerator=self.device,
             deterministic=self.deterministic,
-            detect_anomaly=self.config.diagnostics.debug.anomaly_detection,
+            detect_anomaly=False,
             strategy=self.strategy,
             devices=self.config.hardware.num_gpus_per_node,
             num_nodes=self.config.hardware.num_nodes,
-            precision=self.config.precision if not self.precision else self.precision,
+            precision="16-mixed",
             inference_mode=True,
             use_distributed_sampler=False,
             callbacks=self.callbacks,
