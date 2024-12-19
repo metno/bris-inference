@@ -7,11 +7,7 @@ from hydra.utils import instantiate
 import bris.utils
 
 from .checkpoint import Checkpoint
-<<<<<<< HEAD
-from .data.datamodule import DataModule
-=======
 from bris.data.datamodule import DataModule
->>>>>>> 3656dfa (Parser merge with config)
 from .inference import Inference
 from .predict_metadata import PredictMetadata
 from .writer import CustomWriter
@@ -30,10 +26,7 @@ def main():
     config = create_config(parser)
 
     # Load checkpoint, and patch it if needed
-    '''
-    #checkpoint = Checkpoint(args.checkpoint_path)
-
-    '''
+    checkpoint = Checkpoint(config.checkpoint_path)
     if hasattr(config.model.graph, "path"):
         LOGGER.info("Update graph is enabled. Proceeding to change internal graph")
         checkpoint.update_graph(
@@ -44,9 +37,6 @@ def main():
     datamodule = DataModule(
         config=config,
         checkpoint_object=checkpoint,
-        paths=paths,
-        frequency=args.frequency,
-        timestep=args.timestep,
         graph=checkpoint.graph,
     )
     # Assemble outputs
@@ -86,7 +76,6 @@ def main():
             output.finalize()
 
     print("Hello world")
-    '''
 
 if __name__ == "__main__":
     main()

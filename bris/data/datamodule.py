@@ -23,8 +23,6 @@ class DataModule(pl.LightningDataModule):
         self,
         config: DotDict = None,
         checkpoint_object: Checkpoint = None,
-        paths: Optional[list[str]] = None,
-        **kwargs: Any,
     ) -> None:
         """
         DataModule instance and DataSets.
@@ -43,27 +41,8 @@ class DataModule(pl.LightningDataModule):
         self.config = config
         self.graph = checkpoint_object.graph
         self.ckptObj = checkpoint_object
-
-        if not kwargs.get("frequency", None) and not kwargs.get("timestep", None):
-            try:
-                self.timestep = self.config.timestep
-                self.frequency = self.config.frequency
-            except errors.ConfigAttributeError as e:
-                raise ValueError(f"Missing either timestep, frequency or both") from e
-        else:
-            self.timestep = kwargs.get("timestep")
-            self.frequency = kwargs.get("frequency")
-
-        # assert isinstance(graph, HeteroData), f"Expecting graph to be torch geometric HeteroData object"
-
-        if paths:
-            # check if args paths exist
-            for p in paths:
-                assert os.path.exists(
-                    p
-                ), f"The given input data path does not exist. Got {p}"
-            self.paths = paths
-        # self.legacy = check_anemoi_dataset_version(metadata=self.ckptObj._metadata)
+        self.timestep = config.timestep
+        self.frequency = config.frequency
         self.legacy = not check_anemoi_training(metadata=self.ckptObj._metadata)
 
     def predict_dataloader(self) -> DataLoader:
@@ -208,19 +187,6 @@ class DataModule(pl.LightningDataModule):
             An anemoi open_dataset object
         """
         from anemoi.datasets import open_dataset
-
-        if hasattr(self, "paths") and hasattr(self.config.datasets, "cutout"):
-            assert len(self.config.datasets.cutout) == len(
-                self.paths
-            ), f"len(cutout) != len(paths)"
-            # if paths is given with command line args
-            # we want to replace the existing path in config with this
-            # TODO :  make this more generic, what if cutout or open_dataset
-            # struct is not given??
-
-            for d, p in zip(self.config.datasets.cutout, self.paths):
-                d["dataset"] = p if not p.endswith("/") else p.rstrip("/")
-            return open_dataset(self.config.dataset)
         return open_dataset(self.config.dataset)
 
     @cached_property
