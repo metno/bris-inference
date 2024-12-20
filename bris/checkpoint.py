@@ -195,18 +195,22 @@ class Checkpoint:
         return (_data_indices.name_to_index,)
 
     @cached_property
-    def index_to_name(self) -> dict:
+    def index_to_name(self) -> tuple[dict]:
         """
         Mapping between index and their corresponding variable name
         """
         _data_indices = self._model_instance.data_indices
         if isinstance(_data_indices, (tuple, list)) and len(_data_indices) >= 2:
-            return {
-                k: {index: var for var, index in self.name_to_index[k].items()}
-                for k in self.name_to_index
-            }
-
-        return  # {index : name for index,name in enumerate(self._metadata.dataset.variables)}
+            return tuple(
+                [
+                    {
+                        index: var
+                        for var, index in self.name_to_index[deocder_index].items()
+                    }
+                    for deocder_index in range(len(self.name_to_index))
+                ]
+            )
+        return ({index: name for name, index in _data_indices.name_to_index.items()},)
 
     def _make_indices_mapping(self, indices_from, indices_to):
         """
@@ -223,7 +227,7 @@ class Checkpoint:
         return {i: j for i, j in zip(indices_from, indices_to)}
 
     @cached_property
-    def model_output_index_to_name(self) -> dict:
+    def model_output_index_to_name(self) -> tuple[dict]:
         """
         A mapping from model output to data output. This
         dict returns index and name pairs according to model.output.full to
@@ -232,34 +236,39 @@ class Checkpoint:
         args:
             None
         return:
-            dict index and name pairs wrt to model.output.full to
+            tuple of dicts where the tuple index represents decoder index. Each
+            tuple dicts contains a dict with a mapping between model.output.full and
             data.output.full
+        Example:
+        -> if the parameter skt has index 27 in name_to_index or data.output.full it will
+        have index 17 in model.output.full. This dict will yield that index 17 is skt
         """
         if (
             isinstance(self._metadata.data_indices, (tuple, list))
             and len(self._metadata.data_indices) >= 2
         ):
             mapping = {
-                f"grid{grid_index}": self._make_indices_mapping(
+                grid_index: self._make_indices_mapping(
                     self._metadata.data_indices[grid_index].model.output.full,
                     self._metadata.data_indices[grid_index].data.output.full,
                 )
                 for grid_index in range(len(self._metadata.data_indices))
             }
-
-            return {
-                k: {name: self.index_to_name[k][index] for name, index in v.items()}
-                for k, v in mapping.items()
-            }
+            return tuple(
+                [
+                    {name: self.index_to_name[k][index] for name, index in v.items()}
+                    for k, v in mapping.items()
+                ]
+            )
 
         mapping = self._make_indices_mapping(
             self._metadata.data_indices.model.output.full,
             self._metadata.data_indices.data.output.full,
         )
-        return {k: self._metadata.dataset.variables[v] for k, v in mapping.items()}
+        return ({k: self._metadata.dataset.variables[v] for k, v in mapping.items()},)
 
     @cached_property
-    def model_output_name_to_index(self) -> dict:
+    def model_output_name_to_index(self) -> tuple[dict]:
         """
         A mapping from model output to data output. This
         dict returns name and index pairs according to model.output.full to
@@ -268,16 +277,20 @@ class Checkpoint:
         args:
             None
         return:
-            dict name and index pairs wrt to model.output.full to
-            data.output.full
+            Identical tuple[dict] from model_output_index_to_name but key
+            value pairs are switched.
         """
         if (
             isinstance(self._metadata.data_indices, (tuple, list))
             and len(self._metadata.data_indices) >= 2
         ):
-            return {
-                k: {name: index for index, name in v.items()}
-                for k, v in self.model_output_index_to_name.items()
-            }
+            return tuple(
+                [
+                    {name: index for index, name in v.items()}
+                    for k, v in enumerate(self.model_output_index_to_name)
+                ]
+            )
 
-        return {name: index for index, name in self.model_output_index_to_name.items()}
+        return (
+            {name: index for index, name in self.model_output_index_to_name.items()},
+        )
