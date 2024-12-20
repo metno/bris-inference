@@ -76,7 +76,7 @@ def main():
     # Finalize all output, so they can flush to disk if needed
     # TODO: Only do this on rank 0 (maybe this is already the case at this stage of the code?
     for decoder_output in decoder_outputs:
-        for output in decoder_output:
+        for output in decoder_output["outputs"]:
             output.finalize()
 
     print("Hello world")
