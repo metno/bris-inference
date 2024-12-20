@@ -188,15 +188,11 @@ class Checkpoint:
         """
         _data_indices = self._model_instance.data_indices
         if isinstance(_data_indices, (tuple, list)) and len(_data_indices) >= 2:
-            q = {
-                k: _data_indices[k].name_to_index
-                for k in range(len(_data_indices))
-            }
+            return tuple(
+                [_data_indices[k].name_to_index for k in range(len(_data_indices))]
+            )
 
-            return (q, )
-
-        return (_data_indices.name_to_index, )
-        # {name : index for index,name in enumerate(self._metadata.dataset.variables)}
+        return (_data_indices.name_to_index,)
 
     @cached_property
     def index_to_name(self) -> dict:
