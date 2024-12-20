@@ -1,4 +1,7 @@
 import logging
+import json
+import jsonschema
+import yaml
 import numbers
 import os
 import re
@@ -9,6 +12,8 @@ from argparse import ArgumentParser
 import numpy as np
 from anemoi.utils.config import DotDict
 from omegaconf import OmegaConf
+
+import bris.config
 
 LOGGER = logging.getLogger(__name__)
 
@@ -69,6 +74,8 @@ def check_anemoi_dataset_version(metadata) -> tuple[bool, str]:
 def create_config(parser: ArgumentParser) -> OmegaConf:
     args, _ = parser.parse_known_args()
 
+    validate(args.config)
+
     try:
         config = OmegaConf.load(args.config)
         LOGGER.debug(f"config file from {args.config} is loaded")
@@ -113,3 +120,20 @@ def datetime_to_unixtime(dt):
 
 def unixtime_to_datetime(ut):
     return np.datetime64(ut, "s")
+
+
+def validate(filename, raise_on_error=False):
+    schema_filename = os.path.dirname(os.path.abspath(__file__)) + "/schema/schema.json"
+    with open(schema_filename) as file:
+        schema = json.load(file)
+
+    with open(filename) as file:
+        config = yaml.safe_load(file)
+    try:
+        q = jsonschema.validate(instance=config, schema=schema)
+    except jsonschema.exceptions.ValidationError as e:
+        if raise_on_error:
+            raise
+        else:
+            print("WARNING: Schema does not validate")
+            print(e)

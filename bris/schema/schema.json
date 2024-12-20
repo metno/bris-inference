@@ -1,0 +1,97 @@
+{
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "$id": "resource:schema.json",
+    "title": "Schema for bris inference configuration",
+    "description": "This schema provides definitions for the bris-inference configuration files",
+    "type": "object",
+    "definitions": {
+        "VerifOutput": {
+            "type": "object",
+            "properties": {
+                "verif": {
+                    "type": "object",
+                    "properties": {
+                        "filename": {"type": "string"},
+                        "variable": {"type": "string"},
+                        "threhsolds": {"type": "array", "items": {"type": "number"}},
+                        "quantiles": {"type": "array", "items": {"type": "number", "minimum": 0, "maximum": 1}},
+                        "obs": {
+                            "type": "array",
+                            "items": {
+                                "oneOf": [
+                                    {"$ref": "#/definitions/NetcdfSource"},
+                                    {"$ref": "#/definitions/FrostSource"}
+                                ]
+                            }
+                        }
+                    },
+                    "required": ["filename", "variable", "obs"]
+                }
+            },
+            "required": ["verif"]
+        },
+
+        "NetcdfOutput": {
+            "type": "object",
+            "properties": {
+                "netcdf": {
+                    "type": "object",
+                    "properties": {
+                        "filename_pattern": {"type": "string"},
+                        "variables": {"type": "array", "items": {"type": "string"}}
+                    },
+                    "required": ["filename_pattern"]
+                }
+            },
+            "required": ["netcdf"]
+        },
+
+        "NetcdfSource": {
+            "type": "object",
+            "properties": {
+                "netcdf": {
+                    "type": "object",
+                    "properties": {
+                        "path": {"type": "string"}
+                    },
+                    "required": ["path"]
+                }
+            },
+            "required": ["netcdf"]
+        },
+
+        "FrostSource": {
+            "type": "object",
+            "properties": {
+                "frost": {
+                    "type": "object",
+                    "properties": {},
+                    "required": []
+                }
+            } ,
+            "required": ["frost"]
+        }
+    },
+    "properties": {
+        "leadtimes": {"type": "integer", "minimum": 1},
+        "routing": {
+            "type": "array",
+            "items":  {
+                "type": "object",
+                "properties": {
+                    "decoder_index": {"type": "integer", "minimum": 0},
+                    "domain_index": {"type": "integer", "minimum": 0},
+                    "outputs": {
+                        "type": "array",
+                        "items": {
+                            "oneOf": [
+                                {"$ref": "#/definitions/NetcdfOutput"},
+                                {"$ref": "#/definitions/VerifOutput"}
+                            ]
+                        }
+                    }
+                }
+            }
+        }
+    }
+}

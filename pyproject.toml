@@ -63,7 +63,7 @@ include = ["bris"]
 version = {attr = "bris.__version__"}
 
 [tool.setuptools.package-data]
-# bris = ["schema/*.json"]
+bris = ["schema/*.json"]
 
 [project.scripts]
 bris = "bris:main"
