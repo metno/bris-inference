@@ -171,6 +171,16 @@ class DataModule(pl.LightningDataModule):
 
         return Dataset(dataCls)
 
+    @property
+    def name_to_index(self):
+        """
+        Returns:
+            dict:
+                key: decoder_index
+                value: dict of name to index
+        """
+        return self.ckptObj.name_to_index
+
     @cached_property
     def data_reader(self):
         """
@@ -188,6 +198,7 @@ class DataModule(pl.LightningDataModule):
             An anemoi open_dataset object
         """
         from anemoi.datasets import open_dataset
+
         return open_dataset(self.config.dataloader.predict)
 
     @cached_property
@@ -225,7 +236,7 @@ class DataModule(pl.LightningDataModule):
         """
         if isinstance(self.data_reader.grids[0], int):
             return (self.data_reader.grids,)
-        else: 
+        else:
             return self.data_reader.grids
 
     @cached_property
@@ -270,8 +281,8 @@ class DataModule(pl.LightningDataModule):
 
                 field_shape += (field_shape_dataset,)
         else:
-            field_shape = ((self.data_reader.field_shape,),) 
-        return field_shape #probably have to fix this for cutout
+            field_shape = ((self.data_reader.field_shape,),)
+        return field_shape  # probably have to fix this for cutout
 
 
 def worker_init_func(worker_id: int) -> None:

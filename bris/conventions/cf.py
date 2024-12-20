@@ -24,7 +24,22 @@ def get_metadata(anemoi_variable: str) -> dict:
         cfname = "x_wind"
         leveltype = "height"
         level = 10
+    elif anemoi_variable == "10v":
+        cfname = "y_wind"
+        leveltype = "height"
+        level = 10
+    elif anemoi_variable == "100u":
+        cfname = "x_wind"
+        leveltype = "height"
+        level = 100
+    elif anemoi_variable == "100v":
+        cfname = "y_wind"
+        leveltype = "height"
+        level = 100
     else:
+        if "_" not in anemoi_variable:
+            raise ValueError(f"Unknown anemoi variable: {anemoi_variable}")
+
         name, level = anemoi_variable.split("_")
         level = int(level)
         if name == "t":

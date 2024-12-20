@@ -86,7 +86,7 @@ class BrisPredictor(BasePredictor):
             checkpoint: Checkpoint,
             data_reader: Iterable,
             forecast_length: int,
-            select_indices,
+            variable_indices: dict,
             **kwargs
             ) -> None:
         super().__init__(
@@ -103,7 +103,7 @@ class BrisPredictor(BasePredictor):
         self.forecast_length = forecast_length
         self.latitudes = data_reader.latitudes
         self.longitudes = data_reader.longitudes
-        self.select_indices = select_indices
+        self.variable_indices = variable_indices[0]  # Assume we only have one decoder
         
 
         self.set_static_forcings(data_reader, self.metadata["config"]["data"]["forcing"])
@@ -165,12 +165,12 @@ class BrisPredictor(BasePredictor):
         batch, time_stamp = batch
         time = np.datetime64(time_stamp[0], 'h') #Consider not forcing 'h' here and instead generalize time + self.frequency
         times = [time]
-        y_preds = np.zeros((batch.shape[0], self.forecast_length, batch.shape[-2], len(self.select_indices)))
+        y_preds = np.zeros((batch.shape[0], self.forecast_length, batch.shape[-2], len(self.variable_indices)))
 
         #Insert analysis for t=0
         y_analysis = batch[:,multistep-1,0,...]
         y_analysis[...,data_indices.internal_data.output.diagnostic] = 0. #Set diagnostic variables to zero
-        y_preds[:,0,...] = y_analysis[...,self.select_indices].cpu().to(torch.float32).numpy()
+        y_preds[:,0,...] = y_analysis[...,self.variable_indices].cpu().to(torch.float32).numpy()
 
         #Possibly have to extend this to handle imputer, see _step in forecaster.
         batch = self.model.pre_processors(batch, in_place=False)
@@ -180,7 +180,7 @@ class BrisPredictor(BasePredictor):
                 y_pred = self(x)
                 time += self.frequency
                 x = self.advance_input_predict(x, y_pred, time)
-                y_preds[:, fcast_step+1, ...] = self.model.post_processors(y_pred, in_place=False)[:,0,...,self.select_indices].cpu().to(torch.float32).numpy() 
+                y_preds[:, fcast_step+1, ...] = self.model.post_processors(y_pred, in_place=False)[:,0,...,self.variable_indices].cpu().to(torch.float32).numpy() 
                 times.append(time)
         return {"pred": [y_preds], "times": times, "group_rank": self.model_comm_group_rank, "ensemble_member": 0}
     
@@ -195,6 +195,7 @@ class NetatmoPredictor(BasePredictor):
             model: torch.nn.Module, 
             metadata: DictConfig, 
             datareader: Iterable,
+            variable_indices: dict,
             **kwargs
             ) -> None:
         super().__init__(
