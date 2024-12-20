@@ -146,7 +146,6 @@ class BrisPredictor(BasePredictor):
 
         forcings = get_dynamic_forcings(time, self.latitudes, self.longitudes, self.metadata["config"]["data"]["forcing"])
         forcings.update(self.static_forcings)
-        np.save("forcings.npy", forcings)
 
         for forcing, value in forcings.items():
             if type(value) == np.ndarray:
