@@ -1,5 +1,5 @@
-start_date: 2019-01-02
-end_date: 2019-01-03
+start_date: 2019-01-02T00:00:00
+end_date: 2019-01-02T06:00:00
 
 checkpoint_path: /lustre/storeB/project/nwp/aifs/havardhh/bris-inference/inference-anemoi-by_time-epoch_075-step_149656.ckpt
 

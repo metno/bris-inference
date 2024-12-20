@@ -112,19 +112,19 @@ class BrisPredictor(BasePredictor):
 
         self.static_forcings = {}
         data = torch.from_numpy(data_reader[0].squeeze(axis=1).swapaxes(0,1))
-        data_normalized = self.model.pre_processors(data)
+        data_normalized = self.model.pre_processors(data, in_place=False)
 
         if "cos_latitude" in selection:
-            self.static_forcings["cos_latitude"] = np.cos(data_reader.latitudes)
+            self.static_forcings["cos_latitude"] = np.cos(data_reader.latitudes * np.pi / 180.)
 
         if "sin_latitude" in selection:    
-            self.static_forcings["sin_latitude"] = np.sin(data_reader.latitudes)
+            self.static_forcings["sin_latitude"] = np.sin(data_reader.latitudes * np.pi / 180.)
             
         if "cos_longitude" in selection:
-            self.static_forcings["cos_longitude"] = np.cos(data_reader.longitudes)
+            self.static_forcings["cos_longitude"] = np.cos(data_reader.longitudes * np.pi / 180. )
         
         if "sin_longitude" in selection:
-            self.static_forcings["sin_longitude"] = np.sin(data_reader.longitudes)
+            self.static_forcings["sin_longitude"] = np.sin(data_reader.longitudes * np.pi / 180.)
 
         if "lsm" in selection:
             self.static_forcings["lsm"] = data_normalized[..., data_reader.name_to_index["lsm"]]
@@ -146,6 +146,7 @@ class BrisPredictor(BasePredictor):
 
         forcings = get_dynamic_forcings(time, self.latitudes, self.longitudes, self.metadata["config"]["data"]["forcing"])
         forcings.update(self.static_forcings)
+        np.save("forcings.npy", forcings)
 
         for forcing, value in forcings.items():
             if type(value) == np.ndarray:
