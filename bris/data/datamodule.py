@@ -174,10 +174,8 @@ class DataModule(pl.LightningDataModule):
     @property
     def name_to_index(self):
         """
-        Returns:
-            dict:
-                key: decoder_index
-                value: dict of name to index
+        Returns a tuple of dictionaries, where each dict is:
+            variable_name -> index
         """
         return self.ckptObj.name_to_index
 
