@@ -37,11 +37,6 @@ def main():
         config=config,
         checkpoint_object=checkpoint,
     )
-    print(type(datamodule.longitudes))
-    print(datamodule.longitudes)
-    print(datamodule.latitudes)
-    print(datamodule.field_shape)
-    print(datamodule.grids)
 
     # Assemble outputs
     run_name = "legendary_gnome"

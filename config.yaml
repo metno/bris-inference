@@ -1,5 +1,5 @@
-start_date: 2020-02-06
-end_date: 2020-02-07
+start_date: 2019-01-02
+end_date: 2019-01-03
 
 checkpoint_path: /lustre/storeB/project/nwp/aifs/havardhh/bris-inference/inference-anemoi-by_time-epoch_075-step_149656.ckpt
 
@@ -9,10 +9,8 @@ frequency: 6h
 
 deterministic: True
 
-dataset:
-  dataset: ${hardware.paths.data}${hardware.files.global_dataset}
-  start: ${start_date}
-  end: ${end_date}
+dataset: ${hardware.paths.data}${hardware.files.global_dataset}
+
 
 
 dataloader:
