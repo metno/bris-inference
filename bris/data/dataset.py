@@ -67,4 +67,4 @@ class Dataset(IterableDataset):
     ) -> tuple[torch.Tensor, datetime64] | tuple[tuple[torch.Tensor], datetime64]:
 
         for idx, x in enumerate(iter(self.dataCls)):
-            yield (x, str(self.data.dates[idx]))
+            yield (x, str(self.data.dates[idx + self.dataCls.multi_step - 1]))
