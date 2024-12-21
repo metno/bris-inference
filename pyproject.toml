@@ -17,7 +17,7 @@ readme = "README.md"
 
 requires-python = ">=3.9"
 classifiers = [
-      "Development Status :: 4 - Beta",
+      "Development Status :: 3 - Alpha",
       "License :: OSI Approved :: Apache Software License",
       "Operating System :: OS Independent",
       "Programming Language :: Python :: 3 :: Only",
@@ -27,7 +27,6 @@ classifiers = [
       "Programming Language :: Python :: 3.12",
       "Programming Language :: Python :: Implementation :: CPython",
       "Programming Language :: Python :: Implementation :: PyPy",
-      "Development Status :: 5 - Production/Stable",
     ]
 dependencies = [
     "anemoi-datasets",
