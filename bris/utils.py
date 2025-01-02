@@ -13,7 +13,6 @@ import numpy as np
 from anemoi.utils.config import DotDict
 from omegaconf import OmegaConf
 
-import bris.config
 
 LOGGER = logging.getLogger(__name__)
 
