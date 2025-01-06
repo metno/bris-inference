@@ -10,9 +10,8 @@ class PredictMetadata:
         self, variables, lats, lons, num_leadtimes, num_members, field_shape=None
     ):
         assert utils.is_number(num_leadtimes)
-
         if field_shape is not None:
-            assert np.prod(field_shape) == len(lats), (field_shape, lats)
+            assert np.prod(field_shape) == len(lats), (field_shape, len(lats))
 
         self.variables = variables
 
