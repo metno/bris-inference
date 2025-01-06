@@ -9,7 +9,7 @@ from anemoi.utils.config import DotDict
 
 from .checkpoint import Checkpoint
 from .data.datamodule import DataModule
-from .utils import check_anemoi_dataset_version
+from .utils import check_anemoi_training
 from .writer import CustomWriter
 
 LOGGER = logging.getLogger(__name__)
@@ -51,7 +51,7 @@ class Inference:
 
     @cached_property
     def strategy(self):
-        if check_anemoi_dataset_version(self.checkpoint._metadata):
+        if check_anemoi_training(self.checkpoint._metadata):
             LOGGER.info("Anemoi training package found, using its strategy")
             from anemoi.training.distributed.strategy import DDPGroupStrategy
 
@@ -67,22 +67,23 @@ class Inference:
                 "Anemoi training package not found! Using aifs-mono legacy strategy"
             )
             from bris.data.legacy.distributed.strategy import DDPGroupStrategy
-
             return DDPGroupStrategy(
                 self.config.hardware.num_gpus_per_model,
                 static_graph=not self.checkpoint.config.training.accum_grad_batches > 1,
             )
+            
 
     @cached_property
     def trainer(self) -> pl.Trainer:
         trainer = pl.Trainer(
+            logger=False,
             accelerator=self.device,
             deterministic=self.deterministic,
             detect_anomaly=False,
             strategy=self.strategy,
             devices=self.config.hardware.num_gpus_per_node,
             num_nodes=self.config.hardware.num_nodes,
-            precision="16-mixed",
+            precision="bf16",
             inference_mode=True,
             use_distributed_sampler=False,
             callbacks=self.callbacks,
