@@ -125,7 +125,7 @@ class DataModule(pl.LightningDataModule):
                 """Did not find anemoi.training version in checkpoint metadata, assuming 
                         the model was trained with aifs-mono and using legacy functionality"""
             )
-            LOGGER.warning("Ensemble legacy mode has yet to be implemented!")
+            LOGGER.warning("WARNING! Ensemble legacy mode has yet to be implemented!")
             from .legacy.dataset import EnsNativeGridDataset, NativeGridDataset
             from .legacy.utils import _legacy_slurm_proc_id
 
@@ -235,7 +235,7 @@ class DataModule(pl.LightningDataModule):
         if isinstance(self.data_reader.grids[0], int):
             return (self.data_reader.grids,)
         else:
-            return self.data_reader.grids
+            return (self.data_reader.grids,)
 
     @cached_property
     def latitudes(self) -> tuple:
@@ -264,22 +264,30 @@ class DataModule(pl.LightningDataModule):
         type of grids. For XY-regular grid the field shape
         is on (x,y) format. For non-regular grids e.g gaussian
         grid the field shape is the flatten shape of the array.
-        For example o96 -> (40320,)
+        For example o96 -> (40320,) 
 
         """
+        # TODO: fix for netatmo, currently netatmo grid has different shape than x, y coords
         if hasattr(self.data_reader, "datasets"):
             field_shape = ()
-            for dataset in self.data_reader.datasets:
+            grids = self.data_reader.grids
+            for dataset, _grid in zip(self.data_reader.datasets, grids):
                 if hasattr(dataset, "datasets"):
                     field_shape_dataset = ()
-                    for sub_dataset in dataset.datasets:
-                        field_shape_dataset += (sub_dataset.field_shape,)
+                    for sub_dataset, _sub_grid in zip(dataset.datasets, _grid):
+                        if np.prod(sub_dataset.field_shape) == _sub_grid:
+                            field_shape_dataset += (sub_dataset.field_shape,)
+                        else:
+                            field_shape_dataset += (int(_sub_grid),)
                 else:
-                    field_shape_dataset = dataset.field_shape
-
+                    if np.prod(dataset.field_shape) == int(_grid): 
+                        field_shape_dataset = dataset.field_shape
+                    else:
+                        field_shape_dataset = (int(_grid),)
                 field_shape += (field_shape_dataset,)
+            field_shape = (field_shape,)
         else:
-            field_shape = ((self.data_reader.field_shape,),)
+            field_shape = ((self.data_reader.field_shape,),)  # probably have to fix this for cutout
         return field_shape  # probably have to fix this for cutout
 
 
