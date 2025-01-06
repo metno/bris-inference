@@ -47,18 +47,17 @@ def main():
         config["routing"], config.leadtimes, num_members, datamodule, run_name, workdir
     )  # get num_leadtimes from config.leadtimes
     #    decoder_variables = bris.routes.get_required_variables(config["routing"])
-    decoder_variable_indices = bris.routes.get(config["routing"], datamodule)
+    decoder_variable_indices = bris.routes.get_variable_indices(config["routing"], datamodule)
 
     writer = CustomWriter(decoder_outputs, write_interval="batch")
 
     # Forecaster must know about what leadtimes to output
-    # model = BrisPredictor(config, model, metadata, data_reader, decoder_variables)
     model = instantiate(
         config.model,
         checkpoint=checkpoint,
         data_reader=datamodule.data_reader,
         forecast_length=config.leadtimes,
-        select_indices=decoder_variable_indices,
+        variable_indices=decoder_variable_indices,
     )
 
     callbacks = list()

@@ -86,7 +86,7 @@ class BrisPredictor(BasePredictor):
             checkpoint: Checkpoint,
             data_reader: Iterable,
             forecast_length: int,
-            variable_indices: dict,
+            variable_indices: list,
             **kwargs
             ) -> None:
         super().__init__(
