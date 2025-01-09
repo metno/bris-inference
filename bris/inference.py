@@ -36,6 +36,8 @@ class Inference:
         self.precision = precision
         self._device = device
 
+        torch.set_float32_matmul_precision("high")
+
     @property
     def device(self) -> str:
         if self._device is None:
@@ -60,7 +62,7 @@ class Inference:
                 self.config.dataloader.get(
                     "read_group_size", self.config.hardware.num_gpus_per_model
                 ),
-                static_graph=not self.checkpoint.config.training.accum_grad_batches > 1,
+                static_graph=False, #not self.checkpoint.config.training.accum_grad_batches > 1,
             )
         else:
             LOGGER.info(
@@ -69,7 +71,7 @@ class Inference:
             from bris.data.legacy.distributed.strategy import DDPGroupStrategy
             return DDPGroupStrategy(
                 self.config.hardware.num_gpus_per_model,
-                static_graph=not self.checkpoint.config.training.accum_grad_batches > 1,
+                static_graph=False, #not self.checkpoint.config.training.accum_grad_batches > 1,
             )
             
 
@@ -78,7 +80,7 @@ class Inference:
         trainer = pl.Trainer(
             logger=False,
             accelerator=self.device,
-            deterministic=self.deterministic,
+            deterministic=False,
             detect_anomaly=False,
             strategy=self.strategy,
             devices=self.config.hardware.num_gpus_per_node,
