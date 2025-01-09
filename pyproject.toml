@@ -30,17 +30,27 @@ classifiers = [
     ]
 dependencies = [
     "anemoi-datasets",
-    "anemoi-models",
-    "anemoi-training",
     "argparse",
     "gridpp",
     "numpy",
     "pytest",
     "pytorch-lightning>=2.1",
     "torch",
+    "torchinfo",
     "tqdm",
     "verif",
     "zarr<=2.17",
+]
+
+# legacy version supports this branch from MetNo fork of ECMWF anemoi-models
+# contains some optimizations and fixes 
+optional-dependencies.legacy = [
+    "anemoi-models @ git+https://github.com/metno/anemoi-models.git@feature/fix-memory-inference-chunking",
+]
+
+optional-dependencies.anemoi = [
+    "anemoi-models",
+    "anemoi-training",
 ]
 optional-dependencies.tests = [
     "black",
