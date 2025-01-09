@@ -12,6 +12,7 @@ from hydra.utils import instantiate
 from omegaconf import DictConfig, OmegaConf, errors
 from torch.utils.data import DataLoader, get_worker_info
 from torch_geometric.data import HeteroData
+import anemoi.datasets.data.subset
 
 try:
     from anemoi.training.data.grid_indices import BaseGridIndices, FullGrid
@@ -20,7 +21,7 @@ except ImportError as e:
 
 from bris.checkpoint import Checkpoint
 from bris.data.dataset import Dataset
-from bris.utils import check_anemoi_dataset_version, check_anemoi_training
+from bris.utils import check_anemoi_training, recursive_list_to_tuple
 
 LOGGER = logging.getLogger(__name__)
 
@@ -165,16 +166,27 @@ class DataModule(pl.LightningDataModule):
             )
             return dataCls
         else:
-            dataCls = instantiate(
-                config=self.config.dataloader.datamodule,
-                data_reader=data_reader,
-                rollout=0,  # we dont perform rollout during inference
-                multistep=self.ckptObj.multistep,
-                timeincrement=self.timeincrement,
-                grid_indices=self.grid_indices,
-                shuffle=False,
-                label="predict",
-            )
+            try:
+                dataCls = instantiate(
+                    config=self.config.dataloader.datamodule,
+                    data_reader=data_reader,
+                    rollout=0,  # we dont perform rollout during inference
+                    multistep=self.ckptObj.multistep,
+                    timeincrement=self.timeincrement,
+                    grid_indices=self.grid_indices,
+                    shuffle=False,
+                    label="predict",
+                )
+            except:
+                dataCls = instantiate(
+                    config=self.config.dataloader.datamodule,
+                    data_reader=data_reader,
+                    rollout=0,  # we dont perform rollout during inference
+                    multistep=self.ckptObj.multistep,
+                    timeincrement=self.timeincrement,
+                    shuffle=False,
+                    label="predict",
+                )
 
         return Dataset(dataCls)
 
@@ -251,12 +263,11 @@ class DataModule(pl.LightningDataModule):
         """
         Retrieves a tuple of flatten grid shape(s).
         """
-
         if isinstance(self.data_reader.grids[0], (int, np.int32,np.int64)):
             return (self.data_reader.grids,)
         else:
             return self.data_reader.grids
-
+        
     @cached_property
     def latitudes(self) -> tuple:
         """
@@ -279,37 +290,37 @@ class DataModule(pl.LightningDataModule):
 
     @cached_property
     def field_shape(self) -> tuple:
-        """
-        Retrieves the field shape(s) for different
-        type of grids. For XY-regular grid the field shape
-        is on (x,y) format. For non-regular grids e.g gaussian
-        grid the field shape is the flatten shape of the array.
-        For example o96 -> (40320,) 
 
-        """
-        # TODO: fix for netatmo, currently netatmo grid has different shape than x, y coords
-        if hasattr(self.data_reader, "datasets") and hasattr(self.data_reader, "grids"):
-            grids = self.data_reader.grids
-            field_shape = ()
-            for dataset, _grid in zip(self.data_reader.datasets, grids):
-                if hasattr(dataset, "datasets"):
-                    field_shape_dataset = ()
-                    for sub_dataset, _sub_grid in zip(dataset.datasets, _grid):
-                        if np.prod(sub_dataset.field_shape) == _sub_grid:
-                            field_shape_dataset += (sub_dataset.field_shape,)
-                        else:
-                            field_shape_dataset += (int(_sub_grid),)
+        field_shape = [None]*len(self.grids)
+        for decoder_index, grids in enumerate(self.grids):
+            field_shape[decoder_index] = [None]*len(grids)
+            for dataset_index, grid in enumerate(grids):
+                _field_shape = self._get_field_shape(decoder_index, dataset_index)
+                if np.prod(_field_shape) == grid:
+                    field_shape[decoder_index][dataset_index] = list(_field_shape)
                 else:
-                    if np.prod(dataset.field_shape) == int(_grid): 
-                        field_shape_dataset = dataset.field_shape
-                    else:
-                        field_shape_dataset = (int(_grid),)
-                field_shape += (field_shape_dataset,)
-            field_shape = (field_shape,)
-        else:
-            field_shape = ((self.data_reader.field_shape,),)  # probably have to fix this for cutout
-        return field_shape  # probably have to fix this for cutout
+                    field_shape[decoder_index][dataset_index] = [grid,]
+        return recursive_list_to_tuple(field_shape)
 
+    def _get_field_shape(self, decoder_index, dataset_index):
+        
+        if isinstance(self.data_reader, anemoi.datasets.data.subset.Subset):
+            data_reader = self.data_reader.dataset
+        else:
+            data_reader = self.data_reader
+
+        if hasattr(data_reader, "datasets"):
+            dataset = data_reader.datasets[decoder_index]
+            if isinstance(dataset, anemoi.datasets.data.subset.Subset):
+                dataset = dataset.dataset
+            
+            if hasattr(dataset, "datasets"):
+                return dataset.datasets[dataset_index].field_shape
+            else:
+                return dataset.field_shape
+        else:
+            assert (decoder_index == 0 and dataset_index == 0)
+            return data_reader.field_shape
 
 def worker_init_func(worker_id: int) -> None:
     """Configures each dataset worker process.

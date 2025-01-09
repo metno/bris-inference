@@ -136,3 +136,9 @@ def validate(filename, raise_on_error=False):
         else:
             print("WARNING: Schema does not validate")
             print(e)
+
+
+def recursive_list_to_tuple(data):
+    if isinstance(data, list):
+        return tuple(recursive_list_to_tuple(item) for item in data)
+    return data

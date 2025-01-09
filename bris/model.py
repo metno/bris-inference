@@ -215,24 +215,113 @@ class NetatmoPredictor(BasePredictor):
     def __init__(
             self,
             *args,
-            model: torch.nn.Module, 
-            metadata: DictConfig, 
-            datareader: Iterable,
-            variable_indices: dict,
+            checkpoint: Checkpoint,
+            data_reader: Iterable,
+            forecast_length: int,
+            variable_indices: list,
+            release_cache: bool=False,
             **kwargs
             ) -> None:
         super().__init__(
             *args,**kwargs)
-        self.model = model
-        self.metadata = metadata
-        self.config = config
+        
+        self.model=checkpoint.model
+        self.metadata = checkpoint.metadata
+
+        self.frequency = self.metadata["config"]["data"]["frequency"]
+        if isinstance(self.frequency, str) and self.frequency[-1] == 'h':
+            self.frequency = int(self.frequency[0:-1])
+
+        self.forecast_length = forecast_length
+        self.latitudes = data_reader.latitudes
+        self.longitudes = data_reader.longitudes
+        self.variable_indices = variable_indices
+        
+        self.set_static_forcings(data_reader, self.metadata["config"]["data"]["zip"])
+
+    def set_static_forcings(self, data_reader, zip_config):
+
+        data = data_reader[0]
+        num_dsets = len(data)
+        data = [torch.from_numpy(x.squeeze(axis=1).swapaxes(0,1)) for x in data]
+        data_normalized = self.model.pre_processors(data, in_place=False)
+
+        self.static_forcings = [{} for _ in range(num_dsets)]
+        for dset in range(num_dsets):
+            selection = zip_config[dset]["forcing"]
+            if "cos_latitude" in selection:
+                self.static_forcings[dset]["cos_latitude"] = np.cos(data_reader.latitudes[dset] * np.pi / 180.)
+
+            if "sin_latitude" in selection:    
+                self.static_forcings[dset]["sin_latitude"] = np.sin(data_reader.latitudes[dset] * np.pi / 180.)
+                
+            if "cos_longitude" in selection:
+                self.static_forcings[dset]["cos_longitude"] = np.cos(data_reader.longitudes[dset] * np.pi / 180. )
+            
+            if "sin_longitude" in selection:
+                self.static_forcings[dset]["sin_longitude"] = np.sin(data_reader.longitudes[dset] * np.pi / 180.)
+
+            if "lsm" in selection:
+                self.static_forcings[dset]["lsm"] = data_normalized[dset][..., data_reader.name_to_index[dset]["lsm"]]
+
+            if "z" in selection:
+                self.static_forcings[dset]["z"] = data_normalized[dset][..., data_reader.name_to_index[dset]["z"]]
     
-    def forward(self, x: torch.Tensor)-> torch.Tensor:
-        return self(x, self.model_comm_group)
+    def forward(self, x: torch.Tensor)-> list[torch.Tensor]:
+        return self.model(x, self.model_comm_group)
     
-    def advance_input_predict(self, x, y_pred):
-        return super().advance_input_predict(x, y_pred)
+    def advance_input_predict(self, x, y_pred, time):
+        data_indices = self.model.data_indices
+
+        for i in range(len(x)):
+
+            x[i] = x[i].roll(-1,dims=1)
+            #Get prognostic variables:
+            x[i][:, -1, :, :, data_indices[i].internal_model.input.prognostic] = y_pred[i][..., data_indices[i].internal_model.output.prognostic]
     
+            forcings = get_dynamic_forcings(time, self.latitudes[i], self.longitudes[i], self.metadata["config"]["data"]["zip"][i]["forcing"])
+            forcings.update(self.static_forcings[i])
+
+            for forcing, value in forcings.items():
+                if type(value) == np.ndarray:
+                    x[i][:, -1, :, :, data_indices[i].internal_model.input.name_to_index[forcing]] = torch.from_numpy(value)
+                else:
+                    x[i][:, -1, :, :, data_indices[i].internal_model.input.name_to_index[forcing]] = value
+
+        return x  
+
+
     @torch.inference_mode
-    def predict_step(self, batch: torch.Tensor, batch_idx: int) -> torch.Tensor:
-        pass
+    def predict_step(self, batch: list, batch_idx: int) -> list:
+        num_dsets = len(batch)
+        data_indices = self.model.data_indices
+        multistep = self.metadata["config"]["training"]["multistep_input"]
+
+        batch, time_stamp = batch
+        time = np.datetime64(time_stamp[0], 'h') #Consider not forcing 'h' here and instead generalize time + self.frequency
+        times = [time]
+        y_preds = [np.zeros((batch[i].shape[0], self.forecast_length, batch[i].shape[-2], len(self.variable_indices[i]))) for i in range(num_dsets)]
+        #Insert analysis for t=0
+        for i in range(num_dsets):
+            y_analysis = batch[i][:,multistep-1,0,...]
+            y_analysis[...,data_indices[i].internal_data.output.diagnostic] = 0. 
+            y_preds[i][:,0,...] = y_analysis[...,self.variable_indices[i]].cpu().to(torch.float32).numpy()
+
+        batch = self.model.pre_processors(batch, in_place=False)
+        x = [batch[i][..., data_indices[i].internal_data.input.full] for i in range(num_dsets)]
+        with torch.amp.autocast(device_type= "cuda", dtype=torch.bfloat16):
+            for fcast_step in range(self.forecast_length-1):
+                y_pred = self(x)
+                time += self.frequency
+                x = self.advance_input_predict(x, y_pred, time)
+                y_pp = self.model.post_processors(y_pred, in_place=False)
+                for i in range(num_dsets):
+                    y_preds[i][:, fcast_step+1, ...] = y_pp[i][:,0,...,self.variable_indices[i]].cpu().to(torch.float32).numpy() 
+                times.append(time)
+
+        return {"pred": y_preds, "times": times, "group_rank": self.model_comm_group_rank, "ensemble_member": 0}
+    
+    def set_model_comm_group(self, model_comm_group: ProcessGroup) -> None:
+        LOGGER.debug("set_model_comm_group: %s", model_comm_group)
+        self.model_comm_group = model_comm_group
+

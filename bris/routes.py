@@ -53,8 +53,6 @@ def get(
 
         outputs = list()
         for oc in config["outputs"]:
-            # TODO: Get this from data_module
-            variables = ["u_800", "u_600", "2t", "v_500", "10u"]
             lats = data_module.latitudes[decoder_index][start_gridpoint:end_gridpoint]
             lons = data_module.longitudes[decoder_index][start_gridpoint:end_gridpoint]
             field_shape = data_module.field_shape[decoder_index][domain_index]
@@ -77,13 +75,6 @@ def get(
                 curr_workdir = utils.get_workdir(workdir)
                 output = bris.outputs.instantiate(output_type, pm, curr_workdir, args)
                 outputs += [output]
-
-        variable_indices = dict()
-        for decoder_index, r in required_variables.items():
-            variable_indices[decoder_index] = list()
-            for name in required_variables[decoder_index]:
-                index = data_module.name_to_index[decoder_index][name]
-                variable_indices[decoder_index] += [index]
 
         # We don't need to pass out domain_index, since this is only used to get start/end
         # gridpoints and is not used elsewhere in the code

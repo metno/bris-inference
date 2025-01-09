@@ -39,7 +39,7 @@ class CustomWriter(BasePredictionWriter):
             for output_dict in self.outputs:
                 pred = prediction["pred"][output_dict["decoder_index"]] 
                 assert pred.shape[0] == 1, "Batchsize (per dataparallel) should be 1"
-                pred = np.squeeze(pred)
+                pred = np.squeeze(pred, axis=0)
                 pred = pred[...,output_dict["start_gridpoint"]:output_dict["end_gridpoint"],:]
 
                 for output in output_dict["outputs"]:
