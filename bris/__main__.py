@@ -15,9 +15,7 @@ from .writer import CustomWriter
 
 LOGGER = logging.getLogger(__name__)
 
-
 def main():
-
     parser = ArgumentParser()
     parser.add_argument("--debug", action="store_true")
     parser.add_argument("--config", type=str, required=True)
@@ -58,6 +56,7 @@ def main():
         data_reader=datamodule.data_reader,
         forecast_length=config.leadtimes,
         variable_indices=decoder_variable_indices,
+        release_cache=config.release_cache,
     )
 
     callbacks = list()
@@ -79,7 +78,5 @@ def main():
             output.finalize()
 
     print("Hello world")
-
-
 if __name__ == "__main__":
     main()
