@@ -5,12 +5,18 @@ from typing import Any, Optional
 
 import numpy as np
 import pytorch_lightning as pl
+from anemoi.datasets import open_dataset
 from anemoi.utils.config import DotDict
 from anemoi.utils.dates import frequency_to_seconds
 from hydra.utils import instantiate
 from omegaconf import DictConfig, OmegaConf, errors
 from torch.utils.data import DataLoader, get_worker_info
 from torch_geometric.data import HeteroData
+
+try:
+    from anemoi.training.data.grid_indices import BaseGridIndices, FullGrid
+except ImportError as e:
+    print("Warning! Could not import BaseGridIndices and FullGrid. Continuing without this module")
 
 from bris.checkpoint import Checkpoint
 from bris.data.dataset import Dataset
@@ -165,6 +171,7 @@ class DataModule(pl.LightningDataModule):
                 rollout=0,  # we dont perform rollout during inference
                 multistep=self.ckptObj.multistep,
                 timeincrement=self.timeincrement,
+                grid_indices=self.grid_indices,
                 shuffle=False,
                 label="predict",
             )
@@ -195,9 +202,11 @@ class DataModule(pl.LightningDataModule):
         return:
             An anemoi open_dataset object
         """
-        from anemoi.datasets import open_dataset
-
-        return open_dataset(self.config.dataloader.predict)
+        base_loader = OmegaConf.to_container(
+            self.config.dataloader.predict, 
+            resolve=True
+            )
+        return open_dataset(base_loader)
 
     @cached_property
     def timeincrement(self) -> int:
@@ -226,16 +235,27 @@ class DataModule(pl.LightningDataModule):
             timestep,
         )
         return timestep // frequency
-
+    
+    @cached_property
+    def grid_indices(self):
+        reader_group_size = self.config.dataloader.read_group_size
+        grid_indices = FullGrid(
+            nodes_name="data",
+            reader_group_size=reader_group_size
+            )
+        grid_indices.setup(self.graph)
+        return grid_indices
+    
     @cached_property
     def grids(self) -> tuple:
         """
         Retrieves a tuple of flatten grid shape(s).
         """
-        if isinstance(self.data_reader.grids[0], int):
+
+        if isinstance(self.data_reader.grids[0], (int, np.int32,np.int64)):
             return (self.data_reader.grids,)
         else:
-            return (self.data_reader.grids,)
+            return self.data_reader.grids
 
     @cached_property
     def latitudes(self) -> tuple:
@@ -268,9 +288,9 @@ class DataModule(pl.LightningDataModule):
 
         """
         # TODO: fix for netatmo, currently netatmo grid has different shape than x, y coords
-        if hasattr(self.data_reader, "datasets"):
-            field_shape = ()
+        if hasattr(self.data_reader, "datasets") and hasattr(self.data_reader, "grids"):
             grids = self.data_reader.grids
+            field_shape = ()
             for dataset, _grid in zip(self.data_reader.datasets, grids):
                 if hasattr(dataset, "datasets"):
                     field_shape_dataset = ()
