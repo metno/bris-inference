@@ -8,6 +8,8 @@ from anemoi.utils.checkpoints import load_metadata
 from anemoi.utils.config import DotDict
 from torch_geometric.data import HeteroData
 
+from bris.utils import check_anemoi_training
+
 LOGGER = logging.getLogger(__name__)
 
 
@@ -21,6 +23,7 @@ class Checkpoint:
         assert os.path.exists(path), f"The given checkpoint does not exist!"
 
         self.path = path
+        self.set_base_seed 
 
     @cached_property
     def metadata(self) -> dict:
@@ -164,22 +167,20 @@ class Checkpoint:
                 raise NotImplementedError
 
     @cached_property
-    def base_seed(self) -> int:
+    def set_base_seed(self) -> int:
         """
         Fetchs the original base seed used during training.
         If not
 
         """
-        os.environ["AIFS_BASE_SEED"] = f"{self._metadata.seed}"
-
-        self.AIFS_BASE_SEED = os.get(os.environ("AIFS_BASE_SEED"), None)
-        if self.AIFS_BASE_SEED:
-            # LOGGER.info(f"AIFS_BASE_SEED set to: {self.AIFS_BASE_SEED}")
-            return self.AIFS_BASE_SEED
-
-        self.AIFS_BASE_SEED = 1234
-        # LOGGER.info(f"Could not find AIFS_BASE_SEED. Setting to a random number {self.AIFS_BASE_SEED}")
-        return self.AIFS_BASE_SEED
+        os.environ["ANEMOI_BASE_SEED"]="1234"
+        os.environ["AIFS_BASE_SEED"]="1234"
+        LOGGER.info("ANEMOI_BASE_SEED and ANEMOI_BASE_SEED set to 1234")
+    
+    def set_encoder_decoder_num_chunks(self, chunks: int = 1) -> None:
+        assert isinstance(chunks, int), f"Expecting chunks to be int, got: {chunks}, {type(chunks)}"
+        os.environ["ANEMOI_INFERENCE_NUM_CHUNKS"] = str(chunks) 
+        LOGGER.info(f"Encoder and decoder are chunked to {chunks}")
 
     @cached_property
     def name_to_index(self) -> dict:

@@ -24,6 +24,11 @@ def main():
 
     # Load checkpoint, and patch it if needed
     checkpoint = Checkpoint(config.checkpoint_path)
+
+    # Chunking encoder and decoder, default 1
+    checkpoint.set_encoder_decoder_num_chunks(
+        getattr(config, "inference_num_chunks", 1)
+    )
     if hasattr(config.model, "graph"):
         LOGGER.info("Update graph is enabled. Proceeding to change internal graph")
         checkpoint.update_graph(config.model.graph)  # Pass in a new graph if needed
