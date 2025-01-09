@@ -303,15 +303,13 @@ class DataModule(pl.LightningDataModule):
         return recursive_list_to_tuple(field_shape)
 
     def _get_field_shape(self, decoder_index, dataset_index):
-        
-        if isinstance(self.data_reader, anemoi.datasets.data.subset.Subset):
-            data_reader = self.data_reader.dataset
-        else:
-            data_reader = self.data_reader
+        data_reader = self.data_reader
+        while isinstance(data_reader, (anemoi.datasets.data.subset.Subset, anemoi.datasets.data.select.Select)):
+            data_reader = data_reader.dataset
 
         if hasattr(data_reader, "datasets"):
             dataset = data_reader.datasets[decoder_index]
-            if isinstance(dataset, anemoi.datasets.data.subset.Subset):
+            while isinstance(dataset, (anemoi.datasets.data.subset.Subset, anemoi.datasets.data.select.Select)):
                 dataset = dataset.dataset
             
             if hasattr(dataset, "datasets"):
