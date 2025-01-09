@@ -1,0 +1,84 @@
+defaults:
+  - override hydra/job_logging: none
+  - override hydra/hydra_logging: none
+  - _self_
+  
+start_date: 2024-12-03T00:00:00
+end_date: 2024-12-03T06:00:00
+
+checkpoint_path: /lustre/storeB/project/nwp/aifs/aram/fmi/checkpoint/aifs_inference_o96_10k_stretched_grid.ckpt
+
+leadtimes: 12
+timestep: 6h
+frequency: 6h
+
+deterministic: True
+
+lam_dataset: ${hardware.paths.data}${hardware.files.lam_dataset}
+global_dataset: ${hardware.paths.data}${hardware.files.global_dataset}
+
+# If the user wants to release GPU cache and memory
+# This option releases unused cached/memory used by torch
+release_cache: False
+
+dataloader:
+  batch_size: 1
+  prefetch_factor: 2
+  num_workers: 1
+  pin_memory: True
+
+  read_group_size: 1 #Do not change this, not implemented properly
+
+  predict:
+    cutout:
+      - dataset: ${lam_dataset}
+        # following ckpt does not support 800 levels, dropping these
+        drop: [u_800, v_800, w_800, z_800, q_800,t_800]
+      - dataset: ${global_dataset}
+        drop: [u_800, v_800, w_800, z_800, q_800,t_800]
+    neighbours: 2
+    min_distance_km: 0
+    adjust: all 
+
+  datamodule:
+    _target_: anemoi.training.data.dataset.NativeGridDataset
+    _convert_: all
+
+hardware:
+  paths:
+    data: /lustre/storeB/project/nwp/aifs/aram/fmi/dataset/
+  files:
+    lam_dataset: meps-2024120306.zarr 
+    global_dataset: hres-2024120306.zarr
+
+  num_gpus_per_node: 1
+  num_gpus_per_model: 1
+  num_nodes: 1
+
+model:
+  _target_: bris.model.BrisPredictor
+  _convert_: all
+
+
+checkpoints:
+  - my_interpolator:
+    type: interpolator
+    path: interpolator.ckpt
+  - my_forecaster:
+    type: forecaster
+    path: forecast.ckpt
+
+routing:
+  - decoder_index: 0
+    domain: 0
+    outputs:
+      - netcdf:
+          filename_pattern: fmi_meps_pred_%Y%m%dT%HZ.nc
+          variables: [2t, 2d]
+  - decoder_index: 0
+    domain: 1
+    outputs:
+      - netcdf:
+          filename_pattern: fmi_era_pred_%Y%m%dT%HZ.nc
+          variables: [2t, 2d]
+
