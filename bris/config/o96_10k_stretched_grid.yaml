@@ -21,6 +21,14 @@ global_dataset: ${hardware.paths.data}${hardware.files.global_dataset}
 # This option releases unused cached/memory used by torch
 release_cache: False
 
+dataset:
+  cutout: 
+    - dataset: ${hardware.paths.data}${hardware.files.lam_dataset}
+    - dataset: ${hardware.paths.data}${hardware.files.global_dataset}
+  neighbours: 2
+  min_distance_km: 0
+  adjust: all
+
 dataloader:
   batch_size: 1
   prefetch_factor: 2
@@ -30,15 +38,19 @@ dataloader:
   read_group_size: 1 #Do not change this, not implemented properly
 
   predict:
-    cutout:
-      - dataset: ${lam_dataset}
-        # following ckpt does not support 800 levels, dropping these
-        drop: [u_800, v_800, w_800, z_800, q_800,t_800]
-      - dataset: ${global_dataset}
-        drop: [u_800, v_800, w_800, z_800, q_800,t_800]
-    neighbours: 2
-    min_distance_km: 0
-    adjust: all 
+#    cutout:
+#      - dataset: ${lam_dataset}
+#        # following ckpt does not support 800 levels, dropping these
+#        drop: [u_800, v_800, w_800, z_800, q_800,t_800]
+#      - dataset: ${global_dataset}
+#        drop: [u_800, v_800, w_800, z_800, q_800,t_800]
+#    neighbours: 2
+#    min_distance_km: 0
+#    adjust: all 
+    dataset: ${dataset}
+    drop: [u_800, v_800, w_800, z_800, q_800,t_800]
+    start: ${start_date}
+    end: ${end_date}
 
   datamodule:
     _target_: anemoi.training.data.dataset.NativeGridDataset

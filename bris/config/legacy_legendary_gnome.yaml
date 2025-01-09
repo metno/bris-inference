@@ -21,6 +21,9 @@ global_dataset: ${hardware.paths.data}${hardware.files.global_dataset}
 # This option releases unused cached/memory used by torch
 release_cache: False
 
+# Determine how much the encoder and decoder is chunked
+inference_num_chunks: 16
+
 dataloader:
   batch_size: 1
   prefetch_factor: 2
