@@ -209,19 +209,26 @@ class Netcdf(Output):
 
             if ncname not in self.ds:
                 dim_name = self.variable_list.get_level_dimname(ncname)
-                dims = [
-                    c("time"),
-                    dim_name,
-                    *spatial_dims,
-                ]
-                if self._is_gridded:
-                    shape = [len(times), len(self.ds[dim_name]), len(y), len(x)]
+                if dim_name is not None:
+                    dims = [
+                        c("time"),
+                        dim_name,
+                        *spatial_dims,
+                    ]
+                    if self._is_gridded:
+                        shape = [len(times), len(self.ds[dim_name]), len(y), len(x)]
+                    else:
+                        shape = [len(times), len(self.ds[dim_name]), len(y)]
                 else:
-                    shape = [len(times), len(self.ds[dim_name]), len(y)]
+                    dims = [c("time"), *spatial_dims]
+                    if self._is_gridded:
+                        shape = [len(times), len(y), len(x)]
+                    else:
+                        shape = [len(times), len(y)]
 
                 if self.pm.num_members > 1:
-                    dims.insert(2, c("ensemble_member"))
-                    shape.insert(2, self.pm.num_members)
+                    dims.insert(len(shape) - 2, c("ensemble_member"))
+                    shape.insert(len(shape) - 2, self.pm.num_members)
 
                 ar = np.nan * np.zeros(shape, np.float32)
                 self.ds[ncname] = (dims, ar)
@@ -252,7 +259,10 @@ class Netcdf(Output):
                 # Remove ensemble dimension
                 ar = ar[..., 0]
 
-            self.ds[ncname][:, level_index, ...] = ar
+            if level_index is not None:
+                self.ds[ncname][:, level_index, ...] = ar
+            else:
+                self.ds[ncname][:] = ar
 
             # Add variable attributes
             cfname = cf.get_metadata(variable)["cfname"]
@@ -320,6 +330,10 @@ class VariableList:
             leveltype = metadata["leveltype"]
             level = metadata["level"]
 
+            if leveltype is None:
+                # This variable (likely a forcing parameter) does not need a level dimension
+                continue
+
             if cfname not in cfname_to_levels:
                 cfname_to_levels[cfname] = dict()
             if leveltype not in cfname_to_levels[cfname]:
@@ -344,8 +358,9 @@ class VariableList:
                 dimname = self.conventions.get_name(leveltype)
 
                 if (leveltype, levels) in dims_to_add.values():
-                    # Reuse
-                    pass
+                    # Reuse an existing dimension
+                    i = list(dims_to_add.values()).index((leveltype, levels))
+                    dimname = list(dims_to_add.keys())[i]
                 else:
                     count = 0
                     for curr_leveltype, _ in dims_to_add.values():
@@ -361,6 +376,8 @@ class VariableList:
 
     def get_level_dimname(self, ncname):
         """Get the name of the level dimension for given NetCDF variable"""
+        if ncname not in self._ncname_to_level_dim:
+            return None
         return self._ncname_to_level_dim[ncname]
 
     def get_level_index(self, anemoi_name):
@@ -370,10 +387,14 @@ class VariableList:
 
         # Find the name of the level dimension
         ncname = self.get_ncname_from_anemoi_name(anemoi_name)
+        if ncname not in self._ncname_to_level_dim:
+            return None
         dimname = self._ncname_to_level_dim[ncname]
 
         # Find the index in this dimension
         level = metadata["level"]
+        if level is None:
+            return None
         index = self.dimensions[dimname][1].index(level)
         return index
 

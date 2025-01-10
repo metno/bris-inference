@@ -32,3 +32,20 @@ def test_2():
     dimname = vl.get_level_dimname("x_wind_10m")
     assert vl.dimensions[dimname] == ("height", [10])
     assert vl.get_level_index("10u") == 0
+
+
+def test_3():
+    # This checks that with repeated variables, we get the right matching of dimensions
+    vl = netcdf.VariableList(["10u", "10v", "2t", "2d"])
+    assert vl.dimensions == {"height": ("height", [10]), "height1": ("height", [2])}
+
+
+def test_4():
+    vl = netcdf.VariableList(["cos_julian_day"])
+    assert vl.dimensions == {}
+    assert vl.get_level_dimname("cos_julian_day") is None
+    assert vl.get_level_index("cos_julian_day") is None
+
+
+if __name__ == "__main__":
+    test_3()

@@ -23,6 +23,9 @@ class Metno:
             ncname = f"{cfname}_{level:d}m"
         elif leveltype == "air_pressure":
             ncname = f"{cfname}_pl"
+        elif leveltype is None and level is None:
+            # This is likely a forcing variable
+            return cfname
         else:
             print(cfname, leveltype, level)
             raise NotImplementedError()

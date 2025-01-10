@@ -37,20 +37,31 @@ def get_metadata(anemoi_variable: str) -> dict:
         leveltype = "height"
         level = 100
     else:
-        if "_" not in anemoi_variable:
-            raise ValueError(f"Unknown anemoi variable: {anemoi_variable}")
 
-        name, level = anemoi_variable.split("_")
-        level = int(level)
-        if name == "t":
-            cfname = "air_temperature"
-        elif name == "u":
-            cfname = "x_wind"
-        elif name == "v":
-            cfname = "y_wind"
-        elif name == "z":
-            cfname = "geopotential"
-        leveltype = "air_pressure"
+        words = anemoi_variable.split("_")
+        if len(words) == 2 and words[0] in ["t", "u", "v", "z", "q", "w"]:
+            name, level = words
+            level = int(level)
+            if name == "t":
+                cfname = "air_temperature"
+            elif name == "u":
+                cfname = "x_wind"
+            elif name == "v":
+                cfname = "y_wind"
+            elif name == "z":
+                cfname = "geopotential"
+            elif name == "w":
+                cfname = "vertical_velocity"
+            elif name == "q":
+                cfname = "spcific_humdity"
+            else:
+                raise ValueError()
+            leveltype = "air_pressure"
+        else:
+            # Forcing parameters
+            level = None
+            leveltype = None
+            cfname = anemoi_variable
 
     return dict(cfname=cfname, leveltype=leveltype, level=level)
 
@@ -73,65 +84,41 @@ def get_attributes_from_leveltype(leveltype):
 
 
 def get_attributes(cfname):
-    if cfname == "forecast_reference_time":
-        ret = {
-            "units": "seconds since 1970-01-01 00:00:00 +00:00",
-        }
-    elif cfname == "time":
-        ret = {
-            "units": "seconds since 1970-01-01 00:00:00 +00:00",
-        }
-    elif cfname == "latitude":
-        ret = {
-            "units": "degrees_north",
-        }
-    elif cfname == "surface_altitude":
-        ret = {"units": "m"}
-    elif cfname == "longitude":
-        ret = {
-            "units": "degrees_east",
-        }
-    elif cfname == "projection_x_coordinate":
-        ret = {
-            "units": "m",
-        }
-    elif cfname == "projection_y_coordinate":
-        ret = {
-            "units": "m",
-        }
-    elif cfname == "realization":
-        ret = {}
-    elif cfname == "air_pressure":
-        ret = {
-            "units": "hPa",
-            "description": "pressure",
-            "positive": "up",
-        }
-    elif cfname == "height":
-        ret = {
-            "units": "m",
-            "description": "height above ground",
-            "long_name": "height",
-            "positive": "up",
-        }
-    elif cfname == "x_wind":
-        ret = {
-            "units": "m/s",
-        }
-    elif cfname == "y_wind":
-        ret = {
-            "units": "m/s",
-        }
-    elif cfname == "air_temperature":
-        ret = {
-            "units": "K",
-        }
-    elif cfname == "dew_point_temperature":
-        ret = {
-            "units": "K",
-        }
-    else:
-        raise ValueError(f"Cannot return attributes for unknown cfname: {cfname}")
+    ret = {"standard_name": cfname}
 
-    ret["standard_name"] = cfname
+    if cfname == "forecast_reference_time":
+        ret["units"] = "seconds since 1970-01-01 00:00:00 +00:00"
+    elif cfname == "time":
+        ret["units"] = "seconds since 1970-01-01 00:00:00 +00:00"
+    elif cfname == "latitude":
+        ret["units"] = "degrees_north"
+    elif cfname == "surface_altitude":
+        ret["units"] = "m"
+    elif cfname == "longitude":
+        ret["units"] = "degrees_east"
+    elif cfname == "projection_x_coordinate":
+        ret["units"] = "m"
+    elif cfname == "projection_y_coordinate":
+        ret["units"] = "m"
+    elif cfname == "realization":
+        pass
+    elif cfname == "air_pressure":
+        ret["units"] = "hPa"
+        ret["description"] = "pressure"
+        ret["positive"] = "up"
+    elif cfname == "height":
+        ret["units"] = "m"
+        ret["description"] = "height above ground"
+        ret["long_name"] = "height"
+        ret["positive"] = "up"
+    elif cfname in ["x_wind", "y_wind"]:
+        ret["units"] = "m/s"
+    elif cfname == "air_temperature":
+        ret["units"] = "K"
+    elif cfname == "dew_point_temperature":
+        ret["units"] = "K"
+    else:
+        # Unknown cfname, let's not write any attributes
+        ret = {}
+
     return ret
