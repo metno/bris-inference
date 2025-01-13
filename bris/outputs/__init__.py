@@ -1,4 +1,6 @@
 import numpy as np
+
+
 from bris import sources
 from bris.predict_metadata import PredictMetadata
 
@@ -13,11 +15,14 @@ def instantiate(name: str, predict_metadata: PredictMetadata, workdir: str, init
     if name == "verif":
         # Parse obs sources
         obs_sources = list()
+
+        # Convert to dict, since iverriding obs_sources doesn't seem to work with OmegaConf
+        args = dict(**init_args)
         for s in init_args["obs_sources"]:
             for name, opts in s.items():
                 obs_sources += [sources.instantiate(name, opts)]
-        init_args["obs_sources"] = obs_sources
-        return Verif(predict_metadata, workdir, **init_args)
+        args["obs_sources"] = obs_sources
+        return Verif(predict_metadata, workdir, **args)
 
     elif name == "netcdf":
         return Netcdf(predict_metadata, workdir, **init_args)

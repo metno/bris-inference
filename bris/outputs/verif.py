@@ -103,7 +103,8 @@ class Verif(Output):
             ]  # Add in variable dimension
         else:
             pred = pred[..., 0]
-            interpolated_pred = gridpp.simple_gradient(self.ipoints, self.opoints, pred)
+            # TODO: Do linear interpolation here with scipy
+            interpolated_pred = gridpp.nearest(self.ipoints, self.opoints, pred)
 
             if self.elev_gradient is not None:
                 interpolated_elevs = gridpp.nearest(
@@ -117,11 +118,15 @@ class Verif(Output):
 
     @property
     def _is_gridded_input(self):
-        return self.pm.field_shape is not None
+        return self.pm.is_gridded
 
     @property
     def _num_locations(self):
         return self.opoints.size()
+
+    @property
+    def num_members(self):
+        return self.intermediate.num_members
 
     def finalize(self):
         """Write forecasts and observations to file"""
@@ -149,6 +154,13 @@ class Verif(Output):
             self.obs_elevs,
             cf.get_attributes("surface_altitude"),
         )
+        """
+        coords["ensemble_member"] = (
+                ["ensemble_member"],
+                self.ensemble_members,
+                cf.get_attributes("ensemble_member"),
+        )
+        """
         if len(self.thresholds) > 0:
             coords["threshold"] = (
                 ["threshold"],
@@ -180,7 +192,7 @@ class Verif(Output):
         self.ds["fcst"] = (["time", "leadtime", "location"], fcst)
 
         # Load threshold forecasts
-        if len(self.thresholds) > 0:
+        if len(self.thresholds) > 0 and self.num_members > 1:
             cdf = np.nan * np.zeros(
                 [
                     len(frts),
@@ -198,7 +210,7 @@ class Verif(Output):
             self.ds["cdf"] = (["time", "leadtime", "location", "threshold"], cdf)
 
         # Load quantile forecasts
-        if len(self.quantile_levels) > 0:
+        if len(self.quantile_levels) > 0 and self.num_members > 1:
             x = np.nan * np.zeros(
                 [
                     len(frts),
@@ -231,7 +243,12 @@ class Verif(Output):
 
         start_time = int(np.min(unique_valid_times))
         end_time = int(np.max(unique_valid_times))
-        frequency = int(np.min(np.diff(unique_valid_times)))
+
+        if start_time == end_time:
+            # Any number will do
+            frequency = 3600
+        else:
+            frequency = int(np.min(np.diff(unique_valid_times)))
 
         # Fill in retrieved observations into our obs array.
         obs = np.nan * np.zeros(
@@ -295,7 +312,6 @@ class Verif(Output):
             num_members = ar.shape[-1]
             lower = 0.5 * 1 / num_members
             upper = 1 - lower
-
             percentile = (level - lower) / (upper - lower) * 100
             percentile = max(min(percentile, 100), 0)
         else:

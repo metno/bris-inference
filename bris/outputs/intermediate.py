@@ -82,6 +82,18 @@ class Intermediate(Output):
 
         return pred
 
+    @property
+    def num_members(self):
+        filenames = self.get_filenames()
+
+        members = list()
+        max_member = 0
+        for filename in filenames:
+            _, member = filename.split("/")[-1].split(".npy")[0].split("_")
+            max_member = max(int(member), max_member)
+
+        return max_member + 1
+
     def get_filenames(self):
         return glob.glob(f"{self.workdir}/*_*.npy")
 
