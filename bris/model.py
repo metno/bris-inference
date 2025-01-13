@@ -12,6 +12,7 @@ from torch.distributed.distributed_c10d import ProcessGroup
 
 from .forcings import get_dynamic_forcings
 from .checkpoint import Checkpoint
+from .utils import check_anemoi_training
 
 LOGGER = logging.getLogger(__name__)
 
@@ -19,6 +20,7 @@ class BasePredictor(pl.LightningModule):
     def __init__(
             self, 
             *args: Any, 
+            checkpoint: Checkpoint,
             **kwargs : Any
             ):
         """ 
@@ -34,7 +36,11 @@ class BasePredictor(pl.LightningModule):
         self.model_comm_group_id = 0
         self.model_comm_group_rank = 0
         self.model_comm_num_groups = 1
-        self.legacy = True
+        
+        if check_anemoi_training(checkpoint.metadata):
+            self.legacy = False
+        else:
+            self.legacy = True
 
     def set_model_comm_group(
         self,
@@ -91,7 +97,7 @@ class BrisPredictor(BasePredictor):
             release_cache: bool=False,
             **kwargs
             ) -> None:
-        super().__init__(*args,**kwargs)
+        super().__init__(*args, checkpoint=checkpoint, **kwargs)
 
         self.model=checkpoint.model
         self.data_indices = self.model.data_indices
@@ -122,7 +128,6 @@ class BrisPredictor(BasePredictor):
         
         self.model.eval()
         self.release_cache = release_cache
-
     def set_static_forcings(self, data_reader, selection):
 
         self.static_forcings = {}
@@ -223,7 +228,7 @@ class NetatmoPredictor(BasePredictor):
             **kwargs
             ) -> None:
         super().__init__(
-            *args,**kwargs)
+            *args, checkpoint=checkpoint, **kwargs)
         
         self.model=checkpoint.model
         self.metadata = checkpoint.metadata
