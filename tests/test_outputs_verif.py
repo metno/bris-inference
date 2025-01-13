@@ -37,8 +37,8 @@ def test_1():
         workdir,
         ofilename,
         "2t",
-        "K",
         sources,
+        "K",
         thresholds=thresholds,
         quantile_levels=quantile_levels,
     )

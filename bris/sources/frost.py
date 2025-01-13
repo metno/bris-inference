@@ -193,3 +193,8 @@ class Frost(Source):
         self.ds.attrs["units"] = self.units
 
         self.ds.to_netcdf(self.filename, mode="w", engine="netcdf4")
+
+    @property
+    def units(self):
+        # TODO:
+        return None

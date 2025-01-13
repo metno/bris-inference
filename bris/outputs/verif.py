@@ -1,11 +1,14 @@
 import gridpp
 import numpy as np
 import xarray as xr
+import cfunits
+
 from bris import utils
 from bris.conventions import cf
 from bris.outputs import Output
 from bris.outputs.intermediate import Intermediate
 from bris.predict_metadata import PredictMetadata
+from bris.conventions import anemoi as anemoi_conventions
 
 
 class Verif(Output):
@@ -17,8 +20,8 @@ class Verif(Output):
         workdir: str,
         filename: str,
         variable: str,
-        units: str,
         obs_sources=list,
+        units=None,
         thresholds=[],
         quantile_levels=[],
         consensus_method="control",
@@ -87,9 +90,10 @@ class Verif(Output):
             times: List of np.datetime64 objects
             pred: 3D array of forecasts with dimensions (time, points, variables)
         """
+        Iv = self.pm.variables.index(self.variable)
         if self._is_gridded_input:
             pred = self.reshape_pred(pred)
-            pred = pred[..., 0]  # Extract single variable
+            pred = pred[..., Iv]  # Extract single variable
             interpolated_pred = gridpp.bilinear(self.igrid, self.opoints, pred)
 
             if self.elev_gradient is not None:
@@ -102,7 +106,7 @@ class Verif(Output):
                 :, :, None
             ]  # Add in variable dimension
         else:
-            pred = pred[..., 0]
+            pred = pred[..., Iv]
             # TODO: Do linear interpolation here with scipy
             interpolated_pred = gridpp.nearest(self.ipoints, self.opoints, pred)
 
@@ -113,6 +117,16 @@ class Verif(Output):
                 delev = self.opoints.get_elevs() - interpolated_elevs
                 interpolated_pred += self.elev_gradient * delev
             interpolated_pred = interpolated_pred[:, :, None]
+
+        anemoi_units = anemoi_conventions.get_units(self.variable)
+
+        if self.units is None:
+            # Update the units so they can be written out
+            self.units = anemoi_units
+        elif self.units is not None and self.units != anemoi_units:
+            to_units = cfunits.Units(self.units)
+            from_units = cfunits.Units(anemoi_units)
+            cfunits.Units.conform(interpolated_pred, from_units, to_units, inplace=True)
 
         self.intermediate.add_forecast(times, ensemble_member, interpolated_pred)
 
@@ -262,10 +276,15 @@ class Verif(Output):
         count = 0
         for obs_source in self.obs_sources:
             curr = obs_source.get(self.variable, start_time, end_time, frequency)
+            from_units = cfunits.Units(obs_source.units) if obs_source.units is not None else None
+            to_units = cfunits.Units(self.units) if self.units is not None else None
             for t, valid_time in enumerate(unique_valid_times):
                 Itimes, Ileadtimes = np.where(valid_times == valid_time)
                 data = curr.get_data(self.variable, valid_time)
                 if data is not None:
+                    if None not in [obs_source.units, self.units]:
+                        cfunits.Units.conform(data, from_units, to_units, inplace=True)
+
                     Iout = range(count, len(obs_source.locations) + count)
                     for i in range(len(Itimes)):
                         # Copy observation into all times/leadtimes that matches this valid time

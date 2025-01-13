@@ -36,7 +36,11 @@ class Source:
     @property
     def locations(self) -> list:
         """Returns a list of bris.observations.Location. Subclasses must override this."""
-        raise NotImplementedError
+        raise NotImplementedError()
+
+    @property
+    def units(self) -> str:
+        raise NotImplementedError()
 
 from .frost import Frost
 from .verif import Verif

@@ -59,3 +59,10 @@ class Verif(Source):
     @cached_property
     def _times(self):
         return np.sort(np.unique(self._all_times))
+
+    @cached_property
+    def units(self):
+        if hasattr(self.file, "units"):
+            return self.file.units
+        else:
+            return None
