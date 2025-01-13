@@ -69,19 +69,15 @@ routing:
     outputs:
       - netcdf:
           filename_pattern: era_pred_%Y%m%dT%HZ.nc
-  
-
-#  - decoder_index: 0
-#    domain: 1
-#    outputs:
-#      - verif:
-#          filename: global/2t/%R.nc   # global/2t/legendary_gnome.nc
-#          variable: 2t
-#          thresholds: [0, 10, 20]
-#          quantile_levels: [0.1, 0.9]
-#          obs:
-#            - netcdf:
-#                path: 2t.nc
+#       - verif:
+#           filename: 2t/test.nc   # global/2t/legendary_gnome.nc
+#           variable: 2t
+#           thresholds: [0, 10, 20]
+#           quantile_levels: [0.1, 0.9]
+#           units: degC
+#           obs_sources:
+#             - verif:
+#                 filename: /lustre/storeB/project/nwp/bris/verification/nordic/6h/202306_202405/t2m/AIFS_legendary_gnome_roll4.nc
 #      - verif:
 #          filename: global/mslp/%R.nc   # global/2t/legendary_gnome.nc
 #          variable: mslp
