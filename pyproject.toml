@@ -43,18 +43,17 @@ dependencies = [
     "tqdm",
     "verif",
     "zarr<=2.17",
+    "anemoi-models",
+    "anemoi-training=>0.1.0",
 ]
 
 # legacy version supports this branch from MetNo fork of ECMWF anemoi-models
 # contains some optimizations and fixes 
 optional-dependencies.legacy = [
     "anemoi-models @ git+https://github.com/metno/anemoi-models.git@feature/fix-memory-inference-chunking",
+    "aifs @ git+ssh://git@github.com/metno/aifs-mono.git@production",
 ]
 
-optional-dependencies.anemoi = [
-    "anemoi-models",
-    "anemoi-training",
-]
 optional-dependencies.tests = [
     "black",
     "coverage",
