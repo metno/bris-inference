@@ -44,7 +44,7 @@ dependencies = [
     "verif",
     "zarr<=2.17",
     "anemoi-models",
-    "anemoi-training=>0.1.0",
+    "anemoi-training>=0.1.0",
 ]
 
 # legacy version supports this branch from MetNo fork of ECMWF anemoi-models
