@@ -33,6 +33,7 @@ dependencies = [
     "argparse",
     "gridpp",
     "numpy",
+    "omegaconf",
     "pytest",
     "pytorch-lightning>=2.1",
     "torch",
