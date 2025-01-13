@@ -37,12 +37,10 @@ def main():
         config=config,
         checkpoint_object=checkpoint,
     )
-
+    
     # Assemble outputs
-    run_name = "legendary_gnome"
-    workdir = "testdir"
-    # TODO: Figure out what the leadtimes are based on the config
-    # TODO: Get this from the config
+    run_name = config.run_name #"legendary_gnome"
+    workdir = config.hardware.paths.workdir #"testdir"
     num_members = 1
 
     # Get outputs and required_variables of each decoder
