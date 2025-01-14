@@ -12,13 +12,20 @@
                 "verif": {
                     "type": "object",
                     "properties": {
-                        "filename": {"type": "string"},
+                        "filename": {
+                            "description": "Filename of output. Use %R for run_name",
+                            "type": "string"
+                        },
                         "variable": {
-                            "description": "What anemoi variable to verify? Can include variables that can be diagnosed from other vairables (e.g. 10si from 10u and 10v)",
+                            "description": "What anemoi variable to verify? Can include variables that can be diagnosed from other variables (e.g. 10si from 10u and 10v)",
                             "type": "string"
                         },
                         "thresholds": {"type": "array", "items": {"type": "number"}},
                         "quantiles": {"type": "array", "items": {"type": "number", "minimum": 0, "maximum": 1}},
+                        "units": {
+                            "description": "What units to write in the output file. If unspecified, use the units from the anemoi input dataset",
+                            "type": "string"
+                        },
                         "obs_sources": {
                             "type": "array",
                             "items": {
