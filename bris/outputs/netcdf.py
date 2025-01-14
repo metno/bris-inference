@@ -271,6 +271,7 @@ class Netcdf(Output):
             attrs["coordinates"] = "latitude longitude"
             self.ds[ncname].attrs = attrs
 
+        utils.create_directory(filename)
         self.ds.to_netcdf(filename)
 
     def finalize(self):
