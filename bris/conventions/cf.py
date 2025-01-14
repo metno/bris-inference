@@ -50,6 +50,18 @@ def get_metadata(anemoi_variable: str) -> dict:
         cfname = "air_pressure_at_sea_level"
         leveltype = "height_above_msl"
         level = 0
+    elif anemoi_variable == "tp":
+        cfname = "precipitation_amount"
+        leveltype = "height"
+        level = 0
+    elif anemoi_variable == "z":
+        cfname = "surface_geopotential"
+        leveltype = "height"
+        level = 0
+    elif anemoi_variable == "lsm":
+        cfname = "land_sea_mask"
+        leveltype = "height"
+        level = 0
     elif anemoi_variable == "sp":
         cfname = "surface_air_pressure"
         leveltype = "height"
@@ -71,7 +83,7 @@ def get_metadata(anemoi_variable: str) -> dict:
             elif name == "w":
                 cfname = "vertical_velocity"
             elif name == "q":
-                cfname = "spcific_humdity"
+                cfname = "specific_humidity"
             else:
                 raise ValueError()
             leveltype = "air_pressure"
@@ -111,6 +123,7 @@ def get_attributes_from_leveltype(leveltype):
 def get_attributes(cfname):
     ret = {"standard_name": cfname}
 
+    # Coordinate variables
     if cfname == "forecast_reference_time":
         ret["units"] = "seconds since 1970-01-01 00:00:00 +00:00"
     elif cfname == "time":
@@ -136,16 +149,31 @@ def get_attributes(cfname):
         ret["description"] = "height above ground"
         ret["long_name"] = "height"
         ret["positive"] = "up"
-    elif cfname in ["x_wind", "y_wind"]:
+
+    # Data variables
+    elif cfname in [
+        "x_wind",
+        "y_wind",
+        "wind_speed",
+        "vertical_velocity",
+        "wind_speed_of_gust",
+    ]:
         ret["units"] = "m/s"
-    elif cfname == "air_temperature":
+    elif cfname in ["air_temperature", "dew_point_temperature"]:
         ret["units"] = "K"
-    elif cfname == "dew_point_temperature":
-        ret["units"] = "K"
-    elif cfname == "wind_speed":
-        ret["units"] = "m/s"
+    elif cfname == "land_sea_mask":
+        ret["units"] = "1"
+    elif cfname in ["geopotential", "surface_geopotential"]:
+        ret["units"] = "m^2/s^2"
+    elif cfname in ["precipitation_amount"]:
+        ret["units"] = "kg/m^2"
+    elif cfname in ["air_pressure_at_sea_level", "surface_air_pressure"]:
+        ret["units"] = "Pa"
+    elif cfname in ["specific_humidity"]:
+        ret["units"] = "kg/kg"
+
+    # Unknown cfname, let's not write any attributes
     else:
-        # Unknown cfname, let's not write any attributes
         ret = {}
 
     return ret

@@ -18,7 +18,16 @@ class Metno:
 
     def get_ncname(self, cfname: str, leveltype: str, level: int):
         """Gets the name of a NetCDF variable given level information"""
-        if leveltype == "height":
+        if cfname in [
+            "precipitation_amount",
+            "surface_air_pressure",
+            "air_pressure_at_sea_level",
+            "wind_speed_of_gust",
+            "land_sea_mask",
+        ]:
+            # Prevent _0m from being added at the end of variable name
+            ncname = f"{cfname}"
+        elif leveltype == "height":
             # e.g. air_temperature_2m
             ncname = f"{cfname}_{level:d}m"
         elif leveltype == "height_above_msl":
