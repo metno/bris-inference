@@ -38,6 +38,7 @@ dependencies = [
     "omegaconf",
     "pytest",
     "pytorch-lightning>=2.1",
+    "scipy",
     "torch",
     "torch_geometric",
     "torchinfo",

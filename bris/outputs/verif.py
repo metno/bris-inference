@@ -1,14 +1,14 @@
+import cfunits
 import gridpp
 import numpy as np
+import scipy.interpolate
 import xarray as xr
-import cfunits
-
 from bris import utils
+from bris.conventions import anemoi as anemoi_conventions
 from bris.conventions import cf
 from bris.outputs import Output
 from bris.outputs.intermediate import Intermediate
 from bris.predict_metadata import PredictMetadata
-from bris.conventions import anemoi as anemoi_conventions
 
 
 class Verif(Output):
@@ -56,6 +56,8 @@ class Verif(Output):
             )
 
         self.ipoints = gridpp.Points(self.pm.lats, self.pm.lons, self.pm.altitudes)
+        self.ipoints_tuple = (self.pm.lats, self.pm.lons)
+        self.ialtitudes = self.pm.altitudes
 
         obs_lats = list()
         obs_lons = list()
@@ -65,7 +67,6 @@ class Verif(Output):
         self.obs_sources = obs_sources
 
         for obs_source in obs_sources:
-            print(obs_source)
             obs_lats += [loc.lat for loc in obs_source.locations]
             obs_lons += [loc.lon for loc in obs_source.locations]
             obs_altitudes += [loc.elev for loc in obs_source.locations]
@@ -76,6 +77,7 @@ class Verif(Output):
         self.obs_altitudes = np.array(obs_altitudes, np.float32)
         self.obs_ids = np.array(obs_ids, np.int32)
         self.opoints = gridpp.Points(self.obs_lats, self.obs_lons, self.obs_altitudes)
+        self.opoints_tuple = (self.obs_lats, self.obs_lons)
 
         # The intermediate will only store the final output locations
         intermediate_pm = PredictMetadata(
@@ -96,36 +98,51 @@ class Verif(Output):
             pred: 3D array of forecasts with dimensions (time, points, variables)
         """
 
-        def _interpolate(variable, pred):
-            """Extracts variable from prediction and interpolates to points"""
-            Iv = self.pm.variables.index(variable)
-            if self._is_gridded_input:
-                pred = self.reshape_pred(pred)
-                pred = pred[..., Iv]  # Extract single variable
-                interpolated_pred = gridpp.bilinear(self.igrid, self.opoints, pred)
+        Iv = self.pm.variables.index(self.variable)
+        if self._is_gridded_input:
+            pred = self.reshape_pred(pred)
+            pred = pred[..., Iv]  # Extract single variable
+            interpolated_pred = gridpp.bilinear(self.igrid, self.opoints, pred)
 
-                if self.elev_gradient is not None:
-                    interpolated_altitudes = gridpp.bilinear(
-                        self.igrid, self.opoints, self.igrid.get_altitudes()
+            if self.elev_gradient is not None:
+                interpolated_altitudes = gridpp.bilinear(
+                    self.igrid, self.opoints, self.igrid.get_altitudes()
+                )
+                daltitude = self.opoints.get_elevs() - interpolated_altitudes
+                interpolated_pred += self.elev_gradient * delev
+            interpolated_pred = interpolated_pred[
+                :, :, None
+            ]  # Add in variable dimension
+        else:
+            pred = pred[..., [Iv]]
+
+            altitude_correction = None
+            if self.elev_gradient is not None:
+                interpolator = scipy.interpolate.LinearNDInterpolator(
+                    self.ipoints_tuple, self.ialtitudes
+                )
+                interpolated_altitudes = interpolator(self.opoints_tuple)
+                altitude_correction = self.opoints.get_elevs() - interpolated_altitudes
+
+            num_leadtimes = pred.shape[0]
+            num_points = self.opoints.size()
+
+            interpolated_pred = np.nan * np.zeros(
+                [num_leadtimes, num_points, 1], np.float32
+            )
+            for lt in range(num_leadtimes):
+                interpolator = scipy.interpolate.LinearNDInterpolator(
+                    self.ipoints_tuple, pred[lt, :, 0]
+                )
+                interpolated_pred[lt, :, 0] = interpolator(self.opoints_tuple)
+                if altitude_correction is not None:
+                    interpolated_pred[lt, :, 0] += (
+                        self.elev_gradient * altitude_correction
                     )
-                    daltitude = self.opoints.get_elevs() - interpolated_altitudes
-                    interpolated_pred += self.elev_gradient * delev
-                interpolated_pred = interpolated_pred[ :, :, None ]  # Add in variable dimension
-            else:
-                pred = pred[..., Iv]
-                # TODO: Do linear interpolation here with scipy
-                interpolated_pred = gridpp.nearest(self.ipoints, self.opoints, pred)
 
-                if self.elev_gradient is not None:
-                    interpolated_altitudes = gridpp.nearest(
-                        self.ipoints, self.opoints, self.ipoints.get_elevs()
-                    )
-                    daltitude = self.opoints.get_elevs() - interpolated_altitudes
-                    interpolated_pred += self.elev_gradient * daltitude
-                interpolated_pred = interpolated_pred[:, :, None]
-            return interpolated_pred
-
-        interpolated_pred = _interpolate(self.variable, pred)
+            # Much faster, but not a linear interpolator
+            # interpolated_pred = gridpp.nearest(self.ipoints, self.opoints, pred[..., 0])
+            # interpolated_pred = interpolated_pred[:, :, None]
 
         anemoi_units = anemoi_conventions.get_units(self.variable)
 
@@ -285,7 +302,11 @@ class Verif(Output):
         count = 0
         for obs_source in self.obs_sources:
             curr = obs_source.get(self.variable, start_time, end_time, frequency)
-            from_units = cfunits.Units(obs_source.units) if obs_source.units is not None else None
+            from_units = (
+                cfunits.Units(obs_source.units)
+                if obs_source.units is not None
+                else None
+            )
             to_units = cfunits.Units(self.units) if self.units is not None else None
             for t, valid_time in enumerate(unique_valid_times):
                 Itimes, Ileadtimes = np.where(valid_times == valid_time)
