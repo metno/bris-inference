@@ -1,11 +1,13 @@
 import logging
 from argparse import ArgumentParser
+import numpy as np
 
 from hydra.utils import instantiate
 
 import bris.routes
 import bris.utils
 from bris.data.datamodule import DataModule
+from anemoi.utils.dates import frequency_to_seconds
 
 from .checkpoint import Checkpoint
 from .inference import Inference
@@ -44,8 +46,10 @@ def main():
     num_members = 1
 
     # Get outputs and required_variables of each decoder
+    timestep = frequency_to_seconds(config.timestep)
+    leadtimes = np.arange(config.leadtimes) * timestep
     decoder_outputs = bris.routes.get(
-        config["routing"], config.leadtimes, num_members, datamodule, run_name, workdir
+        config["routing"], leadtimes, num_members, datamodule, run_name, workdir
     )  # get num_leadtimes from config.leadtimes
     #    decoder_variables = bris.routes.get_required_variables(config["routing"])
     decoder_variable_indices = bris.routes.get_variable_indices(config["routing"], datamodule)

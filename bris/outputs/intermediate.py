@@ -16,13 +16,8 @@ class Intermediate(Output):
         super().__init__(predict_metadata)
         self.pm = predict_metadata
         self.workdir = workdir
-        self.leadtimes = None
 
     def _add_forecast(self, times, ensemble_member, pred):
-        if self.leadtimes is None:
-            frt_ut = utils.datetime_to_unixtime(times[0])
-            self.leadtimes = utils.datetime_to_unixtime(times) - frt_ut
-
         filename = self.get_filename(times[0], ensemble_member)
         utils.create_directory(filename)
 

@@ -10,7 +10,7 @@ from bris.predict_metadata import PredictMetadata
 
 def get(
     routing_config: dict,
-    num_leadtimes: int,
+    leadtimes: list,
     num_members: int,
     data_module: DataModule,
     run_name: str,
@@ -22,7 +22,7 @@ def get(
 
     Args:
         routing_config: Dictionary from config file
-        num_leadtimes: Number of leadtimes that the model will produce
+        leadtimes: Which leadtimes that the model will produce
         data_module: Data module
         run_name: Name of this run used by outputs to set filenames
     Returns:
@@ -65,7 +65,7 @@ def get(
                 lats,
                 lons,
                 altitudes,
-                num_leadtimes,
+                leadtimes,
                 num_members,
                 field_shape,
             )

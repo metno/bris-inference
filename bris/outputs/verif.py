@@ -85,7 +85,7 @@ class Verif(Output):
             self.obs_lats,
             self.obs_lons,
             self.obs_altitudes,
-            predict_metadata.num_leadtimes,
+            predict_metadata.leadtimes,
             predict_metadata.num_members,
         )
         self.intermediate = Intermediate(intermediate_pm, workdir)
@@ -175,7 +175,7 @@ class Verif(Output):
         coords["time"] = (["time"], [], cf.get_attributes("time"))
         coords["leadtime"] = (
             ["leadtime"],
-            self.intermediate.leadtimes.astype(np.float32),
+            self.intermediate.pm.leadtimes.astype(np.float32),
             {"units": "hour"},
         )
         coords["location"] = (["location"], self.obs_ids)
@@ -272,11 +272,11 @@ class Verif(Output):
 
         # Find which valid times we need observations for
         frts_ut = utils.datetime_to_unixtime(frts)
-        a, b = np.meshgrid(frts_ut, np.array(self.intermediate.leadtimes))
+        a, b = np.meshgrid(frts_ut, np.array(self.intermediate.pm.leadtimes))
         valid_times = a + b
         valid_times = valid_times.transpose()
         if len(valid_times) == 0:
-            print(frts, self.intermediate.leadtimes)
+            print(frts, self.intermediate.pm.leadtimes)
             raise Exception("No valid times")
 
         # valid_times = np.sort(np.unique(valid_times.flatten()))

@@ -32,7 +32,7 @@ def test_1():
     lons = lons.flatten()
     altitudes = np.arange(len(lats))
 
-    pm = PredictMetadata(variables, lats, lons, altitudes, len(leadtimes), num_members, field_shape)
+    pm = PredictMetadata(variables, lats, lons, altitudes, leadtimes, num_members, field_shape)
     ofilename = "otest.nc"
     workdir = "verif_workdir"
     output = Verif(
