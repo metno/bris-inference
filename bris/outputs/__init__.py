@@ -58,7 +58,7 @@ def get_required_variables(name, init_args):
 class Output:
     """This class writes output for a specific part of the domain"""
 
-    def __init__(self, predict_metadata: PredictMetadata, speed_variables=dict()):
+    def __init__(self, predict_metadata: PredictMetadata, extra_variables=dict()):
         """Creates an object of type name with config
 
         Args:
@@ -66,11 +66,10 @@ class Output:
         """
 
         predict_metadata = copy.deepcopy(predict_metadata)
-        for name, _ in speed_variables.items():
-            predict_metadata.variables += [name]
+        predict_metadata.variables += extra_variables
 
         self.pm = predict_metadata
-        self.speed_variables = speed_variables
+        self.extra_variables = extra_variables
 
     def add_forecast(self, times: list, ensemble_member: int, pred: np.array):
         """Registers a forecast from a single ensemble member in the output
@@ -81,15 +80,18 @@ class Output:
             pred: 3D numpy array with dimensions (leadtime, location, variable)
         """
 
-        # Append windspeed variables to prediction
-        windpred = list()
-        for name, (x_wind, y_wind) in self.speed_variables.items():
-            Ix = self.pm.variables.index(x_wind)
-            Iy = self.pm.variables.index(y_wind)
-            curr = np.sqrt(pred[..., [Ix]]**2 + pred[..., [Iy]]**2)
-            windpred += [curr]
+        # Append extra variables to prediction
+        extra_pred = list()
+        for name in self.extra_variables:
+            if name == "10si":
+                Ix = self.pm.variables.index("10u")
+                Iy = self.pm.variables.index("10v")
+                curr = np.sqrt(pred[..., [Ix]]**2 + pred[..., [Iy]]**2)
+                extra_pred += [curr]
+            else:
+                raise ValueError(f"No recipe to compute {name}")
 
-        pred = np.concatenate([pred] + windpred, axis=2)
+        pred = np.concatenate([pred] + extra_pred, axis=2)
 
         assert pred.shape[0] == self.pm.num_leadtimes
         assert pred.shape[1] == len(self.pm.lats)

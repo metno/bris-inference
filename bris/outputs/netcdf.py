@@ -32,7 +32,7 @@ class Netcdf(Output):
         interp_res=None,
         latrange=None,
         lonrange=None,
-        speed_variables=list(),
+        extra_variables=list(),
     ):
         """
         Args:
@@ -40,7 +40,7 @@ class Netcdf(Output):
             interp_res: Interpolate to this resolution [degrees] on a lat/lon grid
             variables: If None, predict all variables
         """
-        super().__init__(predict_metadata, speed_variables)
+        super().__init__(predict_metadata, extra_variables)
 
         self.filename_pattern = filename_pattern
         if variables is None:

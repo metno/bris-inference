@@ -28,6 +28,10 @@ def get_metadata(anemoi_variable: str) -> dict:
         cfname = "y_wind"
         leveltype = "height"
         level = 10
+    elif anemoi_variable == "10si":
+        cfname = "wind_speed"
+        leveltype = "height"
+        level = 10
     elif anemoi_variable == "100u":
         cfname = "x_wind"
         leveltype = "height"
@@ -117,6 +121,8 @@ def get_attributes(cfname):
         ret["units"] = "K"
     elif cfname == "dew_point_temperature":
         ret["units"] = "K"
+    elif cfname == "wind_speed":
+        ret["units"] = "m/s"
     else:
         # Unknown cfname, let's not write any attributes
         ret = {}
