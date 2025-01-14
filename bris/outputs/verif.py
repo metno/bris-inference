@@ -19,14 +19,13 @@ class Verif(Output):
         predict_metadata: PredictMetadata,
         workdir: str,
         filename: str,
-        obs_sources=list,
         variable=None,
+        obs_sources=list,
         units=None,
         thresholds=[],
         quantile_levels=[],
         consensus_method="control",
         elev_gradient=None,
-        speed_components=None,
     ):
         """
         Args:
@@ -34,12 +33,10 @@ class Verif(Output):
             elev_gradient: Apply this elevation gradient when downscaling from grid to point (e.g.
                 -0.0065 for temperature)
         """
-        super().__init__(predict_metadata)
-
-        if variable is None and speed_components is None:
-            raise ValueError("One of 'variable' and 'speed_components' must be specified")
-        if variable is None:
-            variable = "speed"
+        extra_variables = list()
+        if variable not in predict_metadata.variables:
+            extra_variables += [variable]
+        super().__init__(predict_metadata, extra_variables)
 
         self.filename = filename
         self.fcst = dict()
@@ -49,7 +46,6 @@ class Verif(Output):
         self.quantile_levels = quantile_levels
         self.consensus_method = consensus_method
         self.elev_gradient = elev_gradient
-        self.speed_components = speed_components
 
         for level in self.quantile_levels:
             assert level >= 0 and level <= 1, f"level={level} must be between 0 and 1"
@@ -92,9 +88,6 @@ class Verif(Output):
         )
         self.intermediate = Intermediate(intermediate_pm, workdir)
 
-        if speed_components is not None and len(speed_components) != 2:
-            raise ValueError("speed_components must be a list of 2 variables")
-
     def _add_forecast(self, times: list, ensemble_member: int, pred: np.array):
         """Add forecasts to this object. Will be written when .write() is called
 
@@ -132,12 +125,7 @@ class Verif(Output):
                 interpolated_pred = interpolated_pred[:, :, None]
             return interpolated_pred
 
-        if self.speed_components is not None:
-            u = _interpolate(self.speed_components[0], pred)
-            v = _interpolate(self.speed_components[1], pred)
-            interpolated_pred = np.sqrt(u**2 + v**2)
-        else:
-            interpolated_pred = _interpolate(self.variable, pred)
+        interpolated_pred = _interpolate(self.variable, pred)
 
         anemoi_units = anemoi_conventions.get_units(self.variable)
 

@@ -14,16 +14,11 @@
                     "properties": {
                         "filename": {"type": "string"},
                         "variable": {
-                            "description": "What anemoi variable to verify? Leave empty if speed_components is specified.",
+                            "description": "What anemoi variable to verify? Can include variables that can be diagnosed from other vairables (e.g. 10si from 10u and 10v)",
                             "type": "string"
                         },
                         "thresholds": {"type": "array", "items": {"type": "number"}},
                         "quantiles": {"type": "array", "items": {"type": "number", "minimum": 0, "maximum": 1}},
-                        "speed_components": {
-                            "description": "Compute wind-speed from these x/y component variables",
-                            "type": "array",
-                            "items": {"type": "string", "length": 2}
-                        },
                         "obs_sources": {
                             "type": "array",
                             "items": {
@@ -34,7 +29,7 @@
                             }
                         }
                     },
-                    "required": ["filename", "obs_sources"]
+                    "required": ["filename", "variable", "obs_sources"]
                 }
             },
             "required": ["verif"]
