@@ -39,17 +39,21 @@ def get_required_variables(name, init_args):
 
     if name == "netcdf":
         if "variables" in init_args:
-            return init_args["variables"]
+            variables = init_args["variables"]
+            if "extra_variables" in init_args:
+                for name in init_args["extra_variables"]:
+                    if name == "10si":
+                        variables += ["10u", "10v"]
+            variables = list(set(variables))
+            return variables
         else:
             return [None]
 
     elif name == "verif":
-        if "variable" in init_args:
-            return [init_args["variable"]]
-        elif "speed_components" in init_args:
-            return init_args["speed_components"]
+        if init_args["variable"] == "10si":
+            return ["10u", "10v"]
         else:
-            raise ValueError("One of 'variable' and 'speed_components' must be specified")
+            return [init_args["variable"]]
 
     else:
         raise ValueError(f"Invalid output: {name}")
