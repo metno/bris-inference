@@ -62,7 +62,7 @@ routing:
     domain: 0
     outputs:
       - netcdf:
-          filename_pattern: output/era_pred_%Y%m%dT%HZ.nc
+          filename_pattern: output/%R/era_pred_%Y%m%dT%HZ.nc
           # interp_res: 1
           # latrange: [60, 70]
           # lonrange: [10, 20]

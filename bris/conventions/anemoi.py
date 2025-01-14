@@ -9,7 +9,7 @@ def get_units(name):
     units = attrs.get("units", None)
 
     # Here's an opportunity to override, if needed:
-    # if name == "2t":
-    #   return "degC"
+    if name == "tp":
+        return "Mg/m^2"
 
     return units
