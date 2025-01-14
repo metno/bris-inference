@@ -73,6 +73,8 @@ def get(
             for output_type, args in oc.items():
                 if "filename" in args:
                     args["filename"] = expand_run_name(args["filename"], run_name)
+                if "filename_pattern" in args:
+                    args["filename_pattern"] = expand_run_name(args["filename_pattern"], run_name)
 
                 curr_workdir = utils.get_workdir(workdir)
                 output = bris.outputs.instantiate(output_type, pm, curr_workdir, args)
