@@ -29,7 +29,7 @@ classifiers = [
       "Programming Language :: Python :: Implementation :: PyPy",
     ]
 dependencies = [
-    "anemoi-datasets",
+    "anemoi-datasets>=0.5.13",  # This includes the varsort functionality
     "argparse",
     "cfunits",
     "gridpp",
