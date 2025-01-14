@@ -26,18 +26,21 @@ def test_1():
     quantile_levels = [0.1, 0.9]
 
     field_shape = [len(lats), len(lons)]
+
     lats, lons = np.meshgrid(lats, lons)
     lats = lats.flatten()
     lons = lons.flatten()
-    pm = PredictMetadata(variables, lats, lons, len(leadtimes), num_members, field_shape)
+    altitudes = np.arange(len(lats))
+
+    pm = PredictMetadata(variables, lats, lons, altitudes, len(leadtimes), num_members, field_shape)
     ofilename = "otest.nc"
     workdir = "verif_workdir"
     output = Verif(
         pm,
         workdir,
         ofilename,
-        "2t",
         sources,
+        "2t",
         "K",
         thresholds=thresholds,
         quantile_levels=quantile_levels,
