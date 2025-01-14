@@ -16,6 +16,12 @@ def get_metadata(anemoi_variable: str) -> dict:
         cfname = "air_temperature"
         leveltype = "height"
         level = 2
+    # This is problematic for metno conventions, since this would put skt into the same
+    # variable as 2m temperature, which we don't want.
+    # elif anemoi_variable == "skt":
+    #     cfname = "air_temperature"
+    #     leveltype = "height"
+    #     level = 0
     elif anemoi_variable == "2d":
         cfname = "dew_point_temperature"
         leveltype = "height"
@@ -40,6 +46,14 @@ def get_metadata(anemoi_variable: str) -> dict:
         cfname = "y_wind"
         leveltype = "height"
         level = 100
+    elif anemoi_variable == "msl":
+        cfname = "air_pressure_at_sea_level"
+        leveltype = "height_above_msl"
+        level = 0
+    elif anemoi_variable == "sp":
+        cfname = "surface_air_pressure"
+        leveltype = "height"
+        level = 0
     else:
 
         words = anemoi_variable.split("_")
@@ -82,6 +96,13 @@ def get_attributes_from_leveltype(leveltype):
         return {
             "units": "m",
             "description": "height above ground",
+            "long_name": "height",
+            "positive": "up",
+        }
+    elif leveltype == "height_above_msl":
+        return {
+            "units": "m",
+            "description": "height above MSL",
             "long_name": "height",
             "positive": "up",
         }

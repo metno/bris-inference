@@ -21,6 +21,9 @@ class Metno:
         if leveltype == "height":
             # e.g. air_temperature_2m
             ncname = f"{cfname}_{level:d}m"
+        elif leveltype == "height_above_msl":
+            # e.g. air_pressure_at_sea_level
+            ncname = f"{cfname}"
         elif leveltype == "air_pressure":
             ncname = f"{cfname}_pl"
         elif leveltype is None and level is None:

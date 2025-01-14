@@ -149,7 +149,7 @@ class Verif(Output):
         if self.units is None:
             # Update the units so they can be written out
             self.units = anemoi_units
-        elif self.units is not None and self.units != anemoi_units:
+        elif anemoi_units is not None and self.units != anemoi_units:
             to_units = cfunits.Units(self.units)
             from_units = cfunits.Units(anemoi_units)
             cfunits.Units.conform(interpolated_pred, from_units, to_units, inplace=True)
@@ -201,16 +201,17 @@ class Verif(Output):
                 cf.get_attributes("ensemble_member"),
         )
         """
-        if len(self.thresholds) > 0:
-            coords["threshold"] = (
-                ["threshold"],
-                self.thresholds,
-            )
-        if len(self.quantile_levels) > 0:
-            coords["quantile"] = (
-                ["quantile"],
-                self.quantile_levels,
-            )
+        if self.num_members > 1:
+            if len(self.thresholds) > 0:
+                coords["threshold"] = (
+                    ["threshold"],
+                    self.thresholds,
+                )
+            if len(self.quantile_levels) > 0:
+                coords["quantile"] = (
+                    ["quantile"],
+                    self.quantile_levels,
+                )
         self.ds = xr.Dataset(coords=coords)
 
         frts = self.intermediate.get_forecast_reference_times()
