@@ -30,6 +30,8 @@ class Netcdf(Output):
         filename_pattern: str,
         variables=None,
         interp_res=None,
+        latrange=None,
+        lonrange=None,
     ):
         """
         Args:
@@ -55,6 +57,8 @@ class Netcdf(Output):
         # CF-standard names are added in the standard_name attributes
         self.conventions = Metno()
         self.interp_res = interp_res
+        self.latrange = latrange
+        self.lonrange = lonrange
 
     def _add_forecast(self, times: list, ensemble_member: int, pred: np.array):
         if self.pm.num_members > 1:
@@ -81,7 +85,8 @@ class Netcdf(Output):
 
     @property
     def _interpolate(self):
-        return self.interp_res is None
+        """Should interpolation to a regular lat/lon grid be performed?"""
+        return self.interp_res is not None
 
     def write(self, filename: str, times: list, pred: np.array):
         """Write prediction to NetCDF
@@ -103,16 +108,16 @@ class Netcdf(Output):
 
         if self._is_gridded:
             if self._interpolate:
-                x = np.arange(self.pm.field_shape[1]).astype(np.float32)
-                y = np.arange(self.pm.field_shape[0]).astype(np.float32)
-                x_dim_name = c("projection_x_coordinate")
-                y_dim_name = c("projection_y_coordinate")
-            else:
                 # Find a bounding-box for interpolation
                 min_lat = self.get_lower(self.pm.lats)
                 max_lat = self.get_upper(self.pm.lats)
                 min_lon = self.get_lower(self.pm.lons)
                 max_lon = self.get_upper(self.pm.lons)
+                if self.latrange is not None:
+                    min_lat, max_lat = self.latrange
+                if self.lonrange is not None:
+                    min_lon, max_lon = self.lonrange
+
                 y = np.arange(
                     min_lat,
                     max_lat + self.interp_res,
@@ -125,6 +130,11 @@ class Netcdf(Output):
                 )
                 x_dim_name = c("longitude")
                 y_dim_name = c("latitude")
+            else:
+                x = np.arange(self.pm.field_shape[1]).astype(np.float32)
+                y = np.arange(self.pm.field_shape[0]).astype(np.float32)
+                x_dim_name = c("projection_x_coordinate")
+                y_dim_name = c("projection_y_coordinate")
             coords[x_dim_name] = x
             coords[y_dim_name] = y
             spatial_dims = (y_dim_name, x_dim_name)
@@ -157,8 +167,14 @@ class Netcdf(Output):
         # Set up grid definitions
         if self._is_gridded:
             if self._interpolate:
+                proj_attrs = dict()
+                proj_attrs["grid_mapping_name"] = "latitude_longitude"
+                proj_attrs["earth_radius"] = 6371000.0
+                self.ds["projection"] = ([], 1, proj_attrs)
+            else:
                 lats = np.reshape(self.pm.lats, self.pm.field_shape).astype(np.double)
                 lons = np.reshape(self.pm.lons, self.pm.field_shape).astype(np.double)
+                altitudes = np.reshape(self.pm.altitudes, self.pm.field_shape).astype(np.double)
                 self.ds[c("latitude")] = (
                     spatial_dims,
                     lats,
@@ -167,6 +183,10 @@ class Netcdf(Output):
                     spatial_dims,
                     lons,
                 )
+                self.ds[c("surface_altitude")] = (
+                    spatial_dims,
+                    altitudes
+                )
                 proj_attrs = dict()
                 proj_attrs["grid_mapping_name"] = "lambert_conformal_conic"
                 proj_attrs["standard_parallel"] = (63.3, 63.3)
@@ -174,11 +194,6 @@ class Netcdf(Output):
                 proj_attrs["latitude_of_projection_origin"] = 63.3
                 proj_attrs["earth_radius"] = 6371000.0
                 self.ds[c("projection")] = ([], 0, proj_attrs)
-            else:
-                proj_attrs = dict()
-                proj_attrs["grid_mapping_name"] = "latitude_longitude"
-                proj_attrs["earth_radius"] = 6371000.0
-                self.ds["projection"] = ([], 1, proj_attrs)
         else:
             self.ds[c("latitude")] = (
                 spatial_dims,
@@ -188,12 +203,17 @@ class Netcdf(Output):
                 spatial_dims,
                 self.pm.lons,
             )
+            self.ds[c("surface_altitude")] = (
+                spatial_dims,
+                self.pm.altitudes
+            )
 
         for cfname in [
             "forecast_reference_time",
             "time",
             "latitude",
             "longitude",
+            "sufrace_altitude",
             "projection_x_coordinate",
             "projection_y_coordinate",
             "realization",
@@ -239,8 +259,6 @@ class Netcdf(Output):
                 shape = [len(times), len(y), self.pm.num_members]
 
             if self._interpolate:
-                ar = np.reshape(pred[..., variable_index, :], shape)
-            else:
                 ipoints = gridpp.Points(self.pm.lats, self.pm.lons)
                 yy, xx = np.meshgrid(y, x)
                 ogrid = gridpp.Grid(yy.transpose(), xx.transpose())
@@ -251,6 +269,8 @@ class Netcdf(Output):
                 )
                 for i in range(self.pm.num_members):
                     ar[:, :, :, i] = gridpp.nearest(ipoints, ogrid, curr[:, :, i])
+            else:
+                ar = np.reshape(pred[..., variable_index, :], shape)
 
             if self.pm.num_members > 1:
                 # Move ensemble dimension into the middle position
