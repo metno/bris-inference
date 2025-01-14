@@ -55,6 +55,7 @@ def get(
         for oc in config["outputs"]:
             lats = data_module.latitudes[decoder_index][start_gridpoint:end_gridpoint]
             lons = data_module.longitudes[decoder_index][start_gridpoint:end_gridpoint]
+            altitudes = data_module.altitudes[decoder_index][start_gridpoint:end_gridpoint]
             field_shape = data_module.field_shape[decoder_index][domain_index]
 
             curr_required_variables = required_variables[decoder_index]
@@ -63,6 +64,7 @@ def get(
                 curr_required_variables,
                 lats,
                 lons,
+                altitudes,
                 num_leadtimes,
                 num_members,
                 field_shape,

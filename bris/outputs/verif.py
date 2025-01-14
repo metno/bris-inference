@@ -49,35 +49,37 @@ class Verif(Output):
 
         if self._is_gridded_input:
             self.igrid = gridpp.Grid(
-                self.pm.grid_lats, self.pm.grid_lons, self.pm.grid_elevs
+                self.pm.grid_lats, self.pm.grid_lons, self.pm.grid_altitudes
             )
 
-        self.ipoints = gridpp.Points(self.pm.lats, self.pm.lons, self.pm.elevs)
+        self.ipoints = gridpp.Points(self.pm.lats, self.pm.lons, self.pm.altitudes)
 
         obs_lats = list()
         obs_lons = list()
-        obs_elevs = list()
+        obs_altitudes = list()
         obs_ids = list()
 
         self.obs_sources = obs_sources
 
         for obs_source in obs_sources:
+            print(obs_source)
             obs_lats += [loc.lat for loc in obs_source.locations]
             obs_lons += [loc.lon for loc in obs_source.locations]
-            obs_elevs += [loc.elev for loc in obs_source.locations]
+            obs_altitudes += [loc.elev for loc in obs_source.locations]
             obs_ids += [loc.id for loc in obs_source.locations]
 
         self.obs_lats = np.array(obs_lats, np.float32)
         self.obs_lons = np.array(obs_lons, np.float32)
-        self.obs_elevs = np.array(obs_elevs, np.float32)
+        self.obs_altitudes = np.array(obs_altitudes, np.float32)
         self.obs_ids = np.array(obs_ids, np.int32)
-        self.opoints = gridpp.Points(self.obs_lats, self.obs_lons, self.obs_elevs)
+        self.opoints = gridpp.Points(self.obs_lats, self.obs_lons, self.obs_altitudes)
 
         # The intermediate will only store the final output locations
         intermediate_pm = PredictMetadata(
             [variable],
             self.obs_lats,
             self.obs_lons,
+            self.obs_altitudes,
             predict_metadata.num_leadtimes,
             predict_metadata.num_members,
         )
@@ -97,10 +99,10 @@ class Verif(Output):
             interpolated_pred = gridpp.bilinear(self.igrid, self.opoints, pred)
 
             if self.elev_gradient is not None:
-                interpolated_elevs = gridpp.bilinear(
-                    self.igrid, self.opoints, self.igrid.get_elevs()
+                interpolated_altitudes = gridpp.bilinear(
+                    self.igrid, self.opoints, self.igrid.get_altitudes()
                 )
-                delev = self.opoints.get_elevs() - interpolated_elevs
+                daltitude = self.opoints.get_elevs() - interpolated_altitudes
                 interpolated_pred += self.elev_gradient * delev
             interpolated_pred = interpolated_pred[
                 :, :, None
@@ -111,11 +113,14 @@ class Verif(Output):
             interpolated_pred = gridpp.nearest(self.ipoints, self.opoints, pred)
 
             if self.elev_gradient is not None:
-                interpolated_elevs = gridpp.nearest(
+                interpolated_altitudes = gridpp.nearest(
                     self.ipoints, self.opoints, self.ipoints.get_elevs()
                 )
-                delev = self.opoints.get_elevs() - interpolated_elevs
-                interpolated_pred += self.elev_gradient * delev
+                daltitude = self.opoints.get_elevs() - interpolated_altitudes
+                print(np.mean(self.opoints.get_elevs()))
+                print(np.mean(interpolated_altitudes))
+                print("#####", np.mean(self.elev_gradient * daltitude))
+                interpolated_pred += self.elev_gradient * daltitude
             interpolated_pred = interpolated_pred[:, :, None]
 
         anemoi_units = anemoi_conventions.get_units(self.variable)
@@ -165,7 +170,7 @@ class Verif(Output):
         )
         coords["altitude"] = (
             ["location"],
-            self.obs_elevs,
+            self.obs_altitudes,
             cf.get_attributes("surface_altitude"),
         )
         """

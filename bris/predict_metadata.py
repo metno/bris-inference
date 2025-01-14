@@ -7,7 +7,7 @@ class PredictMetadata:
     """This class stores metadata about each dimension of a batch"""
 
     def __init__(
-        self, variables, lats, lons, num_leadtimes, num_members, field_shape=None
+        self, variables, lats, lons, altitudes, num_leadtimes, num_members, field_shape=None
     ):
         assert utils.is_number(num_leadtimes)
         if field_shape is not None:
@@ -24,8 +24,7 @@ class PredictMetadata:
         self.lons[self.lons < -180] += 360
         self.lons[self.lons > 180] -= 360
 
-        # TODO
-        self.elevs = np.zeros(self.lats.shape)
+        self.altitudes = altitudes
         self.num_leadtimes = num_leadtimes
         self.num_members = num_members
         self.field_shape = field_shape
@@ -63,7 +62,7 @@ class PredictMetadata:
         return np.reshape(self.lons, self.field_shape)
 
     @property
-    def grid_elevs(self):
+    def grid_altitudes(self):
         assert self.is_gridded
 
-        return np.zeros(self.field_shape, np.float32)
+        return np.reshape(self.altitudes, self.field_shape)
