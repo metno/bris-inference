@@ -19,13 +19,14 @@ class Verif(Output):
         predict_metadata: PredictMetadata,
         workdir: str,
         filename: str,
-        variable: str,
         obs_sources=list,
+        variable=None,
         units=None,
         thresholds=[],
         quantile_levels=[],
         consensus_method="control",
         elev_gradient=None,
+        speed_components=None,
     ):
         """
         Args:
@@ -35,6 +36,11 @@ class Verif(Output):
         """
         super().__init__(predict_metadata)
 
+        if variable is None and speed_components is None:
+            raise ValueError("One of 'variable' and 'speed_components' must be specified")
+        if variable is None:
+            variable = "speed"
+
         self.filename = filename
         self.fcst = dict()
         self.variable = variable
@@ -43,6 +49,7 @@ class Verif(Output):
         self.quantile_levels = quantile_levels
         self.consensus_method = consensus_method
         self.elev_gradient = elev_gradient
+        self.speed_components = speed_components
 
         for level in self.quantile_levels:
             assert level >= 0 and level <= 1, f"level={level} must be between 0 and 1"
@@ -85,6 +92,9 @@ class Verif(Output):
         )
         self.intermediate = Intermediate(intermediate_pm, workdir)
 
+        if speed_components is not None and len(speed_components) != 2:
+            raise ValueError("speed_components must be a list of 2 variables")
+
     def _add_forecast(self, times: list, ensemble_member: int, pred: np.array):
         """Add forecasts to this object. Will be written when .write() is called
 
@@ -92,36 +102,42 @@ class Verif(Output):
             times: List of np.datetime64 objects
             pred: 3D array of forecasts with dimensions (time, points, variables)
         """
-        Iv = self.pm.variables.index(self.variable)
-        if self._is_gridded_input:
-            pred = self.reshape_pred(pred)
-            pred = pred[..., Iv]  # Extract single variable
-            interpolated_pred = gridpp.bilinear(self.igrid, self.opoints, pred)
 
-            if self.elev_gradient is not None:
-                interpolated_altitudes = gridpp.bilinear(
-                    self.igrid, self.opoints, self.igrid.get_altitudes()
-                )
-                daltitude = self.opoints.get_elevs() - interpolated_altitudes
-                interpolated_pred += self.elev_gradient * delev
-            interpolated_pred = interpolated_pred[
-                :, :, None
-            ]  # Add in variable dimension
+        def _interpolate(variable, pred):
+            """Extracts variable from prediction and interpolates to points"""
+            Iv = self.pm.variables.index(variable)
+            if self._is_gridded_input:
+                pred = self.reshape_pred(pred)
+                pred = pred[..., Iv]  # Extract single variable
+                interpolated_pred = gridpp.bilinear(self.igrid, self.opoints, pred)
+
+                if self.elev_gradient is not None:
+                    interpolated_altitudes = gridpp.bilinear(
+                        self.igrid, self.opoints, self.igrid.get_altitudes()
+                    )
+                    daltitude = self.opoints.get_elevs() - interpolated_altitudes
+                    interpolated_pred += self.elev_gradient * delev
+                interpolated_pred = interpolated_pred[ :, :, None ]  # Add in variable dimension
+            else:
+                pred = pred[..., Iv]
+                # TODO: Do linear interpolation here with scipy
+                interpolated_pred = gridpp.nearest(self.ipoints, self.opoints, pred)
+
+                if self.elev_gradient is not None:
+                    interpolated_altitudes = gridpp.nearest(
+                        self.ipoints, self.opoints, self.ipoints.get_elevs()
+                    )
+                    daltitude = self.opoints.get_elevs() - interpolated_altitudes
+                    interpolated_pred += self.elev_gradient * daltitude
+                interpolated_pred = interpolated_pred[:, :, None]
+            return interpolated_pred
+
+        if self.speed_components is not None:
+            u = _interpolate(self.speed_components[0], pred)
+            v = _interpolate(self.speed_components[1], pred)
+            interpolated_pred = np.sqrt(u**2 + v**2)
         else:
-            pred = pred[..., Iv]
-            # TODO: Do linear interpolation here with scipy
-            interpolated_pred = gridpp.nearest(self.ipoints, self.opoints, pred)
-
-            if self.elev_gradient is not None:
-                interpolated_altitudes = gridpp.nearest(
-                    self.ipoints, self.opoints, self.ipoints.get_elevs()
-                )
-                daltitude = self.opoints.get_elevs() - interpolated_altitudes
-                print(np.mean(self.opoints.get_elevs()))
-                print(np.mean(interpolated_altitudes))
-                print("#####", np.mean(self.elev_gradient * daltitude))
-                interpolated_pred += self.elev_gradient * daltitude
-            interpolated_pred = interpolated_pred[:, :, None]
+            interpolated_pred = _interpolate(self.variable, pred)
 
         anemoi_units = anemoi_conventions.get_units(self.variable)
 

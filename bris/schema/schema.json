@@ -13,9 +13,17 @@
                     "type": "object",
                     "properties": {
                         "filename": {"type": "string"},
-                        "variable": {"type": "string"},
+                        "variable": {
+                            "description": "What anemoi variable to verify? Leave empty if speed_components is specified.",
+                            "type": "string"
+                        },
                         "thresholds": {"type": "array", "items": {"type": "number"}},
                         "quantiles": {"type": "array", "items": {"type": "number", "minimum": 0, "maximum": 1}},
+                        "speed_components": {
+                            "description": "Compute wind-speed from these x/y component variables",
+                            "type": "array",
+                            "items": {"type": "string", "length": 2}
+                        },
                         "obs_sources": {
                             "type": "array",
                             "items": {
@@ -26,7 +34,7 @@
                             }
                         }
                     },
-                    "required": ["filename", "variable", "obs_sources"]
+                    "required": ["filename", "obs_sources"]
                 }
             },
             "required": ["verif"]
