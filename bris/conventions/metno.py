@@ -13,7 +13,7 @@ class Metno:
         "projection_x_coordinate": "x",
         "realization": "ensemble_member",
         "air_pressure": "pressure",
-        "altitude": "surface_altitude",
+        "surface_altitude": "altitude",
     }
 
     def get_ncname(self, cfname: str, leveltype: str, level: int):
