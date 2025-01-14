@@ -1,3 +1,4 @@
+import copy
 import numpy as np
 
 
@@ -43,7 +44,12 @@ def get_required_variables(name, init_args):
             return [None]
 
     elif name == "verif":
-        return [init_args["variable"]]
+        if "variable" in init_args:
+            return [init_args["variable"]]
+        elif "speed_components" in init_args:
+            return init_args["speed_components"]
+        else:
+            raise ValueError("One of 'variable' and 'speed_components' must be specified")
 
     else:
         raise ValueError(f"Invalid output: {name}")
@@ -52,14 +58,19 @@ def get_required_variables(name, init_args):
 class Output:
     """This class writes output for a specific part of the domain"""
 
-    def __init__(self, predict_metadata: PredictMetadata):
+    def __init__(self, predict_metadata: PredictMetadata, speed_variables=dict()):
         """Creates an object of type name with config
 
         Args:
             predict_metadata: Contains metadata about the batch the output will recieve
         """
 
+        predict_metadata = copy.deepcopy(predict_metadata)
+        for name, _ in speed_variables.items():
+            predict_metadata.variables += [name]
+
         self.pm = predict_metadata
+        self.speed_variables = speed_variables
 
     def add_forecast(self, times: list, ensemble_member: int, pred: np.array):
         """Registers a forecast from a single ensemble member in the output
@@ -69,9 +80,20 @@ class Output:
             ensemble_member: Which ensemble member is this?
             pred: 3D numpy array with dimensions (leadtime, location, variable)
         """
+
+        # Append windspeed variables to prediction
+        windpred = list()
+        for name, (x_wind, y_wind) in self.speed_variables.items():
+            Ix = self.pm.variables.index(x_wind)
+            Iy = self.pm.variables.index(y_wind)
+            curr = np.sqrt(pred[..., [Ix]]**2 + pred[..., [Iy]]**2)
+            windpred += [curr]
+
+        pred = np.concatenate([pred] + windpred, axis=2)
+
         assert pred.shape[0] == self.pm.num_leadtimes
         assert pred.shape[1] == len(self.pm.lats)
-        assert pred.shape[2] == len(self.pm.variables)
+        assert pred.shape[2] == len(self.pm.variables), (pred.shape, len(self.pm.variables))
         assert ensemble_member >= 0
         assert ensemble_member < self.pm.num_members
 
