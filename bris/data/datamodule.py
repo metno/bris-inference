@@ -288,27 +288,27 @@ class DataModule(pl.LightningDataModule):
             return (self.data_reader.longitudes,)
         else:
             return self.data_reader.longitudes
-        
+
     @cached_property
-    def altitude(self) -> tuple:
+    def altitudes(self) -> tuple:
         """
-        Retrives altitude from geopotential height in the datasets
+        Retrives altitudes from geopotential height in the datasets
         """
         name_to_index = self.data_reader.name_to_index
         if isinstance(name_to_index, tuple):
-            altitude = ()
+            altitudes = ()
             for i, n2i in enumerate(name_to_index):
                 if 'z' in n2i.keys():
-                    altitude += (self.data_reader[0][i][n2i['z'],0,:] / 9.81 ,)
+                    altitudes += (self.data_reader[0][i][n2i['z'],0,:] / 9.81 ,)
                 else:
-                    altitude += (None,)
+                    altitudes += (None,)
         else:
             if 'z' in name_to_index.keys():
-                altitude = (self.data_reader[0][name_to_index['z'],0,:] / 9.81 ,)
+                altitudes = (self.data_reader[0][name_to_index['z'],0,:] / 9.81 ,)
             else:
-                altitude = (None,)
-        
-        return altitude
+                altitudes = (None,)
+
+        return altitudes
 
 
     @cached_property
