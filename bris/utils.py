@@ -37,7 +37,11 @@ def is_number(value):
 
 
 def get_workdir(path):
-    v = uuid.uuid4()
+    multiple_processes = "SLURM_PROCID" in os.environ
+    if multiple_processes:
+        v = os.environ["SLURM_JOB_ID"]
+    else:
+        v = uuid.uuid4()
     return path + "/" + str(v)
 
 

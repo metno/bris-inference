@@ -52,6 +52,7 @@ def get(
             end_gridpoint = start_gridpoint + curr_grids[domain_index]
 
         outputs = list()
+        count = 0
         for oc in config["outputs"]:
             lats = data_module.latitudes[decoder_index][start_gridpoint:end_gridpoint]
             lons = data_module.longitudes[decoder_index][start_gridpoint:end_gridpoint]
@@ -76,7 +77,8 @@ def get(
                 if "filename_pattern" in args:
                     args["filename_pattern"] = expand_run_name(args["filename_pattern"], run_name)
 
-                curr_workdir = utils.get_workdir(workdir)
+                curr_workdir = utils.get_workdir(workdir) + "_" + str(count)
+                count += 1
                 output = bris.outputs.instantiate(output_type, pm, curr_workdir, args)
                 outputs += [output]
 
