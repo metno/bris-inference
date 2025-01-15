@@ -1,6 +1,7 @@
 import logging
 from argparse import ArgumentParser
 import numpy as np
+import os
 
 from hydra.utils import instantiate
 
@@ -79,10 +80,11 @@ def main():
     inference.run()
 
     # Finalize all output, so they can flush to disk if needed
-    # TODO: Only do this on rank 0 (maybe this is already the case at this stage of the code?
-    for decoder_output in decoder_outputs:
-        for output in decoder_output["outputs"]:
-            output.finalize()
+    is_main_thread = ("SLURM_PROCID" not in os.environ) or (os.environ["SLURM_PROCID"] == 0)
+    if is_main_thread:
+        for decoder_output in decoder_outputs:
+            for output in decoder_output["outputs"]:
+                output.finalize()
 
     print("Hello world")
 if __name__ == "__main__":
