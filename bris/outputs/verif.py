@@ -97,6 +97,7 @@ class Verif(Output):
             times: List of np.datetime64 objects
             pred: 3D array of forecasts with dimensions (time, points, variables)
         """
+        print("### Adding forecast", times[0])
 
         Iv = self.pm.variables.index(self.variable)
         if self._is_gridded_input:
@@ -276,8 +277,8 @@ class Verif(Output):
         valid_times = a + b
         valid_times = valid_times.transpose()
         if len(valid_times) == 0:
-            print(frts, self.intermediate.pm.leadtimes)
-            raise Exception("No valid times")
+            print("### No valid times")
+            return
 
         # valid_times = np.sort(np.unique(valid_times.flatten()))
         unique_valid_times = np.sort(np.unique(valid_times.flatten()))
