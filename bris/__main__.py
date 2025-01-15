@@ -80,7 +80,7 @@ def main():
     inference.run()
 
     # Finalize all output, so they can flush to disk if needed
-    is_main_thread = ("SLURM_PROCID" not in os.environ) or (os.environ["SLURM_PROCID"] == 0)
+    is_main_thread = ("SLURM_PROCID" not in os.environ) or (os.environ["SLURM_PROCID"] == "0")
     if is_main_thread:
         for decoder_output in decoder_outputs:
             for output in decoder_output["outputs"]:
