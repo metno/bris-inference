@@ -12,5 +12,5 @@ This is a package to run MET Norway's data-driven model Bris, which is based on 
 
 ```python
 
-bris --config config.yml
+bris --config config.yaml
 ```
