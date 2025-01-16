@@ -35,24 +35,26 @@ def test_1():
     pm = PredictMetadata(variables, lats, lons, altitudes, leadtimes, num_members, field_shape)
     ofilename = "otest.nc"
     workdir = "verif_workdir"
-    output = Verif(
-        pm,
-        workdir,
-        ofilename,
-        "2t",
-        sources,
-        "K",
-        thresholds=thresholds,
-        quantile_levels=quantile_levels,
-    )
-
     frt = 1672552800
-    times = frt + leadtimes
-    for member in range(num_members):
-        pred = np.random.rand(*pm.shape)
-        output.add_forecast(times, member, pred)
+    for elev_gradient in [None, 0]:
+        output = Verif(
+            pm,
+            workdir,
+            ofilename,
+            "2t",
+            sources,
+            "K",
+            thresholds=thresholds,
+            quantile_levels=quantile_levels,
+            elev_gradient=elev_gradient,
+        )
 
-    output.finalize()
+        times = frt + leadtimes
+        for member in range(num_members):
+            pred = np.random.rand(*pm.shape)
+            output.add_forecast(times, member, pred)
+
+        output.finalize()
 
 
 if __name__ == "__main__":

@@ -114,10 +114,10 @@ class Verif(Output):
 
             if self.elev_gradient is not None:
                 interpolated_altitudes = gridpp.bilinear(
-                    self.igrid, self.opoints, self.igrid.get_altitudes()
+                    self.igrid, self.opoints, self.igrid.get_elevs()
                 )
                 daltitude = self.opoints.get_elevs() - interpolated_altitudes
-                interpolated_pred += self.elev_gradient * delev
+                interpolated_pred += self.elev_gradient * daltitude
             interpolated_pred = interpolated_pred[
                 :, :, None
             ]  # Add in variable dimension
