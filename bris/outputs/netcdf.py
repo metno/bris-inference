@@ -7,6 +7,7 @@ from bris.conventions.metno import Metno
 from bris.outputs import Output
 from bris.outputs.intermediate import Intermediate
 from bris.predict_metadata import PredictMetadata
+from bris import projections
 
 
 class Netcdf(Output):
@@ -33,6 +34,8 @@ class Netcdf(Output):
         latrange=None,
         lonrange=None,
         extra_variables=list(),
+        proj4_str=None,
+        domain_name=None,
     ):
         """
         Args:
@@ -60,6 +63,11 @@ class Netcdf(Output):
         self.interp_res = interp_res
         self.latrange = latrange
         self.lonrange = lonrange
+
+        if domain_name is not None:
+            self.proj4_str = projections.get_proj4_str(domain_name)
+        else:
+            self.proj4_str = proj4_str
 
     def _add_forecast(self, times: list, ensemble_member: int, pred: np.array):
         if self.pm.num_members > 1:
@@ -132,8 +140,17 @@ class Netcdf(Output):
                 x_dim_name = c("longitude")
                 y_dim_name = c("latitude")
             else:
-                x = np.arange(self.pm.field_shape[1]).astype(np.float32)
-                y = np.arange(self.pm.field_shape[0]).astype(np.float32)
+                # TODO: Handle self.latrange and self.lonrange
+                if None not in [self.latrange, self.lonrange]:
+                    print("Warning: latrange/lonrange not handled in gridded fields")
+
+                if self.proj4_str:
+                    lats = np.reshape(self.pm.lats, self.pm.field_shape).astype(np.double)
+                    lons = np.reshape(self.pm.lons, self.pm.field_shape).astype(np.double)
+                    x, y = projections.get_xy(lats, lons, self.proj4_str)
+                else:
+                    x = np.arange(self.pm.field_shape[1]).astype(np.float32)
+                    y = np.arange(self.pm.field_shape[0]).astype(np.float32)
                 x_dim_name = c("projection_x_coordinate")
                 y_dim_name = c("projection_y_coordinate")
             coords[x_dim_name] = x
@@ -189,11 +206,13 @@ class Netcdf(Output):
                     altitudes
                 )
                 proj_attrs = dict()
-                proj_attrs["grid_mapping_name"] = "lambert_conformal_conic"
-                proj_attrs["standard_parallel"] = (63.3, 63.3)
-                proj_attrs["longitude_of_central_meridian"] = 15.0
-                proj_attrs["latitude_of_projection_origin"] = 63.3
-                proj_attrs["earth_radius"] = 6371000.0
+                if self.proj4_str is not None:
+                    proj_attrs = projections.get_proj_attributes(self.proj4_str)
+                    # proj_attrs["grid_mapping_name"] = "lambert_conformal_conic"
+                    # proj_attrs["standard_parallel"] = (63.3, 63.3)
+                    # proj_attrs["longitude_of_central_meridian"] = 15.0
+                    # proj_attrs["latitude_of_projection_origin"] = 63.3
+                    # proj_attrs["earth_radius"] = 6371000.0
                 self.ds[c("projection")] = ([], 0, proj_attrs)
         else:
             self.ds[c("latitude")] = (

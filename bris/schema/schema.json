@@ -62,6 +62,14 @@
                             "description": "Derive these extra variables (use GRIB short names)",
                             "type": "array",
                             "items": {"type": "string"}
+                        },
+                        "proj4_str": {
+                            "description": "Assume this projection string when computing x/y coordinates",
+                            "type": "string"
+                        },
+                        "domain_name": {
+                            "description": "Retrieve projection from this predefined domain name (e.g. meps)",
+                            "type": "string"
                         }
                     },
                     "required": ["filename_pattern"]

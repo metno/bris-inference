@@ -29,13 +29,14 @@ classifiers = [
       "Programming Language :: Python :: Implementation :: PyPy",
     ]
 dependencies = [
-    "anemoi-datasets>=0.5.13",  # This includes the varsort functionality
+    "anemoi-datasets>=0.5.13",  # This includes the reorder functionality
     "argparse",
     "cfunits",
     "gridpp",
     "hydra-core",
     "numpy",
     "omegaconf",
+    "pyproj",
     "pytest",
     "pytorch-lightning>=2.1",
     "scipy",

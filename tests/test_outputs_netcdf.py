@@ -24,6 +24,27 @@ def test_1():
 
     output.finalize()
 
+def test_domain_name():
+    variables = ["u_800", "u_600", "2t", "v_500", "10u"]
+    lats = np.array([1, 2])
+    lons = np.array([2, 4])
+    altitudes = np.random.rand(*lats.shape)
+    leadtimes = np.arange(0, 3600 * 4, 3600)
+    num_members = 1
+    field_shape = [1, 2]
+    pm = PredictMetadata(variables, lats, lons, altitudes, leadtimes, num_members, field_shape)
+    pattern = "test2_%Y%m%dT00Z.nc"
+    workdir = "test_gridded"
+    output = Netcdf(pm, workdir, pattern, domain_name="meps")
+
+    pred = np.random.rand(*pm.shape)
+    frt = 1672552800
+    times = frt + leadtimes
+    for member in range(num_members):
+        output.add_forecast(times, member, pred)
+
+    output.finalize()
+
 
 if __name__ == "__main__":
-    test_1()
+    test_domain_name()
