@@ -2,6 +2,7 @@ import cfunits
 import gridpp
 import numpy as np
 import scipy.interpolate
+from scipy.spatial import Delaunay
 import xarray as xr
 from bris import utils
 from bris.conventions import anemoi as anemoi_conventions
@@ -56,7 +57,7 @@ class Verif(Output):
             )
 
         self.ipoints = gridpp.Points(self.pm.lats, self.pm.lons, self.pm.altitudes)
-        self.ipoints_tuple = (self.pm.lats, self.pm.lons)
+        self.ipoints_tuple = np.column_stack((self.pm.lats, self.pm.lons))
         self.ialtitudes = self.pm.altitudes
 
         obs_lats = list()
@@ -77,8 +78,14 @@ class Verif(Output):
         self.obs_altitudes = np.array(obs_altitudes, np.float32)
         self.obs_ids = np.array(obs_ids, np.int32)
         self.opoints = gridpp.Points(self.obs_lats, self.obs_lons, self.obs_altitudes)
-        self.opoints_tuple = (self.obs_lats, self.obs_lons)
+        self.opoints_tuple = np.column_stack((self.obs_lats, self.obs_lons))
 
+        
+        if not self._is_gridded_input:
+            self.triangulation = Delaunay(self.ipoints_tuple)
+        else:
+            self.triangulation = None
+        
         # The intermediate will only store the final output locations
         intermediate_pm = PredictMetadata(
             [variable],
@@ -120,7 +127,7 @@ class Verif(Output):
             altitude_correction = None
             if self.elev_gradient is not None:
                 interpolator = scipy.interpolate.LinearNDInterpolator(
-                    self.ipoints_tuple, self.ialtitudes
+                    self.triangulation, self.ialtitudes
                 )
                 interpolated_altitudes = interpolator(self.opoints_tuple)
                 altitude_correction = self.opoints.get_elevs() - interpolated_altitudes
@@ -133,7 +140,7 @@ class Verif(Output):
             )
             for lt in range(num_leadtimes):
                 interpolator = scipy.interpolate.LinearNDInterpolator(
-                    self.ipoints_tuple, pred[lt, :, 0]
+                    self.triangulation, pred[lt, :, 0]
                 )
                 interpolated_pred[lt, :, 0] = interpolator(self.opoints_tuple)
                 if altitude_correction is not None:
