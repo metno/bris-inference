@@ -80,12 +80,12 @@ class Verif(Output):
         self.opoints = gridpp.Points(self.obs_lats, self.obs_lons, self.obs_altitudes)
         self.opoints_tuple = np.column_stack((self.obs_lats, self.obs_lons))
 
-        
-        if not self._is_gridded_input:
+        self.triangulation = self.ipoints_tuple
+        if not self._is_gridded_input and len(self.ipoints_tuple[0]) > 3:
+            # This speeds up interpolation from irregular points to observation points
+            # but Delaunay needs enough points for this to work
             self.triangulation = Delaunay(self.ipoints_tuple)
-        else:
-            self.triangulation = None
-        
+
         # The intermediate will only store the final output locations
         intermediate_pm = PredictMetadata(
             [variable],
