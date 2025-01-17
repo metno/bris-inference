@@ -81,9 +81,10 @@ class Verif(Output):
         self.opoints_tuple = np.column_stack((self.obs_lats, self.obs_lons))
 
         self.triangulation = self.ipoints_tuple
-        if not self._is_gridded_input and len(self.ipoints_tuple[0]) > 3:
+        if not self._is_gridded_input and self.ipoints_tuple.shape[0] > 3:
             # This speeds up interpolation from irregular points to observation points
             # but Delaunay needs enough points for this to work
+            print("Delauny triangulation")
             self.triangulation = Delaunay(self.ipoints_tuple)
 
         # The intermediate will only store the final output locations
