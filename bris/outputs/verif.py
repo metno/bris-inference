@@ -84,7 +84,6 @@ class Verif(Output):
         if not self._is_gridded_input and self.ipoints_tuple.shape[0] > 3:
             # This speeds up interpolation from irregular points to observation points
             # but Delaunay needs enough points for this to work
-            print("Delauny triangulation")
             self.triangulation = Delaunay(self.ipoints_tuple)
 
         # The intermediate will only store the final output locations
