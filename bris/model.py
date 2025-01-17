@@ -85,6 +85,10 @@ class BasePredictor(pl.LightningModule):
     def predict_step(self, batch: torch.Tensor, batch_idx : int) -> torch.Tensor:
         pass 
 
+    @abstractmethod
+    def set_variable_indices(self, required_variables: list):
+        pass
+
     
 class BrisPredictor(BasePredictor):
     def __init__(
@@ -93,7 +97,7 @@ class BrisPredictor(BasePredictor):
             checkpoint: Checkpoint,
             data_reader: Iterable,
             forecast_length: int,
-            variable_indices: list,
+            required_variables: list,
             release_cache: bool=False,
             **kwargs
             ) -> None:
@@ -111,7 +115,7 @@ class BrisPredictor(BasePredictor):
         self.forecast_length = forecast_length
         self.latitudes = data_reader.latitudes
         self.longitudes = data_reader.longitudes
-        self.variable_indices = variable_indices[0]  # Assume we only have one decoder
+#        self.required_variables = required_variables[0]  # Assume we only have one decoder
 
         # this makes it backwards compatible with older 
         # anemoi-models versions. I.e legendary gnome, etc..
@@ -123,11 +127,13 @@ class BrisPredictor(BasePredictor):
         else:
             self.internal_model = self.data_indices.model
             self.internal_data = self.data_indices.data
-
+        self.set_variable_indices(required_variables)
         self.set_static_forcings(data_reader, self.metadata.config.data.forcing)
         
         self.model.eval()
         self.release_cache = release_cache
+
+
     def set_static_forcings(self, data_reader, selection):
 
         self.static_forcings = {}
@@ -160,6 +166,20 @@ class BrisPredictor(BasePredictor):
 
         del data_normalized
 
+    def set_variable_indices(self, required_variables: list):
+        required_variables = required_variables[0] #Assume one decoder
+        variable_indices_input = list()
+        variable_indices_output = list()
+        for name in required_variables:
+            index_input = self.internal_data.input.name_to_index[name]
+            variable_indices_input += [index_input]
+            index_output = self.internal_model.output.name_to_index[name]
+            variable_indices_output += [index_output]
+
+        self.variable_indices_input = variable_indices_input
+        self.variable_indices_output = variable_indices_output
+
+
     def forward(self, x: torch.Tensor)-> torch.Tensor:
         return self.model(x, self.model_comm_group)
     
@@ -181,6 +201,7 @@ class BrisPredictor(BasePredictor):
 
     @torch.inference_mode
     def predict_step(self, batch: tuple, batch_idx: int) -> torch.Tensor:
+
         multistep = self.metadata.config.training.multistep_input
 
         batch = self.allgather_batch(batch)
@@ -188,12 +209,12 @@ class BrisPredictor(BasePredictor):
         batch, time_stamp = batch
         time = np.datetime64(time_stamp[0], 'h') #Consider not forcing 'h' here and instead generalize time + self.frequency
         times = [time]
-        y_preds = torch.empty((batch.shape[0], self.forecast_length, batch.shape[-2], len(self.variable_indices)), dtype=batch.dtype, device="cpu")#.cpu()
+        y_preds = torch.empty((batch.shape[0], self.forecast_length, batch.shape[-2], len(self.variable_indices_input)), dtype=batch.dtype, device="cpu")#.cpu()
 
         #Insert analysis for t=0
         y_analysis = batch[:,multistep-1,...].cpu()
         y_analysis[...,self.internal_data.output.diagnostic] = 0. #Set diagnostic variables to zero
-        y_preds[:,0,...] = y_analysis[...,self.variable_indices]
+        y_preds[:,0,...] = y_analysis[...,self.variable_indices_input]
 
         #Possibly have to extend this to handle imputer, see _step in forecaster.
         batch = self.model.pre_processors(batch, in_place=True)
@@ -204,7 +225,7 @@ class BrisPredictor(BasePredictor):
                 y_pred = self(x)
                 time += self.frequency
                 x = self.advance_input_predict(x, y_pred, time)
-                y_preds[:, fcast_step+1] = self.model.post_processors(y_pred, in_place=True)[:,0,:,self.variable_indices].cpu()
+                y_preds[:, fcast_step+1] = self.model.post_processors(y_pred, in_place=True)[:,0,:,self.variable_indices_output].cpu()
 
                 times.append(time)
                 if self.release_cache:
@@ -217,6 +238,7 @@ class BrisPredictor(BasePredictor):
                   
 
 class NetatmoPredictor(BasePredictor):
+    #TODO: FIX VARIABLE INDICES
     def __init__(
             self,
             *args,

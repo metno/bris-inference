@@ -51,10 +51,8 @@ def main():
     leadtimes = np.arange(config.leadtimes) * timestep
     decoder_outputs = bris.routes.get(
         config["routing"], leadtimes, num_members, datamodule, run_name, workdir
-    )  # get num_leadtimes from config.leadtimes
-    #    decoder_variables = bris.routes.get_required_variables(config["routing"])
-    decoder_variable_indices = bris.routes.get_variable_indices(config["routing"], datamodule)
-
+    )
+    required_variables = bris.routes.get_required_variables(config["routing"], datamodule)
     writer = CustomWriter(decoder_outputs, write_interval="batch")
 
     # Forecaster must know about what leadtimes to output
@@ -63,7 +61,7 @@ def main():
         checkpoint=checkpoint,
         data_reader=datamodule.data_reader,
         forecast_length=config.leadtimes,
-        variable_indices=decoder_variable_indices,
+        required_variables=required_variables,
         release_cache=config.release_cache,
     )
 
