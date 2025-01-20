@@ -57,7 +57,7 @@ class Verif(Output):
             )
 
         self.ipoints = gridpp.Points(self.pm.lats, self.pm.lons, self.pm.altitudes)
-        self.ipoints_tuple = np.column_stack((self.pm.lats, self.pm.lons))
+        self.ipoints_array = np.column_stack((self.pm.lats, self.pm.lons))
         self.ialtitudes = self.pm.altitudes
 
         obs_lats = list()
@@ -78,13 +78,13 @@ class Verif(Output):
         self.obs_altitudes = np.array(obs_altitudes, np.float32)
         self.obs_ids = np.array(obs_ids, np.int32)
         self.opoints = gridpp.Points(self.obs_lats, self.obs_lons, self.obs_altitudes)
-        self.opoints_tuple = np.column_stack((self.obs_lats, self.obs_lons))
+        self.opoints_array = np.column_stack((self.obs_lats, self.obs_lons))
 
-        self.triangulation = self.ipoints_tuple
-        if not self._is_gridded_input and self.ipoints_tuple.shape[0] > 3:
+        self.triangulation = self.ipoints_array
+        if not self._is_gridded_input and self.ipoints_array.shape[0] > 3:
             # This speeds up interpolation from irregular points to observation points
             # but Delaunay needs enough points for this to work
-            self.triangulation = Delaunay(self.ipoints_tuple)
+            self.triangulation = Delaunay(self.ipoints_array)
 
         # The intermediate will only store the final output locations
         intermediate_pm = PredictMetadata(
@@ -129,7 +129,7 @@ class Verif(Output):
                 interpolator = scipy.interpolate.LinearNDInterpolator(
                     self.triangulation, self.ialtitudes
                 )
-                interpolated_altitudes = interpolator(self.opoints_tuple)
+                interpolated_altitudes = interpolator(self.opoints_array)
                 altitude_correction = self.opoints.get_elevs() - interpolated_altitudes
 
             num_leadtimes = pred.shape[0]
@@ -142,7 +142,7 @@ class Verif(Output):
                 interpolator = scipy.interpolate.LinearNDInterpolator(
                     self.triangulation, pred[lt, :, 0]
                 )
-                interpolated_pred[lt, :, 0] = interpolator(self.opoints_tuple)
+                interpolated_pred[lt, :, 0] = interpolator(self.opoints_array)
                 if altitude_correction is not None:
                     interpolated_pred[lt, :, 0] += (
                         self.elev_gradient * altitude_correction
@@ -183,7 +183,7 @@ class Verif(Output):
         coords["time"] = (["time"], [], cf.get_attributes("time"))
         coords["leadtime"] = (
             ["leadtime"],
-            self.intermediate.pm.leadtimes.astype(np.float32),
+            self.intermediate.pm.leadtimes.astype(np.float32) / 3600,
             {"units": "hour"},
         )
         coords["location"] = (["location"], self.obs_ids)

@@ -115,7 +115,6 @@ class BrisPredictor(BasePredictor):
         self.forecast_length = forecast_length
         self.latitudes = data_reader.latitudes
         self.longitudes = data_reader.longitudes
-#        self.required_variables = required_variables[0]  # Assume we only have one decoder
 
         # this makes it backwards compatible with older 
         # anemoi-models versions. I.e legendary gnome, etc..
@@ -134,7 +133,7 @@ class BrisPredictor(BasePredictor):
         self.release_cache = release_cache
 
 
-    def set_static_forcings(self, data_reader, selection):
+    def set_static_forcings(self, data_reader, selection) -> None:
 
         self.static_forcings = {}
         data = torch.from_numpy(data_reader[0].squeeze(axis=1).swapaxes(0,1))
@@ -166,7 +165,7 @@ class BrisPredictor(BasePredictor):
 
         del data_normalized
 
-    def set_variable_indices(self, required_variables: list):
+    def set_variable_indices(self, required_variables: list) -> None:
         required_variables = required_variables[0] #Assume one decoder
         variable_indices_input = list()
         variable_indices_output = list()
@@ -183,7 +182,7 @@ class BrisPredictor(BasePredictor):
     def forward(self, x: torch.Tensor)-> torch.Tensor:
         return self.model(x, self.model_comm_group)
     
-    def advance_input_predict(self, x, y_pred, time):
+    def advance_input_predict(self, x: torch.Tensor, y_pred: torch.Tensor, time: np.datetime64) -> torch.Tensor:
         x = x.roll(-1, dims=1)
 
         #Get prognostic variables:
@@ -200,7 +199,7 @@ class BrisPredictor(BasePredictor):
         return x
 
     @torch.inference_mode
-    def predict_step(self, batch: tuple, batch_idx: int) -> torch.Tensor:
+    def predict_step(self, batch: tuple, batch_idx: int) -> dict:
 
         multistep = self.metadata.config.training.multistep_input
 
