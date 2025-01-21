@@ -219,7 +219,7 @@ class BrisPredictor(BasePredictor):
         batch = self.model.pre_processors(batch, in_place=True)
         x = batch[..., self.internal_data.input.full]
 
-        with torch.autocast(device_type= "cuda", dtype=torch.bfloat16):
+        with torch.autocast(device_type= "cuda", dtype=torch.float16):
             for fcast_step in range(self.forecast_length-1):
                 y_pred = self(x)
                 time += self.frequency
