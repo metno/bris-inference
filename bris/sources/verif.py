@@ -12,10 +12,15 @@ class Verif(Source):
 
     Fetches observations across times and leadtimes to maximize the number of observations available
     for a given time.
+
+    This also parses Verif files that do not have a leadtime dimension, relying only on the time
+    dimension.
     """
 
     def __init__(self, filename: str):
         self.file = xr.open_dataset(filename)
+
+        self.has_leadtime = "leadtime" in self.file.variables and "leadtime" in self.file.dims
 
     @cached_property
     def locations(self):
@@ -42,19 +47,27 @@ class Verif(Source):
 
         data = np.nan * np.zeros([num_requested_times, len(self.locations)], np.float32)
         for t, requested_time in enumerate(requested_times):
-            i, j = np.where(self._all_times == requested_time)
-            if len(i) > 0:
-                data[t, :] = raw_obs[i[0], j[0], :]
+            if self.has_leadtime:
+                i, j = np.where(self._all_times == requested_time)
+                if len(i) > 0:
+                    data[t, :] = raw_obs[i[0], j[0], :]
+            else:
+                i = np.where(self._all_times == requested_time)[0]
+                if len(i) > 0:
+                    data[t, :] = raw_obs[i[0], :]
 
         observations = Observations(self.locations, requested_times, {variable: data})
         return observations
 
     @cached_property
     def _all_times(self):
-        a, b = np.meshgrid(
-            self.file["leadtime"].values * 3600, self.file["time"].values
-        )
-        return (a + b)[:]  # (time, leadtime)
+        if self.has_leadtime:
+            a, b = np.meshgrid(
+                self.file["leadtime"].values * 3600, self.file["time"].values
+            )
+            return (a + b)[:]  # (time, leadtime)
+        else:
+            return self.file["time"].values[:, None]
 
     @cached_property
     def _times(self):
