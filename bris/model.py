@@ -21,6 +21,7 @@ class BasePredictor(pl.LightningModule):
             self, 
             *args: Any, 
             checkpoint: Checkpoint,
+            hardware_config,
             **kwargs : Any
             ):
         """ 
@@ -41,6 +42,22 @@ class BasePredictor(pl.LightningModule):
             self.legacy = False
         else:
             self.legacy = True
+        print("harware_config")
+        print(hardware_config)
+
+        if self.legacy:
+            self.model_comm_group = None
+            self.model_comm_group_id = int(os.environ.get("SLURM_PROCID", "0")) // hardware_config["num_gpus_per_model"]
+            self.model_comm_group_rank = int(os.environ.get("SLURM_PROCID", "0")) % hardware_config["num_gpus_per_model"]
+            self.model_comm_num_groups = math.ceil(
+            hardware_config["num_gpus_per_node"] * hardware_config["num_nodes"] / hardware_config["num_gpus_per_model"],
+        )
+        else:
+            #Lazy init
+            self.model_comm_group = None
+            self.model_comm_group_id = 0
+            self.model_comm_group_rank = 0
+            self.model_comm_num_groups = 1            
 
     def set_model_comm_group(
         self,

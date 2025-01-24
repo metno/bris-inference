@@ -59,10 +59,12 @@ def main():
     model = instantiate(
         config.model,
         checkpoint=checkpoint,
+        hardware_config=config.hardware,
         data_reader=datamodule.data_reader,
         forecast_length=config.leadtimes,
         required_variables=required_variables,
         release_cache=config.release_cache,
+        
     )
 
     callbacks = list()
