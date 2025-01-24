@@ -8,9 +8,13 @@ This is a package to run MET Norway's data-driven model Bris, which is based on 
 - Multi encoder/decoder
 - Time interpolation
 
+# Requirements
+
+- udunits2 library. On ubuntu available as `libudunits2-0`
+
 # How to run Bris
 
 ```python
 
-bris --config config.yml
+bris --config config.yaml
 ```
