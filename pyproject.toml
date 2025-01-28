@@ -58,7 +58,7 @@ optional-dependencies.legacy = [
 ]
 
 optional-dependencies.tests = [
-    "black",
+    "tox",
     "coverage",
     "pep8",
     "pytest",
