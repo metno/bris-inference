@@ -4,7 +4,10 @@ from bris import utils
 
 
 class PredictMetadata:
-    """This class stores metadata about each dimension of a batch"""
+    """This class stores metadata about each dimension of a batch
+
+    NOTE: altitudes can be None
+    """
 
     def __init__(
         self, variables, lats, lons, altitudes, leadtimes, num_members, field_shape=None
@@ -68,5 +71,8 @@ class PredictMetadata:
     @property
     def grid_altitudes(self):
         assert self.is_gridded
+
+        if self.altitudes is None:
+            return None
 
         return np.reshape(self.altitudes, self.field_shape)
