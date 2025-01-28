@@ -18,7 +18,8 @@ class Verif(Source):
     """
 
     def __init__(self, filename: str):
-        self.file = xr.open_dataset(filename)
+        # Don't convert the unixtime to datetime objects
+        self.file = xr.open_dataset(filename, decode_times=False)
 
         self.has_leadtime = "leadtime" in self.file.variables and "leadtime" in self.file.dims
 

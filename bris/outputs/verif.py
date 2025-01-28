@@ -27,6 +27,7 @@ class Verif(Output):
         quantile_levels=[],
         consensus_method="control",
         elev_gradient=None,
+        max_distance=None,
     ):
         """
         Args:
@@ -34,51 +35,40 @@ class Verif(Output):
             elev_gradient: Apply this elevation gradient when downscaling from grid to point (e.g.
                 -0.0065 for temperature)
         """
+        for level in quantile_levels:
+            assert level >= 0 and level <= 1, f"level={level} must be between 0 and 1"
+
         extra_variables = list()
         if variable not in predict_metadata.variables:
             extra_variables += [variable]
+
         super().__init__(predict_metadata, extra_variables)
 
         self.filename = filename
         self.fcst = dict()
         self.variable = variable
+        self.obs_sources = obs_sources
         self.units = units
         self.thresholds = thresholds
         self.quantile_levels = quantile_levels
         self.consensus_method = consensus_method
         self.elev_gradient = elev_gradient
-
-        for level in self.quantile_levels:
-            assert level >= 0 and level <= 1, f"level={level} must be between 0 and 1"
+        self.max_distance = max_distance
 
         if self._is_gridded_input:
             self.igrid = gridpp.Grid(
                 self.pm.grid_lats, self.pm.grid_lons, self.pm.grid_altitudes
             )
 
-        self.ipoints = gridpp.Points(self.pm.lats, self.pm.lons, self.pm.altitudes)
         self.ipoints_array = np.column_stack((self.pm.lats, self.pm.lons))
         self.ialtitudes = self.pm.altitudes
 
-        obs_lats = list()
-        obs_lons = list()
-        obs_altitudes = list()
-        obs_ids = list()
-
-        self.obs_sources = obs_sources
-
-        for obs_source in obs_sources:
-            obs_lats += [loc.lat for loc in obs_source.locations]
-            obs_lons += [loc.lon for loc in obs_source.locations]
-            obs_altitudes += [loc.elev for loc in obs_source.locations]
-            obs_ids += [loc.id for loc in obs_source.locations]
-
-        self.obs_lats = np.array(obs_lats, np.float32)
-        self.obs_lons = np.array(obs_lons, np.float32)
-        self.obs_altitudes = np.array(obs_altitudes, np.float32)
-        self.obs_ids = np.array(obs_ids, np.int32)
-        self.opoints = gridpp.Points(self.obs_lats, self.obs_lons, self.obs_altitudes)
-        self.opoints_array = np.column_stack((self.obs_lats, self.obs_lons))
+        self.ipoints, self.opoints, self.obs_ids = self.get_points(
+            self.pm, obs_sources, self.max_distance
+        )
+        self.opoints_array = np.column_stack(
+            (self.opoints.get_lats(), self.opoints.get_lons())
+        )
 
         self.triangulation = self.ipoints_array
         if not self._is_gridded_input and self.ipoints_array.shape[0] > 3:
@@ -89,9 +79,9 @@ class Verif(Output):
         # The intermediate will only store the final output locations
         intermediate_pm = PredictMetadata(
             [variable],
-            self.obs_lats,
-            self.obs_lons,
-            self.obs_altitudes,
+            self.opoints.get_lats(),
+            self.opoints.get_lons(),
+            self.opoints.get_elevs(),
             predict_metadata.leadtimes,
             predict_metadata.num_members,
         )
@@ -186,20 +176,24 @@ class Verif(Output):
             self.intermediate.pm.leadtimes.astype(np.float32) / 3600,
             {"units": "hour"},
         )
+        assert len(self.obs_ids) == len(self.opoints.get_lats()), (
+            len(self.obs_ids),
+            len(self.opoints.get_lats()),
+        )
         coords["location"] = (["location"], self.obs_ids)
         coords["lat"] = (
             ["location"],
-            self.obs_lats,
+            self.opoints.get_lats(),
             cf.get_attributes("latitude"),
         )
         coords["lon"] = (
             ["location"],
-            self.obs_lons,
+            self.opoints.get_lons(),
             cf.get_attributes("longitude"),
         )
         coords["altitude"] = (
             ["location"],
-            self.obs_altitudes,
+            self.opoints.get_elevs(),
             cf.get_attributes("surface_altitude"),
         )
         """
@@ -398,3 +392,35 @@ class Verif(Output):
             p[p > 1] = 1
             p[p < 0] = 0
         return p
+
+    @staticmethod
+    def get_points(predict_metadata, obs_sources, max_distance=None):
+        """Returns point objects for input and output, filtering out output points that are too
+        far outside the input"""
+        obs_lats = list()
+        obs_lons = list()
+        obs_altitudes = list()
+        obs_ids = list()
+        for obs_source in obs_sources:
+            obs_lats += [loc.lat for loc in obs_source.locations]
+            obs_lons += [loc.lon for loc in obs_source.locations]
+            obs_altitudes += [loc.elev for loc in obs_source.locations]
+            obs_ids += [loc.id for loc in obs_source.locations]
+
+        ipoints = gridpp.Points(
+            predict_metadata.lats, predict_metadata.lons, predict_metadata.altitudes
+        )
+        opoints = gridpp.Points(
+            np.array(obs_lats), np.array(obs_lons), np.array(obs_altitudes)
+        )
+
+        if max_distance is not None:
+            dist = gridpp.distance(ipoints, opoints)
+            I = np.where(dist < max_distance)[0]
+            opoints = opoints.subset(I)
+
+            obs_ids = np.array(obs_ids)[I]
+
+        assert opoints.size() == len(obs_ids)
+
+        return ipoints, opoints, obs_ids
