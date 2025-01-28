@@ -55,10 +55,17 @@ class Verif(Output):
         self.elev_gradient = elev_gradient
         self.max_distance = max_distance
 
+        if self.pm.altitudes is None:
+            if elev_gradient is not None:
+                raise ValueError("Cannot do elevation gradient since input field does not have altitude")
+
         if self._is_gridded_input:
-            self.igrid = gridpp.Grid(
-                self.pm.grid_lats, self.pm.grid_lons, self.pm.grid_altitudes
-            )
+            if self.pm.altitudes is not None:
+                self.igrid = gridpp.Grid(
+                    self.pm.grid_lats, self.pm.grid_lons, self.pm.grid_altitudes
+                )
+            else:
+                self.igrid = gridpp.Grid( self.pm.grid_lats, self.pm.grid_lons)
 
         self.ipoints_array = np.column_stack((self.pm.lats, self.pm.lons))
         self.ialtitudes = self.pm.altitudes
@@ -407,9 +414,12 @@ class Verif(Output):
             obs_altitudes += [loc.elev for loc in obs_source.locations]
             obs_ids += [loc.id for loc in obs_source.locations]
 
-        ipoints = gridpp.Points(
-            predict_metadata.lats, predict_metadata.lons, predict_metadata.altitudes
-        )
+        if predict_metadata.altitudes is not None:
+            ipoints = gridpp.Points(
+                predict_metadata.lats, predict_metadata.lons, predict_metadata.altitudes
+            )
+        else:
+            ipoints = gridpp.Points(predict_metadata.lats, predict_metadata.lons)
         opoints = gridpp.Points(
             np.array(obs_lats), np.array(obs_lons), np.array(obs_altitudes)
         )

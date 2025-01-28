@@ -190,9 +190,8 @@ class Netcdf(Output):
                 proj_attrs["earth_radius"] = 6371000.0
                 self.ds["projection"] = ([], 1, proj_attrs)
             else:
-                lats = np.reshape(self.pm.lats, self.pm.field_shape).astype(np.double)
-                lons = np.reshape(self.pm.lons, self.pm.field_shape).astype(np.double)
-                altitudes = np.reshape(self.pm.altitudes, self.pm.field_shape).astype(np.double)
+                lats = self.pm.grid_lats.astype(np.double)
+                lons = self.pm.grid_lons.astype(np.double)
                 self.ds[c("latitude")] = (
                     spatial_dims,
                     lats,
@@ -201,10 +200,13 @@ class Netcdf(Output):
                     spatial_dims,
                     lons,
                 )
-                self.ds[c("surface_altitude")] = (
-                    spatial_dims,
-                    altitudes
-                )
+
+                if self.pm.altitudes is not None:
+                    altitudes = self.pm.grid_altitudes.astype(np.double)
+                    self.ds[c("surface_altitude")] = (
+                        spatial_dims,
+                        altitudes
+                    )
                 proj_attrs = dict()
                 if self.proj4_str is not None:
                     proj_attrs = projections.get_proj_attributes(self.proj4_str)
@@ -223,10 +225,11 @@ class Netcdf(Output):
                 spatial_dims,
                 self.pm.lons,
             )
-            self.ds[c("surface_altitude")] = (
-                spatial_dims,
-                self.pm.altitudes
-            )
+            if self.pm.altitudes is not None:
+                self.ds[c("surface_altitude")] = (
+                    spatial_dims,
+                    self.pm.altitudes
+                )
 
         for cfname in [
             "forecast_reference_time",
