@@ -13,6 +13,7 @@ from omegaconf import DictConfig, OmegaConf, errors
 from torch.utils.data import DataLoader, get_worker_info
 from torch_geometric.data import HeteroData
 import anemoi.datasets.data.subset
+import anemoi.datasets.data.select
 
 from bris.checkpoint import Checkpoint
 from bris.data.dataset import Dataset
