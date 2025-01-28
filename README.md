@@ -17,16 +17,15 @@ See [Wiki](https://github.com/metno/bris-inference/wiki)
 
 # Install
 
-    python3 -m venv venv && source venv/bin/activate
-    pip install -e .
+## Locally for development
+
+    $ python3 -m venv venv && source venv/bin/activate
+    $ pip install -e .
 
 # How to run Bris
 
-```python
-
-bris --config config.yaml
-```
+    $ bris --config config.yaml
 
 # How to run tests
 
-    tox
+    $ tox
