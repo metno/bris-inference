@@ -1,3 +1,5 @@
+import os
+import tempfile
 import numpy as np
 from bris.outputs.netcdf import Netcdf
 from bris.predict_metadata import PredictMetadata
@@ -14,15 +16,15 @@ def test_1():
     pm = PredictMetadata(variables, lats, lons, altitudes, leadtimes, num_members, field_shape)
     pattern = "test_%Y%m%dT00Z.nc"
     workdir = "test_gridded"
-    output = Netcdf(pm, workdir, pattern, interp_res=0.2)
+    with tempfile.TemporaryDirectory() as temp_dir:
+        output = Netcdf(pm, workdir, os.path.join(temp_dir, pattern), interp_res=0.2)
 
-    pred = np.random.rand(*pm.shape)
-    frt = 1672552800
-    times = frt + leadtimes
-    for member in range(num_members):
-        output.add_forecast(times, member, pred)
-
-    output.finalize()
+        pred = np.random.rand(*pm.shape)
+        frt = 1672552800
+        times = frt + leadtimes
+        for member in range(num_members):
+            output.add_forecast(times, member, pred)
+            output.finalize()
 
 def test_domain_name():
     variables = ["u_800", "u_600", "2t", "v_500", "10u"]
@@ -35,15 +37,15 @@ def test_domain_name():
     pm = PredictMetadata(variables, lats, lons, altitudes, leadtimes, num_members, field_shape)
     pattern = "test2_%Y%m%dT00Z.nc"
     workdir = "test_gridded"
-    output = Netcdf(pm, workdir, pattern, domain_name="meps")
+    with tempfile.TemporaryDirectory() as temp_dir:
+        output = Netcdf(pm, workdir, os.path.join(temp_dir, pattern), domain_name="meps")
 
-    pred = np.random.rand(*pm.shape)
-    frt = 1672552800
-    times = frt + leadtimes
-    for member in range(num_members):
-        output.add_forecast(times, member, pred)
-
-    output.finalize()
+        pred = np.random.rand(*pm.shape)
+        frt = 1672552800
+        times = frt + leadtimes
+        for member in range(num_members):
+            output.add_forecast(times, member, pred)
+            output.finalize()
 
 
 if __name__ == "__main__":
