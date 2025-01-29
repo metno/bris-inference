@@ -33,7 +33,7 @@ jobs:
           ${{ runner.os }}-build-
           ${{ runner.os }}-
 
-    - if: ${{ steps.cache-tox.outputs.cache-hit != 'true' }}
+    - if: ${{ steps.cache-tox-data.outputs.cache-hit != 'true' }}
       name: List the state of tox
       continue-on-error: true
       run: ls -lha .tox/py310/
