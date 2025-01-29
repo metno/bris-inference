@@ -27,7 +27,7 @@ jobs:
         cache-name: cache-tox-data
       with:
         path: .tox
-        key: ${{ runner.os }}-build-${{ env.cache-name }}-${{ hashFiles('.tox/py310/.tox-info.json') }}
+        key: ${{ runner.os }}-build-${{ env.cache-name }}-${{ hashFiles('pyproject.toml') }}
         restore-keys: |
           ${{ runner.os }}-build-${{ env.cache-name }}-
           ${{ runner.os }}-build-
@@ -55,4 +55,4 @@ jobs:
 
     - name: Run tox, only python 3.10
       run: |
-        tox -e py310
+        tox -e py310 --parallel-no-spinner
