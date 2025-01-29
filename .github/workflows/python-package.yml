@@ -33,4 +33,4 @@ jobs:
         python -m pip install tox
     - name: Run tests using tox
       run: |
-        tox --parallel
+        tox
