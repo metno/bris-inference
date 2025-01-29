@@ -21,16 +21,18 @@ jobs:
     steps:
     - uses: actions/checkout@v4
     - name: Set up Python ${{ matrix.python-version }}
-      uses: actions/setup-python@v3
+      uses: actions/setup-python@v5
       with:
         python-version: ${{ matrix.python-version }}
+        cache: 'pip' # caching pip dependencies
+        cache-dependency-path: pyproject.toml
     - name: Dependencies
       run: |
         sudo apt update -qq
         sudo apt install libudunits2-dev
     - name: Install python dependencies
       run: |
-        python -m pip install tox
-    - name: Run tests using tox
+        python -m pip install ".[tests]"
+    - name: Run tests using tox with python 3.10
       run: |
-        tox
+        tox -e py310
