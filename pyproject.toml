@@ -37,7 +37,6 @@ dependencies = [
     "numpy",
     "omegaconf",
     "pyproj",
-    "pytest",
     "pytorch-lightning>=2.1",
     "scipy",
     "torch",
@@ -59,10 +58,6 @@ optional-dependencies.legacy = [
 
 optional-dependencies.tests = [
     "tox",
-    "coverage",
-    "pep8",
-    "pytest",
-    "isort",
 ]
 dynamic = ["version"]
 

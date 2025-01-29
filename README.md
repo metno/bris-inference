@@ -28,4 +28,17 @@ See [Wiki](https://github.com/metno/bris-inference/wiki)
 
 # How to run tests
 
+    pip install ".[tests]"
     $ tox
+
+List all tests, and run a single one:
+
+    $ tox -a
+    py311
+    py312
+    ruffcheck
+    typing
+    bandit
+    prospector
+    ruffformat
+    $ tox -e bandit
