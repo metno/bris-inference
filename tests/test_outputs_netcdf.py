@@ -14,10 +14,11 @@ def test_1():
     num_members = 1
     field_shape = [1, 2]
     pm = PredictMetadata(variables, lats, lons, altitudes, leadtimes, num_members, field_shape)
-    pattern = "test_%Y%m%dT00Z.nc"
-    workdir = "test_gridded"
+
     with tempfile.TemporaryDirectory() as temp_dir:
-        output = Netcdf(pm, workdir, os.path.join(temp_dir, pattern), interp_res=0.2)
+        pattern = os.path.join(temp_dir, "test_%Y%m%dT00Z.nc")
+        workdir = os.path.join(temp_dir, "test_gridded")
+        output = Netcdf(pm, workdir, pattern, interp_res=0.2)
 
         pred = np.random.rand(*pm.shape)
         frt = 1672552800
@@ -35,10 +36,11 @@ def test_domain_name():
     num_members = 1
     field_shape = [1, 2]
     pm = PredictMetadata(variables, lats, lons, altitudes, leadtimes, num_members, field_shape)
-    pattern = "test2_%Y%m%dT00Z.nc"
-    workdir = "test_gridded"
+
     with tempfile.TemporaryDirectory() as temp_dir:
-        output = Netcdf(pm, workdir, os.path.join(temp_dir, pattern), domain_name="meps")
+        pattern = os.path.join(temp_dir, "test2_%Y%m%dT00Z.nc")
+        workdir = os.path.join(temp_dir, "test_gridded")
+        output = Netcdf(pm, workdir, pattern, domain_name="meps")
 
         pred = np.random.rand(*pm.shape)
         frt = 1672552800

@@ -1,5 +1,5 @@
 import os
-
+import tempfile
 import numpy as np
 from bris import outputs
 from bris.predict_metadata import PredictMetadata
@@ -16,12 +16,13 @@ def test_instantiate():
     field_shape = [1, 2]
     pm = PredictMetadata(variables, lats, lons, altitudes, num_leadtimes, num_members, field_shape)
 
-    filename = "%Y%m%d.nc"
-    workdir = "test_dir"
+    with tempfile.TemporaryDirectory() as temp_dir:
+        filename = os.path.join(temp_dir, "%Y%m%d.nc")
+        workdir = os.path.join(temp_dir, "test_dir")
 
-    args = {"filename_pattern": filename}
+        args = {"filename_pattern": filename}
 
-    out = outputs.instantiate("netcdf", pm, workdir, args)
+        out = outputs.instantiate("netcdf", pm, workdir, args)
 
 
 if __name__ == "__main__":
