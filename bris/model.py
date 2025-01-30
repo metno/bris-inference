@@ -280,6 +280,25 @@ class NetatmoPredictor(BasePredictor):
         
         self.set_static_forcings(data_reader, self.metadata["config"]["data"]["zip"])
 
+    def set_variable_indices(self, required_variables: list) -> None:
+        variable_indices_input = [() for _ in required_variables]
+        variable_indices_output = [() for _ in required_variables]
+
+
+        for dec_index, required_vars_dec in enumerate(required_variables):
+            _variable_indices_input = list()
+            _variable_indices_output = list()
+            for name in required_vars_dec:
+                index_input = self.data_indices[dec_index].internal_data.input.name_to_index[name]
+                _variable_indices_input += [index_input]
+                index_output = self.data_indices[dec_index].internal_model.output.name_to_index[name]
+                _variable_indices_output += [index_output]
+            variable_indices_input[dec_index] = _variable_indices_input
+            variable_indices_output[dec_index] = _variable_indices_output
+
+        self.variable_indices_input = variable_indices_input
+        self.variable_indices_output = variable_indices_output
+
     def set_static_forcings(self, data_reader, zip_config):
 
         data = data_reader[0]
@@ -341,24 +360,23 @@ class NetatmoPredictor(BasePredictor):
         batch, time_stamp = batch
         time = np.datetime64(time_stamp[0], 'h') #Consider not forcing 'h' here and instead generalize time + self.frequency
         times = [time]
-        y_preds = [np.zeros((batch[i].shape[0], self.forecast_length, batch[i].shape[-2], len(self.variable_indices[i]))) for i in range(num_dsets)]
+        y_preds = [np.zeros((batch[i].shape[0], self.forecast_length, batch[i].shape[-2], len(self.variable_indices_input[i]))) for i in range(num_dsets)]
         #Insert analysis for t=0
         for i in range(num_dsets):
             y_analysis = batch[i][:,multistep-1,0,...]
             y_analysis[...,data_indices[i].internal_data.output.diagnostic] = 0. 
-            y_preds[i][:,0,...] = y_analysis[...,self.variable_indices[i]].cpu().to(torch.float32).numpy()
+            y_preds[i][:,0,...] = y_analysis[...,self.variable_indices_input[i]].cpu().to(torch.float32).numpy()
 
         batch = self.model.pre_processors(batch, in_place=False)
         x = [batch[i][..., data_indices[i].internal_data.input.full] for i in range(num_dsets)]
-        with torch.amp.autocast(device_type= "cuda", dtype=torch.bfloat16):
-            for fcast_step in range(self.forecast_length-1):
-                y_pred = self(x)
-                time += self.frequency
-                x = self.advance_input_predict(x, y_pred, time)
-                y_pp = self.model.post_processors(y_pred, in_place=False)
-                for i in range(num_dsets):
-                    y_preds[i][:, fcast_step+1, ...] = y_pp[i][:,0,...,self.variable_indices[i]].cpu().to(torch.float32).numpy() 
-                times.append(time)
+        for fcast_step in range(self.forecast_length-1):
+            y_pred = self(x)
+            time += self.frequency
+            x = self.advance_input_predict(x, y_pred, time)
+            y_pp = self.model.post_processors(y_pred, in_place=False)
+            for i in range(num_dsets):
+                y_preds[i][:, fcast_step+1, ...] = y_pp[i][:,0,...,self.variable_indices_output[i]].cpu().to(torch.float32).numpy() 
+            times.append(time)
 
         return {"pred": y_preds, "times": times, "group_rank": self.model_comm_group_rank, "ensemble_member": 0}
     
