@@ -41,4 +41,5 @@ List all tests, and run a single one:
     bandit
     prospector
     ruffformat
+
     $ tox -e bandit
