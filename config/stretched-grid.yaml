@@ -3,50 +3,48 @@ defaults:
   - override hydra/hydra_logging: none
   - _self_
   
-start_date: 2023-11-24T12:00:00
+start_date: 2023-11-24T12:00:00 # Sort out multi-step input under the hood?
 end_date: 2023-11-24T18:00:00
 
 checkpoint_path: /lustre/storeB/project/nwp/bris/aram/ckpt/new-ref-SG-reduced-grid.ckpt
 
-leadtimes: 12
-timestep: 6h
-frequency: 6h
+num_leadtimes: 12 # Number of leadtimes including initial state as leadtime 0
+timestep: 6h # Model timestep, fetch from checkpoint
+frequency: 6h # Dataset frequency
 
-deterministic: True
+dataset:
+  cutout: 
+    - dataset: #Path to dataset 
+    - dataset: #Path to dataset 
+  min_distance_km: 0
+  adjust: all 
 
-lam_dataset: ${hardware.paths.data}${hardware.files.lam_dataset}
-global_dataset: ${hardware.paths.data}${hardware.files.global_dataset}
+deterministic: True #Move to code
 
 # If the user wants to release GPU cache and memory
 # This option releases unused cached/memory used by torch
-release_cache: True
+#release_cache: False
 
 # Determine how much the encoder and decoder is chunked
 inference_num_chunks: 32
 
 dataloader:
-  batch_size: 1
+  #Create defaults so that these entries do not have to be in the config
+  batch_size: 1 #Always 1 for inference
   prefetch_factor: 2
   num_workers: 1
-  pin_memory: True
+  pin_memory: True #For gpu
 
-  read_group_size: 1 #Do not change this, not implemented properly
+  read_group_size: 1 # Remove
 
   predict:
-    cutout:
-      - dataset: ${lam_dataset}
-        start: ${start_date}
-        end: ${end_date} 
-      - dataset: ${global_dataset}
-        start: ${start_date}
-        end: ${end_date} 
-        rename: 
-          q_600 : tp  # tp does not exist in the global dataset. tp is diagnostic, rename is sufficient
-    min_distance_km: 0
-    adjust: all 
+    #Move this to the config parser
+    dataset: ${dataset}
+    start: ${start_date}
+    end: ${end_date}
 
   datamodule:
-    _target_: anemoi.training.data.dataset.NativeGridDataset
+    _target_: anemoi.training.data.dataset.NativeGridDataset #Document these options
     _convert_: all
 
 hardware:
@@ -64,15 +62,6 @@ hardware:
 model:
   _target_: bris.model.BrisPredictor
   _convert_: all
-
-
-checkpoints:
-  - my_interpolator:
-    type: interpolator
-    path: interpolator.ckpt
-  - my_forecaster:
-    type: forecaster
-    path: forecast.ckpt
 
 routing:
   - decoder_index: 0
