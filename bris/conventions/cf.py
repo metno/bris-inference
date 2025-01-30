@@ -93,7 +93,7 @@ def get_metadata(anemoi_variable: str) -> dict:
             leveltype = None
             cfname = anemoi_variable
 
-    return dict(cfname=cfname, leveltype=leveltype, level=level)
+    return {cfname: cfname, leveltype: leveltype, level: level}
 
 
 def get_attributes_from_leveltype(leveltype):
@@ -104,20 +104,21 @@ def get_attributes_from_leveltype(leveltype):
             "standard_name": "air_pressure",
             "positive": "up",
         }
-    elif leveltype == "height":
+    if leveltype == "height":
         return {
             "units": "m",
             "description": "height above ground",
             "long_name": "height",
             "positive": "up",
         }
-    elif leveltype == "height_above_msl":
+    if leveltype == "height_above_msl":
         return {
             "units": "m",
             "description": "height above MSL",
             "long_name": "height",
             "positive": "up",
         }
+    # TODO: return a default value or raise error
 
 
 def get_attributes(cfname):
