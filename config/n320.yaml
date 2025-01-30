@@ -14,8 +14,6 @@ frequency: 6h
 
 deterministic: True
 
-run_name: n320_at_ref
-
 global_dataset: ${hardware.paths.data}${hardware.files.global_dataset}
 
 # If the user wants to release GPU cache and memory
