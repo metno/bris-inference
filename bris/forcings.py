@@ -1,7 +1,7 @@
 import numpy as np
 from earthkit.data.utils.dates import to_datetime
 import datetime
-'''
+
 def phase_of_day(time) -> float:
     hour = time.astype(int)
     return hour * 2 * np.pi / 24
@@ -34,7 +34,7 @@ def insolation(time, lats, lons) -> np.ndarray:
 
     return latitude_insolation * longitude_insolation  
 '''
-# This is copied from earthkit, probably need to declare this somewhere
+# This is copied from earthkit
 def julian_day(date):
     date = to_datetime(date)
     delta = date - datetime.datetime(date.year, 1, 1)
@@ -90,7 +90,7 @@ def cos_solar_zenith_angle(date, lat, lon):
     )
     return result.flatten()
 
-
+'''
 def get_dynamic_forcings(time, lats, lons, selection):
     
     forcings = {}
@@ -106,7 +106,6 @@ def get_dynamic_forcings(time, lats, lons, selection):
         forcings["insolation"] = insolation(time, lats, lons)
 
     return forcings
-
 
 
 

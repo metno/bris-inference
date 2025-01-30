@@ -42,8 +42,6 @@ class BasePredictor(pl.LightningModule):
             self.legacy = False
         else:
             self.legacy = True
-        print("harware_config")
-        print(hardware_config)
 
         if self.legacy:
             self.model_comm_group = None
@@ -236,17 +234,17 @@ class BrisPredictor(BasePredictor):
         batch = self.model.pre_processors(batch, in_place=True)
         x = batch[..., self.internal_data.input.full]
 
-        with torch.autocast(device_type= "cuda", dtype=torch.bfloat16):
-            for fcast_step in range(self.forecast_length-1):
-                y_pred = self(x)
-                time += self.frequency
-                x = self.advance_input_predict(x, y_pred, time)
-                y_preds[:, fcast_step+1] = self.model.post_processors(y_pred, in_place=True)[:,0,:,self.variable_indices_output].cpu()
 
-                times.append(time)
-                if self.release_cache:
-                    del y_pred
-                    torch.cuda.empty_cache()
+        for fcast_step in range(self.forecast_length-1):
+            y_pred = self(x)
+            time += self.frequency
+            x = self.advance_input_predict(x, y_pred, time)
+            y_preds[:, fcast_step+1] = self.model.post_processors(y_pred, in_place=True)[:,0,:,self.variable_indices_output].cpu()
+
+            times.append(time)
+            if self.release_cache:
+                del y_pred
+                torch.cuda.empty_cache()
         return {"pred": [y_preds.to(torch.float32).numpy()], "times": times, "group_rank": self.model_comm_group_rank, "ensemble_member": 0}
 
     def allgather_batch(self, batch: torch.Tensor) -> torch.Tensor:

@@ -90,7 +90,7 @@ class Inference:
             strategy=self.strategy,
             devices=self.config.hardware.num_gpus_per_node,
             num_nodes=self.config.hardware.num_nodes,
-            precision="bf16",
+            precision="16-mixed",
             inference_mode=True,
             use_distributed_sampler=False,
             callbacks=self.callbacks,
