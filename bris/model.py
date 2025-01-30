@@ -259,7 +259,7 @@ class NetatmoPredictor(BasePredictor):
             checkpoint: Checkpoint,
             data_reader: Iterable,
             forecast_length: int,
-            variable_indices: list,
+            required_variables: list,
             release_cache: bool=False,
             **kwargs
             ) -> None:
@@ -276,8 +276,8 @@ class NetatmoPredictor(BasePredictor):
         self.forecast_length = forecast_length
         self.latitudes = data_reader.latitudes
         self.longitudes = data_reader.longitudes
-        self.variable_indices = variable_indices
         
+        self.set_variable_indices(required_variables)
         self.set_static_forcings(data_reader, self.metadata["config"]["data"]["zip"])
 
     def set_variable_indices(self, required_variables: list) -> None:
