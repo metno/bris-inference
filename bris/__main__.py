@@ -12,7 +12,6 @@ from anemoi.utils.dates import frequency_to_seconds
 
 from .checkpoint import Checkpoint
 from .inference import Inference
-from .predict_metadata import PredictMetadata
 from .utils import create_config
 from .writer import CustomWriter
 
@@ -67,7 +66,7 @@ def main():
         
     )
 
-    callbacks = list()
+    callbacks = []
     callbacks += [writer]
 
     inference = Inference(
@@ -87,5 +86,7 @@ def main():
                 output.finalize()
 
     print("Hello world")
+
+
 if __name__ == "__main__":
     main()
