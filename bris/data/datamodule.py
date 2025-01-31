@@ -75,7 +75,7 @@ class DataModule(pl.LightningDataModule):
         """
         return DataLoader(
             ds,
-            batch_size=self.config.dataloader.get("batch_size", "1"),
+            batch_size=1,
             # number of worker processes
             num_workers=self.config.dataloader.get("num_workers", "1"),
             # use of pinned memory can speed up CPU-to-GPU data transfers
