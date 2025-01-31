@@ -161,6 +161,29 @@ class DataModule(pl.LightningDataModule):
                 label="predict",
             )
             return dataCls
+            '''
+        elif self.config.dataloader.datamodule._target_ == "anemoi.training.data.dataset.ZipDataset":
+            print("Using Zip dataset functionality")
+            from .legacy.utils import _legacy_slurm_proc_id
+
+            model_comm_group_rank, model_comm_group_id, model_comm_num_groups = (
+                _legacy_slurm_proc_id(self.config)
+            )
+            dataCls = instantiate(
+                config=self.config.dataloader.datamodule,
+                data_reader=data_reader,
+                rollout=0,
+                multistep=self.ckptObj.multistep,
+                timeincrement=self.timeincrement,
+                model_comm_group_rank=model_comm_group_rank,
+                model_comm_group_id=model_comm_group_id,
+                model_comm_num_groups=model_comm_num_groups,
+                shuffle=False,
+                label="predict",
+
+            )
+            return Dataset(dataCls)
+            '''
         else:
             try:
                 dataCls = instantiate(

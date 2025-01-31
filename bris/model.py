@@ -252,22 +252,28 @@ class BrisPredictor(BasePredictor):
                   
 
 class NetatmoPredictor(BasePredictor):
-    #TODO: FIX VARIABLE INDICES
     def __init__(
             self,
             *args,
             checkpoint: Checkpoint,
             data_reader: Iterable,
             forecast_length: int,
-            required_variables: list,
+            required_variables: dict,
+            hardware_config,
             release_cache: bool=False,
             **kwargs
             ) -> None:
         super().__init__(
-            *args, checkpoint=checkpoint, **kwargs)
-        
+            *args, hardware_config=hardware_config, checkpoint=checkpoint, **kwargs)
+        self.model_comm_group = None
+        self.model_comm_group_id = int(os.environ.get("SLURM_PROCID", "0")) // hardware_config["num_gpus_per_model"]
+        self.model_comm_group_rank = int(os.environ.get("SLURM_PROCID", "0")) % hardware_config["num_gpus_per_model"]
+        self.model_comm_num_groups = math.ceil(
+            hardware_config["num_gpus_per_node"] * hardware_config["num_nodes"] / hardware_config["num_gpus_per_model"],
+        )
         self.model=checkpoint.model
         self.metadata = checkpoint.metadata
+        self.data_indices = self.model.data_indices
 
         self.frequency = self.metadata["config"]["data"]["frequency"]
         if isinstance(self.frequency, str) and self.frequency[-1] == 'h':
@@ -285,7 +291,7 @@ class NetatmoPredictor(BasePredictor):
         variable_indices_output = [() for _ in required_variables]
 
 
-        for dec_index, required_vars_dec in enumerate(required_variables):
+        for dec_index, required_vars_dec in required_variables.items():
             _variable_indices_input = list()
             _variable_indices_output = list()
             for name in required_vars_dec:
@@ -356,7 +362,6 @@ class NetatmoPredictor(BasePredictor):
         num_dsets = len(batch)
         data_indices = self.model.data_indices
         multistep = self.metadata["config"]["training"]["multistep_input"]
-
         batch, time_stamp = batch
         time = np.datetime64(time_stamp[0], 'h') #Consider not forcing 'h' here and instead generalize time + self.frequency
         times = [time]
