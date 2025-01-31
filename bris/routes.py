@@ -13,7 +13,6 @@ def get(
     leadtimes: list,
     num_members: int,
     data_module: DataModule,
-    run_name: str,
     workdir: str,
 ):
     """Returns outputs for each decoder and domain
@@ -24,7 +23,6 @@ def get(
         routing_config: Dictionary from config file
         leadtimes: Which leadtimes that the model will produce
         data_module: Data module
-        run_name: Name of this run used by outputs to set filenames
     Returns:
         list of dicts:
             decoder_index (int)
@@ -74,11 +72,6 @@ def get(
             )
 
             for output_type, args in oc.items():
-                if "filename" in args:
-                    args["filename"] = expand_run_name(args["filename"], run_name)
-                if "filename_pattern" in args:
-                    args["filename_pattern"] = expand_run_name(args["filename_pattern"], run_name)
-
                 curr_workdir = utils.get_workdir(workdir) + "_" + str(count)
                 count += 1
                 output = bris.outputs.instantiate(output_type, pm, curr_workdir, args)
@@ -140,10 +133,6 @@ def get_required_variables(routing_config: dict, data_module: DataModule):
             required_variables[decoder_index] = sorted(list(set(v)))
 
     return required_variables
-
-
-def expand_run_name(string, run_name):
-    return string.replace("%R", run_name)
 
 
 def expand_variable(string, variable):

@@ -6,7 +6,6 @@ defaults:
 
 start_date: 2023-11-24T12:00:00
 end_date: 2023-11-25T18:00:00
-run_name: test
 
 checkpoint_path: inference-anemoi-by_time-epoch_075-step_149656.ckpt
 

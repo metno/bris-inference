@@ -42,15 +42,14 @@ def main():
     )
     
     # Assemble outputs
-    run_name = config.run_name #"legendary_gnome"
-    workdir = config.hardware.paths.workdir #"testdir"
+    workdir = config.hardware.paths.workdir
     num_members = 1
 
     # Get outputs and required_variables of each decoder
     timestep = frequency_to_seconds(config.timestep)
     leadtimes = np.arange(config.leadtimes) * timestep
     decoder_outputs = bris.routes.get(
-        config["routing"], leadtimes, num_members, datamodule, run_name, workdir
+        config["routing"], leadtimes, num_members, datamodule, workdir
     )
     required_variables = bris.routes.get_required_variables(config["routing"], datamodule)
     writer = CustomWriter(decoder_outputs, write_interval="batch")
