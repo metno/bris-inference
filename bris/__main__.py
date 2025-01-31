@@ -2,6 +2,7 @@ import logging
 from argparse import ArgumentParser
 import numpy as np
 import os
+from datetime import datetime, timedelta
 
 from hydra.utils import instantiate
 
@@ -36,6 +37,10 @@ def main():
         LOGGER.info("Update graph is enabled. Proceeding to change internal graph")
         checkpoint.update_graph(config.model.graph)  # Pass in a new graph if needed
 
+    # Get timestep from checkpoint
+    config.timestep = checkpoint.metadata.dataset.frequency
+    timestep = frequency_to_seconds(config.timestep)
+
     datamodule = DataModule(
         config=config,
         checkpoint_object=checkpoint,
@@ -45,8 +50,13 @@ def main():
     workdir = config.hardware.paths.workdir
     num_members = 1
 
+    # Get start_date from checkpoint
+    config.start_date = datetime.strftime(
+        datetime.strptime(config.end_date, "%Y-%m-%dT%H:%M:%S") - timedelta(seconds=timestep),
+        "%Y-%m-%dT%H:%M:%S"
+    )
+
     # Get outputs and required_variables of each decoder
-    timestep = frequency_to_seconds(config.timestep)
     leadtimes = np.arange(config.leadtimes) * timestep
     decoder_outputs = bris.routes.get(
         config["routing"], leadtimes, num_members, datamodule, workdir
