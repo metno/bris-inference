@@ -126,10 +126,6 @@
             "type": "integer",
             "minimum": 1
         },
-        "timestep": {
-            "description": "What is the timestep between each leadtime? E.g. 6h",
-            "type": "string"
-        },
         "release_cache": {
             "description": "This option releases unused cached/memory used by torch",
             "type": "boolean"
@@ -154,5 +150,5 @@
             }
         }
     },
-    "required": ["leadtimes", "frequency", "timestep", "release_cache"]
+    "required": ["leadtimes", "frequency", "release_cache"]
 }
