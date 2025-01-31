@@ -64,7 +64,7 @@ class DataModule(pl.LightningDataModule):
         """
         Creates torch dataloader object for
         ds. Batch_size, num_workers, prefetch_factor
-        and pin_memory can be adjusted in the config
+        and pin_memory have sane defaults, but can be adjusted in the config
         under dataloader.
 
         args:
@@ -75,16 +75,16 @@ class DataModule(pl.LightningDataModule):
         """
         return DataLoader(
             ds,
-            batch_size=self.config.dataloader.batch_size,
+            batch_size=self.config.dataloader.get("batch_size", "1"),
             # number of worker processes
-            num_workers=self.config.dataloader.num_workers,
+            num_workers=self.config.dataloader.get("num_workers", "1"),
             # use of pinned memory can speed up CPU-to-GPU data transfers
             # see https://pytorch.org/docs/stable/notes/cuda.html#cuda-memory-pinning
             pin_memory=self.config.dataloader.get("pin_memory", True),
             # worker initializer
             worker_init_fn=worker_init_func,
             # prefetch batches
-            prefetch_factor=self.config.dataloader.prefetch_factor,
+            prefetch_factor=self.config.dataloader.get("prefetch_factor", "2"),
             persistent_workers=True,
         )
 
@@ -252,10 +252,9 @@ class DataModule(pl.LightningDataModule):
             except ImportError as e:
                 print("Warning! Could not import BaseGridIndices and FullGrid. Continuing without this module")
 
-        reader_group_size = self.config.dataloader.read_group_size
         grid_indices = FullGrid(
             nodes_name="data",
-            reader_group_size=reader_group_size
+            reader_group_size="1"
             )
         grid_indices.setup(self.graph)
         return grid_indices
