@@ -88,7 +88,6 @@ def create_config(parser: ArgumentParser) -> OmegaConf:
     parser.add_argument(
         "-c", type=str, dest="checkpoint_path", default=config.checkpoint_path
     )
-    parser.add_argument("-sd", type=str, dest="start_date", default=config.start_date)
     parser.add_argument("-ed", type=str, dest="end_date", default=config.end_date)
     parser.add_argument(
         "-p", type=str, dest="dataset_path", help="Path to dataset", default=None
@@ -106,7 +105,6 @@ def create_config(parser: ArgumentParser) -> OmegaConf:
     # TODO: Logic that can add dataset or cutout dataset to the dataloader config
 
     parser.add_argument("-f", type=str, dest="frequency", default=config.frequency)
-    parser.add_argument("-s", type=str, dest="timestep", default=config.timestep)
     parser.add_argument("-l", type=int, dest="leadtimes", default=config.leadtimes)
     args = parser.parse_args()
 
