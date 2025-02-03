@@ -54,6 +54,13 @@ def main():
     workdir = config.hardware.paths.workdir
     num_members = 1
 
+    # Get multistep
+    multistep = None
+    try:
+        multistep = checkpoint.config.training.multistep_input
+    except KeyError:
+        LOGGER.debug("Multistep not found in checkpoint")
+
     # Get start_date from checkpoint
     config.start_date = datetime.strftime(
         datetime.strptime(config.end_date, "%Y-%m-%dT%H:%M:%S") - timedelta(seconds=timestep),
@@ -83,7 +90,6 @@ def main():
         forecast_length=config.leadtimes,
         required_variables=required_variables,
         release_cache=config.release_cache,
-        
     )
 
     callbacks = list()
