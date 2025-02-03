@@ -161,7 +161,7 @@ class DataModule(pl.LightningDataModule):
                 label="predict",
             )
             return dataCls
-            '''
+            
         elif self.config.dataloader.datamodule._target_ == "anemoi.training.data.dataset.ZipDataset":
             print("Using Zip dataset functionality")
             from .legacy.utils import _legacy_slurm_proc_id
@@ -183,7 +183,7 @@ class DataModule(pl.LightningDataModule):
 
             )
             return Dataset(dataCls)
-            '''
+        
         else:
             try:
                 dataCls = instantiate(

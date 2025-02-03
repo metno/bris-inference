@@ -74,4 +74,5 @@ class Dataset(IterableDataset):
     ) -> tuple[torch.Tensor, datetime64] | tuple[tuple[torch.Tensor], datetime64]:
 
         for idx, x in enumerate(iter(self.dataCls)):
-            yield (x, str(self.data.dates[self.dataCls.chunk_index_range[idx] + self.dataCls.multi_step - 1]))
+        #    yield (x, str(self.data.dates[self.dataCls.chunk_index_range[idx] + self.dataCls.multi_step - 1]))
+            yield (x, str(self.data.dates[self.dataCls.valid_date_indices[self.dataCls.chunk_index_range[idx]]]))
