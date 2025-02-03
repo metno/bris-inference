@@ -66,7 +66,7 @@ checkpoints:
 
 routing:
   - decoder_index: 0
-    domain: 0
+    domain_index: 0
     outputs:
       - netcdf:
           filename_pattern: /pfs/lustrep4/scratch/project_465001383/haugenha/anemoi-training-ref-updated/run-anemoi/lumi/predictions/n320_pred_%Y%m%dT%HZ.nc
