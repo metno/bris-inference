@@ -36,6 +36,7 @@ class Netcdf(Output):
         extra_variables=list(),
         proj4_str=None,
         domain_name=None,
+        template_file=None,
     ):
         """
         Args:
@@ -69,6 +70,20 @@ class Netcdf(Output):
         else:
             self.proj4_str = proj4_str
 
+        if self.template_file is not None:
+            # If use the mask file as template, we can drop the land_binary_mask 
+            # that may have a long time dimension
+            self.ds_template = xr.open_dataset(template_file,drop_variables=['land_binary_mask', 'time', 'projection_stere'])
+            
+            # Compute 1D->2D index to output 2D arrays
+            lat_full = self.ds_template.lat.values
+            mask = np.isin(lat_full, self.pm.lats) # unsafe??
+            ind = np.arange(np.size(lat_full)).reshape(np.shape(lat_full))
+            self.indices_1D_to_2D = ind[mask] 
+            # TODO: the np.isin() method above is not safe if the values of lon or lat 
+            # have been modified due to precision etc.. should use nearest neighbour search instead
+            # TODO: also do sanity checks on the template file? 
+            
     def _add_forecast(self, times: list, ensemble_member: int, pred: np.array):
         if self.pm.num_members > 1:
             # Cache data with intermediate
@@ -139,6 +154,11 @@ class Netcdf(Output):
                 )
                 x_dim_name = c("longitude")
                 y_dim_name = c("latitude")
+
+            elif self.template_file is not None:
+                # Use the template to get the (full) grid
+                x    = self.ds_template.x.values
+                y    = self.ds_template.y.values 
             else:
                 # TODO: Handle self.latrange and self.lonrange
                 if None not in [self.latrange, self.lonrange]:
@@ -189,6 +209,8 @@ class Netcdf(Output):
                 proj_attrs["grid_mapping_name"] = "latitude_longitude"
                 proj_attrs["earth_radius"] = 6371000.0
                 self.ds["projection"] = ([], 1, proj_attrs)
+            #elif self.template_file is not None: 
+                # TODO ??? do I need to add anything here?
             else:
                 lats = self.pm.grid_lats.astype(np.double)
                 lons = self.pm.grid_lons.astype(np.double)
@@ -292,6 +314,13 @@ class Netcdf(Output):
                 )
                 for i in range(self.pm.num_members):
                     ar[:, :, :, i] = gridpp.nearest(ipoints, ogrid, curr[:, :, i])
+            elif self.template_file is not None: 
+                curr = pred[..., variable_index, :]
+                ar = np.nan * np.zeros(
+                    [len(times), len(y), len(x), self.pm.num_members], np.float32
+                )
+                # Reconstruct the 2D array (nans where no data)
+                ar[:, :, :, :].flat[self.indices_1D_to_2D] = curr[:, :, :]
             else:
                 ar = np.reshape(pred[..., variable_index, :], shape)
 
