@@ -36,6 +36,14 @@ def main():
         LOGGER.info("Update graph is enabled. Proceeding to change internal graph")
         checkpoint.update_graph(config.model.graph)  # Pass in a new graph if needed
 
+    # Get timestep from checkpoint
+    config.timestep = None
+    try:
+        config.timestep = checkpoint.metadata.dataset.frequency
+    except KeyError:
+        raise RuntimeError("Error getting frequency from checkpoint (checkpoint.metadata.dataset.frequency)")
+    timestep = frequency_to_seconds(config.timestep)
+
     datamodule = DataModule(
         config=config,
         checkpoint_object=checkpoint,
