@@ -77,7 +77,7 @@ def check_anemoi_dataset_version(metadata) -> tuple[bool, str]:
 def create_config(parser: ArgumentParser) -> OmegaConf:
     args, _ = parser.parse_known_args()
 
-    validate(args.config)
+    validate(args.config, raise_on_error=True)
 
     try:
         config = OmegaConf.load(args.config)
@@ -106,7 +106,6 @@ def create_config(parser: ArgumentParser) -> OmegaConf:
     # TODO: Logic that can add dataset or cutout dataset to the dataloader config
 
     parser.add_argument("-f", type=str, dest="frequency", default=config.frequency)
-    parser.add_argument("-s", type=str, dest="timestep", default=config.timestep)
     parser.add_argument("-l", type=int, dest="leadtimes", default=config.leadtimes)
     args = parser.parse_args()
 
