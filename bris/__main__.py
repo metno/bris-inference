@@ -38,7 +38,11 @@ def main():
         checkpoint.update_graph(config.model.graph)  # Pass in a new graph if needed
 
     # Get timestep from checkpoint
-    config.timestep = checkpoint.metadata.dataset.frequency
+    config.timestep = None
+    try:
+        config.timestep = checkpoint.metadata.dataset.frequency
+    except KeyError:
+        raise RuntimeError("Error getting frequency from checkpoint (checkpoint.metadata.dataset.frequency)")
     timestep = frequency_to_seconds(config.timestep)
 
     datamodule = DataModule(
@@ -63,6 +67,12 @@ def main():
     )
     required_variables = bris.routes.get_required_variables(config["routing"], datamodule)
     writer = CustomWriter(decoder_outputs, write_interval="batch")
+
+    # Set hydra defaults
+    config.defaults = [
+        {'override hydra/job_logging': 'none'}, # disable config parsing logs
+        {'override hydra/hydra_logging': 'none'}, # disable config parsing logs
+        '_self_']
 
     # Forecaster must know about what leadtimes to output
     model = instantiate(
