@@ -134,22 +134,32 @@
             "description": "Path to working directory",
             "type": "string"
         },
-        "datasets": {
-            "type": "object",
-            "properties": {
-                "cutout": {
-                    "type": "array",
-                    "items": {
-                        "type": "object",
-                        "properties": {
-                            "dataset":  {"type": "string"}
-                        },
-                        "minItems": 1
-                    },
-                    "required": ["dataset"]
+        "dataset": {
+            "description": "Input dataset. Can be a single path, or two datasets merged by cutout. Example dataset.cutout = ['/path/dataset1', '/path/dataset2' ]",
+            "oneOf": [
+                {
+                    "type": "string"
+                },
+                {
+                "type": "object",
+                "properties": {
+                            "cutout": {
+                            "type": "array",
+                            "items": {
+                                "type": "object",
+                                "properties": {
+                                    "dataset":  {"type": "string"}
+                                }
+                            },
+                            "required": ["dataset"],
+                            "minItems": 2
+                        }
+                },
+                "required": ["cutout"]
                 }
-            },
-            "required": ["cutout"]
+            ],
+            "min_distance_km": {"type": "int", "minimum": 0},
+            "adjust": {"type": "string"}
         },
         "routing": {
             "type": "array",
