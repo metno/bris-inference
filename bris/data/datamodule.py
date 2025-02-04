@@ -77,14 +77,14 @@ class DataModule(pl.LightningDataModule):
             ds,
             batch_size=1,
             # number of worker processes
-            num_workers=self.config.dataloader.get("num_workers", "1"),
+            num_workers=self.config.dataloader.get("num_workers", 1),
             # use of pinned memory can speed up CPU-to-GPU data transfers
             # see https://pytorch.org/docs/stable/notes/cuda.html#cuda-memory-pinning
             pin_memory=self.config.dataloader.get("pin_memory", True),
             # worker initializer
             worker_init_fn=worker_init_func,
             # prefetch batches
-            prefetch_factor=self.config.dataloader.get("prefetch_factor", "2"),
+            prefetch_factor=self.config.dataloader.get("prefetch_factor", 2),
             persistent_workers=True,
         )
 
