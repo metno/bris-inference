@@ -64,15 +64,16 @@ class Netcdf(Output):
         self.interp_res = interp_res
         self.latrange = latrange
         self.lonrange = lonrange
+        self.template_file = template_file
 
         if domain_name is not None:
             self.proj4_str = projections.get_proj4_str(domain_name)
         else:
             self.proj4_str = proj4_str
 
-        if self.template_file is not None:
+        if self._use_template:
             # If use the mask file as template, we can drop the land_binary_mask 
-            # that may have a long time dimension
+            # that may have a long time dimension when loading data
             self.ds_template = xr.open_dataset(template_file,drop_variables=['land_binary_mask', 'time', 'projection_stere'])
             
             # Compute 1D->2D index to output 2D arrays
@@ -101,6 +102,11 @@ class Netcdf(Output):
 
     def get_filename(self, forecast_reference_time):
         return utils.expand_time_tokens(self.filename_pattern, forecast_reference_time)
+
+    @property
+    def _use_template(self):
+        """Use a template file for output?"""
+        return self.template_file is not None
 
     @property
     def _is_gridded(self):
@@ -155,7 +161,7 @@ class Netcdf(Output):
                 x_dim_name = c("longitude")
                 y_dim_name = c("latitude")
 
-            elif self.template_file is not None:
+            elif self._use_template:
                 # Use the template to get the (full) grid
                 x    = self.ds_template.x.values
                 y    = self.ds_template.y.values 
@@ -209,7 +215,7 @@ class Netcdf(Output):
                 proj_attrs["grid_mapping_name"] = "latitude_longitude"
                 proj_attrs["earth_radius"] = 6371000.0
                 self.ds["projection"] = ([], 1, proj_attrs)
-            #elif self.template_file is not None: 
+            #elif self._use_template: 
                 # TODO ??? do I need to add anything here?
             else:
                 lats = self.pm.grid_lats.astype(np.double)
@@ -314,7 +320,7 @@ class Netcdf(Output):
                 )
                 for i in range(self.pm.num_members):
                     ar[:, :, :, i] = gridpp.nearest(ipoints, ogrid, curr[:, :, i])
-            elif self.template_file is not None: 
+            elif self._use_template: 
                 curr = pred[..., variable_index, :]
                 ar = np.nan * np.zeros(
                     [len(times), len(y), len(x), self.pm.num_members], np.float32
