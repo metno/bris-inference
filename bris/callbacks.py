@@ -11,6 +11,7 @@ from anemoi.utils.config import DotDict
 from omegaconf import DictConfig
 from pytorch_lightning.callbacks.model_checkpoint import ModelCheckpoint
 from pytorch_lightning.utilities import rank_zero_only
+from safetensors.torch import save_file
 
 LOGGER = logging.getLogger(__name__)
 
@@ -100,7 +101,7 @@ class NewModelCheckpoint(ModelCheckpoint):
                 "inference-" + str(Path(lightning_checkpoint_filepath).name),
             )
 
-            torch.save(model, inference_checkpoint_filepath)
+            save_file(model, inference_checkpoint_filepath)
 
             with ZipFile(inference_checkpoint_filepath, "a") as zipf:
                 base = Path(inference_checkpoint_filepath).stem
