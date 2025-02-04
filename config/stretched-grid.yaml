@@ -46,7 +46,7 @@ dataloader:
     adjust: all 
 
   datamodule:
-    _target_: anemoi.training.data.dataset.NativeGridDataset
+    _target_: bris.data.dataset.NativeGridDataset
     _convert_: all
 
 hardware:

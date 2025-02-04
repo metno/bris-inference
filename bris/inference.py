@@ -9,8 +9,7 @@ from anemoi.utils.config import DotDict
 
 from .checkpoint import Checkpoint
 from .data.datamodule import DataModule
-from .utils import check_anemoi_training
-from .writer import CustomWriter
+from bris.ddp_strategy import DDPGroupStrategy
 
 LOGGER = logging.getLogger(__name__)
 
@@ -50,34 +49,14 @@ class Inference:
         else:
             LOGGER.info(f"Using specified device: {self._device}")
             return self._device
-
+    
     @cached_property
     def strategy(self):
-        if check_anemoi_training(self.checkpoint._metadata):
-            LOGGER.info("Anemoi training package found, using its strategy")
-            from anemoi.training.distributed.strategy import DDPGroupStrategy
-            try: 
-                return DDPGroupStrategy(
-                    self.config.hardware.num_gpus_per_model,
-                    self.config.dataloader.get(
-                        "read_group_size", self.config.hardware.num_gpus_per_model
-                    ),
-                    static_graph=False, #not self.checkpoint.config.training.accum_grad_batches > 1,
-                )
-            except:
-                return DDPGroupStrategy(
-                    self.config.hardware.num_gpus_per_model,
-                    static_graph=False
-                )
-        else:
-            LOGGER.info(
-                "Anemoi training package not found! Using aifs-mono legacy strategy"
-            )
-            from bris.data.legacy.distributed.strategy import DDPGroupStrategy
-            return DDPGroupStrategy(
-                self.config.hardware.num_gpus_per_model,
-                static_graph=False, #not self.checkpoint.config.training.accum_grad_batches > 1,
-            )
+        return DDPGroupStrategy(
+            num_gpus_per_model=self.config.hardware.num_gpus_per_model,
+            read_group_size=1,
+            static_graph=False,
+        )
             
 
     @cached_property

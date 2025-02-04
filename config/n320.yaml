@@ -37,7 +37,7 @@ dataloader:
     reorder: ${reorder}
 
   datamodule:
-    _target_: anemoi.training.data.dataset.NativeGridDataset #anemoi.training.data.dataset.ZipDataset
+    _target_: bris.data.dataset.NativeGridDataset #anemoi.training.data.dataset.ZipDataset
     _convert_: all
 
 hardware:

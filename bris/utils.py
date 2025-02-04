@@ -141,8 +141,72 @@ def validate(filename, raise_on_error=False):
             print("WARNING: Schema does not validate")
             print(e)
 
-
 def recursive_list_to_tuple(data):
     if isinstance(data, list):
         return tuple(recursive_list_to_tuple(item) for item in data)
     return data
+
+def get_usable_indices(
+    missing_indices: set[int] | None,
+    series_length: int,
+    rollout: int,
+    multistep: int,
+    timeincrement: int = 1,
+) -> np.ndarray:
+    """Get the usable indices of a series whit missing indices.
+
+    Parameters
+    ----------
+    missing_indices : set[int]
+        Dataset to be used.
+    series_length : int
+        Length of the series.
+    rollout : int
+        Number of steps to roll out.
+    multistep : int
+        Number of previous indices to include as predictors.
+    timeincrement : int
+        Time increment, by default 1.
+
+    Returns
+    -------
+    usable_indices : np.array
+        Array of usable indices.
+    """
+    prev_invalid_dates = (multistep - 1) * timeincrement
+    next_invalid_dates = rollout * timeincrement
+
+    usable_indices = np.arange(series_length)  # set of all indices
+
+    if missing_indices is None:
+        missing_indices = set()
+
+    missing_indices |= {-1, series_length}  # to filter initial and final indices
+
+    # Missing indices
+    for i in missing_indices:
+        usable_indices = usable_indices[
+            (usable_indices < i - next_invalid_dates) + (usable_indices > i + prev_invalid_dates)
+        ]
+
+    return usable_indices
+
+def get_base_seed(env_var_list=("AIFS_BASE_SEED", "SLURM_JOB_ID")) -> int:
+    """Gets the base seed from the environment variables.
+
+    Option to manually set a seed via export AIFS_BASE_SEED=xxx in job script
+    """
+    base_seed = None
+    for env_var in env_var_list:
+        if env_var in os.environ:
+            base_seed = int(os.environ.get(env_var))
+            break
+
+    assert (
+        base_seed is not None
+    ), f"Base seed not found in environment variables {env_var_list}"
+
+    if base_seed < 1000:
+        base_seed = base_seed * 1000  # make it (hopefully) big enough
+
+    return base_seed
