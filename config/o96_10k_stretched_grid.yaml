@@ -82,13 +82,13 @@ checkpoints:
 
 routing:
   - decoder_index: 0
-    domain: 0
+    domain_index: 0
     outputs:
       - netcdf:
           filename_pattern: fmi_meps_pred_%Y%m%dT%HZ.nc
           variables: [2t, 2d]
   - decoder_index: 0
-    domain: 1
+    domain_index: 1
     outputs:
       - netcdf:
           filename_pattern: fmi_era_pred_%Y%m%dT%HZ.nc
