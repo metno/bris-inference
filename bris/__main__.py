@@ -37,38 +37,40 @@ def main():
         LOGGER.info("Update graph is enabled. Proceeding to change internal graph")
         checkpoint.update_graph(config.model.graph)  # Pass in a new graph if needed
 
-    # Get timestep from checkpoint
+    # Get timestep from checkpoint. Also store a version in seconds for local use.
     config.timestep = None
     try:
-        config.timestep = checkpoint.metadata.dataset.frequency
+        config.timestep = checkpoint.config.data.timestep
     except KeyError:
-        raise RuntimeError("Error getting frequency from checkpoint (checkpoint.metadata.dataset.frequency)")
-    timestep = frequency_to_seconds(config.timestep)
+        raise RuntimeError("Error getting timestep from checkpoint (checkpoint.config.data.timestep)")
+    timestep_seconds = frequency_to_seconds(config.timestep)
 
     datamodule = DataModule(
         config=config,
         checkpoint_object=checkpoint,
     )
-    
+
     # Assemble outputs
     workdir = config.hardware.paths.workdir
     num_members = 1
 
-    # Get multistep
-    multistep = None
+    # Get multistep. A default of 2 to ignore multistep in start_date calculation if not set.
+    multistep = 2
     try:
         multistep = checkpoint.config.training.multistep_input
     except KeyError:
         LOGGER.debug("Multistep not found in checkpoint")
 
-    # Get start_date from checkpoint
-    config.start_date = datetime.strftime(
-        datetime.strptime(config.end_date, "%Y-%m-%dT%H:%M:%S") - timedelta(seconds=timestep),
-        "%Y-%m-%dT%H:%M:%S"
-    )
+    # If no start_date given, calculate as end_date-((multistep-1)*timestep)
+    if not "start_date" in config:
+        config.start_date = datetime.strftime(
+            datetime.strptime(config.end_date, "%Y-%m-%dT%H:%M:%S") - timedelta(seconds=(multistep - 1) * timestep_seconds),
+            "%Y-%m-%dT%H:%M:%S"
+        )
+        LOGGER.info("No start_date given, setting %s based on start_date and timestep.", config.start_date)
 
     # Get outputs and required_variables of each decoder
-    leadtimes = np.arange(config.leadtimes) * timestep
+    leadtimes = np.arange(config.leadtimes) * timestep_seconds
     decoder_outputs = bris.routes.get(
         config["routing"], leadtimes, num_members, datamodule, workdir
     )
