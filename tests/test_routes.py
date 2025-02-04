@@ -36,7 +36,7 @@ def test_get():
     config += [
         {
             "decoder_index": 0,
-            "domain": 0,
+            "domain_index": 0,
             "outputs": [
                 {
                     "verif": {
@@ -52,7 +52,7 @@ def test_get():
         },
         {
             "decoder_index": 0,
-            "domain": 1,
+            "domain_index": 1,
             "outputs": [
                 {
                     "netcdf": {
@@ -63,7 +63,7 @@ def test_get():
         },
         {
             "decoder_index": 1,
-            "domain": 0,
+            "domain_index": 0,
             "outputs": [
                 {
                     "netcdf": {
