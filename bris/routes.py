@@ -39,7 +39,7 @@ def get(
 
     for config in routing_config:
         decoder_index = config["decoder_index"]
-        domain_index = config["domain"]
+        domain_index = config["domain_index"]
 
         curr_grids = data_module.grids[decoder_index]
         if domain_index == 0:
