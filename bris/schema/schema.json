@@ -136,28 +136,6 @@
         },
         "dataset": {
             "description": "Input dataset. Can be a single path, or two datasets merged by cutout. Example dataset.cutout = ['/path/dataset1', '/path/dataset2' ]",
-            "oneOf": [
-                {
-                    "type": "string"
-                },
-                {
-                "type": "object",
-                "properties": {
-                            "cutout": {
-                            "type": "array",
-                            "items": {
-                                "type": "object",
-                                "properties": {
-                                    "dataset":  {"type": "string"}
-                                }
-                            },
-                            "required": ["dataset"],
-                            "minItems": 2
-                        }
-                },
-                "required": ["cutout"]
-                }
-            ],
             "min_distance_km": {"type": "int", "minimum": 0},
             "adjust": {"type": "string"}
         },
