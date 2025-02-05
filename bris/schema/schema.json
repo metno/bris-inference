@@ -131,7 +131,7 @@
             "type": "boolean"
         },
         "workdir": {
-            "description": "Path to working directory",
+            "description": "Path to work directory",
             "type": "string"
         },
         "dataset": {
