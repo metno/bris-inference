@@ -1,7 +1,6 @@
 import logging
-import os
 from functools import cached_property
-from typing import Any, Optional
+from typing import Any
 
 import numpy as np
 import pytorch_lightning as pl
@@ -9,9 +8,8 @@ from anemoi.datasets import open_dataset
 from anemoi.utils.config import DotDict
 from anemoi.utils.dates import frequency_to_seconds
 from hydra.utils import instantiate
-from omegaconf import DictConfig, OmegaConf, errors
+from omegaconf import DictConfig, OmegaConf
 from torch.utils.data import DataLoader, get_worker_info
-from torch_geometric.data import HeteroData
 import anemoi.datasets.data.subset
 import anemoi.datasets.data.select
 
@@ -129,7 +127,7 @@ class DataModule(pl.LightningDataModule):
                         the model was trained with aifs-mono and using legacy functionality"""
             )
             LOGGER.warning("WARNING! Ensemble legacy mode has yet to be implemented!")
-            from .legacy.dataset import EnsNativeGridDataset, NativeGridDataset
+            from .legacy.dataset import NativeGridDataset
             from .legacy.utils import _legacy_slurm_proc_id
 
             model_comm_group_rank, model_comm_group_id, model_comm_num_groups = (
@@ -249,7 +247,7 @@ class DataModule(pl.LightningDataModule):
         if check_anemoi_training(self.ckptObj.metadata):
             try:
                 from anemoi.training.data.grid_indices import BaseGridIndices, FullGrid
-            except ImportError as e:
+            except ImportError:
                 print("Warning! Could not import BaseGridIndices and FullGrid. Continuing without this module")
 
         grid_indices = FullGrid(
