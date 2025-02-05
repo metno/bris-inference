@@ -94,6 +94,10 @@ def create_config(parser: ArgumentParser) -> OmegaConf:
     parser.add_argument(
         "-p", type=str, dest="dataset_path", help="Path to dataset", default=None
     )
+    parser.add_argument(
+        "-wd", type=str, dest="workdir", help="Path to work directory", required=False,
+        default=config.start_date if "start_date" in config else None
+    )
 
     parser.add_argument(
         "-pc",

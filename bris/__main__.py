@@ -49,15 +49,13 @@ def main():
         checkpoint_object=checkpoint,
     )
     
-    # Assemble outputs
-    workdir = config.hardware.paths.workdir
     num_members = 1
 
     # Get outputs and required_variables of each decoder
     timestep = frequency_to_seconds(config.timestep)
     leadtimes = np.arange(config.leadtimes) * timestep
     decoder_outputs = bris.routes.get(
-        config["routing"], leadtimes, num_members, datamodule, workdir
+        config["routing"], leadtimes, num_members, datamodule, config.workdir
     )
     required_variables = bris.routes.get_required_variables(config["routing"], datamodule)
     writer = CustomWriter(decoder_outputs, write_interval="batch")
