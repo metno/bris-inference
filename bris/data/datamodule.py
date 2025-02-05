@@ -211,7 +211,7 @@ class DataModule(pl.LightningDataModule):
             An anemoi open_dataset object
         """
         base_loader = OmegaConf.to_container(
-            self.config.dataloader.predict, 
+            self.config.dataset, 
             resolve=True
             )
         return open_dataset(base_loader)
