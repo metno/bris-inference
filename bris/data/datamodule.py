@@ -252,7 +252,7 @@ class DataModule(pl.LightningDataModule):
 
         grid_indices = FullGrid(
             nodes_name="data",
-            reader_group_size="1"
+            reader_group_size=1
             )
         grid_indices.setup(self.graph)
         return grid_indices
