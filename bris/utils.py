@@ -137,7 +137,7 @@ def validate(filename, raise_on_error=False):
     with open(filename) as file:
         config = yaml.safe_load(file)
     try:
-        q = jsonschema.validate(instance=config, schema=schema)
+        jsonschema.validate(instance=config, schema=schema)
     except jsonschema.exceptions.ValidationError as e:
         if raise_on_error:
             raise

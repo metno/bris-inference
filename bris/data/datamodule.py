@@ -1,7 +1,6 @@
 import logging
-import os
 from functools import cached_property
-from typing import Any, Optional
+from typing import Any
 
 import numpy as np
 import pytorch_lightning as pl
@@ -9,9 +8,8 @@ from anemoi.datasets import open_dataset
 from anemoi.utils.config import DotDict
 from anemoi.utils.dates import frequency_to_seconds
 from hydra.utils import instantiate
-from omegaconf import DictConfig, OmegaConf, errors
+from omegaconf import DictConfig, OmegaConf
 from torch.utils.data import DataLoader, get_worker_info
-from torch_geometric.data import HeteroData
 import anemoi.datasets.data.subset
 import anemoi.datasets.data.select
 
@@ -64,7 +62,7 @@ class DataModule(pl.LightningDataModule):
         """
         Creates torch dataloader object for
         ds. Batch_size, num_workers, prefetch_factor
-        and pin_memory can be adjusted in the config
+        and pin_memory have sane defaults, but can be adjusted in the config
         under dataloader.
 
         args:
@@ -75,16 +73,16 @@ class DataModule(pl.LightningDataModule):
         """
         return DataLoader(
             ds,
-            batch_size=self.config.dataloader.batch_size,
+            batch_size=1,
             # number of worker processes
-            num_workers=self.config.dataloader.num_workers,
+            num_workers=self.config.dataloader.get("num_workers", 1),
             # use of pinned memory can speed up CPU-to-GPU data transfers
             # see https://pytorch.org/docs/stable/notes/cuda.html#cuda-memory-pinning
             pin_memory=self.config.dataloader.get("pin_memory", True),
             # worker initializer
             worker_init_fn=worker_init_func,
             # prefetch batches
-            prefetch_factor=self.config.dataloader.prefetch_factor,
+            prefetch_factor=self.config.dataloader.get("prefetch_factor", 2),
             persistent_workers=True,
         )
 
@@ -129,7 +127,7 @@ class DataModule(pl.LightningDataModule):
                         the model was trained with aifs-mono and using legacy functionality"""
             )
             LOGGER.warning("WARNING! Ensemble legacy mode has yet to be implemented!")
-            from .legacy.dataset import EnsNativeGridDataset, NativeGridDataset
+            from .legacy.dataset import NativeGridDataset
             from .legacy.utils import _legacy_slurm_proc_id
 
             model_comm_group_rank, model_comm_group_id, model_comm_num_groups = (
@@ -249,13 +247,12 @@ class DataModule(pl.LightningDataModule):
         if check_anemoi_training(self.ckptObj.metadata):
             try:
                 from anemoi.training.data.grid_indices import BaseGridIndices, FullGrid
-            except ImportError as e:
+            except ImportError:
                 print("Warning! Could not import BaseGridIndices and FullGrid. Continuing without this module")
 
-        reader_group_size = self.config.dataloader.read_group_size
         grid_indices = FullGrid(
             nodes_name="data",
-            reader_group_size=reader_group_size
+            reader_group_size=1
             )
         grid_indices.setup(self.graph)
         return grid_indices

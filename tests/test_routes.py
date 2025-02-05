@@ -1,5 +1,4 @@
 import os
-import numpy as np
 
 import bris.routes
 
@@ -85,7 +84,7 @@ def test_get():
     variable_indices = bris.routes.get_variable_indices(config, data_module)
     assert variable_indices == {0: [0, 1, 2], 1: [1]}
 
-    routes = bris.routes.get(config, len(leadtimes), num_members, data_module, workdir)
+    _ = bris.routes.get(config, len(leadtimes), num_members, data_module, workdir)
 
 
 if __name__ == "__main__":
