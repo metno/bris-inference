@@ -85,7 +85,7 @@ class Inference:
         trainer = pl.Trainer(
             logger=False,
             accelerator=self.device,
-            deterministic=False,
+            deterministic=True,
             detect_anomaly=False,
             strategy=self.strategy,
             devices=self.config.hardware.num_gpus_per_node,
