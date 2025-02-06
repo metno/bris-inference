@@ -32,7 +32,6 @@ class Inference:
         self.checkpoint = checkpoint
         self.callbacks = callbacks
         self.datamodule = datamodule
-        self.deterministic = self.config.deterministic
         self.precision = precision
         self._device = device
 
