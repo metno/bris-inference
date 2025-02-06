@@ -44,10 +44,6 @@ def main():
         raise RuntimeError("Error getting timestep from checkpoint (checkpoint.config.data.timestep)")
     timestep_seconds = frequency_to_seconds(config.timestep)
 
-    datamodule = DataModule(
-        config=config,
-        checkpoint_object=checkpoint,
-    )
     num_members = 1
 
     # Get multistep. A default of 2 to ignore multistep in start_date calculation if not set.
@@ -64,6 +60,11 @@ def main():
             "%Y-%m-%dT%H:%M:%S"
         )
         LOGGER.info("No start_date given, setting %s based on start_date and timestep.", config.start_date)
+
+    datamodule = DataModule(
+        config=config,
+        checkpoint_object=checkpoint,
+    )
 
     # Get outputs and required_variables of each decoder
     leadtimes = np.arange(config.leadtimes) * timestep_seconds
