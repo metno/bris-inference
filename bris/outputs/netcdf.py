@@ -160,11 +160,6 @@ class Netcdf(Output):
                 )
                 x_dim_name = c("longitude")
                 y_dim_name = c("latitude")
-
-            elif self._use_template:
-                # Use the template to get the (full) grid
-                x    = self.ds_template.x.values
-                y    = self.ds_template.y.values 
             else:
                 # TODO: Handle self.latrange and self.lonrange
                 if None not in [self.latrange, self.lonrange]:
@@ -183,9 +178,17 @@ class Netcdf(Output):
             coords[y_dim_name] = y
             spatial_dims = (y_dim_name, x_dim_name)
         else:
-            y = np.arange(len(self.pm.lats)).astype(np.int32)
-            coords["location"] = y
-            spatial_dims = ("location",)
+            if self._use_template:
+                # Use the template to get the (full) grid
+                x    = self.ds_template.X.values
+                y    = self.ds_template.Y.values
+                x_dim_name = c("projection_x_coordinate")
+                y_dim_name = c("projection_y_coordinate")
+                spatial_dims = (y_dim_name, x_dim_name)
+            else:
+                y = np.arange(len(self.pm.lats)).astype(np.int32)
+                coords["location"] = y
+                spatial_dims = ("location",)
 
         if self.pm.num_members > 1:
             coords[c("realization")] = np.arange(self.pm.num_members).astype(np.int32)
@@ -215,8 +218,6 @@ class Netcdf(Output):
                 proj_attrs["grid_mapping_name"] = "latitude_longitude"
                 proj_attrs["earth_radius"] = 6371000.0
                 self.ds["projection"] = ([], 1, proj_attrs)
-            #elif self._use_template: 
-                # TODO ??? do I need to add anything here?
             else:
                 lats = self.pm.grid_lats.astype(np.double)
                 lons = self.pm.grid_lons.astype(np.double)
@@ -245,14 +246,27 @@ class Netcdf(Output):
                     # proj_attrs["earth_radius"] = 6371000.0
                 self.ds[c("projection")] = ([], 0, proj_attrs)
         else:
-            self.ds[c("latitude")] = (
-                spatial_dims,
-                self.pm.lats,
-            )
-            self.ds[c("longitude")] = (
-                spatial_dims,
-                self.pm.lons,
-            )
+            if self._use_template:
+                self.ds[c("latitude")] = (
+                    spatial_dims,
+                    #self.pm.lats,
+                    self.ds_template.lat.values,
+                )
+                self.ds[c("longitude")] = (
+                    spatial_dims,
+                    #self.pm.lons,
+                    self.ds_template.lon.values,
+                )
+
+            else: 
+                self.ds[c("latitude")] = (
+                    spatial_dims,
+                    self.pm.lats,
+                )
+                self.ds[c("longitude")] = (
+                    spatial_dims,
+                    self.pm.lons,
+                )
             if self.pm.altitudes is not None:
                 self.ds[c("surface_altitude")] = (
                     spatial_dims,
@@ -286,13 +300,13 @@ class Netcdf(Output):
                         dim_name,
                         *spatial_dims,
                     ]
-                    if self._is_gridded:
+                    if self._is_gridded or self._use_template:
                         shape = [len(times), len(self.ds[dim_name]), len(y), len(x)]
                     else:
                         shape = [len(times), len(self.ds[dim_name]), len(y)]
                 else:
                     dims = [c("time"), *spatial_dims]
-                    if self._is_gridded:
+                    if self._is_gridded or self._use_template:
                         shape = [len(times), len(y), len(x)]
                     else:
                         shape = [len(times), len(y)]
@@ -304,7 +318,7 @@ class Netcdf(Output):
                 ar = np.nan * np.zeros(shape, np.float32)
                 self.ds[ncname] = (dims, ar)
 
-            if self._is_gridded:
+            if self._is_gridded or self._use_template:
                 shape = [len(times), len(y), len(x), self.pm.num_members]
             else:
                 shape = [len(times), len(y), self.pm.num_members]
