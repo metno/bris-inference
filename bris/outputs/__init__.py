@@ -28,6 +28,9 @@ def instantiate(name: str, predict_metadata: PredictMetadata, workdir: str, init
     elif name == "netcdf":
         return Netcdf(predict_metadata, workdir, **init_args)
 
+    elif name == "harp":
+        return Harp(predict_metadata, workdir, **init_args)
+
     else:
         raise ValueError(f"Invalid output: {name}")
 
@@ -54,6 +57,9 @@ def get_required_variables(name, init_args):
             return ["10u", "10v"]
         else:
             return [init_args["variable"]]
+
+    elif name == "harp":
+        return None
 
     else:
         raise ValueError(f"Invalid output: {name}")
@@ -150,3 +156,4 @@ class Output:
 from .intermediate import Intermediate
 from .netcdf import Netcdf
 from .verif import Verif
+from .harp import Harp

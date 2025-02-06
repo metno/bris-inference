@@ -12,6 +12,8 @@ def instantiate(name: str, init_args: dict):
         return sources.frost.Frost(init_args["frost_variable_name"])
     elif name == "verif":
         return sources.verif.Verif(init_args["filename"])
+    elif name == "harp":
+        return sources.harp.Harp(init_args["filename"])
     else:
         raise ValueError(f"Invalid source: {name}")
 
@@ -44,3 +46,4 @@ class Source:
 
 from .frost import Frost
 from .verif import Verif
+from .harp import Harp

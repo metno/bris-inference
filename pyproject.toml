@@ -47,6 +47,7 @@ dependencies = [
     "zarr<=2.17",
     "anemoi-models",
     "anemoi-training>=0.1.0",
+    "pyarrow~=19.0.0"
 ]
 
 # legacy version supports this branch from MetNo fork of ECMWF anemoi-models
