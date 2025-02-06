@@ -83,7 +83,7 @@ class Netcdf(Output):
             self.indices_1D_to_2D = ind[mask] 
             # TODO: the np.isin() method above is not safe if the values of lon or lat 
             # have been modified due to precision etc.. should use nearest neighbour search instead
-            # TODO: also do sanity checks on the template file? 
+            # TODO: also do sanity checks on the template file? eg test if the dimension is larger than original?
             
     def _add_forecast(self, times: list, ensemble_member: int, pred: np.array):
         if self.pm.num_members > 1:
