@@ -60,20 +60,13 @@ def main():
             "%Y-%m-%dT%H:%M:%S"
         )
         LOGGER.info("No start_date given, setting %s based on start_date and timestep.", config.start_date)
+    else:
+        config.start_date = datetime.strftime(
+            datetime.strptime(config.start_date, "%Y-%m-%dT%H:%M:%S") - timedelta(seconds=(multistep - 1) * timestep_seconds),
+            "%Y-%m-%dT%H:%M:%S"
+        )
 
-    # Insert start_ and end_time for each dataset entry
-    if hasattr(config.dataset, "dataset"): # If single dataset given
-            config.dataset.start = config.start_date
-            config.dataset.end = config.end_date
-    else: # If cutout, join or similar with multiple datasets is given
-        for dataset_operation in iter(config.dataset):
-            try:
-                for dataset_num in range(len(config.dataset[dataset_operation])):
-                    if hasattr(config.dataset[dataset_operation][dataset_num], "dataset"):
-                        config.dataset[dataset_operation][dataset_num]["start"] = config.start_date
-                        config.dataset[dataset_operation][dataset_num]["end"] = config.end_date
-            except TypeError:
-                pass
+    config.dataset = {"dataset": config.dataset, "start": config.start_date, "end": config.end_date, "frequency": config.frequency}
 
     datamodule = DataModule(
         config=config,
