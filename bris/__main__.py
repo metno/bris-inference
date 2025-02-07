@@ -44,13 +44,6 @@ def main():
         raise RuntimeError("Error getting timestep from checkpoint (checkpoint.config.data.timestep)")
     timestep_seconds = frequency_to_seconds(config.timestep)
 
-    datamodule = DataModule(
-        config=config,
-        checkpoint_object=checkpoint,
-    )
-
-    # Assemble outputs
-    workdir = config.hardware.paths.workdir
     num_members = 1
 
     # Get multistep. A default of 2 to ignore multistep in start_date calculation if not set.
@@ -67,11 +60,23 @@ def main():
             "%Y-%m-%dT%H:%M:%S"
         )
         LOGGER.info("No start_date given, setting %s based on start_date and timestep.", config.start_date)
+    else:
+        config.start_date = datetime.strftime(
+            datetime.strptime(config.start_date, "%Y-%m-%dT%H:%M:%S") - timedelta(seconds=(multistep - 1) * timestep_seconds),
+            "%Y-%m-%dT%H:%M:%S"
+        )
+
+    config.dataset = {"dataset": config.dataset, "start": config.start_date, "end": config.end_date, "frequency": config.frequency}
+
+    datamodule = DataModule(
+        config=config,
+        checkpoint_object=checkpoint,
+    )
 
     # Get outputs and required_variables of each decoder
     leadtimes = np.arange(config.leadtimes) * timestep_seconds
     decoder_outputs = bris.routes.get(
-        config["routing"], leadtimes, num_members, datamodule, workdir
+        config["routing"], leadtimes, num_members, datamodule, config.workdir
     )
     required_variables = bris.routes.get_required_variables(config["routing"], datamodule)
     writer = CustomWriter(decoder_outputs, write_interval="batch")
