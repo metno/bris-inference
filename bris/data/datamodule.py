@@ -61,7 +61,11 @@ class DataModule(pl.LightningDataModule):
         """
         return DataLoader(
             self.ds_predict,
+<<<<<<< HEAD
             batch_size=1,
+=======
+            batch_size=self.config.dataloader.batch_size,
+>>>>>>> refs/remotes/origin/23-fix-dataloader-dataset
             # number of worker processes
             num_workers=self.config.dataloader.get("num_workers", 1),
             # use of pinned memory can speed up CPU-to-GPU data transfers
@@ -162,7 +166,11 @@ class DataModule(pl.LightningDataModule):
 
     @cached_property
     def grid_indices(self) -> type[BaseGridIndices]:
+<<<<<<< HEAD
         reader_group_size = 1 
+=======
+        reader_group_size = self.config.dataloader.read_group_size
+>>>>>>> refs/remotes/origin/23-fix-dataloader-dataset
         if hasattr(self.config.dataloader, "grid_indices"):
             grid_indices = instantiate(self.config.dataloder.grid_indices, reader_group_size=reader_group_size)
             LOGGER.info("Using grid indices from dataloader config") 
