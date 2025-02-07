@@ -77,7 +77,7 @@ def check_anemoi_dataset_version(metadata) -> tuple[bool, str]:
 def create_config(parser: ArgumentParser) -> OmegaConf:
     args, _ = parser.parse_known_args()
 
-    validate(args.config)
+    validate(args.config, raise_on_error=True)
 
     try:
         config = OmegaConf.load(args.config)
@@ -88,9 +88,15 @@ def create_config(parser: ArgumentParser) -> OmegaConf:
     parser.add_argument(
         "-c", type=str, dest="checkpoint_path", default=config.checkpoint_path
     )
+    parser.add_argument("-sd", type=str, dest="start_date", required=False,
+        default=config.start_date if "start_date" in config else None)
     parser.add_argument("-ed", type=str, dest="end_date", default=config.end_date)
     parser.add_argument(
         "-p", type=str, dest="dataset_path", help="Path to dataset", default=None
+    )
+    parser.add_argument(
+        "-wd", type=str, dest="workdir", help="Path to work directory", required=False,
+        default=config.workdir if "workdir" in config else None
     )
 
     parser.add_argument(

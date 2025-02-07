@@ -60,14 +60,14 @@ checkpoints:
 
 routing:
   - decoder_index: 0
-    domain: 0
+    domain_index: 0
     outputs:
       - netcdf:
           filename_pattern: pred_%Y%m%dT%HZ.nc
           variables: [2t, 2d]
 
 #  - decoder_index: 0
-#    domain: 1
+#    domain_index: 1
 #    outputs:
 #      - verif:
 #          filename: global/2t/%R.nc   # global/2t/legendary_gnome.nc
@@ -87,7 +87,7 @@ routing:
 #               path: mslp.nc
 #
 #  - decoder_index: 1
-#    domain: 0
+#    domain_index: 0
 #    outputs:
 #      - netcdf:
 #          filename_pattern: netatmo_%Y%m%dT%HZ.nc

@@ -130,6 +130,15 @@
             "description": "This option releases unused cached/memory used by torch",
             "type": "boolean"
         },
+        "workdir": {
+            "description": "Path to work directory",
+            "type": "string"
+        },
+        "dataset": {
+            "description": "Input dataset. Can be a single path, or two datasets merged by cutout. Example dataset.cutout = ['/path/dataset1', '/path/dataset2' ]",
+            "min_distance_km": {"type": "int", "minimum": 0},
+            "adjust": {"type": "string"}
+        },
         "routing": {
             "type": "array",
             "items":  {
@@ -150,5 +159,5 @@
             }
         }
     },
-    "required": ["leadtimes", "frequency", "release_cache"]
+    "required": ["leadtimes", "frequency", "release_cache", "dataset", "workdir"]
 }
