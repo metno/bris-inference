@@ -62,7 +62,7 @@ class FullGrid(BaseGridIndices):
     def compute_grid_size(self, graph: HeteroData) -> int:
         if hasattr(graph[self.nodes_name], "num_nodes"):
             return graph[self.nodes_name].num_nodes
-        elif hasattr(graph[self.nodes_name], "coords"):
+        elif "coords" in graph[self.nodes_name].keys():
             return graph[self.nodes_name]["coords"].shape[0]
         else:
             raise ValueError("Could not compute grid size in graph")

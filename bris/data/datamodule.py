@@ -164,7 +164,7 @@ class DataModule(pl.LightningDataModule):
     def grid_indices(self) -> type[BaseGridIndices]:
         reader_group_size = 1 
         if hasattr(self.config.dataloader, "grid_indices"):
-            grid_indices = instantiate(self.config.dataloder.grid_indices, reader_group_size=reader_group_size)
+            grid_indices = instantiate(self.config.dataloader.grid_indices, reader_group_size=reader_group_size)
             LOGGER.info("Using grid indices from dataloader config") 
         else:
             grid_indices = FullGrid(
