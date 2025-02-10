@@ -13,7 +13,6 @@ import logging
 from abc import ABC
 from abc import abstractmethod
 from collections.abc import Sequence
-from typing import TYPE_CHECKING
 from typing import Union
 
 import numpy as np

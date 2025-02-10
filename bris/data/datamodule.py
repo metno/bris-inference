@@ -1,6 +1,6 @@
 import logging
 from functools import cached_property
-from typing import Any, Optional, TYPE_CHECKING
+from typing import Any
 
 import numpy as np
 import pytorch_lightning as pl
@@ -9,8 +9,8 @@ from anemoi.utils.config import DotDict
 from anemoi.utils.dates import frequency_to_seconds
 from hydra.utils import instantiate
 
-from omegaconf import DictConfig, OmegaConf, errors
-from torch.utils.data import DataLoader, IterableDataset, get_worker_info
+from omegaconf import DictConfig, OmegaConf
+from torch.utils.data import DataLoader, IterableDataset
 import anemoi.datasets.data.subset
 import anemoi.datasets.data.select
 

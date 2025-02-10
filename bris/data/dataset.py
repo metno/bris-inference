@@ -5,10 +5,9 @@ import numpy as np
 import random
 import logging
 
-from numpy import datetime64
 from einops import rearrange
 from functools import cached_property
-from typing import Callable, TYPE_CHECKING
+from typing import Callable
 
 from torch.utils.data import IterableDataset
 from torch.utils.data import get_worker_info
