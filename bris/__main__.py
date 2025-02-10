@@ -54,7 +54,7 @@ def main():
         LOGGER.debug("Multistep not found in checkpoint")
 
     # If no start_date given, calculate as end_date-((multistep-1)*timestep)
-    if "start_date" not in config:
+    if "start_date" not in config or config.start_date is None:
         config.start_date = datetime.strftime(
             datetime.strptime(config.end_date, "%Y-%m-%dT%H:%M:%S") - timedelta(seconds=(multistep - 1) * timestep_seconds),
             "%Y-%m-%dT%H:%M:%S"
