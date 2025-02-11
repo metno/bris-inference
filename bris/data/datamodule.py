@@ -162,17 +162,33 @@ class DataModule(pl.LightningDataModule):
 
     @cached_property
     def grid_indices(self) -> type[BaseGridIndices]:
-        reader_group_size = 1 
-        if hasattr(self.config.dataloader, "grid_indices"):
-            grid_indices = instantiate(self.config.dataloader.grid_indices, reader_group_size=reader_group_size)
-            LOGGER.info("Using grid indices from dataloader config") 
+        #TODO: This currently only supports fullgrid for multi-encoder/decoder
+        reader_group_size = 1 #Generalize this later
+        graph_cfg = self.ckptObj.config.graph
+
+        #Multi_encoder/decoder
+        if "input_nodes" in graph_cfg.keys():
+            grid_indices = []
+            for dset in graph_cfg.input_nodes.values():
+                gi = FullGrid(
+                    nodes_name=dset,
+                    reader_group_size=reader_group_size
+                )
+                gi.setup(self.graph)
+                grid_indices.append(gi)        
         else:
-            grid_indices = FullGrid(
-                nodes_name="data",
-                reader_group_size=reader_group_size
-            )
-            LOGGER.info("grid_indices not found in dataloader config, defaulting to FullGrid")
-        grid_indices.setup(self.graph)
+            if hasattr(self.config.dataloader, "grid_indices"):
+                grid_indices = instantiate(self.config.dataloader.grid_indices, reader_group_size=reader_group_size)
+                LOGGER.info("Using grid indices from dataloader config") 
+            else:
+                grid_indices = FullGrid(
+                    nodes_name="data",
+                    reader_group_size=reader_group_size
+                )
+                LOGGER.info("grid_indices not found in dataloader config, defaulting to FullGrid")
+            grid_indices.setup(self.graph)
+            grid_indices = [grid_indices]
+
         return grid_indices
 
     @cached_property
