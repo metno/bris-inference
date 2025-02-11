@@ -198,9 +198,8 @@ class DataModule(pl.LightningDataModule):
         """
         if isinstance(self.data_reader.grids[0], (int, np.int32,np.int64)):
             return (self.data_reader.grids,)
-        else:
-            return self.data_reader.grids
-        
+        return self.data_reader.grids
+
     @cached_property
     def latitudes(self) -> tuple:
         """
@@ -208,8 +207,7 @@ class DataModule(pl.LightningDataModule):
         """
         if isinstance(self.data_reader.latitudes, np.ndarray):
             return (self.data_reader.latitudes,)
-        else:
-            return self.data_reader.latitudes
+        return self.data_reader.latitudes
 
     @cached_property
     def longitudes(self) -> tuple:
@@ -218,8 +216,7 @@ class DataModule(pl.LightningDataModule):
         """
         if isinstance(self.data_reader.longitudes, np.ndarray):
             return (self.data_reader.longitudes,)
-        else:
-            return self.data_reader.longitudes
+        return self.data_reader.longitudes
 
     @cached_property
     def altitudes(self) -> tuple:
@@ -270,9 +267,7 @@ class DataModule(pl.LightningDataModule):
             
             if hasattr(dataset, "datasets"):
                 return dataset.datasets[dataset_index].field_shape
-            else:
-                return dataset.field_shape
+            return dataset.field_shape
         else:
             assert (decoder_index == 0 and dataset_index == 0)
             return data_reader.field_shape
-
