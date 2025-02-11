@@ -259,18 +259,11 @@ class MultiDatasetPredictor(BasePredictor):
             data_reader: Iterable,
             forecast_length: int,
             required_variables: list,
-#            hardware_config,
             release_cache: bool=False,
             **kwargs
             ) -> None:
         super().__init__(
             *args, checkpoint=checkpoint, **kwargs)
-#        self.model_comm_group = None
-#        self.model_comm_group_id = int(os.environ.get("SLURM_PROCID", "0")) // hardware_config["num_gpus_per_model"]
-#        self.model_comm_group_rank = int(os.environ.get("SLURM_PROCID", "0")) % hardware_config["num_gpus_per_model"]
-#        self.model_comm_num_groups = math.ceil(
-#            hardware_config["num_gpus_per_node"] * hardware_config["num_nodes"] / hardware_config["num_gpus_per_model"],
-#        )
 
         self.model=checkpoint.model
         self.metadata = checkpoint.metadata
@@ -389,8 +382,4 @@ class MultiDatasetPredictor(BasePredictor):
                 times.append(time)
 
         return {"pred": y_preds, "times": times, "group_rank": self.model_comm_group_rank, "ensemble_member": 0}
-    
-#    def set_model_comm_group(self, model_comm_group: ProcessGroup) -> None:
-#        LOGGER.debug("set_model_comm_group: %s", model_comm_group)
-#        self.model_comm_group = model_comm_group
 
