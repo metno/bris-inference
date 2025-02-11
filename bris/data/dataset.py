@@ -47,8 +47,6 @@ class NativeGridDataset(IterableDataset):
             Shuffle batches, by default True
         label : str, optional
             label for the dataset, by default "generic"
-        effective_bs : int, default 1
-            effective batch size useful to compute the lenght of the dataset
         """
         self.label = label
         self.data = data_reader
