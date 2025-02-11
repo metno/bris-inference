@@ -5,7 +5,7 @@ import logging
 
 from einops import rearrange
 from functools import cached_property
-from typing import Callable
+from typing import Callable, Iterator
 
 from torch.utils.data import IterableDataset
 from torch.utils.data import get_worker_info
@@ -170,7 +170,7 @@ class NativeGridDataset(IterableDataset):
         random.seed(base_seed)
         self.rng = np.random.default_rng(seed=base_seed)
 
-    def __iter__(self):
+    def __iter__(self) -> Iterator[tuple[torch.Tensor, str]]:
         """Return an iterator over the dataset.
 
         The datasets are retrieved by Anemoi Datasets from zarr files. This iterator yields
@@ -237,7 +237,7 @@ class ZipDataset(NativeGridDataset):
                    for dset_shape in self.data.shape), "Ensemble size must match for all datasets"
         self.ensemble_size = self.data.shape[0][self.ensemble_dim]
 
-    def __iter__(self):
+    def __iter__(self) -> Iterator[tuple[tuple[torch.Tensor], str]]:
 
         shuffled_chunk_indices = self.valid_date_indices[self.chunk_index_range]
 
