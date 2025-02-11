@@ -251,7 +251,7 @@ class BrisPredictor(BasePredictor):
         return batch #Not implemented properly
                   
 
-class NetatmoPredictor(BasePredictor):
+class MultiDatasetPredictor(BasePredictor):
     def __init__(
             self,
             *args,
