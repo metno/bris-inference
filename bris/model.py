@@ -251,7 +251,7 @@ class BrisPredictor(BasePredictor):
         return batch #Not implemented properly
                   
 
-class MultiDatasetPredictor(BasePredictor):
+class MultiEncDecPredictor(BasePredictor):
     def __init__(
             self,
             *args,
