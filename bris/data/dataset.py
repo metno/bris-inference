@@ -1,5 +1,3 @@
-from typing import Any
-
 import torch
 import numpy as np
 import random
@@ -7,7 +5,7 @@ import logging
 
 from einops import rearrange
 from functools import cached_property
-from typing import Callable
+from typing import Callable, Iterator
 
 from torch.utils.data import IterableDataset
 from torch.utils.data import get_worker_info
@@ -25,12 +23,11 @@ class NativeGridDataset(IterableDataset):
     def __init__(
         self,
         data_reader: Callable,
-        grid_indices: type[BaseGridIndices],
+        grid_indices: list[type[BaseGridIndices]],
         rollout: int = 1,
         multistep: int = 1,
         timeincrement: int = 1,
         label: str = "generic",
-        effective_bs: int = 1,
     ) -> None:
         """Initialize (part of) the dataset state.
 
@@ -50,17 +47,13 @@ class NativeGridDataset(IterableDataset):
             Shuffle batches, by default True
         label : str, optional
             label for the dataset, by default "generic"
-        effective_bs : int, default 1
-            effective batch size useful to compute the lenght of the dataset
         """
         self.label = label
-        self.effective_bs = effective_bs
-
         self.data = data_reader
 
         self.rollout = rollout
         self.timeincrement = timeincrement
-        self.grid_indices = grid_indices
+        self.grid_indices = grid_indices[0] #Assume 1 input dataset
 
         # lazy init
         self.n_samples_per_epoch_total: int = 0
@@ -177,7 +170,7 @@ class NativeGridDataset(IterableDataset):
         random.seed(base_seed)
         self.rng = np.random.default_rng(seed=base_seed)
 
-    def __iter__(self) -> torch.Tensor:
+    def __iter__(self) -> Iterator[tuple[torch.Tensor, str]]:
         """Return an iterator over the dataset.
 
         The datasets are retrieved by Anemoi Datasets from zarr files. This iterator yields
@@ -201,6 +194,67 @@ class NativeGridDataset(IterableDataset):
 
             yield (torch.from_numpy(x), str(self.data.dates[i]))
 
+class ZipDataset(NativeGridDataset):
+    def __init__(
+        self, 
+        data_reader, 
+        grid_indices, 
+        rollout = 1, 
+        multistep = 1, 
+        timeincrement = 1, 
+        label = "generic", 
+    ):
+
+        self.label = label
+        self.data = data_reader
+
+        self.rollout = rollout
+        self.timeincrement = timeincrement
+        self.grid_indices = grid_indices
+
+        # lazy init
+        self.n_samples_per_epoch_total: int = 0
+        self.n_samples_per_epoch_per_worker: int = 0
+
+        # lazy init model and reader group info, will be set by the DDPGroupStrategy:
+        self.model_comm_group_rank = 0
+        self.model_comm_num_groups = 1
+        self.model_comm_group_id = 0
+        self.global_rank = 0
+
+        self.reader_group_rank = 0
+        self.reader_group_size = 1
+
+        # additional state vars (lazy init)
+        self.n_samples_per_worker = 0
+        self.chunk_index_range: np.ndarray | None = None
+
+        # Data dimensions
+        self.multi_step = multistep
+        assert self.multi_step > 0, "Multistep value must be greater than zero."
+        self.ensemble_dim: int = 2
+        assert all(dset_shape[self.ensemble_dim] == self.data.shape[0][self.ensemble_dim] 
+                   for dset_shape in self.data.shape), "Ensemble size must match for all datasets"
+        self.ensemble_size = self.data.shape[0][self.ensemble_dim]
+
+    def __iter__(self) -> Iterator[tuple[tuple[torch.Tensor], str]]:
+
+        shuffled_chunk_indices = self.valid_date_indices[self.chunk_index_range]
+
+        for i in shuffled_chunk_indices:
+            start = i - (self.multi_step - 1) * self.timeincrement
+            end = i + (self.rollout + 1) * self.timeincrement
+            x = self.data[start : end : self.timeincrement]
+            batch = []
+            for j, data in enumerate(x):
+                grid_shard_indices = self.grid_indices[j].get_shard_indices(self.reader_group_rank)
+                batch.append(torch.from_numpy(
+                    rearrange(data[...,grid_shard_indices], "dates variables ensemble gridpoints -> dates ensemble gridpoints variables")
+                    ))
+                
+            self.ensemble_dim = 1
+
+            yield (tuple(batch), str(self.data.dates[i]))
 
 def worker_init_func(worker_id: int) -> None:
     """Configures each dataset worker process.

@@ -36,7 +36,8 @@ def get(
     """
     ret = list()
     required_variables = get_required_variables(routing_config, data_module)
-
+    
+    count = 0
     for config in routing_config:
         decoder_index = config["decoder_index"]
         domain_index = config["domain_index"]
@@ -50,7 +51,6 @@ def get(
             end_gridpoint = start_gridpoint + curr_grids[domain_index]
 
         outputs = list()
-        count = 0
         for oc in config["outputs"]:
             lats = data_module.latitudes[decoder_index][start_gridpoint:end_gridpoint]
             lons = data_module.longitudes[decoder_index][start_gridpoint:end_gridpoint]

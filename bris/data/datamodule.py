@@ -162,17 +162,33 @@ class DataModule(pl.LightningDataModule):
 
     @cached_property
     def grid_indices(self) -> type[BaseGridIndices]:
-        reader_group_size = 1 
-        if hasattr(self.config.dataloader, "grid_indices"):
-            grid_indices = instantiate(self.config.dataloader.grid_indices, reader_group_size=reader_group_size)
-            LOGGER.info("Using grid indices from dataloader config") 
+        #TODO: This currently only supports fullgrid for multi-encoder/decoder
+        reader_group_size = 1 #Generalize this later
+        graph_cfg = self.ckptObj.config.graph
+
+        #Multi_encoder/decoder
+        if "input_nodes" in graph_cfg.keys():
+            grid_indices = []
+            for dset in graph_cfg.input_nodes.values():
+                gi = FullGrid(
+                    nodes_name=dset,
+                    reader_group_size=reader_group_size
+                )
+                gi.setup(self.graph)
+                grid_indices.append(gi)        
         else:
-            grid_indices = FullGrid(
-                nodes_name="data",
-                reader_group_size=reader_group_size
-            )
-            LOGGER.info("grid_indices not found in dataloader config, defaulting to FullGrid")
-        grid_indices.setup(self.graph)
+            if hasattr(self.config.dataloader, "grid_indices"):
+                grid_indices = instantiate(self.config.dataloader.grid_indices, reader_group_size=reader_group_size)
+                LOGGER.info("Using grid indices from dataloader config") 
+            else:
+                grid_indices = FullGrid(
+                    nodes_name="data",
+                    reader_group_size=reader_group_size
+                )
+                LOGGER.info("grid_indices not found in dataloader config, defaulting to FullGrid")
+            grid_indices.setup(self.graph)
+            grid_indices = [grid_indices]
+
         return grid_indices
 
     @cached_property
@@ -182,9 +198,8 @@ class DataModule(pl.LightningDataModule):
         """
         if isinstance(self.data_reader.grids[0], (int, np.int32,np.int64)):
             return (self.data_reader.grids,)
-        else:
-            return self.data_reader.grids
-        
+        return self.data_reader.grids
+
     @cached_property
     def latitudes(self) -> tuple:
         """
@@ -192,8 +207,7 @@ class DataModule(pl.LightningDataModule):
         """
         if isinstance(self.data_reader.latitudes, np.ndarray):
             return (self.data_reader.latitudes,)
-        else:
-            return self.data_reader.latitudes
+        return self.data_reader.latitudes
 
     @cached_property
     def longitudes(self) -> tuple:
@@ -202,8 +216,7 @@ class DataModule(pl.LightningDataModule):
         """
         if isinstance(self.data_reader.longitudes, np.ndarray):
             return (self.data_reader.longitudes,)
-        else:
-            return self.data_reader.longitudes
+        return self.data_reader.longitudes
 
     @cached_property
     def altitudes(self) -> tuple:
@@ -254,9 +267,7 @@ class DataModule(pl.LightningDataModule):
             
             if hasattr(dataset, "datasets"):
                 return dataset.datasets[dataset_index].field_shape
-            else:
-                return dataset.field_shape
+            return dataset.field_shape
         else:
             assert (decoder_index == 0 and dataset_index == 0)
             return data_reader.field_shape
-
