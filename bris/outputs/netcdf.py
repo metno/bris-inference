@@ -36,7 +36,8 @@ class Netcdf(Output):
         extra_variables=list(),
         proj4_str=None,
         domain_name=None,
-        template_file=None,
+        mask_file=None,
+        mask_field=None,
     ):
         """
         Args:
@@ -64,20 +65,19 @@ class Netcdf(Output):
         self.interp_res = interp_res
         self.latrange = latrange
         self.lonrange = lonrange
-        self.template_file = template_file
+        self.mask_file = mask_file
 
         if domain_name is not None:
             self.proj4_str = projections.get_proj4_str(domain_name)
         else:
             self.proj4_str = proj4_str
 
-        if self._use_template:
+        if self._is_masked:
             # If a mask was used during training:
             # Compute 1D->2D index to output 2D arrays by using a mask file
-            self.ds_template = xr.open_dataset(template_file,drop_variables=['time', 'projection_stere'])
-            name_of_mask_field = 'land_binary_mask'
+            self.ds_mask = xr.open_dataset(mask_file,drop_variables=['time', 'projection_stere'])
             # TODO check if mask has time dimension before using isel
-            mask = self.ds_template.isel(time=0)[name_of_mask_field].values
+            mask = self.ds_mask.isel(time=0)[mask_field].values
             ind = np.arange(np.size(mask)).reshape(np.shape(mask))
             # Assume mask==1 where have values
             self.indices_1D_to_2D = ind[mask==1.0] 
@@ -101,9 +101,9 @@ class Netcdf(Output):
         return utils.expand_time_tokens(self.filename_pattern, forecast_reference_time)
 
     @property
-    def _use_template(self):
-        """Use a template file for output?"""
-        return self.template_file is not None
+    def _is_masked(self):
+        """Was a mask_from_dataset applied during training?"""
+        return self.mask_file is not None
 
     @property
     def _is_gridded(self):
@@ -175,10 +175,10 @@ class Netcdf(Output):
             coords[y_dim_name] = y
             spatial_dims = (y_dim_name, x_dim_name)
         else:
-            if self._use_template:
+            if self._is_masked:
                 # Use the template to get the (full) grid
-                x    = self.ds_template.X.values
-                y    = self.ds_template.Y.values
+                x    = self.ds_mask.X.values
+                y    = self.ds_mask.Y.values
                 x_dim_name = c("projection_x_coordinate")
                 y_dim_name = c("projection_y_coordinate")
                 spatial_dims = (y_dim_name, x_dim_name)
@@ -243,14 +243,14 @@ class Netcdf(Output):
                     # proj_attrs["earth_radius"] = 6371000.0
                 self.ds[c("projection")] = ([], 0, proj_attrs)
         else:
-            if self._use_template:
+            if self._is_masked:
                 self.ds[c("latitude")] = (
                     spatial_dims,
-                    self.ds_template.lat.values,
+                    self.ds_mask.lat.values,
                 )
                 self.ds[c("longitude")] = (
                     spatial_dims,
-                    self.ds_template.lon.values,
+                    self.ds_mask.lon.values,
                 )
 
             else: 
@@ -295,13 +295,13 @@ class Netcdf(Output):
                         dim_name,
                         *spatial_dims,
                     ]
-                    if self._is_gridded or self._use_template:
+                    if self._is_gridded or self._is_masked:
                         shape = [len(times), len(self.ds[dim_name]), len(y), len(x)]
                     else:
                         shape = [len(times), len(self.ds[dim_name]), len(y)]
                 else:
                     dims = [c("time"), *spatial_dims]
-                    if self._is_gridded or self._use_template:
+                    if self._is_gridded or self._is_masked:
                         shape = [len(times), len(y), len(x)]
                     else:
                         shape = [len(times), len(y)]
@@ -313,7 +313,7 @@ class Netcdf(Output):
                 ar = np.nan * np.zeros(shape, np.float32)
                 self.ds[ncname] = (dims, ar)
 
-            if self._is_gridded or self._use_template:
+            if self._is_gridded or self._is_masked:
                 shape = [len(times), len(y), len(x), self.pm.num_members]
             else:
                 shape = [len(times), len(y), self.pm.num_members]
@@ -329,7 +329,7 @@ class Netcdf(Output):
                 )
                 for i in range(self.pm.num_members):
                     ar[:, :, :, i] = gridpp.nearest(ipoints, ogrid, curr[:, :, i])
-            elif self._use_template: 
+            elif self._is_masked: 
                 curr = pred[..., variable_index, :]
                 ar = np.nan * np.zeros(
                     [len(times), len(y), len(x), self.pm.num_members], np.float32
