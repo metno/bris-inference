@@ -72,33 +72,18 @@ class Netcdf(Output):
             self.proj4_str = proj4_str
 
         if self._use_template:
-            # If use the mask file as template, we can drop the land_binary_mask 
-            # that may have a long time dimension when loading data
-            self.ds_template = xr.open_dataset(template_file,drop_variables=['lon','X','Y','time','land_binary_mask','projection_stere'])
-            
             # Compute 1D->2D index to output 2D arrays
+            # Drop variables like land_binary_mask that may have a long time dimension
+            self.ds_template = xr.open_dataset(template_file,drop_variables=['land_binary_mask', 'time', 'projection_stere'])
             lat_full = self.ds_template.lat.values
             lat = self.pm.lats
-            # Define a tolerance level for numerical differences
-            tolerance = 1e-6
 
-            # Initialize an indices array
-            ind = []
-            
-            # Iterate over lat_full and store the index of lat_full 
-            # that are has a value close (within tolerance) to any value in lat
-            # TODO: this loop takes very long...
-            n = 0
-            for i in range(lat_full.shape[0]):
-                for j in range(lat_full.shape[1]):
-                    diff = np.abs(lat_full[i, j] - lat)
-                    min_diff_index = np.argmin(diff) # should only return one value...
-                    if diff[min_diff_index] < tolerance:
-                        ind.append(n)
-                    if n%10000==0: print("----- n= , len(ind)= ",n,len(ind))
-                    n += 1
-            # the finished index array to map from 1D to 2D
-            self.indices_1D_to_2D = np.array(ind)
+            # Rounding to significant digits before comparing since lat_full and lat
+            # might not be numerically identical as np.isin assumes
+            dec = 5
+            mask = np.isin(np.round(lat_full,dec), np.round(self.pm.lats,dec))
+            ind = np.arange(np.size(lat_full)).reshape(np.shape(lat_full))
+            self.indices_1D_to_2D = ind[mask] 
             print("----len compare",len(self.indices_1D_to_2D),len(lat))
             print("------shape:", self.indices_1D_to_2D.shape )   
             
@@ -266,12 +251,10 @@ class Netcdf(Output):
             if self._use_template:
                 self.ds[c("latitude")] = (
                     spatial_dims,
-                    #self.pm.lats,
                     self.ds_template.lat.values,
                 )
                 self.ds[c("longitude")] = (
                     spatial_dims,
-                    #self.pm.lons,
                     self.ds_template.lon.values,
                 )
 
