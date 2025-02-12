@@ -72,20 +72,15 @@ class Netcdf(Output):
             self.proj4_str = proj4_str
 
         if self._use_template:
-            # Compute 1D->2D index to output 2D arrays
-            # Drop variables like land_binary_mask that may have a long time dimension
-            self.ds_template = xr.open_dataset(template_file,drop_variables=['land_binary_mask', 'time', 'projection_stere'])
-            lat_full = self.ds_template.lat.values
-            lat = self.pm.lats
-
-            # Rounding to significant digits before comparing since lat_full and lat
-            # might not be numerically identical as np.isin assumes
-            dec = 5
-            mask = np.isin(np.round(lat_full,dec), np.round(self.pm.lats,dec))
-            ind = np.arange(np.size(lat_full)).reshape(np.shape(lat_full))
-            self.indices_1D_to_2D = ind[mask] 
-            print("----len compare",len(self.indices_1D_to_2D),len(lat))
-            print("------shape:", self.indices_1D_to_2D.shape )   
+            # If a mask was used during training:
+            # Compute 1D->2D index to output 2D arrays by using a mask file
+            self.ds_template = xr.open_dataset(template_file,drop_variables=['time', 'projection_stere'])
+            name_of_mask_field = 'land_binary_mask'
+            # TODO check if mask has time dimension before using isel
+            mask = self.ds_template.isel(time=0)[name_of_mask_field].values
+            ind = np.arange(np.size(mask)).reshape(np.shape(mask))
+            # Assume mask==1 where have values
+            self.indices_1D_to_2D = ind[mask==1.0] 
             
     def _add_forecast(self, times: list, ensemble_member: int, pred: np.array):
         if self.pm.num_members > 1:
