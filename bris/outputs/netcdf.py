@@ -75,9 +75,11 @@ class Netcdf(Output):
         if self._is_masked:
             # If a mask was used during training:
             # Compute 1D->2D index to output 2D arrays by using a mask file
-            self.ds_mask = xr.open_dataset(mask_file,drop_variables=['time', 'projection_stere'])
-            # TODO check if mask has time dimension before using isel
-            mask = self.ds_mask.isel(time=0)[mask_field].values
+            self.ds_mask = xr.open_dataset(mask_file)
+            if 'time' in self.ds_mask.dims:
+                mask = self.ds_mask.isel(time=0)[mask_field].values
+            else:
+                mask = self.ds_mask[mask_field].values
             ind = np.arange(np.size(mask)).reshape(np.shape(mask))
             # Assume mask==1 where have values
             self.indices_1D_to_2D = ind[mask==1.0] 
