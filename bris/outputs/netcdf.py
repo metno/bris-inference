@@ -254,6 +254,16 @@ class Netcdf(Output):
                     spatial_dims,
                     self.ds_mask.lon.values,
                 )
+                if self.pm.altitudes is not None:
+                    altitudes_rec = np.nan * np.zeros(
+                        [len(times), len(y), len(x), self.pm.num_members], np.float32
+                    )
+                    # Reconstruct the 2D array 
+                    altitudes_rec[:, :, :, :].flat[self.indices_1D_to_2D] = self.pm.altitudes
+                    self.ds[c("surface_altitude")] = (
+                        spatial_dims,
+                        altitudes_rec
+                        )
 
             else: 
                 self.ds[c("latitude")] = (
@@ -264,11 +274,11 @@ class Netcdf(Output):
                     spatial_dims,
                     self.pm.lons,
                 )
-            if self.pm.altitudes is not None:
-                self.ds[c("surface_altitude")] = (
-                    spatial_dims,
-                    self.pm.altitudes
-                )
+                if self.pm.altitudes is not None:
+                    self.ds[c("surface_altitude")] = (
+                        spatial_dims,
+                        self.pm.altitudes
+                    )
 
         for cfname in [
             "forecast_reference_time",
