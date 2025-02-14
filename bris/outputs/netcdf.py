@@ -80,9 +80,7 @@ class Netcdf(Output):
                 mask = self.ds_mask.isel(time=0)[mask_field].values
             else:
                 mask = self.ds_mask[mask_field].values
-            ind = np.arange(np.size(mask)).reshape(np.shape(mask))
-            # Assume mask==1 where have values
-            self.indices_1D_to_2D = ind[mask==1.0] 
+            self.mask = mask == 1.0
             
     def _add_forecast(self, times: list, ensemble_member: int, pred: np.array):
         if self.pm.num_members > 1:
@@ -179,10 +177,19 @@ class Netcdf(Output):
         else:
             if self._is_masked:
                 # Use the template to get the (full) grid
-                x    = self.ds_mask.X.values
-                y    = self.ds_mask.Y.values
+                if hasattr(self.ds_mask, "X") and hasattr(self.ds_mask, "Y"):
+                    x = self.ds_mask.X.values
+                    y = self.ds_mask.Y.values
+                elif hasattr(self.ds_mask, "x") and hasattr(self.ds_mask, "y"):
+                    x = self.ds_mask.x.values
+                    y = self.ds_mask.y.values
+                else:
+                    raise AttributeError("Mask dataset does not contain projected coordinates variables 'x', 'y' or 'X', 'Y'")
+
                 x_dim_name = c("projection_x_coordinate")
                 y_dim_name = c("projection_y_coordinate")
+                coords[x_dim_name] = x
+                coords[y_dim_name] = y
                 spatial_dims = (y_dim_name, x_dim_name)
             else:
                 y = np.arange(len(self.pm.lats)).astype(np.int32)
@@ -246,24 +253,38 @@ class Netcdf(Output):
                 self.ds[c("projection")] = ([], 0, proj_attrs)
         else:
             if self._is_masked:
+                if hasattr(self.ds_mask, "lat") and hasattr(self.ds_mask, "lon"):
+                    lat = self.ds_mask.lat.values
+                    lon = self.ds_mask.lon.values
+                elif hasattr(self.ds_mask, "latitude") and hasattr(self.ds_mask, "longitude"):
+                    lat = self.ds_mask.latitude.values
+                    lon = self.ds_mask.longitude.values
+                else:
+                    raise ValueError("Mask dataset does not contain coordinates variables 'lat', 'lon' or 'latitude', 'longitude'")
+                
                 self.ds[c("latitude")] = (
                     spatial_dims,
-                    self.ds_mask.lat.values,
+                    lat,
                 )
                 self.ds[c("longitude")] = (
                     spatial_dims,
-                    self.ds_mask.lon.values,
+                    lon,
                 )
                 if self.pm.altitudes is not None:
                     altitudes_rec = np.nan * np.zeros(
-                        [len(times), len(y), len(x), self.pm.num_members], np.float32
+                        [len(y), len(x)], np.float32
                     )
                     # Reconstruct the 2D array 
-                    altitudes_rec[:, :, :, :].flat[self.indices_1D_to_2D] = self.pm.altitudes
+                    altitudes_rec[self.mask] = self.pm.altitudes
                     self.ds[c("surface_altitude")] = (
                         spatial_dims,
                         altitudes_rec
                         )
+                    
+                proj_attrs = dict()
+                if self.proj4_str is not None:
+                    proj_attrs = projections.get_proj_attributes(self.proj4_str)
+                self.ds[c("projection")] = ([], 0, proj_attrs)
 
             else: 
                 self.ds[c("latitude")] = (
@@ -347,7 +368,7 @@ class Netcdf(Output):
                     [len(times), len(y), len(x), self.pm.num_members], np.float32
                 )
                 # Reconstruct the 2D array (nans where no data)
-                ar[:, :, :, :].flat[self.indices_1D_to_2D] = curr[:, :, :]
+                ar[:,self.mask,:] = curr
             else:
                 ar = np.reshape(pred[..., variable_index, :], shape)
 
