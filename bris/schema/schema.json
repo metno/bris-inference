@@ -31,7 +31,8 @@
                             "items": {
                                 "oneOf": [
                                     {"$ref": "#/definitions/VerifSource"},
-                                    {"$ref": "#/definitions/FrostSource"}
+                                    {"$ref": "#/definitions/FrostSource"},
+                                    {"$ref": "#/definitions/AnemoiDatasetSource"}
                                 ]
                             }
                         }
@@ -106,6 +107,18 @@
                 }
             } ,
             "required": ["frost"]
+        },
+
+        "AnemoiDatasetSource": {
+            "description": "Zarr file that can be read by anemoi-datasets",
+            "type": "object",
+            "properties": {
+                "dataset": {
+                    "description": "Anemoi datasets open_dataset recipie, dictionairy",
+                    "type": "object"
+                }
+            },
+            "required": ["anemoidataset"]
         }
     },
     "properties": {
