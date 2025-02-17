@@ -36,6 +36,8 @@ class Netcdf(Output):
         extra_variables=list(),
         proj4_str=None,
         domain_name=None,
+        mask_file=None,
+        mask_field=None,
     ):
         """
         Args:
@@ -63,12 +65,23 @@ class Netcdf(Output):
         self.interp_res = interp_res
         self.latrange = latrange
         self.lonrange = lonrange
+        self.mask_file = mask_file
 
         if domain_name is not None:
             self.proj4_str = projections.get_proj4_str(domain_name)
         else:
             self.proj4_str = proj4_str
 
+        if self._is_masked:
+            # If a mask was used during training:
+            # Compute 1D->2D index to output 2D arrays by using a mask file
+            self.ds_mask = xr.open_dataset(mask_file)
+            if 'time' in self.ds_mask.dims:
+                mask = self.ds_mask.isel(time=0)[mask_field].values
+            else:
+                mask = self.ds_mask[mask_field].values
+            self.mask = mask == 1.0
+            
     def _add_forecast(self, times: list, ensemble_member: int, pred: np.array):
         if self.pm.num_members > 1:
             # Cache data with intermediate
@@ -86,6 +99,11 @@ class Netcdf(Output):
 
     def get_filename(self, forecast_reference_time):
         return utils.expand_time_tokens(self.filename_pattern, forecast_reference_time)
+
+    @property
+    def _is_masked(self):
+        """Was a mask_from_dataset applied during training?"""
+        return self.mask_file is not None
 
     @property
     def _is_gridded(self):
@@ -157,9 +175,26 @@ class Netcdf(Output):
             coords[y_dim_name] = y
             spatial_dims = (y_dim_name, x_dim_name)
         else:
-            y = np.arange(len(self.pm.lats)).astype(np.int32)
-            coords["location"] = y
-            spatial_dims = ("location",)
+            if self._is_masked:
+                # Use the template to get the (full) grid
+                if hasattr(self.ds_mask, "X") and hasattr(self.ds_mask, "Y"):
+                    x = self.ds_mask.X.values
+                    y = self.ds_mask.Y.values
+                elif hasattr(self.ds_mask, "x") and hasattr(self.ds_mask, "y"):
+                    x = self.ds_mask.x.values
+                    y = self.ds_mask.y.values
+                else:
+                    raise AttributeError("Mask dataset does not contain projected coordinates variables 'x', 'y' or 'X', 'Y'")
+
+                x_dim_name = c("projection_x_coordinate")
+                y_dim_name = c("projection_y_coordinate")
+                coords[x_dim_name] = x
+                coords[y_dim_name] = y
+                spatial_dims = (y_dim_name, x_dim_name)
+            else:
+                y = np.arange(len(self.pm.lats)).astype(np.int32)
+                coords["location"] = y
+                spatial_dims = ("location",)
 
         if self.pm.num_members > 1:
             coords[c("realization")] = np.arange(self.pm.num_members).astype(np.int32)
@@ -217,19 +252,54 @@ class Netcdf(Output):
                     # proj_attrs["earth_radius"] = 6371000.0
                 self.ds[c("projection")] = ([], 0, proj_attrs)
         else:
-            self.ds[c("latitude")] = (
-                spatial_dims,
-                self.pm.lats,
-            )
-            self.ds[c("longitude")] = (
-                spatial_dims,
-                self.pm.lons,
-            )
-            if self.pm.altitudes is not None:
-                self.ds[c("surface_altitude")] = (
+            if self._is_masked:
+                if hasattr(self.ds_mask, "lat") and hasattr(self.ds_mask, "lon"):
+                    lat = self.ds_mask.lat.values
+                    lon = self.ds_mask.lon.values
+                elif hasattr(self.ds_mask, "latitude") and hasattr(self.ds_mask, "longitude"):
+                    lat = self.ds_mask.latitude.values
+                    lon = self.ds_mask.longitude.values
+                else:
+                    raise ValueError("Mask dataset does not contain coordinates variables 'lat', 'lon' or 'latitude', 'longitude'")
+                
+                self.ds[c("latitude")] = (
                     spatial_dims,
-                    self.pm.altitudes
+                    lat,
                 )
+                self.ds[c("longitude")] = (
+                    spatial_dims,
+                    lon,
+                )
+                if self.pm.altitudes is not None:
+                    altitudes_rec = np.nan * np.zeros(
+                        [len(y), len(x)], np.float32
+                    )
+                    # Reconstruct the 2D array 
+                    altitudes_rec[self.mask] = self.pm.altitudes
+                    self.ds[c("surface_altitude")] = (
+                        spatial_dims,
+                        altitudes_rec
+                        )
+                    
+                proj_attrs = dict()
+                if self.proj4_str is not None:
+                    proj_attrs = projections.get_proj_attributes(self.proj4_str)
+                self.ds[c("projection")] = ([], 0, proj_attrs)
+
+            else: 
+                self.ds[c("latitude")] = (
+                    spatial_dims,
+                    self.pm.lats,
+                )
+                self.ds[c("longitude")] = (
+                    spatial_dims,
+                    self.pm.lons,
+                )
+                if self.pm.altitudes is not None:
+                    self.ds[c("surface_altitude")] = (
+                        spatial_dims,
+                        self.pm.altitudes
+                    )
 
         for cfname in [
             "forecast_reference_time",
@@ -258,13 +328,13 @@ class Netcdf(Output):
                         dim_name,
                         *spatial_dims,
                     ]
-                    if self._is_gridded:
+                    if self._is_gridded or self._is_masked:
                         shape = [len(times), len(self.ds[dim_name]), len(y), len(x)]
                     else:
                         shape = [len(times), len(self.ds[dim_name]), len(y)]
                 else:
                     dims = [c("time"), *spatial_dims]
-                    if self._is_gridded:
+                    if self._is_gridded or self._is_masked:
                         shape = [len(times), len(y), len(x)]
                     else:
                         shape = [len(times), len(y)]
@@ -276,7 +346,7 @@ class Netcdf(Output):
                 ar = np.nan * np.zeros(shape, np.float32)
                 self.ds[ncname] = (dims, ar)
 
-            if self._is_gridded:
+            if self._is_gridded or self._is_masked:
                 shape = [len(times), len(y), len(x), self.pm.num_members]
             else:
                 shape = [len(times), len(y), self.pm.num_members]
@@ -292,6 +362,13 @@ class Netcdf(Output):
                 )
                 for i in range(self.pm.num_members):
                     ar[:, :, :, i] = gridpp.nearest(ipoints, ogrid, curr[:, :, i])
+            elif self._is_masked: 
+                curr = pred[..., variable_index, :]
+                ar = np.nan * np.zeros(
+                    [len(times), len(y), len(x), self.pm.num_members], np.float32
+                )
+                # Reconstruct the 2D array (nans where no data)
+                ar[:,self.mask,:] = curr
             else:
                 ar = np.reshape(pred[..., variable_index, :], shape)
 
