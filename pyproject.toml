@@ -38,6 +38,7 @@ dependencies = [
     "omegaconf",
     "pyproj",
     "pytorch-lightning>=2.1",
+    "safetensors~=0.5.0",
     "scipy",
     "torch",
     "torch_geometric",
