@@ -67,18 +67,24 @@ class Verif(Output):
             else:
                 self.igrid = gridpp.Grid( self.pm.grid_lats, self.pm.grid_lons)
 
-        self.ipoints_array = np.column_stack((self.pm.lats, self.pm.lons))
         self.ialtitudes = self.pm.altitudes
 
         self.ipoints, self.opoints, self.obs_ids = self.get_points(
             self.pm, obs_sources, self.max_distance
         )
+        self.ipoints_array = np.column_stack(
+            (self.ipoints.get_lats(), self.opoints.get_lons())
+        )
         self.opoints_array = np.column_stack(
             (self.opoints.get_lats(), self.opoints.get_lons())
         )
 
+        self.interpolate = True
+        if (self.ipoints_array == self.opoints_array).all():
+            self.interpolate = False
+
         self.triangulation = self.ipoints_array
-        if not self._is_gridded_input and self.ipoints_array.shape[0] > 3:
+        if not self._is_gridded_input and self.ipoints_array.shape[0] > 3 and self.interpolate:
             # This speeds up interpolation from irregular points to observation points
             # but Delaunay needs enough points for this to work
             self.triangulation = Delaunay(self.ipoints_array)
@@ -104,46 +110,53 @@ class Verif(Output):
         print("### Adding forecast", times[0])
 
         Iv = self.pm.variables.index(self.variable)
-        if self._is_gridded_input:
-            pred = self.reshape_pred(pred)
-            pred = pred[..., Iv]  # Extract single variable
-            interpolated_pred = gridpp.bilinear(self.igrid, self.opoints, pred)
-
-            if self.elev_gradient is not None:
-                interpolated_altitudes = gridpp.bilinear(
-                    self.igrid, self.opoints, self.igrid.get_elevs()
-                )
-                daltitude = self.opoints.get_elevs() - interpolated_altitudes
-                interpolated_pred += self.elev_gradient * daltitude
-            interpolated_pred = interpolated_pred[
-                :, :, None
-            ]  # Add in variable dimension
+        if not self.interpolate:
+            if self._is_gridded_input:
+                pred = self.reshape_pred(pred)
+                interpolated_pred = pred[..., Iv]
+            else:
+                interpolated_pred = pred[..., [Iv]]
         else:
-            pred = pred[..., [Iv]]
+            if self._is_gridded_input:
+                pred = self.reshape_pred(pred)
+                pred = pred[..., Iv]  # Extract single variable
+                interpolated_pred = gridpp.bilinear(self.igrid, self.opoints, pred)
 
-            altitude_correction = None
-            if self.elev_gradient is not None:
-                interpolator = scipy.interpolate.LinearNDInterpolator(
-                    self.triangulation, self.ialtitudes
-                )
-                interpolated_altitudes = interpolator(self.opoints_array)
-                altitude_correction = self.opoints.get_elevs() - interpolated_altitudes
-
-            num_leadtimes = pred.shape[0]
-            num_points = self.opoints.size()
-
-            interpolated_pred = np.nan * np.zeros(
-                [num_leadtimes, num_points, 1], np.float32
-            )
-            for lt in range(num_leadtimes):
-                interpolator = scipy.interpolate.LinearNDInterpolator(
-                    self.triangulation, pred[lt, :, 0]
-                )
-                interpolated_pred[lt, :, 0] = interpolator(self.opoints_array)
-                if altitude_correction is not None:
-                    interpolated_pred[lt, :, 0] += (
-                        self.elev_gradient * altitude_correction
+                if self.elev_gradient is not None:
+                    interpolated_altitudes = gridpp.bilinear(
+                        self.igrid, self.opoints, self.igrid.get_elevs()
                     )
+                    daltitude = self.opoints.get_elevs() - interpolated_altitudes
+                    interpolated_pred += self.elev_gradient * daltitude
+                interpolated_pred = interpolated_pred[
+                    :, :, None
+                ]  # Add in variable dimension
+            else:
+                pred = pred[..., [Iv]]
+
+                altitude_correction = None
+                if self.elev_gradient is not None:
+                    interpolator = scipy.interpolate.LinearNDInterpolator(
+                        self.triangulation, self.ialtitudes
+                    )
+                    interpolated_altitudes = interpolator(self.opoints_array)
+                    altitude_correction = self.opoints.get_elevs() - interpolated_altitudes
+
+                num_leadtimes = pred.shape[0]
+                num_points = self.opoints.size()
+
+                interpolated_pred = np.nan * np.zeros(
+                    [num_leadtimes, num_points, 1], np.float32
+                )
+                for lt in range(num_leadtimes):
+                    interpolator = scipy.interpolate.LinearNDInterpolator(
+                        self.triangulation, pred[lt, :, 0]
+                    )
+                    interpolated_pred[lt, :, 0] = interpolator(self.opoints_array)
+                    if altitude_correction is not None:
+                        interpolated_pred[lt, :, 0] += (
+                            self.elev_gradient * altitude_correction
+                        )
 
             # Much faster, but not a linear interpolator
             # interpolated_pred = gridpp.nearest(self.ipoints, self.opoints, pred[..., 0])
