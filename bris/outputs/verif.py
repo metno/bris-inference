@@ -78,9 +78,13 @@ class Verif(Output):
         self.opoints_array = np.column_stack(
             (self.opoints.get_lats(), self.opoints.get_lons())
         )
+        _dtype = [('lat', 'f4'), ('lon', 'f4')]
+        _mask = np.isin(self.opoints_array.view(_dtype), self.ipoints_array.view(_dtype))
+        _indices = np.where(_mask)[0]
 
         self.interpolate = True
-        if (self.ipoints_array == self.opoints_array).all():
+        if len(_indices) == self.opoints_array.shape[0]:
+            self.verif_indices = _indices
             self.interpolate = False
 
         self.triangulation = self.ipoints_array
@@ -111,11 +115,7 @@ class Verif(Output):
 
         Iv = self.pm.variables.index(self.variable)
         if not self.interpolate:
-            if self._is_gridded_input:
-                pred = self.reshape_pred(pred)
-                interpolated_pred = pred[..., Iv]
-            else:
-                interpolated_pred = pred[..., [Iv]]
+            interpolated_pred = pred[:, self.verif_indices, Iv][:,:,np.newaxis]
         else:
             if self._is_gridded_input:
                 pred = self.reshape_pred(pred)
