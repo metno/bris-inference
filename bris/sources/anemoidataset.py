@@ -7,6 +7,7 @@ from anemoi.datasets import open_dataset
 from bris.observations import Location, Observations
 from bris.utils import datetime_to_unixtime
 from bris.sources import Source
+from bris.conventions.anemoi import get_units as get_anemoi_units
 
 class AnemoiDataset(Source):
     """Loads truth from an anemoi datasets zarr dataset.
@@ -14,14 +15,15 @@ class AnemoiDataset(Source):
     Creates a file that can be read by verif
     """
 
-    def __init__(self, dataset_dict: dict):
+    def __init__(self, dataset_dict: dict, variable: str):
         """
         Args:
             dataset_dict: open_dataset recipie, dictionairy.
         """
         
         self.dataset = open_dataset(dataset_dict)
-        print(self.dataset.dates)
+        self.variable = variable
+        self.variable_index = self.dataset.name_to_index[variable]
 
     @cached_property
     def locations(self):
@@ -54,13 +56,12 @@ class AnemoiDataset(Source):
         requested_times = np.arange(start_time, end_time + 1, frequency)
         num_requested_times = len(requested_times)
         
-        var_index = self.dataset.name_to_index[variable]
 
         data = np.nan * np.zeros([num_requested_times, len(self.locations)], np.float32)
         for t, requested_time in enumerate(requested_times):
             i = np.where(self._all_times == requested_time)[0]
             if len(i) > 0:
-                data[t, :] = self.dataset[int(i[0]), var_index, 0, :]
+                data[t, :] = self.dataset[int(i[0]), self.variable_index, 0, :]
 
         observations = Observations(self.locations, requested_times, {variable: data})
         return observations
@@ -71,6 +72,6 @@ class AnemoiDataset(Source):
     
     @cached_property
     def units(self):
-        return None
+        return get_anemoi_units(self.variable)
 
     

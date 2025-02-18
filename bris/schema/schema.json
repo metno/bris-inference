@@ -116,6 +116,10 @@
                 "dataset": {
                     "description": "Anemoi datasets open_dataset recipie, dictionairy",
                     "type": "object"
+                },
+                "variable": {
+                    "description": "Variable name",
+                    "type": "string"
                 }
             },
             "required": ["anemoidataset"]
