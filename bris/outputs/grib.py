@@ -24,6 +24,7 @@ class Grib(Output):
         filename_pattern: str,
         variables=None,
         interp_res=None,
+        grib_keys: dict = {}
     ):
         """
         Args:
@@ -49,6 +50,7 @@ class Grib(Output):
         # CF-standard names are added in the standard_name attributes
         self.conventions = Metno()
         self.interp_res = interp_res
+        self.grib_keys = grib_keys
 
     def _add_forecast(self, times: list, ensemble_member: int, pred: np.array):
         if self.pm.num_members > 1:
@@ -80,7 +82,9 @@ class Grib(Output):
     def write(self, filename: str, times: list, pred: np.array):
 
         # remove the ensemble dimension for now
-        pred = pred.squeeze()
+        pred = pred.squeeze(axis=-1)
+
+        forecast_reference_time = times[0].astype(datetime)
 
         with open(filename, "wb") as file_handle:
             print(f"Write to: {filename}")
@@ -93,6 +97,7 @@ class Grib(Output):
 
                     self.convert_to_grib(
                             file_handle,
+                            forecast_reference_time,
                             dt,
                             metadata.get("level", 0),
                             metadata.get("leveltype", "height"),
@@ -138,42 +143,42 @@ class Grib(Output):
             "surface_air_pressure":                 (0, 0, 3, 0, None),
             "specific_humidity_pl":                 (0, 0, 1, 0, None),
             "upward_air_velocity_pl":               (0, 0, 2, 9, None),
-            "dew_point_temperature_2m":             (0, 0, 2, 9, None),
+            "dew_point_temperature_2m":             (0, 0, 0, 6, None),
         }.get(param)
 
 
-    def convert_to_grib(self, fp, validtime, level_value, level_type, parameter, nx, ny, values):
-        pdtn, dis, cat, num, tosp = self.param_to_id(parameter)
+    def set_geometry(self, grib, nx, ny):
+        DX, DY = 2370000, 2670000 # MEPS domain size in meters
 
-        year = int(validtime.strftime("%Y"))
-        month = int(validtime.strftime("%m"))
-        day = int(validtime.strftime("%d"))
-        hour = int(validtime.strftime("%H"))
+        dx = int(DX / (nx - 1))
+        dy = int(DY / (ny - 1))
 
-        grib = ecc.codes_grib_new_from_samples("GRIB2")
-        ecc.codes_set(grib, "tablesVersion", 21)
-        ecc.codes_set(grib, "generatingProcessIdentifier", 5)
-        ecc.codes_set(grib, "centre", 86)  # Reserved for other centres
-        ecc.codes_set(grib, "subCentre", 255)  # Consensus
         ecc.codes_set(grib, "gridDefinitionTemplateNumber", 30) # Lambert conformal (Can be secant or tangent, conical or bipolar)
         ecc.codes_set(grib, "latitudeOfSouthernPole", -90000000)
         ecc.codes_set(grib, "longitudeOfSouthernPole", 0)
-
         ecc.codes_set(grib, "latitudeOfFirstGridPoint", 50319616)
         ecc.codes_set(grib, "longitudeOfFirstGridPoint", 278280)
-        # Latitude where Dx and Dy are specified
         ecc.codes_set(grib, "LaD", 63300000)
-        # is the longitude value of the meridian which is parallel to the Y-axis (or columns of the grid) along which latitude increases as the Y-coordinate increases (the orientation longitude may or may not appear on a particular grid).
         ecc.codes_set(grib, "LoV", 15000000)
-        ecc.codes_set(grib, "DxInMetres", 10000)
-        ecc.codes_set(grib, "DyInMetres", 10000)
-        #ecc.codes_set(grib, "Dx", 10000)  # X-direction grid length
-        #ecc.codes_set(grib, "Dy", 10000)  # Y-direction grid length
+        ecc.codes_set(grib, "DxInMetres", dx)
+        ecc.codes_set(grib, "DyInMetres", dy)
         ecc.codes_set(grib, "Nx", nx)
         ecc.codes_set(grib, "Ny", ny)
-        # first/second latitude from the pole at which the secant cone cuts the sphere
         ecc.codes_set(grib, "Latin1", 63300000)
         ecc.codes_set(grib, "Latin2", 63300000)
+        ecc.codes_set(grib, "shapeOfTheEarth", 6) # Earth assumed spherical with radius = 6,371,229.0 m
+
+        return grib
+
+
+    def convert_to_grib(self, fp, origintime, validtime, level_value, level_type, parameter, nx, ny, values):
+        pdtn, dis, cat, num, tosp = self.param_to_id(parameter)
+        leadtime = validtime - origintime
+
+        grib = ecc.codes_grib_new_from_samples("GRIB2")
+        grib = self.set_geometry(grib, nx, ny)
+
+        ecc.codes_set(grib, "tablesVersion", 21)
         ecc.codes_set(grib, "resolutionAndComponentFlags", 56)
         ecc.codes_set(grib, "discipline", dis)
         ecc.codes_set(grib, "parameterCategory", cat)
@@ -181,31 +186,36 @@ class Grib(Output):
         ecc.codes_set(grib, "significanceOfReferenceTime", 1) # Start of forecast ( https://codes.ecmwf.int/grib/format/grib2/ctables/1/2/ )
         ecc.codes_set(grib, "typeOfProcessedData", 2) # Analysis and Forecast Products ( https://www.nco.ncep.noaa.gov/pmb/docs/grib2/grib2_doc/grib2_table1-4.shtml )
         ecc.codes_set(grib, "productionStatusOfProcessedData", 0)  # Operational Products
-        ecc.codes_set(grib, "shapeOfTheEarth", 6) # Earth assumed spherical with radius = 6,371,229.0 m
         ecc.codes_set(grib, "productDefinitionTemplateNumber", pdtn) # tämä on 0 jos suure on ei-aggregoitu ja 8 jos suure on aggregoitu (esim sade, puuska, en tiedä onko näitä edes bris ouputissa)
         ecc.codes_set(grib, "scanningMode", 64) 
-        ecc.codes_set(grib, "NV", 132) # Number of coordinate values after template or number of information according to 3D vertical coordinate GRIB2 message
+        # ecc.codes_set(grib, "NV", 132) # Number of coordinate values after template or number of information according to 3D vertical coordinate GRIB2 message
         ecc.codes_set(grib, "typeOfGeneratingProcess", 2) # Ensemble forecast == 4 , 2 == Forecast ( https://codes.ecmwf.int/grib/format/grib2/ctables/4/3/ )
         ecc.codes_set(grib, "indicatorOfUnitOfTimeRange", 1)
         ecc.codes_set(grib, "typeOfFirstFixedSurface", self.level_type_to_id(level_type))
         ecc.codes_set(grib, "level", level_value)  # TODO: set from data -> 0 == surface, q_850 == pressure_level(850)
-        ecc.codes_set(grib, "year", year)
-        ecc.codes_set(grib, "month", month)
-        ecc.codes_set(grib, "day", day)
-        ecc.codes_set(grib, "hour", hour)
-        ecc.codes_set(grib, "forecastTime", 0)
+        ecc.codes_set(grib, "dataDate", int(origintime.strftime("%Y%m%d")))
+        ecc.codes_set(grib, "dataTime", int(origintime.strftime("%H%M")))
+        ecc.codes_set(grib, "forecastTime", int(leadtime.total_seconds() / 3600))
         ecc.codes_set(grib, "bitsPerValue", 24)
         ecc.codes_set(grib, "packingType", "grid_ccsds")
         ecc.codes_set_values(grib, values)
 
         # Average, accumulation, extreme values or other statistically processed values at a horizontal level or in a horizontal layer in a continuous or non-continuous time interval.
         if pdtn == 8:
+            year = int(validtime.strftime("%Y"))
+            month = int(validtime.strftime("%m"))
+            day = int(validtime.strftime("%d"))
+            hour = int(validtime.strftime("%H"))
+
             ecc.codes_set(grib, "lengthOfTimeRange", 1)
             ecc.codes_set(grib, "typeOfStatisticalProcessing", tosp)
             ecc.codes_set(grib, "yearOfEndOfOverallTimeInterval", year)
             ecc.codes_set(grib, "monthOfEndOfOverallTimeInterval", month)
             ecc.codes_set(grib, "dayOfEndOfOverallTimeInterval", day)
             ecc.codes_set(grib, "hourOfEndOfOverallTimeInterval", hour)
+
+        for key, val in self.grib_keys.items():
+            ecc.codes_set(grib, key, val)
 
         ecc.codes_write(grib, fp)
         ecc.codes_release(grib)
