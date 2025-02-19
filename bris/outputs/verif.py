@@ -2,7 +2,7 @@ import cfunits
 import gridpp
 import numpy as np
 import scipy.interpolate
-from scipy.spatial import Delaunay
+from scipy.spatial import Delaunay, cKDTree
 import xarray as xr
 from bris import utils
 from bris.conventions import anemoi as anemoi_conventions
@@ -67,24 +67,23 @@ class Verif(Output):
             else:
                 self.igrid = gridpp.Grid( self.pm.grid_lats, self.pm.grid_lons)
 
+        self.ipoints_array = np.column_stack((self.pm.lats, self.pm.lons))
         self.ialtitudes = self.pm.altitudes
 
         self.ipoints, self.opoints, self.obs_ids = self.get_points(
             self.pm, obs_sources, self.max_distance
         )
-        self.ipoints_array = np.column_stack(
-            (self.ipoints.get_lats(), self.opoints.get_lons())
-        )
         self.opoints_array = np.column_stack(
             (self.opoints.get_lats(), self.opoints.get_lons())
         )
-        _dtype = [('lat', 'f4'), ('lon', 'f4')]
-        _mask = np.isin(self.opoints_array.view(_dtype), self.ipoints_array.view(_dtype))
-        _indices = np.where(_mask)[0]
+        _tree = cKDTree(self.ipoints_array)
+        _, _indices = _tree.query(self.opoints_array, distance_upper_bound=1e-4)
+        _valid_matches = _indices < len(self.ipoints_array)
+        _matching_indices = _indices[_valid_matches]
 
         self.interpolate = True
-        if len(_indices) == self.opoints_array.shape[0]:
-            self.verif_indices = _indices
+        if len(_matching_indices) == len(self.opoints_array):
+            self.verif_indices = _matching_indices
             self.interpolate = False
 
         self.triangulation = self.ipoints_array
