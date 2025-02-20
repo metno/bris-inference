@@ -61,7 +61,10 @@ class AnemoiDataset(Source):
         for t, requested_time in enumerate(requested_times):
             i = np.where(self._all_times == requested_time)[0]
             if len(i) > 0:
-                data[t, :] = self.dataset[int(i[0]), self.variable_index, 0, :]
+                if int(i[0]) in self.dataset.missing:
+                    print(f"Date {self.dataset.dates[int(i[0])]} missing from verif dataset")
+                else:
+                    data[t, :] = self.dataset[int(i[0]), self.variable_index, 0, :]
 
         observations = Observations(self.locations, requested_times, {variable: data})
         return observations
