@@ -66,6 +66,26 @@ def get_metadata(anemoi_variable: str) -> dict:
         cfname = "surface_air_pressure"
         leveltype = "height"
         level = 0
+    elif anemoi_variable == "lcc":
+        cfname = "low_type_cloud_area_fraction"
+        leveltype = "height"
+        level = 0
+    elif anemoi_variable == "mcc":
+        cfname = "medium_type_cloud_area_fraction"
+        leveltype = "height"
+        level = 0
+    elif anemoi_variable == "tcc":
+        cfname = "cloud_area_fraction"
+        leveltype = "height"
+        level = 0
+    elif anemoi_variable == "ssrd":
+        cfname = "surface_shortwave_solar_radiation_downwards"
+        leveltype = "height"
+        level = 0
+    elif anemoi_variable == "strd":
+        cfname = "surface_longwave_thermal_radiation_downwards"
+        leveltype = "height"
+        level = 0
     else:
 
         words = anemoi_variable.split("_")
@@ -171,6 +191,10 @@ def get_attributes(cfname):
         ret["units"] = "Pa"
     elif cfname in ["specific_humidity"]:
         ret["units"] = "kg/kg"
+    elif cfname in ["medium_type_cloud_area_fraction", "low_type_cloud_area_fraction", "cloud_area_fraction"]:
+        ret["units"] = "1"
+    elif cfname in ["surface_longwave_thermal_radiation_downwards", "surface_shortwave_solar_radiation_downwards"]:
+        ret["units"] = "J/m^2"
 
     # Unknown cfname, let's not write any attributes
     else:
