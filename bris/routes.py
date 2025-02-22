@@ -133,7 +133,3 @@ def get_required_variables(routing_config: dict, data_module: DataModule):
             required_variables[decoder_index] = sorted(list(set(v)))
 
     return required_variables
-
-
-def expand_variable(string, variable):
-    return string.replace("%V", variable)
