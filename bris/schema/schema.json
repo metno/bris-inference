@@ -110,16 +110,22 @@
         },
 
         "AnemoiDatasetSource": {
-            "description": "Zarr file that can be read by anemoi-datasets",
+            "description": "Zarr dataset that can be read by anemoi-datasets",
             "type": "object",
             "properties": {
-                "dataset": {
-                    "description": "Anemoi datasets open_dataset recipie, dictionairy",
-                    "type": "object"
-                },
-                "variable": {
-                    "description": "Variable name",
-                    "type": "string"
+                "anemoidataset": {
+                    "type": "object",
+                    "properties": {
+                        "dataset": {
+                            "description": "Anemoi datasets open_dataset recipe, dictionary",
+                            "type": "object"
+                        },
+                        "variable": {
+                            "description": "Variable name",
+                            "type": "string"
+                        }
+                    },
+                    "required": ["dataset", "variable"]
                 }
             },
             "required": ["anemoidataset"]
