@@ -281,17 +281,9 @@ class Checkpoint:
             Identical tuple[dict] from model_output_index_to_name but key
             value pairs are switched.
         """
-        if (
-            isinstance(self._metadata.data_indices, (tuple, list))
-            and len(self._metadata.data_indices) >= 2
-        ):
-            return tuple(
-                [
-                    {name: index for index, name in v.items()}
-                    for k, v in enumerate(self.model_output_index_to_name)
-                ]
-            )
-
-        return (
-            {name: index for index, name in self.model_output_index_to_name.items()},
+        return tuple(
+            [
+                {name: index for index, name in v.items()}
+                for k, v in enumerate(self.model_output_index_to_name)
+            ]
         )

@@ -6,6 +6,7 @@ import bris.outputs
 from bris import utils
 from bris.data.datamodule import DataModule
 from bris.predict_metadata import PredictMetadata
+from bris.checkpoint import Checkpoint
 
 
 def get(
@@ -90,25 +91,7 @@ def get(
 
     return ret
 
-
-def get_variable_indices(routing_config: dict, data_module: DataModule):
-    """Returns a list of variable indices for each decoder
-
-    This is used by Model
-    """
-    required_variables = get_required_variables(routing_config, data_module)
-
-    variable_indices = dict()
-    for decoder_index, r in required_variables.items():
-        variable_indices[decoder_index] = list()
-        for name in required_variables[decoder_index]:
-            index = data_module.name_to_index[decoder_index][name]
-            variable_indices[decoder_index] += [index]
-
-    return variable_indices
-
-
-def get_required_variables(routing_config: dict, data_module: DataModule):
+def get_required_variables(routing_config: dict, ckptObj: Checkpoint):
     """Returns a list of required variables for each decoder"""
     required_variables = defaultdict(list)
     for rc in routing_config:
@@ -120,15 +103,8 @@ def get_required_variables(routing_config: dict, data_module: DataModule):
 
     for decoder_index, v in required_variables.items():
         if None in v:
-            name_to_index = data_module.name_to_index[decoder_index]
-
-            # Pre-initialize list
-            required_variables[decoder_index] = list(name_to_index.keys())
-
-            for name, index in name_to_index.items():
-                assert index < len(name_to_index)
-
-                required_variables[decoder_index][index] = name
+            name_to_index = ckptObj.model_output_name_to_index[decoder_index]
+            required_variables[decoder_index] = sorted(list(set(name_to_index.keys())))
         else:
             required_variables[decoder_index] = sorted(list(set(v)))
 
