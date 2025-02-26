@@ -38,6 +38,10 @@ def get_metadata(anemoi_variable: str) -> dict:
         cfname = "wind_speed"
         leveltype = "height"
         level = 10
+    elif anemoi_variable == "10fg":
+        cfname = "wind_speed_of_gust"
+        leveltype = "height"
+        level = 10
     elif anemoi_variable == "100u":
         cfname = "x_wind"
         leveltype = "height"
@@ -66,6 +70,26 @@ def get_metadata(anemoi_variable: str) -> dict:
         cfname = "surface_air_pressure"
         leveltype = "height"
         level = 0
+    elif anemoi_variable == "vis":
+        cfname = "visibility_in_air"
+        leveltype = "height"
+        level = 0
+    elif anemoi_variable == "cbh":
+        cfname = "cloud_base_altitude"
+        leveltype = "height"
+        level = 0
+    elif anemoi_variable == "10si":
+        cfname = "wind_speed"
+        leveltype = "height"
+        level = 10
+    elif anemoi_variable == "fog":
+        cfname = "fog_type_cloud_area_fraction"
+        leveltype = "height"
+        level = 0
+    elif anemoi_variable == "hcc":
+        cfname = "high_type_cloud_area_fraction"
+        leveltype = "height"
+        level = 0
     elif anemoi_variable == "lcc":
         cfname = "low_type_cloud_area_fraction"
         leveltype = "height"
@@ -79,11 +103,11 @@ def get_metadata(anemoi_variable: str) -> dict:
         leveltype = "height"
         level = 0
     elif anemoi_variable == "ssrd":
-        cfname = "surface_shortwave_solar_radiation_downwards"
+        cfname = "integral_of_surface_downwelling_shortwave_flux_in_air_wrt_time"
         leveltype = "height"
         level = 0
     elif anemoi_variable == "strd":
-        cfname = "surface_longwave_thermal_radiation_downwards"
+        cfname = "integral_of_surface_downwelling_longwave_flux_in_air_wrt_time"
         leveltype = "height"
         level = 0
     else:
@@ -175,6 +199,7 @@ def get_attributes(cfname):
         "x_wind",
         "y_wind",
         "wind_speed",
+        "wind_speed_of_gust",
         "vertical_velocity",
         "wind_speed_of_gust",
     ]:
@@ -185,15 +210,17 @@ def get_attributes(cfname):
         ret["units"] = "1"
     elif cfname in ["geopotential", "surface_geopotential"]:
         ret["units"] = "m^2/s^2"
-    elif cfname in ["precipitation_amount"]:
+    elif cfname in ["precipitation_amount", "precipitation_amount_acc"]:
         ret["units"] = "kg/m^2"
     elif cfname in ["air_pressure_at_sea_level", "surface_air_pressure"]:
         ret["units"] = "Pa"
     elif cfname in ["specific_humidity"]:
         ret["units"] = "kg/kg"
-    elif cfname in ["medium_type_cloud_area_fraction", "low_type_cloud_area_fraction", "cloud_area_fraction"]:
+    elif cfname in ["cloud_base_altitude", "visibility_in_air"]:
+        ret["units"] = "m"
+    elif "area_fraction" in cfname:
         ret["units"] = "1"
-    elif cfname in ["surface_longwave_thermal_radiation_downwards", "surface_shortwave_solar_radiation_downwards"]:
+    elif cfname in ["integral_of_surface_downwelling_longwave_flux_in_air_wrt_time", "integral_of_surface_downwelling_shortwave_flux_in_air_wrt_time"]:
         ret["units"] = "J/m^2"
 
     # Unknown cfname, let's not write any attributes
