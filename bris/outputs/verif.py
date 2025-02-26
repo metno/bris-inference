@@ -21,6 +21,7 @@ class Verif(Output):
         workdir: str,
         filename: str,
         variable=None,
+        variable_type=None,
         obs_sources=list,
         units=None,
         thresholds=[],
@@ -47,6 +48,7 @@ class Verif(Output):
         self.filename = filename
         self.fcst = dict()
         self.variable = variable
+        self.variable_type = variable_type
         self.obs_sources = obs_sources
         self.units = units
         self.thresholds = thresholds
@@ -251,45 +253,51 @@ class Verif(Output):
             curr = self.intermediate.get_forecast(frt)[..., 0, :]
             fcst[i, ...] = self.compute_consensus(curr)
 
-        self.ds["fcst"] = (["time", "leadtime", "location"], fcst)
+        if self.variable_type == "logit":
+            # Apply sigmoid activation function.
+            probability = 1 / (1 + np.exp(-fcst))
+            self.ds["cdf"] = (["time", "leadtime", "location"], 1 - probability)
 
-        # Load threshold forecasts
-        if len(self.thresholds) > 0 and self.num_members > 1:
-            cdf = np.nan * np.zeros(
-                [
-                    len(frts),
-                    self.intermediate.pm.num_leadtimes,
-                    self.intermediate.pm.num_points,
-                    len(self.thresholds),
-                ],
-                np.float32,
-            )
-            for i, frt in enumerate(frts):
-                curr = self.intermediate.get_forecast(frt)[..., 0, :]
-                for t, threshold in enumerate(self.thresholds):
-                    cdf[i, ..., t] = self.compute_threshold_prob(curr, threshold)
+        else:
+            self.ds["fcst"] = (["time", "leadtime", "location"], fcst)
 
-            self.ds["cdf"] = (["time", "leadtime", "location", "threshold"], cdf)
+            # Load threshold forecasts
+            if len(self.thresholds) > 0 and self.num_members > 1:
+                cdf = np.nan * np.zeros(
+                    [
+                        len(frts),
+                        self.intermediate.pm.num_leadtimes,
+                        self.intermediate.pm.num_points,
+                        len(self.thresholds),
+                    ],
+                    np.float32,
+                )
+                for i, frt in enumerate(frts):
+                    curr = self.intermediate.get_forecast(frt)[..., 0, :]
+                    for t, threshold in enumerate(self.thresholds):
+                        cdf[i, ..., t] = self.compute_threshold_prob(curr, threshold)
 
-        # Load quantile forecasts
-        if len(self.quantile_levels) > 0 and self.num_members > 1:
-            x = np.nan * np.zeros(
-                [
-                    len(frts),
-                    self.intermediate.pm.num_leadtimes,
-                    self.intermediate.pm.num_points,
-                    len(self.quantile_levels),
-                ],
-                np.float32,
-            )
-            for i, frt in enumerate(frts):
-                curr = self.intermediate.get_forecast(frt)[
-                    :, :, 0, :
-                ]  # Remove variable dimension
-                for t, quantile_level in enumerate(self.quantile_levels):
-                    x[i, ..., t] = self.compute_quantile(curr, quantile_level)
+                        self.ds["cdf"] = (["time", "leadtime", "location", "threshold"], cdf)
 
-            self.ds["x"] = (["time", "leadtime", "location", "quantile"], x)
+            # Load quantile forecasts
+            if len(self.quantile_levels) > 0 and self.num_members > 1:
+                x = np.nan * np.zeros(
+                    [
+                        len(frts),
+                        self.intermediate.pm.num_leadtimes,
+                        self.intermediate.pm.num_points,
+                        len(self.quantile_levels),
+                    ],
+                    np.float32,
+                )
+                for i, frt in enumerate(frts):
+                    curr = self.intermediate.get_forecast(frt)[
+                        :, :, 0, :
+                    ]  # Remove variable dimension
+                    for t, quantile_level in enumerate(self.quantile_levels):
+                        x[i, ..., t] = self.compute_quantile(curr, quantile_level)
+
+                        self.ds["x"] = (["time", "leadtime", "location", "quantile"], x)
 
         # Find which valid times we need observations for
         frts_ut = utils.datetime_to_unixtime(frts)
