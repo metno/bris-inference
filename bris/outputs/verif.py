@@ -1,8 +1,7 @@
-import cfunits
+import bris.units
 import gridpp
 import numpy as np
 import scipy.interpolate
-from scipy.spatial import Delaunay, cKDTree
 import xarray as xr
 from bris import utils
 from bris.conventions import anemoi as anemoi_conventions
@@ -10,6 +9,7 @@ from bris.conventions import cf
 from bris.outputs import Output
 from bris.outputs.intermediate import Intermediate
 from bris.predict_metadata import PredictMetadata
+from scipy.spatial import Delaunay, cKDTree
 
 
 class Verif(Output):
@@ -59,7 +59,9 @@ class Verif(Output):
 
         if self.pm.altitudes is None:
             if elev_gradient is not None:
-                raise ValueError("Cannot do elevation gradient since input field does not have altitude")
+                raise ValueError(
+                    "Cannot do elevation gradient since input field does not have altitude"
+                )
 
         if self._is_gridded_input:
             if self.pm.altitudes is not None:
@@ -67,7 +69,7 @@ class Verif(Output):
                     self.pm.grid_lats, self.pm.grid_lons, self.pm.grid_altitudes
                 )
             else:
-                self.igrid = gridpp.Grid( self.pm.grid_lats, self.pm.grid_lons)
+                self.igrid = gridpp.Grid(self.pm.grid_lats, self.pm.grid_lons)
 
         self.ipoints_array = np.column_stack((self.pm.lats, self.pm.lons))
         self.ialtitudes = self.pm.altitudes
@@ -89,7 +91,11 @@ class Verif(Output):
             self.interpolate = False
 
         self.triangulation = self.ipoints_array
-        if not self._is_gridded_input and self.ipoints_array.shape[0] > 3 and self.interpolate:
+        if (
+            not self._is_gridded_input
+            and self.ipoints_array.shape[0] > 3
+            and self.interpolate
+        ):
             # This speeds up interpolation from irregular points to observation points
             # but Delaunay needs enough points for this to work
             self.triangulation = Delaunay(self.ipoints_array)
@@ -112,11 +118,10 @@ class Verif(Output):
             times: List of np.datetime64 objects
             pred: 3D array of forecasts with dimensions (time, points, variables)
         """
-        print("### Adding forecast", times[0])
 
         Iv = self.pm.variables.index(self.variable)
         if not self.interpolate:
-            interpolated_pred = pred[:, self.verif_indices, Iv][:,:,np.newaxis]
+            interpolated_pred = pred[:, self.verif_indices, Iv][:, :, np.newaxis]
         else:
             if self._is_gridded_input:
                 pred = self.reshape_pred(pred)
@@ -141,7 +146,9 @@ class Verif(Output):
                         self.triangulation, self.ialtitudes
                     )
                     interpolated_altitudes = interpolator(self.opoints_array)
-                    altitude_correction = self.opoints.get_elevs() - interpolated_altitudes
+                    altitude_correction = (
+                        self.opoints.get_elevs() - interpolated_altitudes
+                    )
 
                 num_leadtimes = pred.shape[0]
                 num_points = self.opoints.size()
@@ -169,9 +176,10 @@ class Verif(Output):
             # Update the units so they can be written out
             self.units = anemoi_units
         elif anemoi_units is not None and self.units != anemoi_units:
-            to_units = cfunits.Units(self.units)
-            from_units = cfunits.Units(anemoi_units)
-            cfunits.Units.conform(interpolated_pred, from_units, to_units, inplace=True)
+            to_units = self.units
+            from_units = anemoi_units
+            bris.units.convert(interpolated_pred, from_units, to_units, inplace=True)
+            print("HERE")
 
         self.intermediate.add_forecast(times, ensemble_member, interpolated_pred)
 
@@ -343,18 +351,14 @@ class Verif(Output):
         count = 0
         for obs_source in self.obs_sources:
             curr = obs_source.get(self.variable, start_time, end_time, frequency)
-            from_units = (
-                cfunits.Units(obs_source.units)
-                if obs_source.units is not None
-                else None
-            )
-            to_units = cfunits.Units(self.units) if self.units is not None else None
+            from_units = obs_source.units
+            to_units = self.units
             for t, valid_time in enumerate(unique_valid_times):
                 Itimes, Ileadtimes = np.where(valid_times == valid_time)
                 data = curr.get_data(self.variable, valid_time)
                 if data is not None:
                     if None not in [obs_source.units, self.units]:
-                        cfunits.Units.conform(data, from_units, to_units, inplace=True)
+                        bris.units.convert(data, from_units, to_units, inplace=True)
 
                     Iout = range(count, len(obs_source.locations) + count)
                     for i in range(len(Itimes)):

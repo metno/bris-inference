@@ -31,7 +31,6 @@ classifiers = [
 dependencies = [
     "anemoi-datasets>=0.5.13",  # This includes the reorder functionality
     "argparse",
-    "cfunits",
     "gridpp",
     "hydra-core",
     "numpy",
