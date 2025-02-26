@@ -256,7 +256,11 @@ class Verif(Output):
         if self.variable_type == "logit":
             # Apply sigmoid activation function.
             probability = 1 / (1 + np.exp(-fcst))
-            self.ds["cdf"] = (["time", "leadtime", "location"], 1 - probability)
+
+            # Add more axes
+            probability = np.expand_dims(probability, axis=-1)
+            probability = np.tile(probability, (1, 1, 1, len(self.thresholds)))
+            self.ds["cdf"] = (["time", "leadtime", "location", "threshold"], 1 - probability)
 
         else:
             self.ds["fcst"] = (["time", "leadtime", "location"], fcst)
