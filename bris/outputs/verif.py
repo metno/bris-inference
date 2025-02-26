@@ -235,6 +235,10 @@ class Verif(Output):
                     ["quantile"],
                     self.quantile_levels,
                 )
+        if self.variable_type == "logit":
+            # Add threshold variable
+            coords["threshold"] = (["threshold"], self.thresholds)
+
         self.ds = xr.Dataset(coords=coords)
 
         frts = self.intermediate.get_forecast_reference_times()
