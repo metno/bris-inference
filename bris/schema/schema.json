@@ -127,8 +127,7 @@
                     "type": "object",
                     "properties": {
                         "dataset": {
-                            "description": "Anemoi datasets open_dataset recipe, dictionary",
-                            "type": "object"
+                            "description": "Anemoi datasets open_dataset recipe, dictionary"
                         },
                         "variable": {
                             "description": "Variable name",
