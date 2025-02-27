@@ -18,7 +18,8 @@ def test_1():
     with tempfile.TemporaryDirectory() as temp_dir:
         pattern = os.path.join(temp_dir, "test_%Y%m%dT00Z.nc")
         workdir = os.path.join(temp_dir, "test_gridded")
-        output = Netcdf(pm, workdir, pattern, interp_res=0.2)
+        attrs = {"creator": "met.no"}
+        output = Netcdf(pm, workdir, pattern, interp_res=0.2, global_attributes=attrs)
 
         pred = np.random.rand(*pm.shape)
         frt = 1672552800
@@ -52,3 +53,4 @@ def test_domain_name():
 
 if __name__ == "__main__":
     test_domain_name()
+    test_1()

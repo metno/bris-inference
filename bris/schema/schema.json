@@ -71,6 +71,10 @@
                         "domain_name": {
                             "description": "Retrieve projection from this predefined domain name (e.g. meps)",
                             "type": "string"
+                        },
+                        "global_attributes": {
+                            "description": "Dictionary of global attributes to write to each output file",
+                            "type": "object"
                         }
                     },
                     "required": ["filename_pattern"]
@@ -89,7 +93,13 @@
                         "filename": {
                             "description": "Where the file is located",
                             "type": "string"
-                        }
+                        },
+                        "variable_type": {
+                            "description": "What type of variable is the input data?",
+                            "type": "string",
+                            "enum": [
+                                "continuous", "logit", "threshold_probbability", "quantile"
+                            ]
                     },
                     "required": ["filename"]
                 }
