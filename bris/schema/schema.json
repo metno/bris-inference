@@ -35,6 +35,13 @@
                                     {"$ref": "#/definitions/AnemoiDatasetSource"}
                                 ]
                             }
+                        },
+                        "variable_type": {
+                            "description": "What type of variable is the input data?",
+                            "type": "string",
+                            "enum": [
+                                "continuous", "logit", "threshold_probbability", "quantile"
+                            ]
                         }
                     },
                     "required": ["filename", "variable", "obs_sources"]
@@ -93,13 +100,7 @@
                         "filename": {
                             "description": "Where the file is located",
                             "type": "string"
-                        },
-                        "variable_type": {
-                            "description": "What type of variable is the input data?",
-                            "type": "string",
-                            "enum": [
-                                "continuous", "logit", "threshold_probbability", "quantile"
-                            ]
+                        }
                     },
                     "required": ["filename"]
                 }
