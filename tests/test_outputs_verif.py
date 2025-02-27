@@ -40,12 +40,12 @@ def test_1():
             elev_gradient = None
             for max_distance in [None, 100000]:
                 output = Verif(
-                    pm,
-                    workdir,
-                    ofilename,
-                    "2t",
-                    sources,
-                    "K",
+                    predict_metadata=pm,
+                    workdir=workdir,
+                    filename=ofilename,
+                    variable="2t",
+                    obs_sources=sources,
+                    units="K",
                     thresholds=thresholds,
                     quantile_levels=quantile_levels,
                     elev_gradient=elev_gradient,
@@ -64,12 +64,12 @@ def test_1():
         elev_gradient = 0
         for max_distance in [None, 100000]:
             output = Verif(
-                pm,
-                workdir,
-                ofilename,
-                "2t",
-                sources,
-                "K",
+                predict_metadata=pm,
+                workdir=workdir,
+                filename=ofilename,
+                variable="2t",
+                obs_sources=sources,
+                units="K",
                 thresholds=thresholds,
                 quantile_levels=quantile_levels,
                 elev_gradient=elev_gradient,
@@ -80,6 +80,24 @@ def test_1():
             for member in range(num_members):
                 pred = np.random.rand(*pm.shape)
                 output.add_forecast(times, member, pred)
+
+            output.finalize()
+
+        # Test for logits:
+        for max_distance in [None, 100000]:
+            output = Verif(
+                predict_metadata=pm,
+                workdir=workdir,
+                filename=ofilename,
+                variable="te",
+                variable_type="logit",
+                obs_sources=sources,
+                units="degC",
+                thresholds=thresholds,
+                quantile_levels=quantile_levels,
+                elev_gradient=elev_gradient,
+                max_distance=max_distance,
+            )
 
             output.finalize()
 
