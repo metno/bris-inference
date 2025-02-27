@@ -257,14 +257,17 @@ class Verif(Output):
             curr = self.intermediate.get_forecast(frt)[..., 0, :]
             fcst[i, ...] = self.compute_consensus(curr)
 
-        if self.variable_type == "logit":
-            # Apply sigmoid activation function.
-            probability = 1 / (1 + np.exp(-fcst))
+        if self.variable_type in ["logit", "threshold_probability"]:
+
+            cdf = np.copy(fcst)
+            # Apply sigmoid activation function to logits
+            if self.variable_type == "logit":
+                cdf = 1 / (1 + np.exp(-cdf))
 
             # Add more axes
-            probability = np.expand_dims(probability, axis=-1)
-            probability = np.tile(probability, (1, 1, 1, len(self.thresholds)))
-            self.ds["cdf"] = (["time", "leadtime", "location", "threshold"], 1 - probability)
+            cdf = np.expand_dims(cdf, axis=-1)
+            cdf = np.tile(cdf, (1, 1, 1, len(self.thresholds)))
+            self.ds["cdf"] = (["time", "leadtime", "location", "threshold"], 1 - cdf)
 
         else:
             self.ds["fcst"] = (["time", "leadtime", "location"], fcst)
