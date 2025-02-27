@@ -69,7 +69,7 @@ def test_1():
                 filename=ofilename,
                 variable="2t",
                 obs_sources=sources,
-                units="K",
+                units="C",
                 thresholds=thresholds,
                 quantile_levels=quantile_levels,
                 elev_gradient=elev_gradient,
