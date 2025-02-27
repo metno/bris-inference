@@ -89,7 +89,7 @@ def test_2():
     filename = os.path.dirname(os.path.abspath(__file__)) + "/files/verif_input_logits.nc"
     sources = [VerifInput(filename)]
 
-    variables = ["u_800", "u_600", "2t", "v_500", "10u"]
+    variables = ["te"]
     lats = np.arange(50, 70)
     lons = np.arange(5, 15)
     leadtimes = np.arange(0, 3600 * 4, 3600)
@@ -118,7 +118,7 @@ def test_2():
                 variable="te",
                 variable_type="logit",
                 obs_sources=sources,
-                units="degC",
+                units="probability",
                 thresholds=thresholds,
                 quantile_levels=quantile_levels,
                 elev_gradient=elev_gradient,
