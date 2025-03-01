@@ -155,7 +155,7 @@
             "type": "string"
         },
         "leadtimes": {
-            "description": "What leadtimes should be provided in the output?",
+            "description": "How many leadtimes should be provided in the output? This includes the analysis leadtime.",
             "type": "integer",
             "minimum": 1
         },
@@ -177,8 +177,16 @@
             "items":  {
                 "type": "object",
                 "properties": {
-                    "decoder_index": {"type": "integer", "minimum": 0},
-                    "domain_index": {"type": "integer", "minimum": 0},
+                    "decoder_index": {
+                        "type": "integer",
+                        "description": "Select this decoder. If model only has one decoder, use 0",
+                        "minimum": 0
+                    },
+                    "domain_index": {
+                        "type": "integer",
+                        "description": "If the model has multiple domains, only extract this domain. If empty, the whole grid is used.",
+                        "minimum": 0
+                    },
                     "outputs": {
                         "type": "array",
                         "items": {
@@ -188,7 +196,8 @@
                             ]
                         }
                     }
-                }
+                },
+                "required": ["decoder_index", "outputs"]
             }
         }
     },
