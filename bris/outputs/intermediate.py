@@ -82,7 +82,6 @@ class Intermediate(Output):
     def num_members(self):
         filenames = self.get_filenames()
 
-        members = list()
         max_member = 0
         for filename in filenames:
             _, member = filename.split("/")[-1].split(".npy")[0].split("_")
