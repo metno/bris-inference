@@ -1,10 +1,10 @@
-from bris.outputs.intermediate import Intermediate
-from bris.predict_metadata import PredictMetadata
-import pytest
-import numpy as np
 import os
 import io
 import tempfile
+import numpy as np
+
+from bris.outputs.intermediate import Intermediate
+from bris.predict_metadata import PredictMetadata
 
 
 def get_test_pm() -> PredictMetadata:

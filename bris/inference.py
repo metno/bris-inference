@@ -40,10 +40,10 @@ class Inference:
     def device(self) -> str:
         if self._device is None:
             if torch.cuda.is_available() and torch.backends.cuda.is_built():
-                LOGGER.info(f"Specified device not set. Found GPU")
+                LOGGER.info("Specified device not set. Found GPU")
                 return "cuda"
             else:
-                LOGGER.info(f"Specified device not set. Could not find gpu, using CPU")
+                LOGGER.info("Specified device not set. Could not find gpu, using CPU")
                 return "cpu"
         else:
             LOGGER.info(f"Using specified device: {self._device}")
