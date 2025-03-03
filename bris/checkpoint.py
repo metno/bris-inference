@@ -165,7 +165,7 @@ class Checkpoint:
                 raise NotImplementedError
 
     @cached_property
-    def set_base_seed(self) -> int:
+    def set_base_seed(self) -> None:
         """
         Fetchs the original base seed used during training.
         If not
