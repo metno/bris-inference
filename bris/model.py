@@ -343,7 +343,7 @@ class MultiEncDecPredictor(BasePredictor):
             forcings.update(self.static_forcings[i])
 
             for forcing, value in forcings.items():
-                if type(value) == np.ndarray:
+                if np.ndarray is type(value):
                     x[i][:, -1, :, :, data_indices[i].internal_model.input.name_to_index[forcing]] = torch.from_numpy(value)
                 else:
                     x[i][:, -1, :, :, data_indices[i].internal_model.input.name_to_index[forcing]] = value

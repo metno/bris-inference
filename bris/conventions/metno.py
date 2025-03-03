@@ -48,8 +48,7 @@ class Metno:
         """Get MetNorway's dimension name from cf standard name"""
         if cfname in self.cf_to_metno:
             return self.cf_to_metno[cfname]
-        else:
-            return cfname
+        return cfname
 
     def get_cfname(self, ncname):
         """Get the CF-standard name from a given MetNo name"""
