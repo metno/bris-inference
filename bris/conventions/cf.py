@@ -137,7 +137,7 @@ def get_metadata(anemoi_variable: str) -> dict:
             leveltype = None
             cfname = anemoi_variable
 
-    return {cfname: cfname, leveltype: leveltype, level: level}
+    return {"cfname": cfname, "leveltype": leveltype, "level": level}
 
 
 def get_attributes_from_leveltype(leveltype):
