@@ -8,8 +8,6 @@ from anemoi.utils.checkpoints import load_metadata
 from anemoi.utils.config import DotDict
 from torch_geometric.data import HeteroData
 
-from bris.utils import check_anemoi_training
-
 LOGGER = logging.getLogger(__name__)
 
 
