@@ -114,8 +114,7 @@ def get_metadata(anemoi_variable: str) -> dict:
 
         words = anemoi_variable.split("_")
         if len(words) == 2 and words[0] in ["t", "u", "v", "z", "q", "w"]:
-            name, level = words
-            level = int(level)
+            name, level = words[0], int(words[1])
             if name == "t":
                 cfname = "air_temperature"
             elif name == "u":
