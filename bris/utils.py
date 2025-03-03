@@ -53,23 +53,6 @@ def check_anemoi_training(metadata) -> bool:
         hasattr(metadata.provenance_training.module_versions, "anemoi.training")
 
 
-def check_anemoi_dataset_version(metadata) -> tuple[bool, str]:
-    assert isinstance(
-        metadata, DotDict
-    ), f"Expected metadata to be a DotDict, got {type(metadata)}"
-    if hasattr(metadata.provenance_training, "module_versions"):
-        try:
-            _version = metadata.provenance_training.module_versions["anemoi.datasets"]
-            _version = re.match(r"^\d+\.\d+\.\d+", _version).group()
-            if _version < "0.5.0":
-                return True, _version
-            return False, _version
-        except Exception as e:
-            raise e
-    else:
-        raise RuntimeError("metadata.provenance_training does not module_versions")
-
-
 def create_config(parser: ArgumentParser) -> OmegaConf:
     args, _ = parser.parse_known_args()
 
