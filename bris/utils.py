@@ -73,7 +73,7 @@ def check_anemoi_dataset_version(metadata) -> tuple[bool, str]:
 def create_config(parser: ArgumentParser) -> OmegaConf:
     args, _ = parser.parse_known_args()
 
-    validate(args.config)
+    validate(args.config, raise_on_error=True)
 
     try:
         config = OmegaConf.load(args.config)
@@ -84,10 +84,15 @@ def create_config(parser: ArgumentParser) -> OmegaConf:
     parser.add_argument(
         "-c", type=str, dest="checkpoint_path", default=config.checkpoint_path
     )
-    parser.add_argument("-sd", type=str, dest="start_date", default=config.start_date)
+    parser.add_argument("-sd", type=str, dest="start_date", required=False,
+        default=config.start_date if "start_date" in config else None)
     parser.add_argument("-ed", type=str, dest="end_date", default=config.end_date)
     parser.add_argument(
         "-p", type=str, dest="dataset_path", help="Path to dataset", default=None
+    )
+    parser.add_argument(
+        "-wd", type=str, dest="workdir", help="Path to work directory", required=False,
+        default=config.workdir if "workdir" in config else None
     )
 
     parser.add_argument(
@@ -102,7 +107,6 @@ def create_config(parser: ArgumentParser) -> OmegaConf:
     # TODO: Logic that can add dataset or cutout dataset to the dataloader config
 
     parser.add_argument("-f", type=str, dest="frequency", default=config.frequency)
-    parser.add_argument("-s", type=str, dest="timestep", default=config.timestep)
     parser.add_argument("-l", type=int, dest="leadtimes", default=config.leadtimes)
     args = parser.parse_args()
 
@@ -136,8 +140,72 @@ def validate(filename, raise_on_error=False):
         print("WARNING: Schema does not validate")
         print(e)
 
-
 def recursive_list_to_tuple(data):
     if isinstance(data, list):
         return tuple(recursive_list_to_tuple(item) for item in data)
     return data
+
+def get_usable_indices(
+    missing_indices: set[int] | None,
+    series_length: int,
+    rollout: int,
+    multistep: int,
+    timeincrement: int = 1,
+) -> np.ndarray:
+    """Get the usable indices of a series whit missing indices.
+
+    Parameters
+    ----------
+    missing_indices : set[int]
+        Dataset to be used.
+    series_length : int
+        Length of the series.
+    rollout : int
+        Number of steps to roll out.
+    multistep : int
+        Number of previous indices to include as predictors.
+    timeincrement : int
+        Time increment, by default 1.
+
+    Returns
+    -------
+    usable_indices : np.array
+        Array of usable indices.
+    """
+    prev_invalid_dates = (multistep - 1) * timeincrement
+    next_invalid_dates = rollout * timeincrement
+
+    usable_indices = np.arange(series_length)  # set of all indices
+
+    if missing_indices is None:
+        missing_indices = set()
+
+    missing_indices |= {-1, series_length}  # to filter initial and final indices
+
+    # Missing indices
+    for i in missing_indices:
+        usable_indices = usable_indices[
+            (usable_indices < i - next_invalid_dates) + (usable_indices > i + prev_invalid_dates)
+        ]
+
+    return usable_indices
+
+def get_base_seed(env_var_list=("AIFS_BASE_SEED", "SLURM_JOB_ID")) -> int:
+    """Gets the base seed from the environment variables.
+
+    Option to manually set a seed via export AIFS_BASE_SEED=xxx in job script
+    """
+    base_seed = None
+    for env_var in env_var_list:
+        if env_var in os.environ:
+            base_seed = int(os.environ.get(env_var))
+            break
+
+    assert (
+        base_seed is not None
+    ), f"Base seed not found in environment variables {env_var_list}"
+
+    if base_seed < 1000:
+        base_seed = base_seed * 1000  # make it (hopefully) big enough
+
+    return base_seed

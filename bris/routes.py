@@ -13,7 +13,6 @@ def get(
     leadtimes: list,
     num_members: int,
     data_module: DataModule,
-    run_name: str,
     workdir: str,
 ):
     """Returns outputs for each decoder and domain
@@ -24,7 +23,6 @@ def get(
         routing_config: Dictionary from config file
         leadtimes: Which leadtimes that the model will produce
         data_module: Data module
-        run_name: Name of this run used by outputs to set filenames
     Returns:
         list of dicts:
             decoder_index (int)
@@ -38,10 +36,11 @@ def get(
     """
     ret = list()
     required_variables = get_required_variables(routing_config, data_module)
-
+    
+    count = 0
     for config in routing_config:
         decoder_index = config["decoder_index"]
-        domain_index = config["domain"]
+        domain_index = config["domain_index"]
 
         curr_grids = data_module.grids[decoder_index]
         if domain_index == 0:
@@ -52,7 +51,6 @@ def get(
             end_gridpoint = start_gridpoint + curr_grids[domain_index]
 
         outputs = list()
-        count = 0
         for oc in config["outputs"]:
             lats = data_module.latitudes[decoder_index][start_gridpoint:end_gridpoint]
             lons = data_module.longitudes[decoder_index][start_gridpoint:end_gridpoint]
@@ -74,11 +72,6 @@ def get(
             )
 
             for output_type, args in oc.items():
-                if "filename" in args:
-                    args["filename"] = expand_run_name(args["filename"], run_name)
-                if "filename_pattern" in args:
-                    args["filename_pattern"] = expand_run_name(args["filename_pattern"], run_name)
-
                 curr_workdir = utils.get_workdir(workdir) + "_" + str(count)
                 count += 1
                 output = bris.outputs.instantiate(output_type, pm, curr_workdir, args)
@@ -140,10 +133,6 @@ def get_required_variables(routing_config: dict, data_module: DataModule):
             required_variables[decoder_index] = sorted(list(set(v)))
 
     return required_variables
-
-
-def expand_run_name(string, run_name):
-    return string.replace("%R", run_name)
 
 
 def expand_variable(string, variable):
