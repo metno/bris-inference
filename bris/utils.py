@@ -49,15 +49,8 @@ def check_anemoi_training(metadata) -> bool:
     assert isinstance(
         metadata, DotDict
     ), f"Expected metadata to be a DotDict, got {type(metadata)}"
-<<<<<<< HEAD
     return hasattr(metadata.provenance_training, "module_versions") and \
         hasattr(metadata.provenance_training.module_versions, "anemoi.training")
-=======
-    if hasattr(metadata.provenance_training, "module_versions") and \
-        hasattr(metadata.provenance_training.module_versions, "anemoi.training"):
-            return True
-    return False
->>>>>>> main
 
 
 def check_anemoi_dataset_version(metadata) -> tuple[bool, str]:
