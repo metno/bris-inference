@@ -179,7 +179,6 @@ class Verif(Output):
             to_units = self.units
             from_units = anemoi_units
             bris.units.convert(interpolated_pred, from_units, to_units, inplace=True)
-            print("HERE")
 
         self.intermediate.add_forecast(times, ensemble_member, interpolated_pred)
 
