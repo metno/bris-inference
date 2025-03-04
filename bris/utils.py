@@ -94,20 +94,22 @@ def create_config(parser: ArgumentParser) -> OmegaConf:
 
     args_dict = vars(args)
 
-    # TODO: change start_date and end_date to numpy datetime
+    # TODO: change start_date and end_date to numpy datetime, https://github.com/metno/bris-inference/issues/53
     return OmegaConf.merge(config, OmegaConf.create(args_dict))
 
 
-def datetime_to_unixtime(dt: np.datetime64) -> int:
-    """Converts a np.datetime64 object or list of objects to unixtime"""
+def datetime_to_unixtime(dt: np.datetime64) -> np.typing.NDArray[int]:
+    """Convert a np.datetime64 object or list of objects to unixtime"""
     return np.array(dt).astype("datetime64[s]").astype("int")
 
 
-def unixtime_to_datetime(ut):
+def unixtime_to_datetime(ut: int) -> np.datetime64:
+    """Convert unixtime to a np.datetime64 object."""
     return np.datetime64(ut, "s")
 
 
-def validate(filename, raise_on_error=False):
+def validate(filename: str, raise_on_error: bool = False) -> None:
+    """Validate config file against a json schema."""
     schema_filename = os.path.dirname(os.path.abspath(__file__)) + "/schema/schema.json"
     with open(schema_filename, encoding="utf-8") as file:
         schema = json.load(file)
@@ -122,10 +124,12 @@ def validate(filename, raise_on_error=False):
         print("WARNING: Schema does not validate")
         print(e)
 
+
 def recursive_list_to_tuple(data):
     if isinstance(data, list):
         return tuple(recursive_list_to_tuple(item) for item in data)
     return data
+
 
 def get_usable_indices(
     missing_indices: set[int] | None,
@@ -134,7 +138,7 @@ def get_usable_indices(
     multistep: int,
     timeincrement: int = 1,
 ) -> np.ndarray:
-    """Get the usable indices of a series whit missing indices.
+    """Get the usable indices of a series with missing indices.
 
     Parameters
     ----------
@@ -171,6 +175,7 @@ def get_usable_indices(
         ]
 
     return usable_indices
+
 
 def get_base_seed(env_var_list=("AIFS_BASE_SEED", "SLURM_JOB_ID")) -> int:
     """Gets the base seed from the environment variables.
