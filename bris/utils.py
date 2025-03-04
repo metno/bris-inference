@@ -124,6 +124,12 @@ def datetime_to_unixtime(dt):
 def unixtime_to_datetime(ut):
     return np.datetime64(ut, "s")
 
+def timedelta64_from_timestep(timestep):
+    if isinstance(timestep, str) and timestep[-1] in ("h", "m", "s"):
+        return np.timedelta64(timestep[0:-1], timestep[-1])
+    else:
+        print("WARNING: could not decode model timestep from checkpoint, trying to assume hours")
+        return np.timedelta64(timestep, "h")
 
 def validate(filename, raise_on_error=False):
     schema_filename = os.path.dirname(os.path.abspath(__file__)) + "/schema/schema.json"
