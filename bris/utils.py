@@ -17,15 +17,15 @@ from omegaconf import OmegaConf
 LOGGER = logging.getLogger(__name__)
 
 
-def expand_time_tokens(filename, unixtime):
-    """Expand time tokens in a filename"""
+def expand_time_tokens(filename: str, unixtime: int):
+    """Expand time tokens in a filename and return absolute path."""
     if not isinstance(unixtime, numbers.Number):
         raise ValueError(f"Unixtime but be numeric not {unixtime}")
 
     return os.path.abspath(time.strftime(filename, time.gmtime(unixtime)))
 
 
-def create_directory(filename):
+def create_directory(filename: str):
     """Creates all sub directories necessary to be able to write filename"""
     directory = os.path.dirname(filename)
     if directory != "":
@@ -33,19 +33,18 @@ def create_directory(filename):
 
 
 def is_number(value):
+    """Check if value is a number."""
     return isinstance(value, numbers.Number)
 
 
-def get_workdir(path):
-    multiple_processes = "SLURM_PROCID" in os.environ
-    if multiple_processes:
-        v = os.environ["SLURM_JOB_ID"]
-    else:
-        v = uuid.uuid4()
-    return path + "/" + str(v)
+def get_workdir(path: str) -> str:
+    """If SLURM_PROCID is set, return path/SLURM_JOB_ID, else return path/<a uuid>."""
+    if "SLURM_PROCID" in os.environ:
+        return f"{path}/{os.environ["SLURM_JOB_ID"]}"
+    return f"{path}/{uuid.uuid4()}"
 
 
-def check_anemoi_training(metadata) -> bool:
+def check_anemoi_training(metadata: DotDict) -> bool:
     assert isinstance(
         metadata, DotDict
     ), f"Expected metadata to be a DotDict, got {type(metadata)}"
@@ -99,7 +98,7 @@ def create_config(parser: ArgumentParser) -> OmegaConf:
     return OmegaConf.merge(config, OmegaConf.create(args_dict))
 
 
-def datetime_to_unixtime(dt):
+def datetime_to_unixtime(dt: np.datetime64) -> int:
     """Converts a np.datetime64 object or list of objects to unixtime"""
     return np.array(dt).astype("datetime64[s]").astype("int")
 
