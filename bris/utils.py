@@ -40,7 +40,7 @@ def is_number(value):
 def get_workdir(path: str) -> str:
     """If SLURM_PROCID is set, return path/SLURM_JOB_ID, else return path/<a uuid>."""
     if "SLURM_PROCID" in os.environ:
-        return f"{path}/{os.environ["SLURM_JOB_ID"]}"
+        return f"{path}/{os.environ['SLURM_JOB_ID']}"
     return f"{path}/{uuid.uuid4()}"
 
 
