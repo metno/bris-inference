@@ -78,7 +78,7 @@ def get_metadata(anemoi_variable: str) -> dict:
         cfname = "cloud_base_altitude"
         leveltype = "height"
         level = 0
-    elif anemoi_variable == "10si":
+    elif anemoi_variable == "ws":
         cfname = "wind_speed"
         leveltype = "height"
         level = 10
