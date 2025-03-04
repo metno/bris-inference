@@ -64,7 +64,7 @@ def check_anemoi_dataset_version(metadata) -> tuple[bool, str]:
             if _version < "0.5.0":
                 return True, _version
             return False, _version
-        except Exception as e:
+        except AttributeError as e:
             raise e
     else:
         raise RuntimeError("metadata.provenance_training does not module_versions")
