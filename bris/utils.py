@@ -27,9 +27,9 @@ def expand_time_tokens(filename, unixtime):
 
 def create_directory(filename):
     """Creates all sub directories necessary to be able to write filename"""
-    dir = os.path.dirname(filename)
-    if dir != "":
-        os.makedirs(dir, exist_ok=True)
+    directory = os.path.dirname(filename)
+    if directory != "":
+        os.makedirs(directory, exist_ok=True)
 
 
 def is_number(value):
@@ -49,11 +49,8 @@ def check_anemoi_training(metadata) -> bool:
     assert isinstance(
         metadata, DotDict
     ), f"Expected metadata to be a DotDict, got {type(metadata)}"
-    if hasattr(metadata.provenance_training, "module_versions"):
-        if hasattr(metadata.provenance_training.module_versions, "anemoi.training"):
-            return True
-        else:
-            return False
+    return hasattr(metadata.provenance_training, "module_versions") and \
+        hasattr(metadata.provenance_training.module_versions, "anemoi.training")
 
 
 def check_anemoi_dataset_version(metadata) -> tuple[bool, str]:
@@ -66,8 +63,7 @@ def check_anemoi_dataset_version(metadata) -> tuple[bool, str]:
             _version = re.match(r"^\d+\.\d+\.\d+", _version).group()
             if _version < "0.5.0":
                 return True, _version
-            else:
-                return False, _version
+            return False, _version
         except Exception as e:
             raise e
     else:
@@ -81,7 +77,7 @@ def create_config(parser: ArgumentParser) -> OmegaConf:
 
     try:
         config = OmegaConf.load(args.config)
-        LOGGER.debug(f"config file from {args.config} is loaded")
+        LOGGER.debug("config file from %s is loaded", args.config)
     except Exception as e:
         raise e
 
@@ -137,19 +133,18 @@ def timedelta64_from_timestep(timestep):
 
 def validate(filename, raise_on_error=False):
     schema_filename = os.path.dirname(os.path.abspath(__file__)) + "/schema/schema.json"
-    with open(schema_filename) as file:
+    with open(schema_filename, encoding="utf-8") as file:
         schema = json.load(file)
 
-    with open(filename) as file:
+    with open(filename, encoding="utf-8") as file:
         config = yaml.safe_load(file)
     try:
         jsonschema.validate(instance=config, schema=schema)
     except jsonschema.exceptions.ValidationError as e:
         if raise_on_error:
             raise
-        else:
-            print("WARNING: Schema does not validate")
-            print(e)
+        print("WARNING: Schema does not validate")
+        print(e)
 
 def recursive_list_to_tuple(data):
     if isinstance(data, list):

@@ -61,7 +61,7 @@ def proj_from_ncfile(filename):
                 proj_str = crs.to_proj4()
             except (pyproj.exceptions.CRSError, KeyError) as e:
                 print(e)
-                print(f"Invalid projection")
+                print("Invalid projection")
                 continue
             break
 

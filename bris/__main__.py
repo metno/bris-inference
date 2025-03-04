@@ -98,7 +98,7 @@ def main():
         release_cache=config.release_cache,
     )
 
-    callbacks = list()
+    callbacks = []
     callbacks += [writer]
 
     inference = Inference(
@@ -118,5 +118,7 @@ def main():
                 output.finalize()
 
     print("Hello world")
+
+
 if __name__ == "__main__":
     main()

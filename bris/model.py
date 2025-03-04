@@ -3,11 +3,10 @@ import math
 import logging 
 import numpy as np
 from abc import abstractmethod
-from typing import Optional, Any, Iterable
+from typing import Any, Iterable
 
 import torch 
 import pytorch_lightning as pl
-from omegaconf import DictConfig
 from torch.distributed.distributed_c10d import ProcessGroup
 
 from .forcings import get_dynamic_forcings
@@ -337,7 +336,7 @@ class MultiEncDecPredictor(BasePredictor):
             forcings.update(self.static_forcings[i])
 
             for forcing, value in forcings.items():
-                if type(value) == np.ndarray:
+                if np.ndarray is type(value):
                     x[i][:, -1, :, :, data_indices[i].internal_model.input.name_to_index[forcing]] = torch.from_numpy(value)
                 else:
                     x[i][:, -1, :, :, data_indices[i].internal_model.input.name_to_index[forcing]] = value

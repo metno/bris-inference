@@ -87,7 +87,7 @@ class Frost(Source):
         """Returns the frost_client_id if provided under construction, or from ~/.frostid"""
         if self._frost_client_id is None:
             if os.path.exists("~/.frostrc"):
-                with open("~/.frostrc", "r") as file:
+                with open("~/.frostrc", mode="r", encoding="utf-8") as file:
                     frost_credentials = json.loads(file)
                 if "frost_client_id" in frost_credentials:
                     return frost_credentials["frost_client_id"]

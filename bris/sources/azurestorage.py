@@ -118,7 +118,7 @@ class AzureStorage:
                     download_stream = blob_client.download_blob()
                     currBlob.write(download_stream.readall())
             except Exception as e:
-                LOGGER.error(f"Error in downloading blob to local filesystem.")
+                LOGGER.error("Error in downloading blob to local filesystem.")
                 raise RuntimeError("Error in downloading blob.") from e
 
         with ThreadPoolExecutor(max_workers=4) as executor:

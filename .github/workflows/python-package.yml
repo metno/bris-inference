@@ -44,10 +44,9 @@ jobs:
         python-version: ${{ matrix.python-version }}
         cache: 'pip' # caching pip dependencies
 
-    - name: Dependencies
-      run: |
-        sudo apt update -qq
-        sudo apt install libudunits2-dev
+    # - name: Dependencies
+    #   run: |
+    #     sudo apt update -qq
 
     - name: Install python dependencies
       run: |
