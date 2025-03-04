@@ -396,7 +396,7 @@ class Netcdf(Output):
             self.ds[ncname].attrs = attrs
 
         # Add global attributes
-        datestr = datetime.datetime.utcnow().strftime("%Y-%m-%d %H:%M:%S +00:00")
+        datestr = datetime.datetime.now(datetime.UTC).strftime("%Y-%m-%d %H:%M:%S +00:00")
         self.ds.attrs["history"] = f"{datestr} Created by bris-inference"
         self.ds.attrs["Convensions"] = "CF-1.6"
         for key, value in self.global_attributes.items():
