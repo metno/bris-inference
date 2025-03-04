@@ -1,5 +1,7 @@
 import logging
 import os
+
+from copy import deepcopy
 from functools import cached_property
 from typing import Any, Optional
 
@@ -118,6 +120,24 @@ class Checkpoint:
             if hasattr(self._model_instance, "graph_data")
             else None
         )
+    
+    @cached_property
+    def _model_state(self) -> dict:
+        """
+            The state of model being cached in CPU memory.
+            Keep in mind this is only the model weights, i.e does
+            not include optimizer state.
+
+            Args:
+                None
+            Return
+                torch dict containing the state of the model.
+                Keys: name of the layer
+                Value: The state for a given layer
+        """
+
+        _state_dict = deepcopy(self._model_instance.state_dict())
+        return _state_dict
 
     def update_graph(self, path: Optional[str] = None) -> HeteroData:
         """
@@ -150,11 +170,18 @@ class Checkpoint:
                 external_graph = torch.load(path, map_location="cpu")
                 LOGGER.info("Loaded external graph from path")
                 try:
+                    _STATE = self._model_state
                     self._model_instance.graph_data = external_graph
+                    LOGGER.info("Rebuilding layers to support new graph")
+                    self._model_instance._build_model()
                     self.UPDATE_GRAPH = True
                     LOGGER.info(
                         "Successfully changed internal graph with external graph!"
                     )
+
+                    for layer_name, param in self._model_instance.model:
+                        param.data = _STATE[layer_name]
+
                     return self._model_instance.graph_data
 
                 except Exception as e:
