@@ -69,5 +69,40 @@ bris = ["schema/*.json"]
 [project.scripts]
 bris = "bris:main"
 
+[tool.ruff]
+exclude = ["bris/sources/frost.py"]
+
 [tool.ruff.lint]
-ignore = ["E402"]
+fixable = ["I"]
+select = [
+    # pycodestyle
+    "E",
+    # Pyflakes
+    "F",
+    # pyupgrade
+    "UP",
+    # flake8-bugbear
+    "B",
+    # flake8-simplify
+    "SIM",
+    # isort
+    "I",
+]
+ignore = [
+    "E402", # module-import-not-at-top-of-file (E402)
+]
+
+[tool.mypy]
+ignore_missing_imports = true
+install_types = true
+exclude = [
+    'bris/data/legacy',
+]
+
+[[tool.mypy.overrides]]
+module = "bris.sources.frost"
+ignore_errors = true
+
+[tool.bandit]
+exclude_dirs = ["tests", "bris/sources/frost.py"]
+skips = ["B101"] # B101: assert_used
