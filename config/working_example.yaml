@@ -1,51 +1,30 @@
-defaults:
-  - override hydra/job_logging: none
-  - override hydra/hydra_logging: none
-  - _self_
-
 start_date: 2023-05-31T18:00:00
 end_date: 2023-06-01T12:00:00 #2024-06-01T01:00:00
 
 checkpoint_path: /pfs/lustrep4/scratch/project_465001383/aifs/experiments/reference/o96_pretrain/checkpoint/3fb85b72ba9647d5ae4fe86ce1b5a885/inference-last.ckpt
 
 leadtimes: 12
-timestep: 6h
 frequency: 6h
 
-deterministic: True
-
-# If the user wants to release GPU cache and memory
-# This option releases unused cached/memory used by torch
-release_cache: False
+dataset: aifs-od-an-oper-0001-mars-n320-2023-2024-6h-v2.zarr
+workdir: test
 
 dataloader:
-  batch_size: 1
-  prefetch_factor: 2
-  num_workers: 1
-  pin_memory: True
-
-  read_group_size: 1 #Do not change this, not implemented properly
-
-  predict:
-    dataset: ${dataset}
-    drop: ['cp', 'u_600', 'v_600', 'z_600', 't_600', 'q_600', 'w_600', 'longitude', 'latitude']
-    start: ${start_date}
-    end: ${end_date}
-    frequency: ${frequency}
-    reorder: ${reorder}
-
   datamodule:
     _target_: bris.data.dataset.NativeGridDataset #anemoi.training.data.dataset.ZipDataset
     _convert_: all
+
+#  prefetch_factor: 2
+#  num_workers: 1
 
 hardware:
   num_gpus_per_node: 8
   num_gpus_per_model: 8
   num_nodes: 1
 
-dataset: aifs-od-an-oper-0001-mars-n320-2023-2024-6h-v2.zarr
-workdir: test
-
+# If the user wants to release GPU cache and memory
+# This option releases unused cached/memory used by torch
+release_cache: False
 
 model:
   _target_: bris.model.BrisPredictor
@@ -58,6 +37,7 @@ routing:
       - netcdf:
           filename_pattern: /pfs/lustrep4/scratch/project_465001383/haugenha/anemoi-training-ref-updated/run-anemoi/lumi/predictions/n320_pred_%Y%m%dT%HZ.nc
           variables: [2t, msl]
+          extra_variables: [ws] #Compute wind speed from 10u and 10v
       - verif:
           filename: /pfs/lustrep4/scratch/project_465001383/haugenha/anemoi-training-ref-updated/run-anemoi/lumi/verif/2t/n320_at_ref.nc
           variable: 2t
