@@ -166,29 +166,34 @@ class Checkpoint:
                 ), f"Cannot locate graph file. Got path: {path}"
                 external_graph = torch.load(path, map_location="cpu")
                 LOGGER.info("Loaded external graph from path")
-                try:
-                    _STATE = self._model_state
-                    self._model_instance.graph_data = external_graph
-                    LOGGER.info("Rebuilding layers to support new graph")
-                    self._model_instance._build_model()
-                    self.UPDATE_GRAPH = True
-                    LOGGER.info(
-                        "Successfully changed internal graph with external graph!"
-                    )
+                
+                #try:
+                _STATE = self._model_state
+                
+                #conf = DotDict(self._model_instance.data_indices.config)
+                self._model_instance.graph_data = external_graph
+                self._model_instance.config = self.confing #conf 
 
-                    for layer_name, param in self._model_instance.model:
-                        param.data = _STATE[layer_name]
+                LOGGER.info("Rebuilding layers to support new graph")
+                self._model_instance._build_model()
+                self.UPDATE_GRAPH = True
+                LOGGER.info(
+                    "Successfully changed internal graph with external graph!"
+                )
 
-                    return self._model_instance.graph_data
+                for layer_name, param in self._model_instance.model:
+                    param.data = _STATE[layer_name]
 
-            except Exception as e:
-                raise e  # RuntimeError("Failed to update the graph.") from e
-        else:
-            # future implementation
-            # _graph = anemoi.graphs.create() <-- skeleton
-            # self._model_instance.graph_data = _graph <- update graph obj within inst
-            # return _graph <- return graph
-            raise NotImplementedError
+                return self._model_instance.graph_data
+
+                #except Exception as e:
+                #    raise e  # RuntimeError("Failed to update the graph.") from e
+            else:
+                # future implementation
+                # _graph = anemoi.graphs.create() <-- skeleton
+                # self._model_instance.graph_data = _graph <- update graph obj within inst
+                # return _graph <- return graph
+                raise NotImplementedError
 
     @cached_property
     def set_base_seed(self) -> None:
