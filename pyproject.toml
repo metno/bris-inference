@@ -68,3 +68,6 @@ bris = ["schema/*.json"]
 
 [project.scripts]
 bris = "bris:main"
+
+[tool.ruff.lint]
+ignore = ["E402"]

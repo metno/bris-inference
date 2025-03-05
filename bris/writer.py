@@ -33,7 +33,7 @@ class CustomWriter(BasePredictionWriter):
         times = prediction["times"]
         ensemble_member = prediction["ensemble_member"]
 
-        # TODO: Why is this here, don'ẗ we want all data-parallel processes to write to disk?
+        # TODO: Why is this here, don't we want all data-parallel processes to write to disk?
         if prediction["group_rank"] == 0:  # related to model parallel? 
             
             for output_dict in self.outputs:

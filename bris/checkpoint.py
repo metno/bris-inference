@@ -10,8 +10,6 @@ from anemoi.utils.checkpoints import load_metadata
 from anemoi.utils.config import DotDict
 from torch_geometric.data import HeteroData
 
-from bris.utils import check_anemoi_training
-
 LOGGER = logging.getLogger(__name__)
 
 
@@ -22,10 +20,10 @@ class Checkpoint:
     UPDATE_GRAPH = False
 
     def __init__(self, path: str):
-        assert os.path.exists(path), f"The given checkpoint does not exist!"
+        assert os.path.exists(path), "The given checkpoint does not exist!"
 
         self.path = path
-        self.set_base_seed 
+        self.set_base_seed
 
     @cached_property
     def metadata(self) -> dict:
@@ -79,10 +77,9 @@ class Checkpoint:
         """
         if hasattr(self._metadata.config.training, "multistep"):
             return self._metadata.config.training.multistep
-        elif hasattr(self._metadata.config.training, "multistep_input"):
+        if hasattr(self._metadata.config.training, "multistep_input"):
             return self._metadata.config.training.multistep_input
-        else:
-            raise RuntimeError("Cannot find multistep")
+        raise RuntimeError("Cannot find multistep")
 
     @property
     def model(self) -> Any:
@@ -184,17 +181,17 @@ class Checkpoint:
 
                     return self._model_instance.graph_data
 
-                except Exception as e:
-                    raise e  # RuntimeError("Failed to update the graph.") from e
-            else:
-                # future implementation
-                # _graph = anemoi.graphs.create() <-- skeleton
-                # self._model_instance.graph_data = _graph <- update graph obj within inst
-                # return _graph <- return graph
-                raise NotImplementedError
+            except Exception as e:
+                raise e  # RuntimeError("Failed to update the graph.") from e
+        else:
+            # future implementation
+            # _graph = anemoi.graphs.create() <-- skeleton
+            # self._model_instance.graph_data = _graph <- update graph obj within inst
+            # return _graph <- return graph
+            raise NotImplementedError
 
     @cached_property
-    def set_base_seed(self) -> int:
+    def set_base_seed(self) -> None:
         """
         Fetchs the original base seed used during training.
         If not
@@ -207,7 +204,7 @@ class Checkpoint:
     def set_encoder_decoder_num_chunks(self, chunks: int = 1) -> None:
         assert isinstance(chunks, int), f"Expecting chunks to be int, got: {chunks}, {type(chunks)}"
         os.environ["ANEMOI_INFERENCE_NUM_CHUNKS"] = str(chunks) 
-        LOGGER.info(f"Encoder and decoder are chunked to {chunks}")
+        LOGGER.info("Encoder and decoder are chunked to %s", chunks)
 
     @cached_property
     def name_to_index(self) -> dict:
@@ -252,7 +249,7 @@ class Checkpoint:
             a mapping between indices_from and indices_to
         """
         assert len(indices_from) == len(indices_to)
-        return {i: j for i, j in zip(indices_from, indices_to)}
+        return dict(zip(indices_from, indices_to))
 
     @cached_property
     def model_output_index_to_name(self) -> tuple[dict]:

@@ -92,7 +92,7 @@ class NewModelCheckpoint(ModelCheckpoint):
             save_metadata = model.metadata
             model.metadata = None
 
-            metadata = dict(**save_metadata)
+            metadata = {**save_metadata}
 
             inference_checkpoint_filepath = Path(
                 lightning_checkpoint_filepath
