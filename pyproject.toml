@@ -38,7 +38,7 @@ dependencies = [
     "pyproj",
     "pytorch-lightning>=2.1",
     "scipy",
-    "torch",
+    "torch<2.6.0",
     "torch_geometric",
     "torchinfo",
     "tqdm",
