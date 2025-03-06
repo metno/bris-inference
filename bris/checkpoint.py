@@ -7,6 +7,7 @@ import torch
 from anemoi.utils.checkpoints import load_metadata
 from anemoi.utils.config import DotDict
 from torch_geometric.data import HeteroData
+from safetensors.torch import load_file
 
 LOGGER = logging.getLogger(__name__)
 
@@ -91,7 +92,7 @@ class Checkpoint:
         corresponding model weights.
         """
         try:
-            inst = torch.load(self.path, map_location="cpu", weights_only=False)
+            inst = load_file(self.path, device="cpu", weights_only=False)
         except Exception as e:
             raise e
         return inst
@@ -144,7 +145,7 @@ class Checkpoint:
             assert os.path.exists(
                 path
             ), f"Cannot locate graph file. Got path: {path}"
-            external_graph = torch.load(path, map_location="cpu")
+            external_graph = load_file(path, device="cpu")
             LOGGER.info("Loaded external graph from path")
             try:
                 self._model_instance.graph_data = external_graph
