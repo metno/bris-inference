@@ -1,5 +1,5 @@
 start_date: 2023-05-31T18:00:00
-end_date: 2023-06-01T12:00:00 #2024-06-01T01:00:00
+end_date: 2023-06-01T12:00:00
 
 checkpoint_path: /pfs/lustrep4/scratch/project_465001383/aifs/experiments/reference/o96_pretrain/checkpoint/3fb85b72ba9647d5ae4fe86ce1b5a885/inference-last.ckpt
 
