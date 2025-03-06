@@ -119,11 +119,13 @@ class Checkpoint:
         )
     
     @cached_property
-    def _model_state(self) -> dict:
+    def _model_params(self) -> dict:
         """
             The state of model being cached in CPU memory.
-            Keep in mind this is only the model weights, i.e does
-            not include optimizer state.
+            Keep in mind this is only the model weights and its
+            layer names, i.e does not include optimizer state.
+            It also worth mentioining this model.named_parameters()
+            and not model.state_dict.
 
             Args:
                 None
@@ -133,8 +135,9 @@ class Checkpoint:
                 Value: The state for a given layer
         """
 
-        _state_dict = deepcopy(self._model_instance.state_dict())
-        return _state_dict
+        _model_params = tuple(self._model_instance.named_parameters())
+        return deepcopy({layer_name : param for layer_name, param in _model_params})
+        
 
     def update_graph(self, path: Optional[str] = None) -> HeteroData:
         """
@@ -164,30 +167,29 @@ class Checkpoint:
                 assert os.path.exists(
                     path
                 ), f"Cannot locate graph file. Got path: {path}"
-                external_graph = torch.load(path, map_location="cpu")
+                external_graph = torch.load(path, map_location="cpu",weights_only=False)
                 LOGGER.info("Loaded external graph from path")
                 
-                #try:
-                _STATE = self._model_state
-                
-                #conf = DotDict(self._model_instance.data_indices.config)
-                self._model_instance.graph_data = external_graph
-                self._model_instance.config = self.confing #conf 
+                try:
+                    self._model_instance.graph_data = external_graph
+                    self._model_instance.config = self.config #conf 
 
-                LOGGER.info("Rebuilding layers to support new graph")
-                self._model_instance._build_model()
-                self.UPDATE_GRAPH = True
-                LOGGER.info(
-                    "Successfully changed internal graph with external graph!"
-                )
+                    LOGGER.info("Rebuilding layers to support new graph")
+                    self._model_instance._build_model()
+                    self.UPDATE_GRAPH = True
 
-                for layer_name, param in self._model_instance.model:
-                    param.data = _STATE[layer_name]
+                    _model_params = self._model_params
 
-                return self._model_instance.graph_data
+                    for layer_name, param in self._model_instance.named_parameters():
+                        param.data = _model_params[layer_name].data
 
-                #except Exception as e:
-                #    raise e  # RuntimeError("Failed to update the graph.") from e
+                    LOGGER.info(
+                        "Successfully builded model with external graph and reassigning model weights!"
+                    )
+                    return self._model_instance.graph_data
+
+                except Exception as e:
+                    raise RuntimeError("Failed to update the graph.") from e
             else:
                 # future implementation
                 # _graph = anemoi.graphs.create() <-- skeleton
