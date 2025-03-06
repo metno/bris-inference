@@ -38,7 +38,7 @@ dataloader:
     reorder: ${reorder}
 
   datamodule:
-    _target_: anemoi.training.data.dataset.NativeGridDataset #anemoi.training.data.dataset.ZipDataset
+    _target_: bris.data.dataset.NativeGridDataset #anemoi.training.data.dataset.ZipDataset
     _convert_: all
 
 hardware:
@@ -58,7 +58,7 @@ model:
 
 routing:
   - decoder_index: 0
-    domain: 0
+    domain_index: 0
     outputs:
       - netcdf:
           filename_pattern: output/%R/era_pred_%Y%m%dT%HZ.nc

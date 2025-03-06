@@ -2,6 +2,7 @@ import logging
 from argparse import ArgumentParser
 import numpy as np
 import os
+from datetime import datetime, timedelta
 
 from hydra.utils import instantiate
 
@@ -12,7 +13,6 @@ from anemoi.utils.dates import frequency_to_seconds
 
 from .checkpoint import Checkpoint
 from .inference import Inference
-from .predict_metadata import PredictMetadata
 from .utils import create_config
 from .writer import CustomWriter
 
@@ -36,23 +36,56 @@ def main():
         LOGGER.info("Update graph is enabled. Proceeding to change internal graph")
         checkpoint.update_graph(config.model.graph)  # Pass in a new graph if needed
 
+    # Get timestep from checkpoint. Also store a version in seconds for local use.
+    config.timestep = None
+    try:
+        config.timestep = checkpoint.config.data.timestep
+    except KeyError:
+        raise RuntimeError("Error getting timestep from checkpoint (checkpoint.config.data.timestep)")
+    timestep_seconds = frequency_to_seconds(config.timestep)
+
+    num_members = 1
+
+    # Get multistep. A default of 2 to ignore multistep in start_date calculation if not set.
+    multistep = 2
+    try:
+        multistep = checkpoint.config.training.multistep_input
+    except KeyError:
+        LOGGER.debug("Multistep not found in checkpoint")
+
+    # If no start_date given, calculate as end_date-((multistep-1)*timestep)
+    if "start_date" not in config or config.start_date is None:
+        config.start_date = datetime.strftime(
+            datetime.strptime(config.end_date, "%Y-%m-%dT%H:%M:%S") - timedelta(seconds=(multistep - 1) * timestep_seconds),
+            "%Y-%m-%dT%H:%M:%S"
+        )
+        LOGGER.info("No start_date given, setting %s based on start_date and timestep.", config.start_date)
+    else:
+        config.start_date = datetime.strftime(
+            datetime.strptime(config.start_date, "%Y-%m-%dT%H:%M:%S") - timedelta(seconds=(multistep - 1) * timestep_seconds),
+            "%Y-%m-%dT%H:%M:%S"
+        )
+
+    config.dataset = {"dataset": config.dataset, "start": config.start_date, "end": config.end_date, "frequency": config.frequency}
+
     datamodule = DataModule(
         config=config,
         checkpoint_object=checkpoint,
     )
-    
-    # Assemble outputs
-    workdir = config.hardware.paths.workdir
-    num_members = 1
 
     # Get outputs and required_variables of each decoder
-    timestep = frequency_to_seconds(config.timestep)
-    leadtimes = np.arange(config.leadtimes) * timestep
+    leadtimes = np.arange(config.leadtimes) * timestep_seconds
     decoder_outputs = bris.routes.get(
-        config["routing"], leadtimes, num_members, datamodule, workdir
+        config["routing"], leadtimes, num_members, datamodule, config.workdir
     )
     required_variables = bris.routes.get_required_variables(config["routing"], datamodule)
     writer = CustomWriter(decoder_outputs, write_interval="batch")
+
+    # Set hydra defaults
+    config.defaults = [
+        {'override hydra/job_logging': 'none'}, # disable config parsing logs
+        {'override hydra/hydra_logging': 'none'}, # disable config parsing logs
+        '_self_']
 
     # Forecaster must know about what leadtimes to output
     model = instantiate(
@@ -63,10 +96,9 @@ def main():
         forecast_length=config.leadtimes,
         required_variables=required_variables,
         release_cache=config.release_cache,
-        
     )
 
-    callbacks = list()
+    callbacks = []
     callbacks += [writer]
 
     inference = Inference(
@@ -86,5 +118,7 @@ def main():
                 output.finalize()
 
     print("Hello world")
+
+
 if __name__ == "__main__":
     main()

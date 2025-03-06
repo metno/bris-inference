@@ -4,6 +4,7 @@ import os
 import numpy as np
 from bris import utils
 from bris.outputs import Output
+from bris.predict_metadata import PredictMetadata
 
 
 class Intermediate(Output):
@@ -12,7 +13,7 @@ class Intermediate(Output):
     forecast_reference_time and ensemble_member
     """
 
-    def __init__(self, predict_metadata, workdir):
+    def __init__(self, predict_metadata: PredictMetadata, workdir: str):
         super().__init__(predict_metadata)
         self.pm = predict_metadata
         self.workdir = workdir
@@ -81,7 +82,6 @@ class Intermediate(Output):
     def num_members(self):
         filenames = self.get_filenames()
 
-        members = list()
         max_member = 0
         for filename in filenames:
             _, member = filename.split("/")[-1].split(".npy")[0].split("_")

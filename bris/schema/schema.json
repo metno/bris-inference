@@ -31,9 +31,17 @@
                             "items": {
                                 "oneOf": [
                                     {"$ref": "#/definitions/VerifSource"},
-                                    {"$ref": "#/definitions/FrostSource"}
+                                    {"$ref": "#/definitions/FrostSource"},
+                                    {"$ref": "#/definitions/AnemoiDatasetSource"}
                                 ]
                             }
+                        },
+                        "variable_type": {
+                            "description": "What type of variable is the input data?",
+                            "type": "string",
+                            "enum": [
+                                "continuous", "logit", "threshold_probbability", "quantile"
+                            ]
                         }
                     },
                     "required": ["filename", "variable", "obs_sources"]
@@ -70,6 +78,10 @@
                         "domain_name": {
                             "description": "Retrieve projection from this predefined domain name (e.g. meps)",
                             "type": "string"
+                        },
+                        "global_attributes": {
+                            "description": "Dictionary of global attributes to write to each output file",
+                            "type": "object"
                         }
                     },
                     "required": ["filename_pattern"]
@@ -106,6 +118,27 @@
                 }
             } ,
             "required": ["frost"]
+        },
+
+        "AnemoiDatasetSource": {
+            "description": "Zarr dataset that can be read by anemoi-datasets",
+            "type": "object",
+            "properties": {
+                "anemoidataset": {
+                    "type": "object",
+                    "properties": {
+                        "dataset": {
+                            "description": "Anemoi datasets open_dataset recipe, dictionary"
+                        },
+                        "variable": {
+                            "description": "Variable name",
+                            "type": "string"
+                        }
+                    },
+                    "required": ["dataset", "variable"]
+                }
+            },
+            "required": ["anemoidataset"]
         }
     },
     "properties": {
@@ -122,25 +155,38 @@
             "type": "string"
         },
         "leadtimes": {
-            "description": "What leadtimes should be provided in the output?",
+            "description": "How many leadtimes should be provided in the output? This includes the analysis leadtime.",
             "type": "integer",
             "minimum": 1
-        },
-        "timestep": {
-            "description": "What is the timestep between each leadtime? E.g. 6h",
-            "type": "string"
         },
         "release_cache": {
             "description": "This option releases unused cached/memory used by torch",
             "type": "boolean"
+        },
+        "workdir": {
+            "description": "Path to work directory",
+            "type": "string"
+        },
+        "dataset": {
+            "description": "Input dataset. Can be a single path, or two datasets merged by cutout. Example dataset.cutout = ['/path/dataset1', '/path/dataset2' ]",
+            "min_distance_km": {"type": "int", "minimum": 0},
+            "adjust": {"type": "string"}
         },
         "routing": {
             "type": "array",
             "items":  {
                 "type": "object",
                 "properties": {
-                    "decoder_index": {"type": "integer", "minimum": 0},
-                    "domain_index": {"type": "integer", "minimum": 0},
+                    "decoder_index": {
+                        "type": "integer",
+                        "description": "Select this decoder. If model only has one decoder, use 0",
+                        "minimum": 0
+                    },
+                    "domain_index": {
+                        "type": "integer",
+                        "description": "If the model has multiple domains, only extract this domain. If empty, the whole grid is used.",
+                        "minimum": 0
+                    },
                     "outputs": {
                         "type": "array",
                         "items": {
@@ -150,9 +196,10 @@
                             ]
                         }
                     }
-                }
+                },
+                "required": ["decoder_index", "outputs"]
             }
         }
     },
-    "required": ["leadtimes", "frequency", "timestep", "release_cache"]
+    "required": ["leadtimes", "frequency", "release_cache", "dataset", "workdir"]
 }
