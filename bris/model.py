@@ -2,7 +2,8 @@ import logging
 import math
 import os
 from abc import abstractmethod
-from typing import Any, Iterable
+from collections.abc import Iterable
+from typing import Any
 
 import numpy as np
 import pytorch_lightning as pl
