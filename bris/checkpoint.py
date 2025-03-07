@@ -139,7 +139,7 @@ class Checkpoint:
         return deepcopy({layer_name : param for layer_name, param in _model_params})
         
 
-    def update_graph(self, path: str) -> HeteroData:
+    def replace_graph(self, path: str) -> HeteroData:
         """
         Replaces existing graph object within model instance.
         The new graph is either provided as an torch file or
@@ -152,15 +152,15 @@ class Checkpoint:
             HeteroData graph object
         """
 
-        # TODO: add check which checks the keys within the graph
-        # the model weights have names tied to f.ex stretched grid or grid.
-        # if the model is trained with keys named grid and we force new graph with keys
-        # stretched grid, the model instance will complain
-        # (not 100% sure but i think i have experienced this)
+        # TODO: Check the keys within the graph. The model weights have names
+        # tied to f.ex stretched grid or grid. If the model is trained with
+        # keys named grid and we force new graph with keys stretched grid, the
+        # model instance will complain. Not 100% sure but i think i have
+        # experienced this. -Aram.
 
-        if self.UPDATE_GRAPH:
+        if self.graph_replaced:
             raise RuntimeError(
-                "Graph has already been updated. Mutliple updates is not allowed"
+                "Graph has already been replaced. Mutliple replacements are not allowed."
             )
 
         if not os.path.exists(path):
@@ -172,10 +172,10 @@ class Checkpoint:
         self._model_instance.graph_data = external_graph
         self._model_instance.config = self.config
 
-        LOGGER.info("Rebuilding layers to support new graph")
+        LOGGER.info("Rebuilding layers to support new graph.")
 
         self._model_instance._build_model()
-        self.UPDATE_GRAPH = True
+        self.graph_replaced = True
 
         _model_params = self._model_params
         
@@ -183,7 +183,7 @@ class Checkpoint:
             param.data = _model_params[layer_name].data
 
         LOGGER.info(
-            "Successfully built model with external graph and reassigning model weights!"
+            "Successfully built model with external graph and reassigning model weights."
         )
         return self._model_instance.graph_data
 
