@@ -1,7 +1,8 @@
 import logging
 import random
+from collections.abc import Iterator
 from functools import cached_property
-from typing import Callable, Iterator
+from typing import Callable
 
 import numpy as np
 import torch
