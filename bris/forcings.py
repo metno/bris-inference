@@ -1,6 +1,7 @@
+import datetime
+
 import numpy as np
 from earthkit.data.utils.dates import to_datetime
-import datetime
 
 """
 def phase_of_day(time) -> float:

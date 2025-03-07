@@ -7,8 +7,4 @@ def main():
     bris.__main__.main()
 
 
-from . import callbacks
-from . import outputs
-from . import sources
-from . import conventions
-from . import utils
+from . import callbacks, conventions, outputs, sources, utils

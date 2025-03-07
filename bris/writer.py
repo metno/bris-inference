@@ -1,5 +1,5 @@
-from pytorch_lightning.callbacks import BasePredictionWriter
 import numpy as np
+from pytorch_lightning.callbacks import BasePredictionWriter
 
 
 class CustomWriter(BasePredictionWriter):

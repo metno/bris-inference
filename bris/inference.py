@@ -1,5 +1,4 @@
 import logging
-
 from functools import cached_property
 from typing import Any, Optional
 
@@ -7,9 +6,10 @@ import pytorch_lightning as pl
 import torch
 from anemoi.utils.config import DotDict
 
+from bris.ddp_strategy import DDPGroupStrategy
+
 from .checkpoint import Checkpoint
 from .data.datamodule import DataModule
-from bris.ddp_strategy import DDPGroupStrategy
 
 LOGGER = logging.getLogger(__name__)
 

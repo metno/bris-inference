@@ -47,6 +47,6 @@ class Source:
         raise NotImplementedError()
 
 
+from .anemoidataset import AnemoiDataset
 from .frost import Frost
 from .verif import Verif
-from .anemoidataset import AnemoiDataset

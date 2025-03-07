@@ -2,24 +2,21 @@ import logging
 from functools import cached_property
 from typing import Any
 
+import anemoi.datasets.data.select
+import anemoi.datasets.data.subset
 import numpy as np
 import pytorch_lightning as pl
 from anemoi.datasets import open_dataset
 from anemoi.utils.config import DotDict
 from anemoi.utils.dates import frequency_to_seconds
 from hydra.utils import instantiate
-
 from omegaconf import DictConfig, OmegaConf
 from torch.utils.data import DataLoader, IterableDataset
-import anemoi.datasets.data.subset
-import anemoi.datasets.data.select
 
 from bris.checkpoint import Checkpoint
 from bris.data.dataset import worker_init_func
-from bris.data.grid_indices import FullGrid
+from bris.data.grid_indices import BaseGridIndices, FullGrid
 from bris.utils import recursive_list_to_tuple
-
-from bris.data.grid_indices import BaseGridIndices
 
 LOGGER = logging.getLogger(__name__)
 
@@ -164,7 +161,7 @@ class DataModule(pl.LightningDataModule):
         graph_cfg = self.ckptObj.config.graph
 
         # Multi_encoder/decoder
-        if "input_nodes" in graph_cfg.keys():
+        if "input_nodes" in graph_cfg:
             grid_indices = []
             for dset in graph_cfg.input_nodes.values():
                 gi = FullGrid(nodes_name=dset, reader_group_size=reader_group_size)
@@ -225,12 +222,12 @@ class DataModule(pl.LightningDataModule):
         if isinstance(name_to_index, tuple):
             altitudes = ()
             for i, n2i in enumerate(name_to_index):
-                if "z" in n2i.keys():
+                if "z" in n2i:
                     altitudes += (self.data_reader[0][i][n2i["z"], 0, :] / 9.81,)
                 else:
                     altitudes += (None,)
         else:
-            if "z" in name_to_index.keys():
+            if "z" in name_to_index:
                 altitudes = (self.data_reader[0][name_to_index["z"], 0, :] / 9.81,)
             else:
                 altitudes = (None,)
