@@ -3,16 +3,15 @@ import math
 import logging 
 import numpy as np
 from abc import abstractmethod
-from typing import Optional, Any, Iterable
+from typing import Any, Iterable
 
 import torch 
 import pytorch_lightning as pl
-from omegaconf import DictConfig
 from torch.distributed.distributed_c10d import ProcessGroup
 
 from .forcings import get_dynamic_forcings
 from .checkpoint import Checkpoint
-from .utils import check_anemoi_training
+from .utils import check_anemoi_training, timedelta64_from_timestep
 
 LOGGER = logging.getLogger(__name__)
 
@@ -122,11 +121,7 @@ class BrisPredictor(BasePredictor):
         self.data_indices = self.model.data_indices
         self.metadata = checkpoint.metadata
 
-        #TODO: where should these come from, add asserts?
-        self.frequency = self.metadata.config.data.frequency #["config"]["data"]["frequency"]
-        if isinstance(self.frequency, str) and self.frequency[-1] == 'h':
-            self.frequency = int(self.frequency[0:-1])
-
+        self.timestep = timedelta64_from_timestep(self.metadata.config.data.timestep)
         self.forecast_length = forecast_length
         self.latitudes = data_reader.latitudes
         self.longitudes = data_reader.longitudes
@@ -221,7 +216,7 @@ class BrisPredictor(BasePredictor):
         batch = self.allgather_batch(batch)
         
         batch, time_stamp = batch
-        time = np.datetime64(time_stamp[0], 'h') #Consider not forcing 'h' here and instead generalize time + self.frequency
+        time = np.datetime64(time_stamp[0])
         times = [time]
         y_preds = torch.empty((batch.shape[0], self.forecast_length, batch.shape[-2], len(self.variable_indices_input)), dtype=batch.dtype, device="cpu")#.cpu()
 
@@ -237,7 +232,7 @@ class BrisPredictor(BasePredictor):
         with torch.autocast(device_type= "cuda", dtype=torch.bfloat16):
             for fcast_step in range(self.forecast_length-1):
                 y_pred = self(x)
-                time += self.frequency
+                time += self.timestep
                 x = self.advance_input_predict(x, y_pred, time)
                 y_preds[:, fcast_step+1] = self.model.post_processors(y_pred, in_place=True)[:,0,:,self.variable_indices_output].cpu()
 
@@ -268,10 +263,7 @@ class MultiEncDecPredictor(BasePredictor):
         self.model=checkpoint.model
         self.metadata = checkpoint.metadata
 
-        self.frequency = self.metadata["config"]["data"]["frequency"]
-        if isinstance(self.frequency, str) and self.frequency[-1] == 'h':
-            self.frequency = int(self.frequency[0:-1])
-
+        self.timestep = timedelta64_from_timestep(self.metadata.config.data.timestep)
         self.forecast_length = forecast_length
         self.latitudes = data_reader.latitudes
         self.longitudes = data_reader.longitudes
@@ -344,7 +336,7 @@ class MultiEncDecPredictor(BasePredictor):
             forcings.update(self.static_forcings[i])
 
             for forcing, value in forcings.items():
-                if type(value) == np.ndarray:
+                if np.ndarray is type(value):
                     x[i][:, -1, :, :, data_indices[i].internal_model.input.name_to_index[forcing]] = torch.from_numpy(value)
                 else:
                     x[i][:, -1, :, :, data_indices[i].internal_model.input.name_to_index[forcing]] = value
@@ -359,7 +351,7 @@ class MultiEncDecPredictor(BasePredictor):
         multistep = self.metadata["config"]["training"]["multistep_input"]
 
         batch, time_stamp = batch
-        time = np.datetime64(time_stamp[0], 'h') #Consider not forcing 'h' here and instead generalize time + self.frequency
+        time = np.datetime64(time_stamp[0])
         times = [time]
         y_preds = [torch.empty((batch[i].shape[0], self.forecast_length, batch[i].shape[-2], len(self.variable_indices_input[i])), dtype=batch[i].dtype, device="cpu") for i in range(num_dsets)]
         #Insert analysis for t=0
@@ -374,7 +366,7 @@ class MultiEncDecPredictor(BasePredictor):
         with torch.amp.autocast(device_type= "cuda", dtype=torch.bfloat16):
             for fcast_step in range(self.forecast_length-1):
                 y_pred = self(x)
-                time += self.frequency
+                time += self.timestep
                 x = self.advance_input_predict(x, y_pred, time)
                 y_pp = self.model.post_processors(y_pred, in_place=False)
                 for i in range(num_dsets):

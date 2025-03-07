@@ -271,6 +271,5 @@ class DataModule(pl.LightningDataModule):
             if hasattr(dataset, "datasets"):
                 return dataset.datasets[dataset_index].field_shape
             return dataset.field_shape
-        else:
-            assert (decoder_index == 0 and dataset_index == 0)
-            return data_reader.field_shape
+        assert (decoder_index == 0 and dataset_index == 0)
+        return data_reader.field_shape

@@ -1,13 +1,14 @@
+import datetime
+
 import gridpp
 import numpy as np
 import xarray as xr
-from bris import utils
+from bris import projections, utils
 from bris.conventions import cf
 from bris.conventions.metno import Metno
 from bris.outputs import Output
 from bris.outputs.intermediate import Intermediate
 from bris.predict_metadata import PredictMetadata
-from bris import projections
 
 
 class Netcdf(Output):
@@ -38,12 +39,14 @@ class Netcdf(Output):
         domain_name=None,
         mask_file=None,
         mask_field=None,
+        global_attributes=dict(),
     ):
         """
         Args:
             filename_pattern: Save predictions to this filename after time tokens are expanded
             interp_res: Interpolate to this resolution [degrees] on a lat/lon grid
             variables: If None, predict all variables
+            global_attributes (dict): Write these global attributes in the output file
         """
         super().__init__(predict_metadata, extra_variables)
 
@@ -66,6 +69,7 @@ class Netcdf(Output):
         self.latrange = latrange
         self.lonrange = lonrange
         self.mask_file = mask_file
+        self.global_attributes = global_attributes
 
         if domain_name is not None:
             self.proj4_str = projections.get_proj4_str(domain_name)
@@ -390,6 +394,13 @@ class Netcdf(Output):
             attrs["grid_mapping"] = "projection"
             attrs["coordinates"] = "latitude longitude"
             self.ds[ncname].attrs = attrs
+
+        # Add global attributes
+        datestr = datetime.datetime.now(datetime.timezone.utc).strftime("%Y-%m-%d %H:%M:%S +00:00")
+        self.ds.attrs["history"] = f"{datestr} Created by bris-inference"
+        self.ds.attrs["Convensions"] = "CF-1.6"
+        for key, value in self.global_attributes.items():
+            self.ds.attrs[key] = value
 
         utils.create_directory(filename)
         self.ds.to_netcdf(filename)

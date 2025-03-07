@@ -1,0 +1,73 @@
+start_date: 2023-05-31T18:00:00 
+end_date: 2023-06-01T12:00:00   
+
+checkpoint_path: PATH_TO_CHECKPOINT.ckpt #Full path to checkpoint
+
+leadtimes: 12 # Number of leadtimes in each forecast 
+frequency: 6h 
+
+dataset: 
+  cutout:
+    - dataset: PATH_TO_LAM_DATASET
+    - dataset: PATH_TO_GLOBAL_DATASET
+  min_distance_km: 0
+  adjust: all
+
+workdir: PATH_TO_WORK_DIRECTORY #Used to store temporary files for verif output
+
+dataloader:
+  datamodule:
+    _target_: bris.data.dataset.NativeGridDataset
+    _convert_: all
+
+# Optional dataloader settings
+#  prefetch_factor: 2 
+#  num_workers: 1
+
+hardware:
+  num_gpus_per_node: 1
+  num_gpus_per_model: 1
+  num_nodes: 1
+
+# If the user wants to release GPU cache and memory
+# This option releases unused cached/memory used by torch
+release_cache: False
+
+model:
+  _target_: bris.model.BrisPredictor
+  _convert_: all
+
+output: PATH_TO_OUTPUT #Not a required field, used in output path in routing
+
+routing:
+  - decoder_index: 0
+    domain_index: 0
+    outputs:
+      # Forecasts
+      - netcdf:
+          filename_pattern: ${output}/pred_%Y%m%dT%HZ.nc
+          variables: [2t, msl]
+          extra_variables: [ws] #Compute wind speed from 10u and 10v
+      # Verification against observatins (stored in a verif netcdf file)
+      - verif:
+          filename: ${output}/verif/t2m/VERIF_FILENAME.nc 
+          variable: 2t
+          elev_gradient: -0.0065 #Height correction
+          units: degC
+          obs_sources:
+            - verif:
+                filename: PATH_TO_VERIF_FILE #Verif file with observations
+      # Point verification against analysis (typically use the inference dataset with thinning)
+      - verif:
+          filename: ${output}/verif/mslp/VERIF_FILENAME.nc
+          variable: msl
+          units: hPa
+          obs_sources:
+          - anemoidataset:
+              dataset: ${verif_dataset}
+              variable: 2t 
+#Add outputs for decoder_index 0, domain_index 1 for global domain
+
+verif_dataset: 
+  dataset: PATH_TO_LAM_DATASET
+  thinning: 20 

@@ -1,0 +1,50 @@
+start_date: 2023-05-31T18:00:00
+end_date: 2023-06-01T12:00:00
+
+checkpoint_path: /pfs/lustrep4/scratch/project_465001383/aifs/experiments/reference/o96_pretrain/checkpoint/3fb85b72ba9647d5ae4fe86ce1b5a885/inference-last.ckpt
+
+leadtimes: 12
+frequency: 6h
+
+dataset: aifs-od-an-oper-0001-mars-n320-2023-2024-6h-v2.zarr
+workdir: test
+
+dataloader:
+  datamodule:
+    _target_: bris.data.dataset.NativeGridDataset #anemoi.training.data.dataset.ZipDataset
+    _convert_: all
+
+#  prefetch_factor: 2
+#  num_workers: 1
+
+hardware:
+  num_gpus_per_node: 8
+  num_gpus_per_model: 8
+  num_nodes: 1
+
+# If the user wants to release GPU cache and memory
+# This option releases unused cached/memory used by torch
+release_cache: False
+
+model:
+  _target_: bris.model.BrisPredictor
+  _convert_: all
+
+routing:
+  - decoder_index: 0
+    domain_index: 0
+    outputs:
+      - netcdf:
+          filename_pattern: /pfs/lustrep4/scratch/project_465001383/haugenha/anemoi-training-ref-updated/run-anemoi/lumi/predictions/n320_pred_%Y%m%dT%HZ.nc
+          variables: [2t, msl]
+          extra_variables: [ws] #Compute wind speed from 10u and 10v
+      - verif:
+          filename: /pfs/lustrep4/scratch/project_465001383/haugenha/anemoi-training-ref-updated/run-anemoi/lumi/verif/2t/n320_at_ref.nc
+          variable: 2t
+          units: degC
+          obs_sources:
+            - verif:
+                filename: /pfs/lustrep4/scratch/project_465001383/aifs/old_project_misc/verification/202306_202405/t2m/AIFS_legendary_gnome_roll4.nc
+            - anemoidataset:
+                dataset: test.zarr
+                variable: 2t

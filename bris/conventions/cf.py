@@ -38,6 +38,10 @@ def get_metadata(anemoi_variable: str) -> dict:
         cfname = "wind_speed"
         leveltype = "height"
         level = 10
+    elif anemoi_variable == "10fg":
+        cfname = "wind_speed_of_gust"
+        leveltype = "height"
+        level = 10
     elif anemoi_variable == "100u":
         cfname = "x_wind"
         leveltype = "height"
@@ -66,12 +70,51 @@ def get_metadata(anemoi_variable: str) -> dict:
         cfname = "surface_air_pressure"
         leveltype = "height"
         level = 0
+    elif anemoi_variable == "vis":
+        cfname = "visibility_in_air"
+        leveltype = "height"
+        level = 0
+    elif anemoi_variable == "cbh":
+        cfname = "cloud_base_altitude"
+        leveltype = "height"
+        level = 0
+    elif anemoi_variable == "ws":
+        cfname = "wind_speed"
+        leveltype = "height"
+        level = 10
+    elif anemoi_variable == "fog":
+        cfname = "fog_type_cloud_area_fraction"
+        leveltype = "height"
+        level = 0
+    elif anemoi_variable == "hcc":
+        cfname = "high_type_cloud_area_fraction"
+        leveltype = "height"
+        level = 0
+    elif anemoi_variable == "lcc":
+        cfname = "low_type_cloud_area_fraction"
+        leveltype = "height"
+        level = 0
+    elif anemoi_variable == "mcc":
+        cfname = "medium_type_cloud_area_fraction"
+        leveltype = "height"
+        level = 0
+    elif anemoi_variable == "tcc":
+        cfname = "cloud_area_fraction"
+        leveltype = "height"
+        level = 0
+    elif anemoi_variable == "ssrd":
+        cfname = "integral_of_surface_downwelling_shortwave_flux_in_air_wrt_time"
+        leveltype = "height"
+        level = 0
+    elif anemoi_variable == "strd":
+        cfname = "integral_of_surface_downwelling_longwave_flux_in_air_wrt_time"
+        leveltype = "height"
+        level = 0
     else:
 
         words = anemoi_variable.split("_")
         if len(words) == 2 and words[0] in ["t", "u", "v", "z", "q", "w"]:
-            name, level = words
-            level = int(level)
+            name, level = words[0], int(words[1])
             if name == "t":
                 cfname = "air_temperature"
             elif name == "u":
@@ -93,7 +136,7 @@ def get_metadata(anemoi_variable: str) -> dict:
             leveltype = None
             cfname = anemoi_variable
 
-    return dict(cfname=cfname, leveltype=leveltype, level=level)
+    return {"cfname": cfname, "leveltype": leveltype, "level": level}
 
 
 def get_attributes_from_leveltype(leveltype):
@@ -104,20 +147,21 @@ def get_attributes_from_leveltype(leveltype):
             "standard_name": "air_pressure",
             "positive": "up",
         }
-    elif leveltype == "height":
+    if leveltype == "height":
         return {
             "units": "m",
             "description": "height above ground",
             "long_name": "height",
             "positive": "up",
         }
-    elif leveltype == "height_above_msl":
+    if leveltype == "height_above_msl":
         return {
             "units": "m",
             "description": "height above MSL",
             "long_name": "height",
             "positive": "up",
         }
+    # TODO: return a default value or raise error
 
 
 def get_attributes(cfname):
@@ -155,6 +199,7 @@ def get_attributes(cfname):
         "x_wind",
         "y_wind",
         "wind_speed",
+        "wind_speed_of_gust",
         "vertical_velocity",
         "wind_speed_of_gust",
     ]:
@@ -165,12 +210,18 @@ def get_attributes(cfname):
         ret["units"] = "1"
     elif cfname in ["geopotential", "surface_geopotential"]:
         ret["units"] = "m^2/s^2"
-    elif cfname in ["precipitation_amount"]:
+    elif cfname in ["precipitation_amount", "precipitation_amount_acc"]:
         ret["units"] = "kg/m^2"
     elif cfname in ["air_pressure_at_sea_level", "surface_air_pressure"]:
         ret["units"] = "Pa"
     elif cfname in ["specific_humidity"]:
         ret["units"] = "kg/kg"
+    elif cfname in ["cloud_base_altitude", "visibility_in_air"]:
+        ret["units"] = "m"
+    elif "area_fraction" in cfname:
+        ret["units"] = "1"
+    elif cfname in ["integral_of_surface_downwelling_longwave_flux_in_air_wrt_time", "integral_of_surface_downwelling_shortwave_flux_in_air_wrt_time"]:
+        ret["units"] = "J/m^2"
 
     # Unknown cfname, let's not write any attributes
     else:

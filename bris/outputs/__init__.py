@@ -42,7 +42,7 @@ def get_required_variables(name, init_args):
             variables = init_args["variables"]
             if "extra_variables" in init_args:
                 for name in init_args["extra_variables"]:
-                    if name == "10si":
+                    if name == "ws":
                         variables += ["10u", "10v"]
             variables = list(set(variables))
             return variables
@@ -50,7 +50,7 @@ def get_required_variables(name, init_args):
             return [None]
 
     elif name == "verif":
-        if init_args["variable"] == "10si":
+        if init_args["variable"] == "ws":
             return ["10u", "10v"]
         else:
             return [init_args["variable"]]
@@ -87,7 +87,7 @@ class Output:
         # Append extra variables to prediction
         extra_pred = list()
         for name in self.extra_variables:
-            if name == "10si":
+            if name == "ws":
                 Ix = self.pm.variables.index("10u")
                 Iy = self.pm.variables.index("10v")
                 curr = np.sqrt(pred[..., [Ix]]**2 + pred[..., [Iy]]**2)
