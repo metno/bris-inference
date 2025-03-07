@@ -60,11 +60,10 @@ class Verif(Output):
         self.elev_gradient = elev_gradient
         self.max_distance = max_distance
 
-        if self.pm.altitudes is None and \
-            elev_gradient is not None:
-                raise ValueError(
-                    "Cannot do elevation gradient since input field does not have altitude"
-                )
+        if self.pm.altitudes is None and elev_gradient is not None:
+            raise ValueError(
+                "Cannot do elevation gradient since input field does not have altitude"
+            )
 
         if self._is_gridded_input:
             if self.pm.altitudes is not None:

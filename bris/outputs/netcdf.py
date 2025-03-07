@@ -70,7 +70,9 @@ class Netcdf(Output):
         self.latrange = latrange
         self.lonrange = lonrange
         self.mask_file = mask_file
-        self.global_attributes = global_attributes if global_attributes is not None else dict()
+        self.global_attributes = (
+            global_attributes if global_attributes is not None else dict()
+        )
 
         if domain_name is not None:
             self.proj4_str = projections.get_proj4_str(domain_name)
