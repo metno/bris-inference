@@ -3,7 +3,7 @@ import os
 
 from copy import deepcopy
 from functools import cached_property
-from typing import Any, Optional
+from typing import Any
 
 import torch
 from anemoi.utils.checkpoints import load_metadata
@@ -24,6 +24,7 @@ class Checkpoint:
 
         self.path = path
         self.set_base_seed
+        self.graph_replaced = False
 
     @cached_property
     def metadata(self) -> dict:
@@ -167,13 +168,12 @@ class Checkpoint:
             raise FileNotFoundError(f"The given path <{path}> does not exist")
 
         external_graph = torch.load(path, map_location="cpu",weights_only=False)
-        LOGGER.info(f"Loaded external graph from <{path}>")
+        LOGGER.info("Loaded external graph from <%s>", path)
 
         self._model_instance.graph_data = external_graph
         self._model_instance.config = self.config
 
         LOGGER.info("Rebuilding layers to support new graph.")
-
         self._model_instance._build_model()
         self.graph_replaced = True
 
