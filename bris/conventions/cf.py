@@ -167,20 +167,14 @@ def get_attributes(cfname):
     ret = {"standard_name": cfname}
 
     # Coordinate variables
-    if cfname == "forecast_reference_time":
-        ret["units"] = "seconds since 1970-01-01 00:00:00 +00:00"
-    elif cfname == "time":
+    if cfname in ["forecast_reference_time", "time"]:
         ret["units"] = "seconds since 1970-01-01 00:00:00 +00:00"
     elif cfname == "latitude":
         ret["units"] = "degrees_north"
-    elif cfname == "surface_altitude":
+    elif cfname in ["surface_altitude", "projection_x_coordinate", "projection_y_coordinate"]:
         ret["units"] = "m"
     elif cfname == "longitude":
         ret["units"] = "degrees_east"
-    elif cfname == "projection_x_coordinate":
-        ret["units"] = "m"
-    elif cfname == "projection_y_coordinate":
-        ret["units"] = "m"
     elif cfname == "realization":
         pass
     elif cfname == "air_pressure":
