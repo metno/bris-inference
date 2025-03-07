@@ -47,6 +47,7 @@ dependencies = [
     "zarr<=2.17",
     "anemoi-models",
     "anemoi-training>=0.1.0",
+    "pip~=25.0.0",
 ]
 
 optional-dependencies.tests = [
