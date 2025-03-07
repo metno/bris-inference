@@ -117,27 +117,26 @@ class Checkpoint:
             if hasattr(self._model_instance, "graph_data")
             else None
         )
-    
+
     @cached_property
     def _model_params(self) -> dict:
         """
-            The state of model being cached in CPU memory.
-            Keep in mind this is only the model weights and its
-            layer names, i.e does not include optimizer state.
-            It also worth mentioining this model.named_parameters()
-            and not model.state_dict.
+        The state of model being cached in CPU memory.
+        Keep in mind this is only the model weights and its
+        layer names, i.e does not include optimizer state.
+        It also worth mentioining this model.named_parameters()
+        and not model.state_dict.
 
-            Args:
-                None
-            Return
-                torch dict containing the state of the model.
-                Keys: name of the layer
-                Value: The state for a given layer
+        Args:
+            None
+        Return
+            torch dict containing the state of the model.
+            Keys: name of the layer
+            Value: The state for a given layer
         """
 
         _model_params = tuple(self._model_instance.named_parameters())
-        return deepcopy({layer_name : param for layer_name, param in _model_params})
-        
+        return deepcopy({layer_name: param for layer_name, param in _model_params})
 
     def update_graph(self, path: Optional[str] = None) -> HeteroData:
         """
@@ -164,24 +163,25 @@ class Checkpoint:
             )
         else:
             if path and os.path.exists(path):
-                
-                external_graph = torch.load(path, map_location="cpu",weights_only=False)
+                external_graph = torch.load(
+                    path, map_location="cpu", weights_only=False
+                )
                 LOGGER.info("Loaded external graph from path")
-                
+
                 self._model_instance.graph_data = external_graph
-                self._model_instance.config = self.config #conf 
+                self._model_instance.config = self.config  # conf
 
                 LOGGER.info("Rebuilding layers to support new graph")
-                
-                try: 
+
+                try:
                     self._model_instance._build_model()
                     self.UPDATE_GRAPH = True
-                
+
                 except Exception as e:
                     raise RuntimeError("Failed to rebuild model with new graph.") from e
 
                 _model_params = self._model_params
-                
+
                 for layer_name, param in self._model_instance.named_parameters():
                     param.data = _model_params[layer_name].data
 
@@ -189,7 +189,7 @@ class Checkpoint:
                     "Successfully builded model with external graph and reassigning model weights!"
                 )
                 return self._model_instance.graph_data
-                
+
             else:
                 # future implementation
                 # _graph = anemoi.graphs.create() <-- skeleton
@@ -204,13 +204,15 @@ class Checkpoint:
         If not
 
         """
-        os.environ["ANEMOI_BASE_SEED"]="1234"
-        os.environ["AIFS_BASE_SEED"]="1234"
+        os.environ["ANEMOI_BASE_SEED"] = "1234"
+        os.environ["AIFS_BASE_SEED"] = "1234"
         LOGGER.info("ANEMOI_BASE_SEED and ANEMOI_BASE_SEED set to 1234")
-    
+
     def set_encoder_decoder_num_chunks(self, chunks: int = 1) -> None:
-        assert isinstance(chunks, int), f"Expecting chunks to be int, got: {chunks}, {type(chunks)}"
-        os.environ["ANEMOI_INFERENCE_NUM_CHUNKS"] = str(chunks) 
+        assert isinstance(chunks, int), (
+            f"Expecting chunks to be int, got: {chunks}, {type(chunks)}"
+        )
+        os.environ["ANEMOI_INFERENCE_NUM_CHUNKS"] = str(chunks)
         LOGGER.info("Encoder and decoder are chunked to %s", chunks)
 
     @cached_property

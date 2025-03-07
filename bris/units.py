@@ -1,4 +1,4 @@
-""" Unit conversion module
+"""Unit conversion module
 
 This module handles conversion between different units and provides a set of preferred units that
 should be used internally in yrprod.

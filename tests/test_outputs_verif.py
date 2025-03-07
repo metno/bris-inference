@@ -14,7 +14,9 @@ def setup():
 
 
 def test_1():
-    filename = os.path.dirname(os.path.abspath(__file__)) + "/files/verif_input_with_units.nc"
+    filename = (
+        os.path.dirname(os.path.abspath(__file__)) + "/files/verif_input_with_units.nc"
+    )
     sources = [VerifInput(filename)]
 
     variables = ["u_800", "u_600", "2t", "v_500", "10u"]
@@ -36,7 +38,9 @@ def test_1():
         workdir = os.path.join(temp_dir, "verif_workdir")
         frt = 1672552800
         for altitudes in [np.arange(len(lats)), None]:
-            pm = PredictMetadata(variables, lats, lons, altitudes, leadtimes, num_members, field_shape)
+            pm = PredictMetadata(
+                variables, lats, lons, altitudes, leadtimes, num_members, field_shape
+            )
             elev_gradient = None
             for max_distance in [None, 100000]:
                 output = Verif(
@@ -60,7 +64,9 @@ def test_1():
                 output.finalize()
 
         altitudes = np.arange(len(lats))
-        pm = PredictMetadata(variables, lats, lons, altitudes, leadtimes, num_members, field_shape)
+        pm = PredictMetadata(
+            variables, lats, lons, altitudes, leadtimes, num_members, field_shape
+        )
         elev_gradient = 0
         for max_distance in [None, 100000]:
             output = Verif(
@@ -86,7 +92,9 @@ def test_1():
 
 def test_2():
     """Test verif output with logits and probability variables."""
-    filename = os.path.dirname(os.path.abspath(__file__)) + "/files/verif_input_logits.nc"
+    filename = (
+        os.path.dirname(os.path.abspath(__file__)) + "/files/verif_input_logits.nc"
+    )
     sources = [VerifInput(filename)]
 
     variables = ["te"]
@@ -107,7 +115,9 @@ def test_2():
         ofilename = os.path.join(temp_dir, "otest.nc")
         workdir = os.path.join(temp_dir, "verif_workdir")
         altitudes = np.arange(len(lats))
-        pm = PredictMetadata(variables, lats, lons, altitudes, leadtimes, num_members, field_shape)
+        pm = PredictMetadata(
+            variables, lats, lons, altitudes, leadtimes, num_members, field_shape
+        )
         elev_gradient = 0
         # Test for logits:
         for max_distance in [None, 100000]:
@@ -144,6 +154,7 @@ def test_2():
             )
 
             output.finalize()
+
 
 if __name__ == "__main__":
     test_1()

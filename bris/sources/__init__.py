@@ -13,9 +13,12 @@ def instantiate(name: str, init_args: dict):
     elif name == "verif":
         return sources.verif.Verif(init_args["filename"])
     elif name == "anemoidataset":
-        return sources.anemoidataset.AnemoiDataset(init_args["dataset"], init_args["variable"])
+        return sources.anemoidataset.AnemoiDataset(
+            init_args["dataset"], init_args["variable"]
+        )
     else:
         raise ValueError(f"Invalid source: {name}")
+
 
 class Source:
     """Abstract base class that retrieves observations"""
@@ -23,7 +26,7 @@ class Source:
     def __init__(self):
         pass
 
-    def get(self, variable:str, start_time:int, end_time:int, frequency:int):
+    def get(self, variable: str, start_time: int, end_time: int, frequency: int):
         """Extracts data for a given variable for a time period
 
         Args:
@@ -42,6 +45,7 @@ class Source:
     @property
     def units(self) -> str:
         raise NotImplementedError()
+
 
 from .frost import Frost
 from .verif import Verif

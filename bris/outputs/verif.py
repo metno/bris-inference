@@ -265,7 +265,6 @@ class Verif(Output):
             fcst[i, ...] = self.compute_consensus(curr)
 
         if self.variable_type in ["logit", "threshold_probability"]:
-
             cdf = np.copy(fcst)
             # Apply sigmoid activation function to logits
             if self.variable_type == "logit":
@@ -295,7 +294,10 @@ class Verif(Output):
                     for t, threshold in enumerate(self.thresholds):
                         cdf[i, ..., t] = self.compute_threshold_prob(curr, threshold)
 
-                        self.ds["cdf"] = (["time", "leadtime", "location", "threshold"], cdf)
+                        self.ds["cdf"] = (
+                            ["time", "leadtime", "location", "threshold"],
+                            cdf,
+                        )
 
             # Load quantile forecasts
             if len(self.quantile_levels) > 0 and self.num_members > 1:

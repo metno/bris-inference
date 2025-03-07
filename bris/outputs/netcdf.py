@@ -80,12 +80,12 @@ class Netcdf(Output):
             # If a mask was used during training:
             # Compute 1D->2D index to output 2D arrays by using a mask file
             self.ds_mask = xr.open_dataset(mask_file)
-            if 'time' in self.ds_mask.dims:
+            if "time" in self.ds_mask.dims:
                 mask = self.ds_mask.isel(time=0)[mask_field].values
             else:
                 mask = self.ds_mask[mask_field].values
             self.mask = mask == 1.0
-            
+
     def _add_forecast(self, times: list, ensemble_member: int, pred: np.array):
         if self.pm.num_members > 1:
             # Cache data with intermediate
@@ -167,8 +167,12 @@ class Netcdf(Output):
                     print("Warning: latrange/lonrange not handled in gridded fields")
 
                 if self.proj4_str:
-                    lats = np.reshape(self.pm.lats, self.pm.field_shape).astype(np.double)
-                    lons = np.reshape(self.pm.lons, self.pm.field_shape).astype(np.double)
+                    lats = np.reshape(self.pm.lats, self.pm.field_shape).astype(
+                        np.double
+                    )
+                    lons = np.reshape(self.pm.lons, self.pm.field_shape).astype(
+                        np.double
+                    )
                     x, y = projections.get_xy(lats, lons, self.proj4_str)
                 else:
                     x = np.arange(self.pm.field_shape[1]).astype(np.float32)
@@ -188,7 +192,9 @@ class Netcdf(Output):
                     x = self.ds_mask.x.values
                     y = self.ds_mask.y.values
                 else:
-                    raise AttributeError("Mask dataset does not contain projected coordinates variables 'x', 'y' or 'X', 'Y'")
+                    raise AttributeError(
+                        "Mask dataset does not contain projected coordinates variables 'x', 'y' or 'X', 'Y'"
+                    )
 
                 x_dim_name = c("projection_x_coordinate")
                 y_dim_name = c("projection_y_coordinate")
@@ -242,10 +248,7 @@ class Netcdf(Output):
 
                 if self.pm.altitudes is not None:
                     altitudes = self.pm.grid_altitudes.astype(np.double)
-                    self.ds[c("surface_altitude")] = (
-                        spatial_dims,
-                        altitudes
-                    )
+                    self.ds[c("surface_altitude")] = (spatial_dims, altitudes)
                 proj_attrs = dict()
                 if self.proj4_str is not None:
                     proj_attrs = projections.get_proj_attributes(self.proj4_str)
@@ -260,12 +263,16 @@ class Netcdf(Output):
                 if hasattr(self.ds_mask, "lat") and hasattr(self.ds_mask, "lon"):
                     lat = self.ds_mask.lat.values
                     lon = self.ds_mask.lon.values
-                elif hasattr(self.ds_mask, "latitude") and hasattr(self.ds_mask, "longitude"):
+                elif hasattr(self.ds_mask, "latitude") and hasattr(
+                    self.ds_mask, "longitude"
+                ):
                     lat = self.ds_mask.latitude.values
                     lon = self.ds_mask.longitude.values
                 else:
-                    raise ValueError("Mask dataset does not contain coordinates variables 'lat', 'lon' or 'latitude', 'longitude'")
-                
+                    raise ValueError(
+                        "Mask dataset does not contain coordinates variables 'lat', 'lon' or 'latitude', 'longitude'"
+                    )
+
                 self.ds[c("latitude")] = (
                     spatial_dims,
                     lat,
@@ -275,22 +282,17 @@ class Netcdf(Output):
                     lon,
                 )
                 if self.pm.altitudes is not None:
-                    altitudes_rec = np.nan * np.zeros(
-                        [len(y), len(x)], np.float32
-                    )
-                    # Reconstruct the 2D array 
+                    altitudes_rec = np.nan * np.zeros([len(y), len(x)], np.float32)
+                    # Reconstruct the 2D array
                     altitudes_rec[self.mask] = self.pm.altitudes
-                    self.ds[c("surface_altitude")] = (
-                        spatial_dims,
-                        altitudes_rec
-                        )
-                    
+                    self.ds[c("surface_altitude")] = (spatial_dims, altitudes_rec)
+
                 proj_attrs = dict()
                 if self.proj4_str is not None:
                     proj_attrs = projections.get_proj_attributes(self.proj4_str)
                 self.ds[c("projection")] = ([], 0, proj_attrs)
 
-            else: 
+            else:
                 self.ds[c("latitude")] = (
                     spatial_dims,
                     self.pm.lats,
@@ -300,10 +302,7 @@ class Netcdf(Output):
                     self.pm.lons,
                 )
                 if self.pm.altitudes is not None:
-                    self.ds[c("surface_altitude")] = (
-                        spatial_dims,
-                        self.pm.altitudes
-                    )
+                    self.ds[c("surface_altitude")] = (spatial_dims, self.pm.altitudes)
 
         for cfname in [
             "forecast_reference_time",
@@ -366,13 +365,13 @@ class Netcdf(Output):
                 )
                 for i in range(self.pm.num_members):
                     ar[:, :, :, i] = gridpp.nearest(ipoints, ogrid, curr[:, :, i])
-            elif self._is_masked: 
+            elif self._is_masked:
                 curr = pred[..., variable_index, :]
                 ar = np.nan * np.zeros(
                     [len(times), len(y), len(x), self.pm.num_members], np.float32
                 )
                 # Reconstruct the 2D array (nans where no data)
-                ar[:,self.mask,:] = curr
+                ar[:, self.mask, :] = curr
             else:
                 ar = np.reshape(pred[..., variable_index, :], shape)
 
@@ -396,7 +395,9 @@ class Netcdf(Output):
             self.ds[ncname].attrs = attrs
 
         # Add global attributes
-        datestr = datetime.datetime.now(datetime.timezone.utc).strftime("%Y-%m-%d %H:%M:%S +00:00")
+        datestr = datetime.datetime.now(datetime.timezone.utc).strftime(
+            "%Y-%m-%d %H:%M:%S +00:00"
+        )
         self.ds.attrs["history"] = f"{datestr} Created by bris-inference"
         self.ds.attrs["Convensions"] = "CF-1.6"
         for key, value in self.global_attributes.items():

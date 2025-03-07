@@ -13,7 +13,9 @@ def test_1():
     leadtimes = np.arange(0, 3600 * 4, 3600)
     num_members = 1
     field_shape = [1, 2]
-    pm = PredictMetadata(variables, lats, lons, altitudes, leadtimes, num_members, field_shape)
+    pm = PredictMetadata(
+        variables, lats, lons, altitudes, leadtimes, num_members, field_shape
+    )
 
     with tempfile.TemporaryDirectory() as temp_dir:
         pattern = os.path.join(temp_dir, "test_%Y%m%dT00Z.nc")
@@ -28,6 +30,7 @@ def test_1():
             output.add_forecast(times, member, pred)
             output.finalize()
 
+
 def test_domain_name():
     variables = ["u_800", "u_600", "2t", "v_500", "10u"]
     lats = np.array([1, 2])
@@ -36,7 +39,9 @@ def test_domain_name():
     leadtimes = np.arange(0, 3600 * 4, 3600)
     num_members = 1
     field_shape = [1, 2]
-    pm = PredictMetadata(variables, lats, lons, altitudes, leadtimes, num_members, field_shape)
+    pm = PredictMetadata(
+        variables, lats, lons, altitudes, leadtimes, num_members, field_shape
+    )
 
     with tempfile.TemporaryDirectory() as temp_dir:
         pattern = os.path.join(temp_dir, "test2_%Y%m%dT00Z.nc")

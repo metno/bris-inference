@@ -74,7 +74,9 @@ class FullGrid(BaseGridIndices):
 class MaskedGrid(BaseGridIndices):
     """Grid is masked based on a node attribute."""
 
-    def __init__(self, nodes_name: str, reader_group_size: int, node_attribute_name: str):
+    def __init__(
+        self, nodes_name: str, reader_group_size: int, node_attribute_name: str
+    ):
         super().__init__(nodes_name, reader_group_size)
         self.node_attribute_name = node_attribute_name
 
@@ -84,7 +86,9 @@ class MaskedGrid(BaseGridIndices):
             self.node_attribute_name,
             self.nodes_name,
         )
-        self.grid_indices = graph[self.nodes_name][self.node_attribute_name].squeeze().tolist()
+        self.grid_indices = (
+            graph[self.nodes_name][self.node_attribute_name].squeeze().tolist()
+        )
         super().setup(graph)
 
     @property

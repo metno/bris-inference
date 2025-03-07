@@ -13,7 +13,9 @@ def test_instantiate():
     num_leadtimes = 4
     num_members = 1
     field_shape = [1, 2]
-    pm = PredictMetadata(variables, lats, lons, altitudes, num_leadtimes, num_members, field_shape)
+    pm = PredictMetadata(
+        variables, lats, lons, altitudes, num_leadtimes, num_members, field_shape
+    )
 
     with tempfile.TemporaryDirectory() as temp_dir:
         filename = os.path.join(temp_dir, "%Y%m%d.nc")

@@ -36,7 +36,7 @@ def get(
     """
     ret = list()
     required_variables = get_required_variables(routing_config, data_module)
-    
+
     count = 0
     for config in routing_config:
         decoder_index = config["decoder_index"]
@@ -56,7 +56,9 @@ def get(
             lons = data_module.longitudes[decoder_index][start_gridpoint:end_gridpoint]
             altitudes = None
             if data_module.altitudes[decoder_index] is not None:
-                altitudes = data_module.altitudes[decoder_index][start_gridpoint:end_gridpoint]
+                altitudes = data_module.altitudes[decoder_index][
+                    start_gridpoint:end_gridpoint
+                ]
             field_shape = data_module.field_shape[decoder_index][domain_index]
 
             curr_required_variables = required_variables[decoder_index]
