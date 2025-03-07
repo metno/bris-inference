@@ -163,10 +163,8 @@ class Checkpoint:
                 "Graph has already been updated. Mutliple updates is not allowed"
             )
         else:
-            if path:
-                assert os.path.exists(
-                    path
-                ), f"Cannot locate graph file. Got path: {path}"
+            if path and os.path.exists(path):
+                
                 external_graph = torch.load(path, map_location="cpu",weights_only=False)
                 LOGGER.info("Loaded external graph from path")
                 
