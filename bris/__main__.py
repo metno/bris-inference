@@ -1,15 +1,15 @@
 import logging
-from argparse import ArgumentParser
-import numpy as np
 import os
+from argparse import ArgumentParser
 from datetime import datetime, timedelta
 
+import numpy as np
+from anemoi.utils.dates import frequency_to_seconds
 from hydra.utils import instantiate
 
 import bris.routes
 import bris.utils
 from bris.data.datamodule import DataModule
-from anemoi.utils.dates import frequency_to_seconds
 
 from .checkpoint import Checkpoint
 from .inference import Inference

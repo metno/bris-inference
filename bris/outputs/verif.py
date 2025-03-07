@@ -1,15 +1,16 @@
-import bris.units
 import gridpp
 import numpy as np
 import scipy.interpolate
 import xarray as xr
+from scipy.spatial import Delaunay, cKDTree
+
+import bris.units
 from bris import utils
 from bris.conventions import anemoi as anemoi_conventions
 from bris.conventions import cf
 from bris.outputs import Output
 from bris.outputs.intermediate import Intermediate
 from bris.predict_metadata import PredictMetadata
-from scipy.spatial import Delaunay, cKDTree
 
 
 class Verif(Output):

@@ -1,6 +1,6 @@
 import copy
-import numpy as np
 
+import numpy as np
 
 from bris import sources
 from bris.predict_metadata import PredictMetadata

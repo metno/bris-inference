@@ -2,24 +2,21 @@ import logging
 from functools import cached_property
 from typing import Any
 
+import anemoi.datasets.data.select
+import anemoi.datasets.data.subset
 import numpy as np
 import pytorch_lightning as pl
 from anemoi.datasets import open_dataset
 from anemoi.utils.config import DotDict
 from anemoi.utils.dates import frequency_to_seconds
 from hydra.utils import instantiate
-
 from omegaconf import DictConfig, OmegaConf
 from torch.utils.data import DataLoader, IterableDataset
-import anemoi.datasets.data.subset
-import anemoi.datasets.data.select
 
 from bris.checkpoint import Checkpoint
 from bris.data.dataset import worker_init_func
-from bris.data.grid_indices import FullGrid
+from bris.data.grid_indices import BaseGridIndices, FullGrid
 from bris.utils import recursive_list_to_tuple
-
-from bris.data.grid_indices import BaseGridIndices
 
 LOGGER = logging.getLogger(__name__)
 

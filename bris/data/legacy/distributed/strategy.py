@@ -8,7 +8,7 @@ from pytorch_lightning.overrides.distributed import _sync_module_states
 from pytorch_lightning.strategies.ddp import DDPStrategy
 from pytorch_lightning.trainer.states import TrainerFn
 
-from bris.data.legacy.utils import get_code_logger, get_base_seed
+from bris.data.legacy.utils import get_base_seed, get_code_logger
 
 LOGGER = get_code_logger(__name__)
 

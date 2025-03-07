@@ -2,6 +2,7 @@ import glob
 import os
 
 import numpy as np
+
 from bris import utils
 from bris.outputs import Output
 from bris.predict_metadata import PredictMetadata

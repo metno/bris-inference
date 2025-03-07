@@ -1,5 +1,6 @@
 import io
 import tempfile
+
 import numpy as np
 
 from bris.outputs.intermediate import Intermediate

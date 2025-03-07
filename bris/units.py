@@ -4,8 +4,9 @@ This module handles conversion between different units and provides a set of pre
 should be used internally in yrprod.
 """
 
-import numpy as np
 import numbers
+
+import numpy as np
 
 default_units = ["K", "m/s", "1", "kg/m^2", "degree", "Pa", "text"]
 """Preferred units (must all be strings)"""

@@ -1,6 +1,8 @@
 import os
 import tempfile
+
 import numpy as np
+
 from bris import outputs
 from bris.predict_metadata import PredictMetadata
 
