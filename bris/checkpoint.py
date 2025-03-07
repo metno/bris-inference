@@ -170,26 +170,28 @@ class Checkpoint:
                 external_graph = torch.load(path, map_location="cpu",weights_only=False)
                 LOGGER.info("Loaded external graph from path")
                 
-                try:
-                    self._model_instance.graph_data = external_graph
-                    self._model_instance.config = self.config #conf 
+                self._model_instance.graph_data = external_graph
+                self._model_instance.config = self.config #conf 
 
-                    LOGGER.info("Rebuilding layers to support new graph")
+                LOGGER.info("Rebuilding layers to support new graph")
+                
+                try: 
                     self._model_instance._build_model()
                     self.UPDATE_GRAPH = True
-
-                    _model_params = self._model_params
-
-                    for layer_name, param in self._model_instance.named_parameters():
-                        param.data = _model_params[layer_name].data
-
-                    LOGGER.info(
-                        "Successfully builded model with external graph and reassigning model weights!"
-                    )
-                    return self._model_instance.graph_data
-
+                
                 except Exception as e:
-                    raise RuntimeError("Failed to update the graph.") from e
+                    raise RuntimeError("Failed to rebuild model with new graph.") from e
+
+                _model_params = self._model_params
+                
+                for layer_name, param in self._model_instance.named_parameters():
+                    param.data = _model_params[layer_name].data
+
+                LOGGER.info(
+                    "Successfully builded model with external graph and reassigning model weights!"
+                )
+                return self._model_instance.graph_data
+                
             else:
                 # future implementation
                 # _graph = anemoi.graphs.create() <-- skeleton
