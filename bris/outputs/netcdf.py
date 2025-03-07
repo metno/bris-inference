@@ -376,12 +376,7 @@ class Netcdf(Output):
             else:
                 ar = np.reshape(pred[..., variable_index, :], shape)
 
-            if self.pm.num_members > 1:
-                # Move ensemble dimension into the middle position
-                ar = np.moveaxis(ar, [-1], [1])
-            else:
-                # Remove ensemble dimension
-                ar = ar[..., 0]
+            ar = np.moveaxis(ar, [-1], [1]) if self.pm.num_members > 1 else ar[..., 0]
 
             if level_index is not None:
                 self.ds[ncname][:, level_index, ...] = ar
@@ -437,13 +432,13 @@ class VariableList:
     same dimension (e.g. two variables with a different set of pressure levels)
     """
 
-    def __init__(self, anemoi_names: list, conventions=Metno()):
+    def __init__(self, anemoi_names: list, conventions=None):
         """Args:
         anemoi_names: A list of variables names used in Anemoi (e.g. u10)
         conventions: What NetCDF naming convention to use
         """
         self.anemoi_names = anemoi_names
-        self.conventions = conventions
+        self.conventions = conventions if conventions is not None else Metno()
 
         self._dimensions, self._ncname_to_level_dim = self.load_dimensions()
 
@@ -458,7 +453,7 @@ class VariableList:
 
     def load_dimensions(self):
         cfname_to_levels = dict()
-        for v, variable in enumerate(self.anemoi_names):
+        for _v, variable in enumerate(self.anemoi_names):
             metadata = cf.get_metadata(variable)
             cfname = metadata["cfname"]
             leveltype = metadata["leveltype"]
