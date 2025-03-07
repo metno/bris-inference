@@ -40,6 +40,7 @@ List all tests, and run a single one:
     py311
     py312
     ruffformat
+    ruffformat_check
     ruffcheck
     typing
     prospector
