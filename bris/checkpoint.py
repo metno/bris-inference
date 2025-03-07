@@ -17,14 +17,14 @@ class Checkpoint:
     """This class makes accessible various information stored in Anemoi checkpoints"""
 
     AIFS_BASE_SEED = None
-    UPDATE_GRAPH = False
 
     def __init__(self, path: str):
         assert os.path.exists(path), "The given checkpoint does not exist!"
 
         self.path = path
         self.set_base_seed
-        self.graph_replaced = False
+        self._graph_replaced = False
+
 
     @cached_property
     def metadata(self) -> dict:
@@ -159,7 +159,7 @@ class Checkpoint:
         # model instance will complain. Not 100% sure but i think i have
         # experienced this. -Aram.
 
-        if self.graph_replaced:
+        if self._graph_replaced:
             raise RuntimeError(
                 "Graph has already been replaced. Mutliple replacements are not allowed."
             )
@@ -175,7 +175,7 @@ class Checkpoint:
 
         LOGGER.info("Rebuilding layers to support new graph.")
         self._model_instance._build_model()
-        self.graph_replaced = True
+        self._graph_replaced = True
 
         _model_params = self._model_params
         
