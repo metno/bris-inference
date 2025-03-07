@@ -22,7 +22,7 @@ class Checkpoint:
         assert os.path.exists(path), "The given checkpoint does not exist!"
 
         self.path = path
-        self.set_base_seed
+        self.set_base_seed()
 
     @cached_property
     def metadata(self) -> dict:
@@ -196,12 +196,12 @@ class Checkpoint:
                 # return _graph <- return graph
                 raise NotImplementedError
 
-    @cached_property
     def set_base_seed(self) -> None:
         """
+        TODO: Explain what this function does.
+
         Fetchs the original base seed used during training.
         If not
-
         """
         os.environ["ANEMOI_BASE_SEED"] = "1234"
         os.environ["AIFS_BASE_SEED"] = "1234"
