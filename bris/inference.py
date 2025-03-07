@@ -25,7 +25,6 @@ class Inference:
         precision: Optional[str] = None,
         device: Optional[str] = None,
     ) -> None:
-
         self.config = config
         self.model = model
         self.checkpoint = checkpoint
@@ -48,7 +47,7 @@ class Inference:
         else:
             LOGGER.info(f"Using specified device: {self._device}")
             return self._device
-    
+
     @cached_property
     def strategy(self):
         return DDPGroupStrategy(
@@ -56,7 +55,6 @@ class Inference:
             read_group_size=1,
             static_graph=False,
         )
-            
 
     @cached_property
     def trainer(self) -> pl.Trainer:

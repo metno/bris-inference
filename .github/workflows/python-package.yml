@@ -44,14 +44,18 @@ jobs:
         python-version: ${{ matrix.python-version }}
         cache: 'pip' # caching pip dependencies
 
-    # - name: Dependencies
-    #   run: |
-    #     sudo apt update -qq
-
     - name: Install python dependencies
       run: |
         python -m pip install tox
 
-    - name: Run tox, only python 3.10
+    - name: Run tox format check
+      run: |
+        tox -e ruffformat_check
+
+    - name: Run tox unit tests
       run: |
         tox -e py310
+
+    - name: Run tox security check
+      run: |
+        tox -e bandit

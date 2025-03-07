@@ -111,7 +111,6 @@ def get_metadata(anemoi_variable: str) -> dict:
         leveltype = "height"
         level = 0
     else:
-
         words = anemoi_variable.split("_")
         if len(words) == 2 and words[0] in ["t", "u", "v", "z", "q", "w"]:
             name, level = words[0], int(words[1])
@@ -220,7 +219,10 @@ def get_attributes(cfname):
         ret["units"] = "m"
     elif "area_fraction" in cfname:
         ret["units"] = "1"
-    elif cfname in ["integral_of_surface_downwelling_longwave_flux_in_air_wrt_time", "integral_of_surface_downwelling_shortwave_flux_in_air_wrt_time"]:
+    elif cfname in [
+        "integral_of_surface_downwelling_longwave_flux_in_air_wrt_time",
+        "integral_of_surface_downwelling_shortwave_flux_in_air_wrt_time",
+    ]:
         ret["units"] = "J/m^2"
 
     # Unknown cfname, let's not write any attributes

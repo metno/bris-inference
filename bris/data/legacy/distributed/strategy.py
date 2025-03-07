@@ -21,9 +21,9 @@ class DDPGroupStrategy(DDPStrategy):
         self.model_comm_group_size = num_gpus_per_model
 
     def setup(self, trainer: pl.Trainer) -> None:
-        assert (
-            self.accelerator is not None
-        ), "Accelerator is not initialized for distributed strategy"
+        assert self.accelerator is not None, (
+            "Accelerator is not initialized for distributed strategy"
+        )
         self.accelerator.setup(trainer)
 
         # determine the model groups that work together:
@@ -65,9 +65,9 @@ class DDPGroupStrategy(DDPStrategy):
         trainer_fn = trainer.state.fn
 
         if trainer_fn == TrainerFn.FITTING and self._layer_sync:
-            assert (
-                self.model is not None
-            ), "Model is not initialized for distributed strategy"
+            assert self.model is not None, (
+                "Model is not initialized for distributed strategy"
+            )
             self.model = self._layer_sync.apply(self.model)
 
         self.setup_precision_plugin()
@@ -86,9 +86,9 @@ class DDPGroupStrategy(DDPStrategy):
                 self._enable_model_averaging()
         else:
             # we need to manually synchronize the module's states since we aren't using the DDP wrapper
-            assert (
-                self.model is not None
-            ), "Model is not initialized for distributed strategy"
+            assert self.model is not None, (
+                "Model is not initialized for distributed strategy"
+            )
             _sync_module_states(self.model)
 
         # seed ranks

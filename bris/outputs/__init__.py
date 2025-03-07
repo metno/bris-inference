@@ -90,7 +90,7 @@ class Output:
             if name == "ws":
                 Ix = self.pm.variables.index("10u")
                 Iy = self.pm.variables.index("10v")
-                curr = np.sqrt(pred[..., [Ix]]**2 + pred[..., [Iy]]**2)
+                curr = np.sqrt(pred[..., [Ix]] ** 2 + pred[..., [Iy]] ** 2)
                 extra_pred += [curr]
             else:
                 raise ValueError(f"No recipe to compute {name}")
@@ -99,7 +99,10 @@ class Output:
 
         assert pred.shape[0] == self.pm.num_leadtimes
         assert pred.shape[1] == len(self.pm.lats)
-        assert pred.shape[2] == len(self.pm.variables), (pred.shape, len(self.pm.variables))
+        assert pred.shape[2] == len(self.pm.variables), (
+            pred.shape,
+            len(self.pm.variables),
+        )
         assert ensemble_member >= 0
         assert ensemble_member < self.pm.num_members
 

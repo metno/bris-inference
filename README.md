@@ -36,15 +36,19 @@ See [Wiki](https://github.com/metno/bris-inference/wiki)
 List all tests, and run a single one:
 
     $ tox -a
+    py310
     py311
     py312
+    ruffformat
+    ruffformat_check
     ruffcheck
     typing
-    bandit
     prospector
-    ruffformat
+    bandit
 
     $ tox -e bandit
+
+Only py31x tests are expected to run without error so far.
 
 ## Code borrowed from Anemoi project
 

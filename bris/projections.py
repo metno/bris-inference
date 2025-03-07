@@ -27,12 +27,13 @@ def get_xy(lats, lons, proj_str):
 
     return x, y
 
+
 def get_proj_attributes(proj_str):
     crs = pyproj.CRS.from_proj4(proj_str)
     attrs = crs.to_cf()
 
     del attrs["crs_wkt"]
-    attrs = {k:v for k,v in attrs.items() if v != "unknown"}
+    attrs = {k: v for k, v in attrs.items() if v != "unknown"}
 
     return attrs
 

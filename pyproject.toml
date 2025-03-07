@@ -8,7 +8,8 @@ authors = [
     {name = "Magnus Sikora Ingstad", email = "magnusi@met.no"},
     {name = "Aram Salihi", email = "arams@met.no"},
     {name = "Thomas Nipen", email = "thomasn@met.no"},
-    {name = "Håvard H. Haugen", email = "havardhh@met.no"}
+    {name = "Håvard H. Haugen", email = "havardhh@met.no"},
+    {name = "Lars Falk-Petersen", email = "larsfp@met.no"},
 ]
 description = "Package for running inference of Anemoi models"
 keywords = ["meteorology", "forecast", ]
@@ -17,17 +18,17 @@ readme = "README.md"
 
 requires-python = ">=3.9"
 classifiers = [
-      "Development Status :: 3 - Alpha",
-      "License :: OSI Approved :: Apache Software License",
-      "Operating System :: OS Independent",
-      "Programming Language :: Python :: 3 :: Only",
-      "Programming Language :: Python :: 3.9",
-      "Programming Language :: Python :: 3.10",
-      "Programming Language :: Python :: 3.11",
-      "Programming Language :: Python :: 3.12",
-      "Programming Language :: Python :: Implementation :: CPython",
-      "Programming Language :: Python :: Implementation :: PyPy",
-    ]
+    "Development Status :: 3 - Alpha",
+    "License :: OSI Approved :: Apache Software License",
+    "Operating System :: OS Independent",
+    "Programming Language :: Python :: 3 :: Only",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: Implementation :: CPython",
+    "Programming Language :: Python :: Implementation :: PyPy",
+]
 dependencies = [
     "anemoi-datasets>=0.5.13",  # This includes the reorder functionality
     "gridpp~=0.7.0",
@@ -45,15 +46,16 @@ dependencies = [
     "zarr<=2.17",
     "anemoi-models",
     "anemoi-training>=0.1.0",
+    "pip~=25.0.0",
 ]
 
 optional-dependencies.tests = [
     "tox",
 ]
+
 dynamic = ["version"]
 
 [tool.setuptools]
-# Any setuptools-specific configuration (e.g., package data, entry points) goes here
 include-package-data = true
 
 [tool.setuptools.packages.find]
@@ -68,5 +70,37 @@ bris = ["schema/*.json"]
 [project.scripts]
 bris = "bris:main"
 
+[tool.ruff]
+exclude = ["bris/sources/frost.py"]
+
 [tool.ruff.lint]
-ignore = ["E402"]
+fixable = ["I"]
+select = [
+    "E",  # pycodestyle
+    "F",  # Pyflakes
+    "UP", # pyupgrade
+    "B",  # flake8-bugbear
+    "SIM",# flake8-simplify
+    "I",  # isort
+]
+ignore = [
+    "E402", # module-import-not-at-top-of-file (E402)
+]
+
+[tool.mypy]
+ignore_missing_imports = true
+install_types = true
+exclude = [
+    'bris/data/legacy',
+]
+
+[[tool.mypy.overrides]]
+module = "bris.sources.frost"
+ignore_errors = true
+
+[tool.bandit]
+exclude_dirs = ["tests", "bris/sources/frost.py"]
+skips = [
+    "B101", # B101:assert_used
+    "B614", # B614:pytorch_load_save
+]

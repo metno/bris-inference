@@ -21,8 +21,11 @@ def test_read():
         expected = [-7.3, 0.4, -3.6, -8.3, -8.6, -11]
         np.testing.assert_array_almost_equal(values, expected)
 
+
 def test_read_no_leadtime():
-    filename = os.path.dirname(os.path.abspath(__file__)) + "/files/verif_input_no_leadtime.nc"
+    filename = (
+        os.path.dirname(os.path.abspath(__file__)) + "/files/verif_input_no_leadtime.nc"
+    )
     source = sources.Verif(filename)
     variable = "test"
 
@@ -35,7 +38,6 @@ def test_read_no_leadtime():
     values = result.get_data(variable, start_time)
     expected = [-2.9, 2.8, -7.9, 2.1, -5.3, -5.4]
     np.testing.assert_array_almost_equal(values, expected)
-
 
 
 if __name__ == "__main__":

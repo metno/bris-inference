@@ -27,9 +27,9 @@ class NewModelCheckpoint(ModelCheckpoint):
 
     def _torch_drop_down(self, trainer: pl.Trainer) -> torch.nn.Module:
         # Get the model from the DataParallel wrapper, for single and multi-gpu cases
-        assert hasattr(
-            trainer, "model"
-        ), "Trainer has no attribute 'model'! Is the Pytorch Lightning version correct?"
+        assert hasattr(trainer, "model"), (
+            "Trainer has no attribute 'model'! Is the Pytorch Lightning version correct?"
+        )
         return (
             trainer.model.module.model
             if hasattr(trainer.model, "module")
@@ -72,9 +72,9 @@ class NewModelCheckpoint(ModelCheckpoint):
             trainer.lightning_module._hparams["metadata"]["model"] = (
                 self.model_metadata(model)
             )
-            trainer.lightning_module._hparams["metadata"][
-                "tracker"
-            ] = self.ckpt_metadata.tracker
+            trainer.lightning_module._hparams["metadata"]["tracker"] = (
+                self.ckpt_metadata.tracker
+            )
 
             trainer.lightning_module._hparams["metadata"]["training"] = {
                 "current_epoch": self.ckpt_metadata.training.current_epoch,
