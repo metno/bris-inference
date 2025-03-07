@@ -32,9 +32,11 @@ def main():
     checkpoint.set_encoder_decoder_num_chunks(
         getattr(config, "inference_num_chunks", 1)
     )
-    if hasattr(config.model, "graph"):
+    if hasattr(config, "graph"):
         LOGGER.info("Update graph is enabled. Proceeding to change internal graph")
-        checkpoint.update_graph(config.model.graph)  # Pass in a new graph if needed
+        # At the moment config.graph is only a POSIX path.
+        # TODO: In future a graph can be generated "on the fly" by providing a config 
+        checkpoint.update_graph(config.graph)  # Pass in a new graph if needed
 
     # Get timestep from checkpoint. Also store a version in seconds for local use.
     config.timestep = None
