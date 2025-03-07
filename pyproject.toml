@@ -105,4 +105,7 @@ ignore_errors = true
 
 [tool.bandit]
 exclude_dirs = ["tests", "bris/sources/frost.py"]
-skips = ["B101"] # B101: assert_used
+skips = [
+    "B101", # B101:assert_used
+    "B614", # B614:pytorch_load_save
+]
