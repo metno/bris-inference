@@ -50,7 +50,7 @@ jobs:
 
     - name: Run ruff format check
       run: |
-        tox -e ruffformat_check
+        tox -e ruff_checkformat
 
     - name: Run tox unit tests
       run: |
@@ -62,4 +62,4 @@ jobs:
 
     - name: Run ruff check
       run: |
-        tox -e ruffcheck
+        tox -e ruff_check
