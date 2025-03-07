@@ -48,6 +48,14 @@ jobs:
       run: |
         python -m pip install tox
 
-    - name: Run tox tests in parallel
+    - name: Run tox format check
       run: |
-        tox -p -e py310,ruffformat_check,bandit
+        tox -e ruffformat_check
+
+    - name: Run tox unit tests
+      run: |
+        tox -e py310
+
+    - name: Run tox security check
+      run: |
+        tox -e bandit
