@@ -44,7 +44,7 @@ def main():
     try:
         config.timestep = checkpoint.config.data.timestep
     except KeyError:
-        raise RuntimeError(
+        raise RuntimeError from None(
             "Error getting timestep from checkpoint (checkpoint.config.data.timestep)"
         )
     timestep_seconds = frequency_to_seconds(config.timestep)

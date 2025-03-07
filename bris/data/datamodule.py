@@ -161,7 +161,7 @@ class DataModule(pl.LightningDataModule):
         graph_cfg = self.ckptObj.config.graph
 
         # Multi_encoder/decoder
-        if "input_nodes" in graph_cfg.keys():
+        if "input_nodes" in graph_cfg:
             grid_indices = []
             for dset in graph_cfg.input_nodes.values():
                 gi = FullGrid(nodes_name=dset, reader_group_size=reader_group_size)
@@ -222,12 +222,12 @@ class DataModule(pl.LightningDataModule):
         if isinstance(name_to_index, tuple):
             altitudes = ()
             for i, n2i in enumerate(name_to_index):
-                if "z" in n2i.keys():
+                if "z" in n2i:
                     altitudes += (self.data_reader[0][i][n2i["z"], 0, :] / 9.81,)
                 else:
                     altitudes += (None,)
         else:
-            if "z" in name_to_index.keys():
+            if "z" in name_to_index:
                 altitudes = (self.data_reader[0][name_to_index["z"], 0, :] / 9.81,)
             else:
                 altitudes = (None,)
