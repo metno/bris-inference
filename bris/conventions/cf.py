@@ -171,7 +171,11 @@ def get_attributes(cfname):
         ret["units"] = "seconds since 1970-01-01 00:00:00 +00:00"
     elif cfname == "latitude":
         ret["units"] = "degrees_north"
-    elif cfname in ["surface_altitude", "projection_x_coordinate", "projection_y_coordinate"]:
+    elif cfname in [
+        "surface_altitude",
+        "projection_x_coordinate",
+        "projection_y_coordinate",
+    ]:
         ret["units"] = "m"
     elif cfname == "longitude":
         ret["units"] = "degrees_east"
