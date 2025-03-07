@@ -3,12 +3,13 @@ import os
 
 from copy import deepcopy
 from functools import cached_property
-from typing import Any, Optional
+from typing import Any
 
 import torch
 from anemoi.utils.checkpoints import load_metadata
 from anemoi.utils.config import DotDict
 from torch_geometric.data import HeteroData
+from anemoi.models.interface import AnemoiModelInterface
 
 LOGGER = logging.getLogger(__name__)
 
@@ -17,13 +18,14 @@ class Checkpoint:
     """This class makes accessible various information stored in Anemoi checkpoints"""
 
     AIFS_BASE_SEED = None
-    UPDATE_GRAPH = False
 
     def __init__(self, path: str):
         assert os.path.exists(path), "The given checkpoint does not exist!"
 
         self.path = path
         self.set_base_seed
+        self._graph_replaced = False
+
 
     @cached_property
     def metadata(self) -> dict:
@@ -86,7 +88,7 @@ class Checkpoint:
         return self._model_instance
 
     @cached_property
-    def _model_instance(self) -> Any:
+    def _model_instance(self) -> AnemoiModelInterface:
         """
         Loads a given model instance. This instance
         includes both the model interface and its
@@ -139,63 +141,53 @@ class Checkpoint:
         return deepcopy({layer_name : param for layer_name, param in _model_params})
         
 
-    def update_graph(self, path: Optional[str] = None) -> HeteroData:
+    def replace_graph(self, path: str) -> HeteroData:
         """
         Replaces existing graph object within model instance.
         The new graph is either provided as an torch file or
         generated on the fly with AnemoiGraphs (future implementation)
 
         args:
-            Optional[str] path: path to graph
+            [str] path: path to graph
 
         return
             HeteroData graph object
         """
 
-        # TODO: add check which checks the keys within the graph
-        # the model weights have names tied to f.ex stretched grid or grid.
-        # if the model is trained with keys named grid and we force new graph with keys
-        # stretched grid, the model instance will complain
-        # (not 100% sure but i think i have experienced this)
+        # TODO: Check the keys within the graph. The model weights have names
+        # tied to f.ex stretched grid or grid. If the model is trained with
+        # keys named grid and we force new graph with keys stretched grid, the
+        # model instance will complain. Not 100% sure but i think i have
+        # experienced this. -Aram.
 
-        if self.UPDATE_GRAPH:
+        if self._graph_replaced:
             raise RuntimeError(
-                "Graph has already been updated. Mutliple updates is not allowed"
+                "Graph has already been replaced. Mutliple replacements are not allowed."
             )
-        else:
-            if path and os.path.exists(path):
-                
-                external_graph = torch.load(path, map_location="cpu",weights_only=False)
-                LOGGER.info("Loaded external graph from path")
-                
-                self._model_instance.graph_data = external_graph
-                self._model_instance.config = self.config #conf 
 
-                LOGGER.info("Rebuilding layers to support new graph")
-                
-                try: 
-                    self._model_instance._build_model()
-                    self.UPDATE_GRAPH = True
-                
-                except Exception as e:
-                    raise RuntimeError("Failed to rebuild model with new graph.") from e
+        if not os.path.exists(path):
+            raise FileNotFoundError(f"The given path <{path}> does not exist")
 
-                _model_params = self._model_params
-                
-                for layer_name, param in self._model_instance.named_parameters():
-                    param.data = _model_params[layer_name].data
+        external_graph = torch.load(path, map_location="cpu",weights_only=False)
+        LOGGER.info("Loaded external graph from <%s>", path)
 
-                LOGGER.info(
-                    "Successfully builded model with external graph and reassigning model weights!"
-                )
-                return self._model_instance.graph_data
-                
-            else:
-                # future implementation
-                # _graph = anemoi.graphs.create() <-- skeleton
-                # self._model_instance.graph_data = _graph <- update graph obj within inst
-                # return _graph <- return graph
-                raise NotImplementedError
+        self._model_instance.graph_data = external_graph
+        self._model_instance.config = self.config
+
+        LOGGER.info("Rebuilding layers to support new graph.")
+        self._model_instance._build_model()
+        self._graph_replaced = True
+
+        _model_params = self._model_params
+        
+        for layer_name, param in self._model_instance.named_parameters():
+            param.data = _model_params[layer_name].data
+
+        LOGGER.info(
+            "Successfully built model with external graph and reassigning model weights."
+        )
+        return self._model_instance.graph_data
+
 
     @cached_property
     def set_base_seed(self) -> None:
