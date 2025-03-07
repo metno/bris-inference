@@ -48,7 +48,7 @@ jobs:
       run: |
         python -m pip install tox
 
-    - name: Run tox format check
+    - name: Run ruff format check
       run: |
         tox -e ruffformat_check
 
@@ -59,3 +59,7 @@ jobs:
     - name: Run tox security check
       run: |
         tox -e bandit
+
+    - name: Run ruff check
+      run: |
+        tox -e ruffcheck
