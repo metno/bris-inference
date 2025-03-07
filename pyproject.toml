@@ -71,7 +71,10 @@ bris = ["schema/*.json"]
 bris = "bris:main"
 
 [tool.ruff]
-exclude = ["bris/sources/frost.py"]
+exclude = [
+    "bris/sources/frost.py",
+    "bris/sources/azurestorage.py",
+]
 
 
 [tool.ruff.lint]
