@@ -62,12 +62,14 @@ def get_required_variables(name, init_args):
 class Output:
     """This class writes output for a specific part of the domain"""
 
-    def __init__(self, predict_metadata: PredictMetadata, extra_variables=dict()):
+    def __init__(self, predict_metadata: PredictMetadata, extra_variables: dict = None):
         """Creates an object of type name with config
 
         Args:
             predict_metadata: Contains metadata about the batch the output will recieve
         """
+        if extra_variables is None:
+            extra_variables = []
 
         predict_metadata = copy.deepcopy(predict_metadata)
         predict_metadata.variables += extra_variables

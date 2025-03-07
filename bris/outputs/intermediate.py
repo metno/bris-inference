@@ -72,10 +72,7 @@ class Intermediate(Output):
             assert isinstance(ensemble_member, int)
 
             filename = self.get_filename(forecast_reference_time, ensemble_member)
-            if os.path.exists(filename):
-                pred = np.load(filename)
-            else:
-                pred = None
+            pred = np.load(filename) if os.path.exists(filename) else None
 
         return pred
 
@@ -95,6 +92,6 @@ class Intermediate(Output):
 
     def finalize(self):
         # clean up files
-        for filename in self.get_filenames():
+        for _filename in self.get_filenames():
             # delete file
             pass
