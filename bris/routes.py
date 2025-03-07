@@ -101,7 +101,7 @@ def get_variable_indices(routing_config: dict, data_module: DataModule):
     required_variables = get_required_variables(routing_config, data_module)
 
     variable_indices = dict()
-    for decoder_index, r in required_variables.items():
+    for decoder_index, _r in required_variables.items():
         variable_indices[decoder_index] = list()
         for name in required_variables[decoder_index]:
             index = data_module.name_to_index[decoder_index][name]
@@ -114,11 +114,11 @@ def get_required_variables(routing_config: dict, data_module: DataModule):
     """Returns a list of required variables for each decoder"""
     required_variables = defaultdict(list)
     for rc in routing_config:
-        l = list()
+        var_list = []
         for oc in rc["outputs"]:
             for output_type, args in oc.items():
-                l += bris.outputs.get_required_variables(output_type, args)
-        required_variables[rc["decoder_index"]] += l
+                var_list += bris.outputs.get_required_variables(output_type, args)
+        required_variables[rc["decoder_index"]] += var_list
 
     for decoder_index, v in required_variables.items():
         if None in v:
