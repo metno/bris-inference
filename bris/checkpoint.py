@@ -9,6 +9,7 @@ import torch
 from anemoi.utils.checkpoints import load_metadata
 from anemoi.utils.config import DotDict
 from torch_geometric.data import HeteroData
+from anemoi.models.interface import AnemoiModelInterface
 
 LOGGER = logging.getLogger(__name__)
 
@@ -87,7 +88,7 @@ class Checkpoint:
         return self._model_instance
 
     @cached_property
-    def _model_instance(self) -> Any:
+    def _model_instance(self) -> AnemoiModelInterface:
         """
         Loads a given model instance. This instance
         includes both the model interface and its
