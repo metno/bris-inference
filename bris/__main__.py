@@ -1,15 +1,15 @@
 import logging
-from argparse import ArgumentParser
-import numpy as np
 import os
+from argparse import ArgumentParser
 from datetime import datetime, timedelta
 
+import numpy as np
+from anemoi.utils.dates import frequency_to_seconds
 from hydra.utils import instantiate
 
 import bris.routes
 import bris.utils
 from bris.data.datamodule import DataModule
-from anemoi.utils.dates import frequency_to_seconds
 
 from .checkpoint import Checkpoint
 from .inference import Inference
@@ -43,8 +43,8 @@ def main():
     config.timestep = None
     try:
         config.timestep = checkpoint.config.data.timestep
-    except KeyError:
-        raise RuntimeError(
+    except KeyError as err:
+        raise RuntimeError from err(
             "Error getting timestep from checkpoint (checkpoint.config.data.timestep)"
         )
     timestep_seconds = frequency_to_seconds(config.timestep)

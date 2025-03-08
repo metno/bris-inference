@@ -1,5 +1,5 @@
-import io
 import tempfile
+
 import numpy as np
 
 from bris.outputs.intermediate import Intermediate
@@ -23,7 +23,7 @@ def test_num_members():
     with tempfile.TemporaryDirectory() as temp_dir:
         # create test files
         for i in range(3):
-            with io.open(f"{temp_dir}/_{str(i)}.npy", "w") as f:
+            with open(f"{temp_dir}/_{str(i)}.npy", "w") as f:
                 f.write("")
 
         i = Intermediate(predict_metadata=get_test_pm(), workdir=temp_dir)

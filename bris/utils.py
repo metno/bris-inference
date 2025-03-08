@@ -1,7 +1,5 @@
-import logging
 import json
-import jsonschema
-import yaml
+import logging
 import numbers
 import os
 import re
@@ -9,10 +7,11 @@ import time
 import uuid
 from argparse import ArgumentParser
 
+import jsonschema
 import numpy as np
+import yaml
 from anemoi.utils.config import DotDict
 from omegaconf import OmegaConf
-
 
 LOGGER = logging.getLogger(__name__)
 

@@ -1,16 +1,17 @@
-import os
-import math
 import logging
-import numpy as np
+import math
+import os
 from abc import abstractmethod
-from typing import Any, Iterable
+from collections.abc import Iterable
+from typing import Any
 
-import torch
+import numpy as np
 import pytorch_lightning as pl
+import torch
 from torch.distributed.distributed_c10d import ProcessGroup
 
-from .forcings import get_dynamic_forcings
 from .checkpoint import Checkpoint
+from .forcings import get_dynamic_forcings
 from .utils import check_anemoi_training, timedelta64_from_timestep
 
 LOGGER = logging.getLogger(__name__)

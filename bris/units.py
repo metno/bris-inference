@@ -4,8 +4,9 @@ This module handles conversion between different units and provides a set of pre
 should be used internally in yrprod.
 """
 
-import numpy as np
 import numbers
+
+import numpy as np
 
 default_units = ["K", "m/s", "1", "kg/m^2", "degree", "Pa", "text"]
 """Preferred units (must all be strings)"""
@@ -55,7 +56,7 @@ def get_conversion_map():
     linear_convert["octas", "%"] = (12.5, 0)
 
     # ** means the same as ^
-    for key, c in dict(linear_convert).items():
+    for key, _c in dict(linear_convert).items():
         found = False
         key0 = key[0]
         key1 = key[1]
@@ -129,11 +130,10 @@ def convert(array, iunits, ounits=None, inplace=False):
     if original_ounits is None:
         original_ounits = ounits
 
-    if inplace:
-        if not isinstance(array, np.ndarray):
-            raise ValueError(
-                "Input array is not a numpy array, cannot edit values in place"
-            )
+    if inplace and not isinstance(array, np.ndarray):
+        raise ValueError(
+            "Input array is not a numpy array, cannot edit values in place"
+        )
 
     if iunits == ounits:
         if inplace:
@@ -141,23 +141,23 @@ def convert(array, iunits, ounits=None, inplace=False):
         else:
             return array, original_ounits
 
-    if ounits is None:
-        # Use default units
-        if iunits in default_units:
-            if inplace:
-                return iunits
-            else:
-                return array, iunits
+    if ounits is None and iunits in default_units:  # Use default units
+        if inplace:
+            return iunits
+        else:
+            return array, iunits
 
     if isinstance(array, np.ndarray):
         if not issubclass(array.dtype.type, np.floating):
             raise ValueError("Input array is not a floating point numpy array")
-    elif isinstance(array, list):
-        if isinstance(array, list):
-            if any([not isinstance(a, numbers.Number) for a in array]):
-                raise ValueError(
-                    "Input list contains one or more non-numerical values: ", array
-                )
+    elif (
+        isinstance(array, list)
+        and isinstance(array, list)
+        and any([not isinstance(a, numbers.Number) for a in array])
+    ):
+        raise ValueError(
+            "Input list contains one or more non-numerical values: ", array
+        )
     else:
         if not isinstance(array, numbers.Number):
             raise ValueError("Input is not np.array, list, or number")
@@ -175,8 +175,7 @@ def convert(array, iunits, ounits=None, inplace=False):
                     return convert(array, iunits, default_unit)
 
         raise ValueError(
-            "Cannot convert units. Cannot find a default unit to convert '%s' to"
-            % iunits
+            f"Cannot convert units. Cannot find a default unit to convert '{iunits}' to"
         )
 
     else:
@@ -192,7 +191,7 @@ def convert(array, iunits, ounits=None, inplace=False):
                     original_ounits,
                 )
     raise ValueError(
-        "Unrecognized input unit conversion '%s'->'%s'" % (iunits, original_ounits)
+        f"Unrecognized input unit conversion '{iunits}'->'{original_ounits}'"
     )
 
 

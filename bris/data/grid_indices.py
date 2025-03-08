@@ -10,13 +10,11 @@
 from __future__ import annotations
 
 import logging
-from abc import ABC
-from abc import abstractmethod
+from abc import ABC, abstractmethod
 from collections.abc import Sequence
 from typing import Union
 
 import numpy as np
-
 from torch_geometric.data import HeteroData
 
 LOGGER = logging.getLogger(__name__)
@@ -62,7 +60,7 @@ class FullGrid(BaseGridIndices):
     def compute_grid_size(self, graph: HeteroData) -> int:
         if hasattr(graph[self.nodes_name], "num_nodes"):
             return graph[self.nodes_name].num_nodes
-        elif "coords" in graph[self.nodes_name].keys():
+        elif "coords" in graph[self.nodes_name]:
             return graph[self.nodes_name]["coords"].shape[0]
         else:
             raise ValueError("Could not compute grid size in graph")

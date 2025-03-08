@@ -6,7 +6,7 @@ class Observations:
         """
         data: dict with key variable_name and value: 2D numpy array with dimensions (time, location)
         """
-        for k, v in data.items():
+        for _k, v in data.items():
             assert len(times) == v.shape[0]
             assert len(locations) == v.shape[1]
 
@@ -29,9 +29,9 @@ class Observations:
 
     def __str__(self):
         string = "Observations:\n"
-        string += "   num locations: %s\n" % len(self.locations)
-        string += "   num times: %s\n" % len(self.times)
-        string += "   num variables: %s" % len(self.variables)
+        string += f"   num locations: {len(self.locations)}\n"
+        string += f"   num times: {len(self.times)}\n"
+        string += f"   num variables: {len(self.variables)}"
         return string
 
 
