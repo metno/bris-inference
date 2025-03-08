@@ -314,7 +314,7 @@ class Netcdf(Output):
             "time",
             "latitude",
             "longitude",
-            "sufrace_altitude",
+            "surface_altitude",
             "projection_x_coordinate",
             "projection_y_coordinate",
             "realization",
@@ -322,6 +322,10 @@ class Netcdf(Output):
             ncname = c(cfname)
             if ncname in self.ds:
                 self.ds[ncname].attrs = cf.get_attributes(cfname)
+
+                if cfname == "surface_altitude":
+                    self.ds[ncname].attrs["grid_mapping"] = "projection"
+                    self.ds[ncname].attrs["coordinates"] = "latitude longitude"
 
         # Set up all prediction variables
         for variable_index, variable in enumerate(self.pm.variables):
