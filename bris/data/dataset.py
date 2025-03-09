@@ -1,19 +1,16 @@
-import torch
-import numpy as np
-import random
 import logging
-
-from einops import rearrange
+import random
+from collections.abc import Iterator
 from functools import cached_property
-from typing import Callable, Iterator
+from typing import Callable
 
-from torch.utils.data import IterableDataset
-from torch.utils.data import get_worker_info
-from bris.utils import get_usable_indices, get_base_seed
-
+import numpy as np
+import torch
+from einops import rearrange
+from torch.utils.data import IterableDataset, get_worker_info
 
 from bris.data.grid_indices import BaseGridIndices
-
+from bris.utils import get_base_seed, get_usable_indices
 
 LOGGER = logging.getLogger(__name__)
 

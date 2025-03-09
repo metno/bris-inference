@@ -1,7 +1,9 @@
 import os
 import tempfile
+
 import numpy as np
 import pytest
+
 from bris.outputs import Verif
 from bris.predict_metadata import PredictMetadata
 from bris.sources import Verif as VerifInput
