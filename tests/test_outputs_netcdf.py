@@ -8,7 +8,7 @@ from bris.predict_metadata import PredictMetadata
 
 
 def test_1():
-    variables = ["u_800", "u_600", "2t", "v_500", "10u"]
+    variables = ["u_800", "u_600", "2t", "v_500", "10u", "tp"]
     lats = np.array([1, 2])
     lons = np.array([2, 4])
     altitudes = np.array([100, 200])

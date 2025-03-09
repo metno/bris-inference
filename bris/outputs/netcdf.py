@@ -6,10 +6,12 @@ import xarray as xr
 
 from bris import projections, utils
 from bris.conventions import cf
+from bris.conventions import anemoi as anemoi_conventions
 from bris.conventions.metno import Metno
 from bris.outputs import Output
 from bris.outputs.intermediate import Intermediate
 from bris.predict_metadata import PredictMetadata
+import bris.units
 
 
 class Netcdf(Output):
@@ -380,17 +382,24 @@ class Netcdf(Output):
 
             ar = np.moveaxis(ar, [-1], [1]) if self.pm.num_members > 1 else ar[..., 0]
 
+            cfname = cf.get_metadata(variable)["cfname"]
+            attrs = cf.get_attributes(cfname)
+
+            # Add variable attributes
+            attrs["grid_mapping"] = "projection"
+            attrs["coordinates"] = "latitude longitude"
+            self.ds[ncname].attrs = attrs
+
+            # Unit conversion
+            from_units = anemoi_conventions.get_units(variable)
+            if "units" in attrs:
+                to_units = attrs["units"]
+                bris.units.convert(ar, from_units, to_units, inplace=True)
+
             if level_index is not None:
                 self.ds[ncname][:, level_index, ...] = ar
             else:
                 self.ds[ncname][:] = ar
-
-            # Add variable attributes
-            cfname = cf.get_metadata(variable)["cfname"]
-            attrs = cf.get_attributes(cfname)
-            attrs["grid_mapping"] = "projection"
-            attrs["coordinates"] = "latitude longitude"
-            self.ds[ncname].attrs = attrs
 
         # Add global attributes
         datestr = datetime.datetime.now(datetime.timezone.utc).strftime(
