@@ -20,11 +20,12 @@
                             "description": "What anemoi variable to verify? Can include variables that can be diagnosed from other variables (e.g. 10si from 10u and 10v)",
                             "type": "string"
                         },
-                        "thresholds": {"type": "array", "items": {"type": "number"}},
-                        "quantiles": {"type": "array", "items": {"type": "number", "minimum": 0, "maximum": 1}},
-                        "units": {
-                            "description": "What units to write in the output file. If unspecified, use the units from the anemoi input dataset",
-                            "type": "string"
+                        "variable_type": {
+                            "description": "What type of variable is the input data?",
+                            "type": "string",
+                            "enum": [
+                                "continuous", "logit", "threshold_probbability", "quantile"
+                            ]
                         },
                         "obs_sources": {
                             "type": "array",
@@ -36,12 +37,29 @@
                                 ]
                             }
                         },
-                        "variable_type": {
-                            "description": "What type of variable is the input data?",
+                        "units": {
+                            "description": "What units to write in the output file. If unspecified, use the units from the anemoi input dataset",
+                            "type": "string"
+                        },
+                        "thresholds": {"type": "array", "items": {"type": "number"}},
+                        "quantile_levels": {
+                            "type": "array",
+                            "items": {
+                                "type": "number", "minimum": 0, "maximum": 1
+                            }
+                        },
+                        "consensus_method": {
+                            "description": "Method to reduce an ensemble to a determinsitic forecast",
                             "type": "string",
-                            "enum": [
-                                "continuous", "logit", "threshold_probbability", "quantile"
-                            ]
+                            "enum": ["control", "mean"]
+                        },
+                        "elev_gradient": {
+                            "description": "Apply this elevation gradient (e.g. use -0.0065 for temperature) when interpolating to a new elevation",
+                            "type": "number"
+                        },
+                        "max_distance": {
+                            "description": "Extract forecasts only for observation points that are within this distnace in meters to the nearest forecast point",
+                            "type": "number"
                         }
                     },
                     "required": ["filename", "variable", "obs_sources"]
