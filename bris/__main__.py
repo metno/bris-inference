@@ -116,8 +116,7 @@ def main():
         release_cache=config.release_cache,
     )
 
-    callbacks = []
-    callbacks += [writer]
+    callbacks = [writer]
 
     inference = Inference(
         config=config,
