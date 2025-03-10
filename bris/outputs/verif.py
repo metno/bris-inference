@@ -40,16 +40,16 @@ class Verif(Output):
         if quantile_levels is None:
             quantile_levels = []
         for level in quantile_levels:
-            assert level >= 0 and level <= 1, f"level={level} must be between 0 and 1"
+            assert 0 <= level <= 1, f"level={level} must be between 0 and 1"
 
-        extra_variables = list()
+        extra_variables = []
         if variable not in predict_metadata.variables:
             extra_variables += [variable]
 
         super().__init__(predict_metadata, extra_variables)
 
         self.filename = filename
-        self.fcst = dict()
+        self.fcst = {}
         self.variable = variable
         self.variable_type = variable_type
         self.obs_sources = obs_sources
@@ -199,7 +199,7 @@ class Verif(Output):
     def finalize(self):
         """Write forecasts and observations to file"""
 
-        coords = dict()
+        coords = {}
         coords["time"] = (["time"], [], cf.get_attributes("time"))
         coords["leadtime"] = (
             ["leadtime"],
@@ -226,13 +226,11 @@ class Verif(Output):
             self.opoints.get_elevs(),
             cf.get_attributes("surface_altitude"),
         )
-        """
-        coords["ensemble_member"] = (
-                ["ensemble_member"],
-                self.ensemble_members,
-                cf.get_attributes("ensemble_member"),
-        )
-        """
+        # coords["ensemble_member"] = (
+        #         ["ensemble_member"],
+        #         self.ensemble_members,
+        #         cf.get_attributes("ensemble_member"),
+        # )
         if self.num_members > 1:
             if len(self.thresholds) > 0:
                 coords["threshold"] = (
