@@ -193,8 +193,8 @@ class BrisPredictor(BasePredictor):
 
     def set_variable_indices(self, required_variables: list) -> None:
         required_variables = required_variables[0]  # Assume one decoder
-        variable_indices_input = list()
-        variable_indices_output = list()
+        variable_indices_input = []
+        variable_indices_output = []
         for name in required_variables:
             index_input = self.internal_data.input.name_to_index[name]
             variable_indices_input += [index_input]
@@ -296,7 +296,7 @@ class MultiEncDecPredictor(BasePredictor):
         data_reader: Iterable,
         forecast_length: int,
         required_variables: list,
-        release_cache: bool = False,
+         # release_cache: bool = False,
         **kwargs,
     ) -> None:
         super().__init__(*args, checkpoint=checkpoint, **kwargs)
