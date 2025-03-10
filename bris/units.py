@@ -156,8 +156,9 @@ def convert(array, iunits, ounits=None, inplace=False):
         raise ValueError(
             "Input list contains one or more non-numerical values: ", array
         )
-    if not isinstance(array, numbers.Number):
-        raise ValueError("Input is not np.array, list, or number")
+    else:
+        if not isinstance(array, numbers.Number):
+            raise ValueError("Input is not np.array, list, or number")
 
     linear_convert = get_conversion_map()
 
