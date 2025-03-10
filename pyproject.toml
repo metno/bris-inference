@@ -108,5 +108,5 @@ ignore_errors = true
 exclude_dirs = ["tests", "bris/sources/frost.py"]
 skips = [
     "B101", # B101:assert_used
-    "B614", # B614:pytorch_load_save
+    "B614", # B614:pytorch_load_save, https://github.com/metno/bris-inference/issues/14
 ]
