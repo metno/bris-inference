@@ -296,7 +296,7 @@ class MultiEncDecPredictor(BasePredictor):
         data_reader: Iterable,
         forecast_length: int,
         required_variables: list,
-         # release_cache: bool = False,
+        # release_cache: bool = False,
         **kwargs,
     ) -> None:
         super().__init__(*args, checkpoint=checkpoint, **kwargs)
