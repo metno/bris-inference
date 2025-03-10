@@ -3,39 +3,37 @@ import datetime
 import numpy as np
 from earthkit.data.utils.dates import to_datetime
 
-"""
-def phase_of_day(time) -> float:
-    hour = time.astype(int)
-    return hour * 2 * np.pi / 24
+# def phase_of_day(time) -> float:
+#     hour = time.astype(int)
+#     return hour * 2 * np.pi / 24
+#
+# def phase_of_year(time) -> float:
+#     return (phase_of_day(time) - np.pi/2)/365.25
+#
+# def cos_julian_day(time) -> float:
+#     return np.cos(phase_of_year(time))
+#
+# def sin_julian_day(time) -> float:
+#     return np.sin(phase_of_year(time))
+#
+# def local_phase_of_day(time, lons) -> np.ndarray:
+#     return phase_of_day(time) + lons * np.pi / 180.
+#
+# def cos_local_time(time, lons) -> np.ndarray:
+#     return np.cos(local_phase_of_day(time, lons))
+#
+# def sin_local_time(time, lons) -> np.ndarray:
+#     return np.sin(local_phase_of_day(time, lons))
+#
+# def insolation(time, lats, lons) -> np.ndarray:
+#     jan_lat_shift_phase = 79*2*np.pi/365.25
+#     solar_latitude = 23.5 * np.pi/180 * np.sin(phase_of_year(time) - jan_lat_shift_phase)
+#     latitude_insolation = np.cos(lats * np.pi/180. - solar_latitude)
+#     longitude_insolation = -np.cos(local_phase_of_day(time, lons))
+#     latitude_insolation[latitude_insolation < 0] = 0
+#     longitude_insolation[longitude_insolation < 0] = 0
 
-def phase_of_year(time) -> float:
-    return (phase_of_day(time) - np.pi/2)/365.25
-
-def cos_julian_day(time) -> float:
-    return np.cos(phase_of_year(time))
-
-def sin_julian_day(time) -> float:
-    return np.sin(phase_of_year(time))
-
-def local_phase_of_day(time, lons) -> np.ndarray:
-    return phase_of_day(time) + lons * np.pi / 180.
-
-def cos_local_time(time, lons) -> np.ndarray:
-    return np.cos(local_phase_of_day(time, lons))
-
-def sin_local_time(time, lons) -> np.ndarray:
-    return np.sin(local_phase_of_day(time, lons))
-
-def insolation(time, lats, lons) -> np.ndarray:
-    jan_lat_shift_phase = 79*2*np.pi/365.25
-    solar_latitude = 23.5 * np.pi/180 * np.sin(phase_of_year(time) - jan_lat_shift_phase)
-    latitude_insolation = np.cos(lats * np.pi/180. - solar_latitude)
-    longitude_insolation = -np.cos(local_phase_of_day(time, lons))
-    latitude_insolation[latitude_insolation < 0] = 0
-    longitude_insolation[longitude_insolation < 0] = 0
-
-    return latitude_insolation * longitude_insolation  
-"""
+#     return latitude_insolation * longitude_insolation
 
 
 # This is copied from earthkit, probably need to declare this somewhere
