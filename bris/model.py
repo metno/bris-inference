@@ -92,7 +92,7 @@ class BasePredictor(pl.LightningModule):
         pass
 
     @abstractmethod
-    def forward(self, x: torch.Tensor) -> torch.Tensor:
+    def forward(self, x: torch.Tensor, **kwargs: Any) -> torch.Tensor:
         pass
 
     @abstractmethod
