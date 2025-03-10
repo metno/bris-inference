@@ -15,21 +15,20 @@ def instantiate(name: str, predict_metadata: PredictMetadata, workdir: str, init
     """
     if name == "verif":
         # Parse obs sources
-        obs_sources = list()
+        obs_sources = []
 
         # Convert to dict, since iverriding obs_sources doesn't seem to work with OmegaConf
-        args = dict(**init_args)
-        for s in init_args["obs_sources"]:
-            for name, opts in s.items():
-                obs_sources += [sources.instantiate(name, opts)]
+        args = {**init_args}
+        for source in init_args["obs_sources"]:
+            for source_name, opts in source.items():
+                obs_sources += [sources.instantiate(source_name, opts)]
         args["obs_sources"] = obs_sources
         return Verif(predict_metadata, workdir, **args)
 
-    elif name == "netcdf":
+    if name == "netcdf":
         return Netcdf(predict_metadata, workdir, **init_args)
 
-    else:
-        raise ValueError(f"Invalid output: {name}")
+    raise ValueError(f"Invalid output: {name}")
 
 
 def get_required_variables(name, init_args):
@@ -41,22 +40,19 @@ def get_required_variables(name, init_args):
         if "variables" in init_args:
             variables = init_args["variables"]
             if "extra_variables" in init_args:
-                for name in init_args["extra_variables"]:
-                    if name == "ws":
+                for var_name in init_args["extra_variables"]:
+                    if var_name == "ws":
                         variables += ["10u", "10v"]
             variables = list(set(variables))
             return variables
-        else:
-            return [None]
+        return [None]
 
-    elif name == "verif":
+    if name == "verif":
         if init_args["variable"] == "ws":
             return ["10u", "10v"]
-        else:
-            return [init_args["variable"]]
+        return [init_args["variable"]]
 
-    else:
-        raise ValueError(f"Invalid output: {name}")
+    raise ValueError(f"Invalid output: {name}")
 
 
 class Output:
@@ -87,7 +83,7 @@ class Output:
         """
 
         # Append extra variables to prediction
-        extra_pred = list()
+        extra_pred = []
         for name in self.extra_variables:
             if name == "ws":
                 Ix = self.pm.variables.index("10u")
@@ -117,7 +113,6 @@ class Output:
     def finalize(self):
         """Finalizes the output. This gets called after all add_forecast calls are done. Subclasses
         can override this, if necessary."""
-        pass
 
     def reshape_pred(self, pred):
         """Reshape predictor matrix from points to x,y based on field_shape
