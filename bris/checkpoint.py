@@ -135,7 +135,7 @@ class Checkpoint:
         """
 
         _model_params = tuple(self._model_instance.named_parameters())
-        return deepcopy({layer_name: param for layer_name, param in _model_params})
+        return deepcopy(dict(_model_params))
 
     def update_graph(self, path: Optional[str] = None) -> HeteroData:
         """
@@ -160,41 +160,38 @@ class Checkpoint:
             raise RuntimeError(
                 "Graph has already been updated. Mutliple updates is not allowed"
             )
-        else:
-            if path and os.path.exists(path):
-                external_graph = torch.load(
-                    path, map_location="cpu", weights_only=False
-                )
-                LOGGER.info("Loaded external graph from path")
 
-                self._model_instance.graph_data = external_graph
-                self._model_instance.config = self.config  # conf
+        if path and os.path.exists(path):
+            external_graph = torch.load(path, map_location="cpu", weights_only=False)
+            LOGGER.info("Loaded external graph from path")
 
-                LOGGER.info("Rebuilding layers to support new graph")
+            self._model_instance.graph_data = external_graph
+            self._model_instance.config = self.config  # conf
 
-                try:
-                    self._model_instance._build_model()
-                    self.UPDATE_GRAPH = True
+            LOGGER.info("Rebuilding layers to support new graph")
 
-                except Exception as e:
-                    raise RuntimeError("Failed to rebuild model with new graph.") from e
+            try:
+                self._model_instance._build_model()
+                self.UPDATE_GRAPH = True
 
-                _model_params = self._model_params
+            except Exception as e:
+                raise RuntimeError("Failed to rebuild model with new graph.") from e
 
-                for layer_name, param in self._model_instance.named_parameters():
-                    param.data = _model_params[layer_name].data
+            _model_params = self._model_params
 
-                LOGGER.info(
-                    "Successfully builded model with external graph and reassigning model weights!"
-                )
-                return self._model_instance.graph_data
+            for layer_name, param in self._model_instance.named_parameters():
+                param.data = _model_params[layer_name].data
 
-            else:
-                # future implementation
-                # _graph = anemoi.graphs.create() <-- skeleton
-                # self._model_instance.graph_data = _graph <- update graph obj within inst
-                # return _graph <- return graph
-                raise NotImplementedError
+            LOGGER.info(
+                "Successfully builded model with external graph and reassigning model weights!"
+            )
+            return self._model_instance.graph_data
+
+        # future implementation
+        # _graph = anemoi.graphs.create() <-- skeleton
+        # self._model_instance.graph_data = _graph <- update graph obj within inst
+        # return _graph <- return graph
+        raise NotImplementedError
 
     def set_base_seed(self) -> None:
         """
@@ -222,7 +219,7 @@ class Checkpoint:
         _data_indices = self._model_instance.data_indices
         if isinstance(_data_indices, (tuple, list)) and len(_data_indices) >= 2:
             return tuple(
-                [_data_indices[k].name_to_index for k in range(len(_data_indices))]
+                _data_indices[k].name_to_index for k in range(len(_data_indices))
             )
 
         return (_data_indices.name_to_index,)
@@ -235,13 +232,11 @@ class Checkpoint:
         _data_indices = self._model_instance.data_indices
         if isinstance(_data_indices, (tuple, list)) and len(_data_indices) >= 2:
             return tuple(
-                [
-                    {
-                        index: var
-                        for var, index in self.name_to_index[deocder_index].items()
-                    }
-                    for deocder_index in range(len(self.name_to_index))
-                ]
+                {
+                    index: var
+                    for (var, index) in self.name_to_index[deocder_index].items()
+                }
+                for deocder_index in range(len(self.name_to_index))
             )
         return ({index: name for name, index in _data_indices.name_to_index.items()},)
 

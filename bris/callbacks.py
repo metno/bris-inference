@@ -1,14 +1,12 @@
 import json
 import logging
 from pathlib import Path
-from typing import Optional
 from zipfile import ZipFile
 
 import pytorch_lightning as pl
 import torch
 import torchinfo
 from anemoi.utils.config import DotDict
-from omegaconf import DictConfig
 from pytorch_lightning.callbacks.model_checkpoint import ModelCheckpoint
 from pytorch_lightning.utilities import rank_zero_only
 
@@ -130,7 +128,9 @@ class NewModelCheckpoint(ModelCheckpoint):
 
 
 def get_callbacks(
-    *, filename: str, ckpt_metadata: DotDict, config: Optional[DictConfig] = None
+    *,
+    filename: str,
+    ckpt_metadata: DotDict,  # , config: Optional[DictConfig] = None
 ) -> list:
     """Setup callbacks for PyTorch Lightning trainer.
 
