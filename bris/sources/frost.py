@@ -52,7 +52,7 @@ class Frost(Source):
         self.obs_ids = [int(id.replace("SN", "")) for id in metadata]
         self.points = gridpp.Points(obs_lats, obs_lons, obs_elevs)
 
-        coords = dict()
+        coords = {}
         coords["time"] = (
             ["time"],
             [],
