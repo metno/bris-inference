@@ -160,7 +160,7 @@ def get_attributes_from_leveltype(leveltype):
             "long_name": "height",
             "positive": "up",
         }
-    # TODO: return a default value or raise error
+    raise ValueError(f"Unknown leveltype: {leveltype}")
 
 
 def get_attributes(cfname):
