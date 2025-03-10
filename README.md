@@ -24,10 +24,6 @@ See [Wiki](https://github.com/metno/bris-inference/wiki)
     python3 -m venv venv && source venv/bin/activate
     pip install -e .
 
-## How to run Bris
-
-    bris --config config.yaml
-
 ## How to run tests
 
     pip install ".[tests]"
