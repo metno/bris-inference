@@ -5,3 +5,7 @@ pylint:
     - too-many-locals
     - import-outside-toplevel
     - wrong-import-position
+
+pycodestyle:
+  ignore:
+    - E704 # Conflict with ruff formatting
