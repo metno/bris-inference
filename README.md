@@ -24,6 +24,10 @@ See [Wiki](https://github.com/metno/bris-inference/wiki)
     python3 -m venv venv && source venv/bin/activate
     pip install -e .
 
+### Via docker, if you are from Met.no
+
+See [Dockerfile](https://gitlab.met.no/yrop/bris-cicd/-/blob/main/Dockerfile?ref_type=heads)
+
 ## How to run tests
 
     pip install ".[tests]"
