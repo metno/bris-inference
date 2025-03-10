@@ -74,6 +74,7 @@ bris = "bris:main"
 exclude = [
     "bris/sources/frost.py",
     "bris/sources/azurestorage.py",
+    "bris/data/legacy"
 ]
 
 
