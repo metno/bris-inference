@@ -358,8 +358,8 @@ class MultiEncDecPredictor(BasePredictor):
         variable_indices_output = [() for _ in required_variables]
 
         for dec_index, required_vars_dec in required_variables.items():
-            _variable_indices_input = list()
-            _variable_indices_output = list()
+            _variable_indices_input = []
+            _variable_indices_output = []
             for name in required_vars_dec:
                 index_input = self.data_indices[
                     dec_index
