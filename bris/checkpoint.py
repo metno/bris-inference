@@ -283,10 +283,8 @@ class Checkpoint:
                 for grid_index in range(len(self._metadata.data_indices))
             }
             return tuple(
-                [
-                    {name: self.index_to_name[k][index] for name, index in v.items()}
-                    for k, v in mapping.items()
-                ]
+                {name: self.index_to_name[k][index] for (name, index) in v.items()}
+                for (k, v) in mapping.items()
             )
 
         mapping = self._make_indices_mapping(
@@ -313,10 +311,8 @@ class Checkpoint:
             and len(self._metadata.data_indices) >= 2
         ):
             return tuple(
-                [
-                    {name: index for index, name in v.items()}
-                    for k, v in enumerate(self.model_output_index_to_name)
-                ]
+                {name: index for (index, name) in v.items()}
+                for (k, v) in enumerate(self.model_output_index_to_name)
             )
 
         return (
