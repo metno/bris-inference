@@ -1,6 +1,8 @@
 import os
 import tempfile
+
 import numpy as np
+
 from bris.outputs.netcdf import Netcdf
 from bris.predict_metadata import PredictMetadata
 
