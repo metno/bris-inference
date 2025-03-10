@@ -44,7 +44,7 @@ def get_conversion_map():
     # Linear conversion map out = in * v[0] + v[1]
     # Key: (from_unit, to_unit)
     # Value: (multiplicative, additive)
-    linear_convert = dict()
+    linear_convert = {}
     linear_convert["celsius", "K"] = (1, 273.15)
     linear_convert["m/s", "km/h"] = (3.6, 0)
     linear_convert["kg/m^2", "mm"] = (1, 0)
@@ -138,14 +138,12 @@ def convert(array, iunits, ounits=None, inplace=False):
     if iunits == ounits:
         if inplace:
             return original_ounits
-        else:
-            return array, original_ounits
+        return array, original_ounits
 
     if ounits is None and iunits in default_units:  # Use default units
         if inplace:
             return iunits
-        else:
-            return array, iunits
+        return array, iunits
 
     if isinstance(array, np.ndarray):
         if not issubclass(array.dtype.type, np.floating):
@@ -153,14 +151,13 @@ def convert(array, iunits, ounits=None, inplace=False):
     elif (
         isinstance(array, list)
         and isinstance(array, list)
-        and any([not isinstance(a, numbers.Number) for a in array])
+        and any(not isinstance(a, numbers.Number) for a in array)
     ):
         raise ValueError(
             "Input list contains one or more non-numerical values: ", array
         )
-    else:
-        if not isinstance(array, numbers.Number):
-            raise ValueError("Input is not np.array, list, or number")
+    if not isinstance(array, numbers.Number):
+        raise ValueError("Input is not np.array, list, or number")
 
     linear_convert = get_conversion_map()
 
@@ -171,25 +168,22 @@ def convert(array, iunits, ounits=None, inplace=False):
                 if inplace:
                     convert(array, iunits, default_unit, inplace)
                     return default_unit
-                else:
-                    return convert(array, iunits, default_unit)
+                return convert(array, iunits, default_unit)
 
         raise ValueError(
             f"Cannot convert units. Cannot find a default unit to convert '{iunits}' to"
         )
 
-    else:
-        key = (iunits, ounits)
-        if key in linear_convert:
-            if inplace:
-                array *= linear_convert[key][0]
-                array += linear_convert[key][1]
-                return original_ounits
-            else:
-                return (
-                    array * linear_convert[key][0] + linear_convert[key][1],
-                    original_ounits,
-                )
+    key = (iunits, ounits)
+    if key in linear_convert:
+        if inplace:
+            array *= linear_convert[key][0]
+            array += linear_convert[key][1]
+            return original_ounits
+        return (
+            array * linear_convert[key][0] + linear_convert[key][1],
+            original_ounits,
+        )
     raise ValueError(
         f"Unrecognized input unit conversion '{iunits}'->'{original_ounits}'"
     )
