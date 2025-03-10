@@ -4,7 +4,9 @@ import gridpp
 import numpy as np
 import xarray as xr
 
+import bris.units
 from bris import projections, utils
+from bris.conventions import anemoi as anemoi_conventions
 from bris.conventions import cf
 from bris.conventions.metno import Metno
 from bris.outputs import Output
@@ -380,14 +382,21 @@ class Netcdf(Output):
 
             ar = np.moveaxis(ar, [-1], [1]) if self.pm.num_members > 1 else ar[..., 0]
 
+            cfname = cf.get_metadata(variable)["cfname"]
+            attrs = cf.get_attributes(cfname)
+
+            # Unit conversion from anemoi to CF
+            from_units = anemoi_conventions.get_units(variable)
+            if "units" in attrs:
+                to_units = attrs["units"]
+                bris.units.convert(ar, from_units, to_units, inplace=True)
+
             if level_index is not None:
                 self.ds[ncname][:, level_index, ...] = ar
             else:
                 self.ds[ncname][:] = ar
 
             # Add variable attributes
-            cfname = cf.get_metadata(variable)["cfname"]
-            attrs = cf.get_attributes(cfname)
             attrs["grid_mapping"] = "projection"
             attrs["coordinates"] = "latitude longitude"
             self.ds[ncname].attrs = attrs
