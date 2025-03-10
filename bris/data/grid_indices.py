@@ -48,12 +48,10 @@ class BaseGridIndices(ABC):
         return {}
 
     @abstractmethod
-    def compute_grid_size(self, graph: HeteroData) -> int:
-        ...
+    def compute_grid_size(self, graph: HeteroData) -> int: ...
 
     @abstractmethod
-    def get_shard_indices(self, reader_group_rank: int) -> ArrayIndex:
-        ...
+    def get_shard_indices(self, reader_group_rank: int) -> ArrayIndex: ...
 
 
 class FullGrid(BaseGridIndices):
