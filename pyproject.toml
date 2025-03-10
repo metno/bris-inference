@@ -51,6 +51,7 @@ dependencies = [
 
 optional-dependencies.tests = [
     "tox",
+    "pytest",
 ]
 
 dynamic = ["version"]
