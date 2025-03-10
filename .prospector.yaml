@@ -7,5 +7,5 @@ pylint:
     - wrong-import-position
 
 pycodestyle:
-  ignore:
+  disable:
     - E704 # Conflict with ruff formatting
