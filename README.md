@@ -33,30 +33,7 @@ See [Wiki](https://github.com/metno/bris-inference/wiki)
     pip install ".[tests]"
     tox
 
-### List all tests
-
-    $ tox -a
-    py310
-    py311
-    py312
-    bandit
-    ruff_reformat
-    ruff_check
-    prospector
-    ruff_checkformat
-    mypy
-
-Only py31x, ruff_checkformat, bandit and ruff_check are expected to run without error so far.
-
-### Run single test
-
-    $ tox -e bandit
-
-### Run default tests in parallel
-
-    $ tox -p
-
-When pushing to github, these will be run automatically and must succeed.
+When pushing to github, these will be run automatically and must succeed. Read more about [Tests](https://github.com/metno/bris-inference/wiki/Tests) in the wiki.
 
 ## Code borrowed from Anemoi project
 
