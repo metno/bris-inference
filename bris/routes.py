@@ -1,5 +1,4 @@
 from collections import defaultdict
-from typing import Dict, List
 
 import numpy as np
 
@@ -111,9 +110,11 @@ def get_variable_indices(routing_config: dict, data_module: DataModule):
     return variable_indices
 
 
-def get_required_variables(routing_config: dict, data_module: DataModule) -> Dict[int, List[str]]:
+def get_required_variables(
+    routing_config: dict, data_module: DataModule
+) -> dict[int, list[str]]:
     """Returns a list of required variables for each decoder"""
-    required_variables: Dict[int, List[str]] = defaultdict(list)
+    required_variables: dict[int, list[str]] = defaultdict(list)
     for rc in routing_config:
         var_list = []
         for oc in rc["outputs"]:
