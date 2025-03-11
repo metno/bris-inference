@@ -93,7 +93,9 @@ def get(
     return ret
 
 
-def get_variable_indices(routing_config: dict, data_module: DataModule) -> dict[int, list[int]]:
+def get_variable_indices(
+    routing_config: dict, data_module: DataModule
+) -> dict[int, list[int]]:
     """Returns a list of variable indices for each decoder
 
     This is used by Model
