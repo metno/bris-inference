@@ -2,7 +2,7 @@ import logging
 import os
 from copy import deepcopy
 from functools import cached_property
-from typing import Any, Optional
+from typing import Any, Optional, TypedDict
 
 import torch
 from anemoi.models.interface import AnemoiModelInterface
@@ -11,6 +11,32 @@ from anemoi.utils.config import DotDict
 from torch_geometric.data import HeteroData
 
 LOGGER = logging.getLogger(__name__)
+
+
+class TrainingConfig(DotDict):
+    data: DotDict
+    dataloader: DotDict
+    diagnostics: DotDict
+    hardware: DotDict
+    graph: DotDict
+    model: DotDict
+    training: DotDict
+
+
+class Metadata(DotDict):
+    config: TrainingConfig
+    version: str
+    seed: int
+    run_id: str
+    dataset: DotDict
+    data_indices: DotDict
+    provenance_training: DotDict
+    timestamp: str
+    uuid: str
+    model: DotDict
+    tracker: DotDict
+    training: DotDict
+    supporting_arrays_paths: DotDict
 
 
 class Checkpoint:
@@ -26,11 +52,11 @@ class Checkpoint:
         self.set_base_seed()
 
     @cached_property
-    def metadata(self) -> dict:
+    def metadata(self) -> Metadata:
         return self._metadata
 
     @cached_property
-    def _metadata(self) -> dict:
+    def _metadata(self) -> Metadata:
         """
         Metadata of the model. This includes everything as in:
         -> data_indices (data, model (and internal) indices)
@@ -56,7 +82,7 @@ class Checkpoint:
             raise e
 
     @cached_property
-    def config(self) -> dict:
+    def config(self) -> TrainingConfig:
         """
         The configuriation used during model
         training.
@@ -216,7 +242,7 @@ class Checkpoint:
         LOGGER.info("Encoder and decoder are chunked to %s", chunks)
 
     @cached_property
-    def name_to_index(self) -> dict:
+    def name_to_index(self) -> tuple[dict[str, int], None]:
         """
         Mapping between name and their corresponding variable index
         """
