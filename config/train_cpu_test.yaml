@@ -1,0 +1,142 @@
+# Minimal config for test training on CPU. See https://github.com/metno/bris-inference/wiki/Training
+
+defaults:
+- data: zarr
+- dataloader: native_grid
+- diagnostics: evaluation
+- hardware: slurm
+- graph: multi_scale
+- model: graphtransformer
+- training: default
+- override hydra/hydra_logging: disabled  
+- override hydra/job_logging: disabled 
+- _self_
+- override diagnostics/plot: none
+
+hydra:  
+  output_subdir: null  
+  run:  
+    dir: .
+
+data:
+  resolution: "20.0"
+
+dataloader:
+  dataset: ${hardware.paths.data}${hardware.files.dataset}
+
+  num_workers:
+    training: 2
+    validation: 2
+    test: 2
+    predict: 2
+
+  limit_batches:
+    training: 200
+    validation: 200
+    test: null
+    predict: null
+
+  batch_size:
+    training: 1
+    validation: 1
+    test: 1
+    predict: 1
+
+  training:
+    start: 2022-01-02
+    end: 2022-06-01
+
+  validation:
+    start: 2022-06-02
+    end: 2022-12-31
+
+  test:
+    start: 2022-01-01
+    end: 2022-12-31
+
+diagnostics:
+  checkpoint:
+    every_n_minutes:
+      num_models_saved: 0
+    
+    every_n_epochs:
+      num_models_saved: 2
+
+  log:
+    mlflow:
+      enabled: False
+      offline: True
+      authentication: True
+      tracking_uri: https://mlflow.ecmwf.int
+      experiment_name: 'metno'
+      run_name: small_test_model
+      system: True
+ 
+hardware:
+  paths:
+    data: /home/larsfp/nobackup/
+    output: /home/larsfp/nobackup/output/
+    graph: /home/larsfp/nobackup/output/
+  files:
+    dataset: bris_random_data.zarr
+    graph: small_graph_20p0.pt
+  num_gpus_per_model: 1
+
+graph:
+  overwrite: True
+
+  nodes:
+    hidden:
+     node_builder:
+        resolution: 3
+  
+  edges:
+  - source_name: ${graph.data}
+    target_name: ${graph.hidden}
+    edge_builders:
+    - _target_: anemoi.graphs.edges.KNNEdges # options: KNNEdges, CutOffEdges
+      num_nearest_neighbours: 3 # only for cutoff method
+    attributes: ${graph.attributes.edges}
+  - source_name: ${graph.hidden}
+    target_name: ${graph.hidden}
+    edge_builders:
+    - _target_: anemoi.graphs.edges.MultiScaleEdges
+      x_hops: 1
+    attributes: ${graph.attributes.edges}
+  - source_name: ${graph.hidden}
+    target_name: ${graph.data}
+    edge_builders:
+    - _target_: anemoi.graphs.edges.KNNEdges # options: KNNEdges, CutOffEdges
+      num_nearest_neighbours: 1 # only for knn method
+    attributes: ${graph.attributes.edges}
+
+  attributes:
+    edges:
+      edge_length:
+        _target_: anemoi.graphs.edges.attributes.EdgeLength
+        norm: unit-max
+
+model:
+  num_channels: 16
+  trainable_parameters:
+    data: 0
+    hidden: 0
+    data2hidden: 0
+    hidden2data: 0
+    hidden2hidden: 0
+  
+  bounding:
+    - _target_: anemoi.models.layers.bounding.ReluBounding #[0, infinity)
+      variables:
+      - tp
+
+training:
+  run_id: null
+  fork_run_id: null
+  load_weights_only: False 
+  transfer_learning: False
+  max_epochs: null
+  max_steps: 10
+  lr:
+    rate: 6.25e-05
+    min: 3e-7
