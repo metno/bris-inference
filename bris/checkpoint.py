@@ -5,10 +5,10 @@ from functools import cached_property
 from typing import Any, Optional
 
 import torch
-from anemoi.models.interface import AnemoiModelInterface
 from anemoi.utils.checkpoints import load_metadata
 from anemoi.utils.config import DotDict
 from torch_geometric.data import HeteroData
+from anemoi.models.interface import AnemoiModelInterface
 
 LOGGER = logging.getLogger(__name__)
 
@@ -239,9 +239,9 @@ class Checkpoint:
                 [
                     {
                         index: var
-                        for var, index in self.name_to_index[deocder_index].items()
+                        for var, index in self.name_to_index[decoder_index].items()
                     }
-                    for deocder_index in range(len(self.name_to_index))
+                    for decoder_index in range(len(self.name_to_index))
                 ]
             )
         return ({index: name for name, index in _data_indices.name_to_index.items()},)
