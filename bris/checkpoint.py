@@ -1,11 +1,11 @@
 import logging
 import os
+
 from copy import deepcopy
 from functools import cached_property
 from typing import Any, Optional
 
 import torch
-from anemoi.models.interface import AnemoiModelInterface
 from anemoi.utils.checkpoints import load_metadata
 from anemoi.utils.config import DotDict
 from torch_geometric.data import HeteroData
@@ -23,7 +23,7 @@ class Checkpoint:
         assert os.path.exists(path), "The given checkpoint does not exist!"
 
         self.path = path
-        self.set_base_seed()
+        self.set_base_seed
 
     @cached_property
     def metadata(self) -> dict:
@@ -86,7 +86,7 @@ class Checkpoint:
         return self._model_instance
 
     @cached_property
-    def _model_instance(self) -> AnemoiModelInterface:
+    def _model_instance(self) -> Any:
         """
         Loads a given model instance. This instance
         includes both the model interface and its
@@ -117,26 +117,24 @@ class Checkpoint:
             if hasattr(self._model_instance, "graph_data")
             else None
         )
-
+    
     @cached_property
-    def _model_params(self) -> dict:
+    def _model_state(self) -> dict:
         """
-        The state of model being cached in CPU memory.
-        Keep in mind this is only the model weights and its
-        layer names, i.e does not include optimizer state.
-        It also worth mentioining this model.named_parameters()
-        and not model.state_dict.
+            The state of model being cached in CPU memory.
+            Keep in mind this is only the model weights, i.e does
+            not include optimizer state.
 
-        Args:
-            None
-        Return
-            torch dict containing the state of the model.
-            Keys: name of the layer
-            Value: The state for a given layer
+            Args:
+                None
+            Return
+                torch dict containing the state of the model.
+                Keys: name of the layer
+                Value: The state for a given layer
         """
 
-        _model_params = tuple(self._model_instance.named_parameters())
-        return deepcopy({layer_name: param for layer_name, param in _model_params})
+        _state_dict = deepcopy(self._model_instance.state_dict())
+        return _state_dict
 
     def update_graph(self, path: Optional[str] = None) -> HeteroData:
         """
@@ -162,34 +160,35 @@ class Checkpoint:
                 "Graph has already been updated. Mutliple updates is not allowed"
             )
         else:
-            if path and os.path.exists(path):
-                external_graph = torch.load(
-                    path, map_location="cpu", weights_only=False
-                )
+            if path:
+                assert os.path.exists(
+                    path
+                ), f"Cannot locate graph file. Got path: {path}"
+                external_graph = torch.load(path, map_location="cpu")
                 LOGGER.info("Loaded external graph from path")
-
+                
+                #try:
+                _STATE = self._model_state
+                
+                #conf = DotDict(self._model_instance.data_indices.config)
                 self._model_instance.graph_data = external_graph
-                self._model_instance.config = self.config  # conf
+                self._model_instance.config = self.config #conf 
 
                 LOGGER.info("Rebuilding layers to support new graph")
-
-                try:
-                    self._model_instance._build_model()
-                    self.UPDATE_GRAPH = True
-
-                except Exception as e:
-                    raise RuntimeError("Failed to rebuild model with new graph.") from e
-
-                _model_params = self._model_params
-
-                for layer_name, param in self._model_instance.named_parameters():
-                    param.data = _model_params[layer_name].data
-
+                self._model_instance._build_model()
+                self.UPDATE_GRAPH = True
                 LOGGER.info(
-                    "Successfully builded model with external graph and reassigning model weights!"
+                    "Successfully changed internal graph with external graph!"
                 )
+
+                for layer_name, param in self._model_instance.model.named_parameters():
+                    print(layer_name)
+                    param.data = _STATE["model." + layer_name]
+
                 return self._model_instance.graph_data
 
+                #except Exception as e:
+                #    raise e  # RuntimeError("Failed to update the graph.") from e
             else:
                 # future implementation
                 # _graph = anemoi.graphs.create() <-- skeleton
@@ -197,22 +196,20 @@ class Checkpoint:
                 # return _graph <- return graph
                 raise NotImplementedError
 
+    @cached_property
     def set_base_seed(self) -> None:
         """
-        TODO: Explain what this function does.
-
         Fetchs the original base seed used during training.
         If not
-        """
-        os.environ["ANEMOI_BASE_SEED"] = "1234"
-        os.environ["AIFS_BASE_SEED"] = "1234"
-        LOGGER.info("ANEMOI_BASE_SEED and ANEMOI_BASE_SEED set to 1234")
 
+        """
+        os.environ["ANEMOI_BASE_SEED"]="1234"
+        os.environ["AIFS_BASE_SEED"]="1234"
+        LOGGER.info("ANEMOI_BASE_SEED and ANEMOI_BASE_SEED set to 1234")
+    
     def set_encoder_decoder_num_chunks(self, chunks: int = 1) -> None:
-        assert isinstance(chunks, int), (
-            f"Expecting chunks to be int, got: {chunks}, {type(chunks)}"
-        )
-        os.environ["ANEMOI_INFERENCE_NUM_CHUNKS"] = str(chunks)
+        assert isinstance(chunks, int), f"Expecting chunks to be int, got: {chunks}, {type(chunks)}"
+        os.environ["ANEMOI_INFERENCE_NUM_CHUNKS"] = str(chunks) 
         LOGGER.info("Encoder and decoder are chunked to %s", chunks)
 
     @cached_property
@@ -239,9 +236,9 @@ class Checkpoint:
                 [
                     {
                         index: var
-                        for var, index in self.name_to_index[decoder_index].items()
+                        for var, index in self.name_to_index[deocder_index].items()
                     }
-                    for decoder_index in range(len(self.name_to_index))
+                    for deocder_index in range(len(self.name_to_index))
                 ]
             )
         return ({index: name for name, index in _data_indices.name_to_index.items()},)
