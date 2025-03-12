@@ -16,6 +16,7 @@ See [Wiki](https://github.com/metno/bris-inference/wiki)
 ## Requirements
 
 - udunits2 library. On ubuntu available as `libudunits2-0`
+- Not compatible with ARM yet.
 
 ## Install
 
