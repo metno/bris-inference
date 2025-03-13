@@ -3,7 +3,7 @@ import datetime
 import numpy as np
 from earthkit.data.utils.dates import to_datetime
 
-'''
+"""
 def phase_of_day(time) -> float:
     hour = time.astype(int)
     return hour * 2 * np.pi / 24
@@ -35,7 +35,8 @@ def insolation(time, lats, lons) -> np.ndarray:
     longitude_insolation[longitude_insolation < 0] = 0
 
     return latitude_insolation * longitude_insolation  
-'''
+"""
+
 
 # This is copied from earthkit, probably need to declare this somewhere
 def julian_day(date):
@@ -101,18 +102,20 @@ def cos_solar_zenith_angle(date, lat, lon):
     )
     return result.flatten()
 
+
 def anemoi_dynamic_forcings():
     """
     Returns list of dynamic forcings calculated by anemoi datasets.
     If this list is updated the forcing should also be implemented in get_dynamic_forcings
     """
     return [
-        "cos_julian_day", 
-        "sin_julian_day", 
-        "cos_local_time", 
-        "sin_local_time", 
-        "insolation"
-        ]
+        "cos_julian_day",
+        "sin_julian_day",
+        "cos_local_time",
+        "sin_local_time",
+        "insolation",
+    ]
+
 
 def get_dynamic_forcings(time, lats, lons, selection):
     forcings = {}

@@ -4,9 +4,9 @@ import numpy as np
 
 import bris.outputs
 from bris import utils
+from bris.checkpoint import Checkpoint
 from bris.data.datamodule import DataModule
 from bris.predict_metadata import PredictMetadata
-from bris.checkpoint import Checkpoint
 
 
 def get(
@@ -92,6 +92,7 @@ def get(
         ]
 
     return ret
+
 
 def get_required_variables(routing_config: dict, ckptObj: Checkpoint):
     """Returns a list of required variables for each decoder"""
