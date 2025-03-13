@@ -37,7 +37,7 @@ def get(
     """
     ret = list()
     required_variables = get_required_variables(routing_config, data_module)
-    
+
     count = 0
     for config in routing_config:
         decoder_index = config["decoder_index"]
@@ -57,7 +57,9 @@ def get(
             lons = data_module.longitudes[decoder_index][start_gridpoint:end_gridpoint]
             altitudes = None
             if data_module.altitudes[decoder_index] is not None:
-                altitudes = data_module.altitudes[decoder_index][start_gridpoint:end_gridpoint]
+                altitudes = data_module.altitudes[decoder_index][
+                    start_gridpoint:end_gridpoint
+                ]
             field_shape = data_module.field_shape[decoder_index][domain_index]
 
             curr_required_variables = required_variables[decoder_index]
@@ -93,13 +95,13 @@ def get(
 
 def get_required_variables(routing_config: dict, ckptObj: Checkpoint):
     """Returns a list of required variables for each decoder"""
-    required_variables = defaultdict(list)
+    required_variables: dict[int, list[str]] = defaultdict(list)
     for rc in routing_config:
-        l = list()
+        var_list = []
         for oc in rc["outputs"]:
             for output_type, args in oc.items():
-                l += bris.outputs.get_required_variables(output_type, args)
-        required_variables[rc["decoder_index"]] += l
+                var_list += bris.outputs.get_required_variables(output_type, args)
+        required_variables[rc["decoder_index"]] += var_list
 
     for decoder_index, v in required_variables.items():
         if None in v:
@@ -111,5 +113,5 @@ def get_required_variables(routing_config: dict, ckptObj: Checkpoint):
     return required_variables
 
 
-def expand_variable(string, variable):
+def expand_variable(string: str, variable: str) -> str:
     return string.replace("%V", variable)

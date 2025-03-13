@@ -111,7 +111,6 @@ def get_metadata(anemoi_variable: str) -> dict:
         leveltype = "height"
         level = 0
     else:
-
         words = anemoi_variable.split("_")
         if len(words) == 2 and words[0] in ["t", "u", "v", "z", "q", "w"]:
             name, level = words[0], int(words[1])
@@ -168,20 +167,18 @@ def get_attributes(cfname):
     ret = {"standard_name": cfname}
 
     # Coordinate variables
-    if cfname == "forecast_reference_time":
-        ret["units"] = "seconds since 1970-01-01 00:00:00 +00:00"
-    elif cfname == "time":
+    if cfname in ["forecast_reference_time", "time"]:
         ret["units"] = "seconds since 1970-01-01 00:00:00 +00:00"
     elif cfname == "latitude":
         ret["units"] = "degrees_north"
-    elif cfname == "surface_altitude":
+    elif cfname in [
+        "surface_altitude",
+        "projection_x_coordinate",
+        "projection_y_coordinate",
+    ]:
         ret["units"] = "m"
     elif cfname == "longitude":
         ret["units"] = "degrees_east"
-    elif cfname == "projection_x_coordinate":
-        ret["units"] = "m"
-    elif cfname == "projection_y_coordinate":
-        ret["units"] = "m"
     elif cfname == "realization":
         pass
     elif cfname == "air_pressure":
@@ -220,7 +217,10 @@ def get_attributes(cfname):
         ret["units"] = "m"
     elif "area_fraction" in cfname:
         ret["units"] = "1"
-    elif cfname in ["integral_of_surface_downwelling_longwave_flux_in_air_wrt_time", "integral_of_surface_downwelling_shortwave_flux_in_air_wrt_time"]:
+    elif cfname in [
+        "integral_of_surface_downwelling_longwave_flux_in_air_wrt_time",
+        "integral_of_surface_downwelling_shortwave_flux_in_air_wrt_time",
+    ]:
         ret["units"] = "J/m^2"
 
     # Unknown cfname, let's not write any attributes

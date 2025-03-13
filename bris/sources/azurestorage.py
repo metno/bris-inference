@@ -30,7 +30,6 @@ class AzureStorage:
     def __init__(
         self, *, args: Optional[Namespace] = None, config: Optional[DictConfig] = None
     ) -> None:
-
         self.args = args
         self.config = config
 
@@ -99,7 +98,9 @@ class AzureStorage:
             return blobs  # [:self.lagged]
 
         except Exception as e:
-            LOGGER.error("Error fetching blob information. An exception occured!", exc_info=True)
+            LOGGER.error(
+                "Error fetching blob information. An exception occured!", exc_info=True
+            )
             raise RuntimeError("Error fetching blob information.") from e
 
     @property

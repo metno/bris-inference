@@ -1,14 +1,42 @@
 import logging
 import os
+from copy import deepcopy
 from functools import cached_property
-from typing import Any, Optional
+from typing import Any, Optional, TypedDict
 
 import torch
+from anemoi.models.interface import AnemoiModelInterface
 from anemoi.utils.checkpoints import load_metadata
 from anemoi.utils.config import DotDict
 from torch_geometric.data import HeteroData
 
 LOGGER = logging.getLogger(__name__)
+
+
+class TrainingConfig(DotDict):
+    data: DotDict
+    dataloader: DotDict
+    diagnostics: DotDict
+    hardware: DotDict
+    graph: DotDict
+    model: DotDict
+    training: DotDict
+
+
+class Metadata(DotDict):
+    config: TrainingConfig
+    version: str
+    seed: int
+    run_id: str
+    dataset: DotDict
+    data_indices: DotDict
+    provenance_training: DotDict
+    timestamp: str
+    uuid: str
+    model: DotDict
+    tracker: DotDict
+    training: DotDict
+    supporting_arrays_paths: DotDict
 
 
 class Checkpoint:
@@ -21,14 +49,14 @@ class Checkpoint:
         assert os.path.exists(path), "The given checkpoint does not exist!"
 
         self.path = path
-        self.set_base_seed
+        self.set_base_seed()
 
     @cached_property
-    def metadata(self) -> dict:
+    def metadata(self) -> Metadata:
         return self._metadata
 
     @cached_property
-    def _metadata(self) -> dict:
+    def _metadata(self) -> Metadata:
         """
         Metadata of the model. This includes everything as in:
         -> data_indices (data, model (and internal) indices)
@@ -54,7 +82,7 @@ class Checkpoint:
             raise e
 
     @cached_property
-    def config(self) -> dict:
+    def config(self) -> TrainingConfig:
         """
         The configuriation used during model
         training.
@@ -84,7 +112,7 @@ class Checkpoint:
         return self._model_instance
 
     @cached_property
-    def _model_instance(self) -> Any:
+    def _model_instance(self) -> AnemoiModelInterface:
         """
         Loads a given model instance. This instance
         includes both the model interface and its
@@ -116,6 +144,26 @@ class Checkpoint:
             else None
         )
 
+    @cached_property
+    def _model_params(self) -> dict:
+        """
+        The state of model being cached in CPU memory.
+        Keep in mind this is only the model weights and its
+        layer names, i.e does not include optimizer state.
+        It also worth mentioining this model.named_parameters()
+        and not model.state_dict.
+
+        Args:
+            None
+        Return
+            torch dict containing the state of the model.
+            Keys: name of the layer
+            Value: The state for a given layer
+        """
+
+        _model_params = tuple(self._model_instance.named_parameters())
+        return deepcopy({layer_name: param for layer_name, param in _model_params})
+
     def update_graph(self, path: Optional[str] = None) -> HeteroData:
         """
         Replaces existing graph object within model instance.
@@ -139,48 +187,62 @@ class Checkpoint:
             raise RuntimeError(
                 "Graph has already been updated. Mutliple updates is not allowed"
             )
+        else:
+            if path and os.path.exists(path):
+                external_graph = torch.load(
+                    path, map_location="cpu", weights_only=False
+                )
+                LOGGER.info("Loaded external graph from path")
 
-        if path:
-            assert os.path.exists(
-                path
-            ), f"Cannot locate graph file. Got path: {path}"
-            external_graph = torch.load(path, map_location="cpu")
-            LOGGER.info("Loaded external graph from path")
-            try:
                 self._model_instance.graph_data = external_graph
-                self.UPDATE_GRAPH = True
+                self._model_instance.config = self.config  # conf
+
+                LOGGER.info("Rebuilding layers to support new graph")
+
+                try:
+                    self._model_instance._build_model()
+                    self.UPDATE_GRAPH = True
+
+                except Exception as e:
+                    raise RuntimeError("Failed to rebuild model with new graph.") from e
+
+                _model_params = self._model_params
+
+                for layer_name, param in self._model_instance.named_parameters():
+                    param.data = _model_params[layer_name].data
+
                 LOGGER.info(
-                    "Successfully changed internal graph with external graph!"
+                    "Successfully builded model with external graph and reassigning model weights!"
                 )
                 return self._model_instance.graph_data
 
-            except Exception as e:
-                raise e  # RuntimeError("Failed to update the graph.") from e
-        else:
-            # future implementation
-            # _graph = anemoi.graphs.create() <-- skeleton
-            # self._model_instance.graph_data = _graph <- update graph obj within inst
-            # return _graph <- return graph
-            raise NotImplementedError
+            else:
+                # future implementation
+                # _graph = anemoi.graphs.create() <-- skeleton
+                # self._model_instance.graph_data = _graph <- update graph obj within inst
+                # return _graph <- return graph
+                raise NotImplementedError
 
-    @cached_property
     def set_base_seed(self) -> None:
         """
+        TODO: Explain what this function does.
+
         Fetchs the original base seed used during training.
         If not
-
         """
-        os.environ["ANEMOI_BASE_SEED"]="1234"
-        os.environ["AIFS_BASE_SEED"]="1234"
+        os.environ["ANEMOI_BASE_SEED"] = "1234"
+        os.environ["AIFS_BASE_SEED"] = "1234"
         LOGGER.info("ANEMOI_BASE_SEED and ANEMOI_BASE_SEED set to 1234")
-    
+
     def set_encoder_decoder_num_chunks(self, chunks: int = 1) -> None:
-        assert isinstance(chunks, int), f"Expecting chunks to be int, got: {chunks}, {type(chunks)}"
-        os.environ["ANEMOI_INFERENCE_NUM_CHUNKS"] = str(chunks) 
+        assert isinstance(chunks, int), (
+            f"Expecting chunks to be int, got: {chunks}, {type(chunks)}"
+        )
+        os.environ["ANEMOI_INFERENCE_NUM_CHUNKS"] = str(chunks)
         LOGGER.info("Encoder and decoder are chunked to %s", chunks)
 
     @cached_property
-    def name_to_index(self) -> dict:
+    def name_to_index(self) -> tuple[dict[str, int], None]:
         """
         Mapping between name and their corresponding variable index
         """
@@ -203,9 +265,9 @@ class Checkpoint:
                 [
                     {
                         index: var
-                        for var, index in self.name_to_index[deocder_index].items()
+                        for var, index in self.name_to_index[decoder_index].items()
                     }
-                    for deocder_index in range(len(self.name_to_index))
+                    for decoder_index in range(len(self.name_to_index))
                 ]
             )
         return ({index: name for name, index in _data_indices.name_to_index.items()},)

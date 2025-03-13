@@ -1,6 +1,7 @@
 import copy
-import numpy as np
+from typing import Optional
 
+import numpy as np
 
 from bris import sources
 from bris.predict_metadata import PredictMetadata
@@ -62,12 +63,16 @@ def get_required_variables(name, init_args):
 class Output:
     """This class writes output for a specific part of the domain"""
 
-    def __init__(self, predict_metadata: PredictMetadata, extra_variables=dict()):
+    def __init__(
+        self, predict_metadata: PredictMetadata, extra_variables: Optional[list] = None
+    ):
         """Creates an object of type name with config
 
         Args:
             predict_metadata: Contains metadata about the batch the output will recieve
         """
+        if extra_variables is None:
+            extra_variables = []
 
         predict_metadata = copy.deepcopy(predict_metadata)
         predict_metadata.variables += extra_variables
@@ -75,7 +80,7 @@ class Output:
         self.pm = predict_metadata
         self.extra_variables = extra_variables
 
-    def add_forecast(self, times: list, ensemble_member: int, pred: np.array):
+    def add_forecast(self, times: list, ensemble_member: int, pred: np.ndarray):
         """Registers a forecast from a single ensemble member in the output
 
         Args:
@@ -90,7 +95,7 @@ class Output:
             if name == "ws":
                 Ix = self.pm.variables.index("10u")
                 Iy = self.pm.variables.index("10v")
-                curr = np.sqrt(pred[..., [Ix]]**2 + pred[..., [Iy]]**2)
+                curr = np.sqrt(pred[..., [Ix]] ** 2 + pred[..., [Iy]] ** 2)
                 extra_pred += [curr]
             else:
                 raise ValueError(f"No recipe to compute {name}")
@@ -99,13 +104,16 @@ class Output:
 
         assert pred.shape[0] == self.pm.num_leadtimes
         assert pred.shape[1] == len(self.pm.lats)
-        assert pred.shape[2] == len(self.pm.variables), (pred.shape, len(self.pm.variables))
+        assert pred.shape[2] == len(self.pm.variables), (
+            pred.shape,
+            len(self.pm.variables),
+        )
         assert ensemble_member >= 0
         assert ensemble_member < self.pm.num_members
 
         self._add_forecast(times, ensemble_member, pred)
 
-    def _add_forecast(self, times: list, ensemble_member: int, pred: np.array):
+    def _add_forecast(self, times: list, ensemble_member: int, pred: np.ndarray):
         """Subclasses should implement this"""
         raise NotImplementedError()
 

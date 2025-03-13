@@ -16,6 +16,7 @@ See [Wiki](https://github.com/metno/bris-inference/wiki)
 ## Requirements
 
 - udunits2 library. On ubuntu available as `libudunits2-0`
+- Not compatible with ARM yet.
 
 ## Install
 
@@ -24,27 +25,16 @@ See [Wiki](https://github.com/metno/bris-inference/wiki)
     python3 -m venv venv && source venv/bin/activate
     pip install -e .
 
-## How to run Bris
+### Via docker, if you are from Met.no
 
-    bris --config config.yaml
+See [Dockerfile](https://gitlab.met.no/yrop/bris-cicd/-/blob/main/Dockerfile?ref_type=heads)
 
 ## How to run tests
 
     pip install ".[tests]"
     tox
 
-List all tests, and run a single one:
-
-    $ tox -a
-    py311
-    py312
-    ruffcheck
-    typing
-    bandit
-    prospector
-    ruffformat
-
-    $ tox -e bandit
+When pushing to github, these will be run automatically and must succeed. Read more about [Tests](https://github.com/metno/bris-inference/wiki/Tests) in the wiki.
 
 ## Code borrowed from Anemoi project
 

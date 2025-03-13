@@ -10,13 +10,11 @@
 from __future__ import annotations
 
 import logging
-from abc import ABC
-from abc import abstractmethod
+from abc import ABC, abstractmethod
 from collections.abc import Sequence
 from typing import Union
 
 import numpy as np
-
 from torch_geometric.data import HeteroData
 
 LOGGER = logging.getLogger(__name__)
@@ -62,7 +60,7 @@ class FullGrid(BaseGridIndices):
     def compute_grid_size(self, graph: HeteroData) -> int:
         if hasattr(graph[self.nodes_name], "num_nodes"):
             return graph[self.nodes_name].num_nodes
-        elif "coords" in graph[self.nodes_name].keys():
+        elif "coords" in graph[self.nodes_name]:
             return graph[self.nodes_name]["coords"].shape[0]
         else:
             raise ValueError("Could not compute grid size in graph")
@@ -74,7 +72,9 @@ class FullGrid(BaseGridIndices):
 class MaskedGrid(BaseGridIndices):
     """Grid is masked based on a node attribute."""
 
-    def __init__(self, nodes_name: str, reader_group_size: int, node_attribute_name: str):
+    def __init__(
+        self, nodes_name: str, reader_group_size: int, node_attribute_name: str
+    ):
         super().__init__(nodes_name, reader_group_size)
         self.node_attribute_name = node_attribute_name
 
@@ -84,7 +84,9 @@ class MaskedGrid(BaseGridIndices):
             self.node_attribute_name,
             self.nodes_name,
         )
-        self.grid_indices = graph[self.nodes_name][self.node_attribute_name].squeeze().tolist()
+        self.grid_indices = (
+            graph[self.nodes_name][self.node_attribute_name].squeeze().tolist()
+        )
         super().setup(graph)
 
     @property

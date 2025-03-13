@@ -1,7 +1,5 @@
-import logging
 import json
-import jsonschema
-import yaml
+import logging
 import numbers
 import os
 import re
@@ -9,10 +7,11 @@ import time
 import uuid
 from argparse import ArgumentParser
 
+import jsonschema
 import numpy as np
+import yaml
 from anemoi.utils.config import DotDict
 from omegaconf import OmegaConf
-
 
 LOGGER = logging.getLogger(__name__)
 
@@ -45,18 +44,19 @@ def get_workdir(path: str) -> str:
 
 
 def check_anemoi_training(metadata: DotDict) -> bool:
-    assert isinstance(
-        metadata, DotDict
-    ), f"Expected metadata to be a DotDict, got {type(metadata)}"
-    return hasattr(metadata.provenance_training, "module_versions") and \
-        hasattr(metadata.provenance_training.module_versions, "anemoi.training")
+    assert isinstance(metadata, DotDict), (
+        f"Expected metadata to be a DotDict, got {type(metadata)}"
+    )
+    return hasattr(metadata.provenance_training, "module_versions") and hasattr(
+        metadata.provenance_training.module_versions, "anemoi.training"
+    )
 
 
 def check_anemoi_dataset_version(metadata) -> tuple[bool, str]:
     """Not currently in use, but can be handy for testing, debugging."""
-    assert isinstance(
-        metadata, DotDict
-    ), f"Expected metadata to be a DotDict, got {type(metadata)}"
+    assert isinstance(metadata, DotDict), (
+        f"Expected metadata to be a DotDict, got {type(metadata)}"
+    )
     if hasattr(metadata.provenance_training, "module_versions"):
         try:
             _version = metadata.provenance_training.module_versions["anemoi.datasets"]
@@ -84,15 +84,24 @@ def create_config(parser: ArgumentParser) -> OmegaConf:
     parser.add_argument(
         "-c", type=str, dest="checkpoint_path", default=config.checkpoint_path
     )
-    parser.add_argument("-sd", type=str, dest="start_date", required=False,
-        default=config.start_date if "start_date" in config else None)
+    parser.add_argument(
+        "-sd",
+        type=str,
+        dest="start_date",
+        required=False,
+        default=config.start_date if "start_date" in config else None,
+    )
     parser.add_argument("-ed", type=str, dest="end_date", default=config.end_date)
     parser.add_argument(
         "-p", type=str, dest="dataset_path", help="Path to dataset", default=None
     )
     parser.add_argument(
-        "-wd", type=str, dest="workdir", help="Path to work directory", required=False,
-        default=config.workdir if "workdir" in config else None
+        "-wd",
+        type=str,
+        dest="workdir",
+        help="Path to work directory",
+        required=False,
+        default=config.workdir if "workdir" in config else None,
     )
 
     parser.add_argument(
@@ -125,12 +134,16 @@ def unixtime_to_datetime(ut: int) -> np.datetime64:
     """Convert unixtime to a np.datetime64 object."""
     return np.datetime64(ut, "s")
 
+
 def timedelta64_from_timestep(timestep):
     if isinstance(timestep, str) and timestep[-1] in ("h", "m", "s"):
         return np.timedelta64(timestep[0:-1], timestep[-1])
     else:
-        print("WARNING: could not decode model timestep from checkpoint, trying to assume hours")
+        print(
+            "WARNING: could not decode model timestep from checkpoint, trying to assume hours"
+        )
         return np.timedelta64(timestep, "h")
+
 
 def validate(filename: str, raise_on_error: bool = False) -> None:
     """Validate config file against a json schema."""
@@ -195,7 +208,8 @@ def get_usable_indices(
     # Missing indices
     for i in missing_indices:
         usable_indices = usable_indices[
-            (usable_indices < i - next_invalid_dates) + (usable_indices > i + prev_invalid_dates)
+            (usable_indices < i - next_invalid_dates)
+            + (usable_indices > i + prev_invalid_dates)
         ]
 
     return usable_indices
@@ -211,8 +225,10 @@ def get_base_seed(env_var_list=("AIFS_BASE_SEED", "SLURM_JOB_ID")) -> int:
         if env_var in os.environ:
             base_seed = int(os.environ.get(env_var, default=-1))
             break
-    else: # No break from for loop
-        raise AssertionError (f"Base seed not found in environment variables {env_var_list}")
+    else:  # No break from for loop
+        raise AssertionError(
+            f"Base seed not found in environment variables {env_var_list}"
+        )
 
     if base_seed < 1000:
         base_seed = base_seed * 1000  # make it (hopefully) big enough

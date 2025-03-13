@@ -2,6 +2,7 @@ import os
 
 import bris.routes
 
+
 class FakeDataModule:
     def __init__(self):
         self.field_shape = [[None, [1, 2]], [None]]
@@ -15,7 +16,7 @@ class FakeDataModule:
 
     @property
     def latitudes(self):
-        return [[1,1,2], [1]]
+        return [[1, 1, 2], [1]]
 
     @property
     def longitudes(self):
@@ -28,6 +29,7 @@ class FakeDataModule:
     @property
     def name_to_index(self):
         return [{"2t": 0, "10u": 1, "10v": 2}, {"100v": 0, "100u": 1}]
+
 
 def test_get():
     config = list()
@@ -71,7 +73,7 @@ def test_get():
                     }
                 }
             ],
-        }
+        },
     ]
     data_module = FakeDataModule()
     workdir = "testdir"

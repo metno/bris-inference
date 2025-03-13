@@ -1,21 +1,19 @@
-import torch
-import numpy as np
-import random
 import logging
-
-from einops import rearrange
+import random
+from collections.abc import Iterator
 from functools import cached_property
-from typing import Callable, Iterator
+from typing import Callable
 
-from torch.utils.data import IterableDataset
-from torch.utils.data import get_worker_info
-from bris.utils import get_usable_indices, get_base_seed
-
+import numpy as np
+import torch
+from einops import rearrange
+from torch.utils.data import IterableDataset, get_worker_info
 
 from bris.data.grid_indices import BaseGridIndices
-
+from bris.utils import get_base_seed, get_usable_indices
 
 LOGGER = logging.getLogger(__name__)
+
 
 class NativeGridDataset(IterableDataset):
     """Iterable dataset for AnemoI data on the arbitrary grids."""
@@ -53,7 +51,7 @@ class NativeGridDataset(IterableDataset):
 
         self.rollout = rollout
         self.timeincrement = timeincrement
-        self.grid_indices = grid_indices[0] #Assume 1 input dataset
+        self.grid_indices = grid_indices[0]  # Assume 1 input dataset
 
         # lazy init
         self.n_samples_per_epoch_total: int = 0
@@ -76,8 +74,8 @@ class NativeGridDataset(IterableDataset):
         self.multi_step = multistep
         assert self.multi_step > 0, "Multistep value must be greater than zero."
         self.ensemble_dim: int = 2
-        self.ensemble_size = self.data.shape[self.ensemble_dim] 
-    
+        self.ensemble_size = self.data.shape[self.ensemble_dim]
+
     @cached_property
     def valid_date_indices(self) -> np.ndarray:
         """Return valid date indices.
@@ -90,7 +88,13 @@ class NativeGridDataset(IterableDataset):
         dataset length minus rollout minus additional multistep inputs
         (if time_increment is 1).
         """
-        return get_usable_indices(self.data.missing, len(self.data), self.rollout, self.multi_step, self.timeincrement)
+        return get_usable_indices(
+            self.data.missing,
+            len(self.data),
+            self.rollout,
+            self.multi_step,
+            self.timeincrement,
+        )
 
     def set_comm_group_info(
         self,
@@ -186,25 +190,30 @@ class NativeGridDataset(IterableDataset):
             start = i - (self.multi_step - 1) * self.timeincrement
             end = i + (self.rollout + 1) * self.timeincrement
 
-            grid_shard_indices = self.grid_indices.get_shard_indices(self.reader_group_rank)
+            grid_shard_indices = self.grid_indices.get_shard_indices(
+                self.reader_group_rank
+            )
             x = self.data[start : end : self.timeincrement, :, :, :]
             x = x[..., grid_shard_indices]  # select the grid shard
-            x = rearrange(x, "dates variables ensemble gridpoints -> dates ensemble gridpoints variables")
+            x = rearrange(
+                x,
+                "dates variables ensemble gridpoints -> dates ensemble gridpoints variables",
+            )
             self.ensemble_dim = 1
 
             yield (torch.from_numpy(x), str(self.data.dates[i]))
 
+
 class ZipDataset(NativeGridDataset):
     def __init__(
-        self, 
-        data_reader, 
-        grid_indices, 
-        rollout = 1, 
-        multistep = 1, 
-        timeincrement = 1, 
-        label = "generic", 
+        self,
+        data_reader,
+        grid_indices,
+        rollout=1,
+        multistep=1,
+        timeincrement=1,
+        label="generic",
     ):
-
         self.label = label
         self.data = data_reader
 
@@ -233,12 +242,13 @@ class ZipDataset(NativeGridDataset):
         self.multi_step = multistep
         assert self.multi_step > 0, "Multistep value must be greater than zero."
         self.ensemble_dim: int = 2
-        assert all(dset_shape[self.ensemble_dim] == self.data.shape[0][self.ensemble_dim] 
-                   for dset_shape in self.data.shape), "Ensemble size must match for all datasets"
+        assert all(
+            dset_shape[self.ensemble_dim] == self.data.shape[0][self.ensemble_dim]
+            for dset_shape in self.data.shape
+        ), "Ensemble size must match for all datasets"
         self.ensemble_size = self.data.shape[0][self.ensemble_dim]
 
     def __iter__(self) -> Iterator[tuple[tuple[torch.Tensor], str]]:
-
         shuffled_chunk_indices = self.valid_date_indices[self.chunk_index_range]
 
         for i in shuffled_chunk_indices:
@@ -247,14 +257,22 @@ class ZipDataset(NativeGridDataset):
             x = self.data[start : end : self.timeincrement]
             batch = []
             for j, data in enumerate(x):
-                grid_shard_indices = self.grid_indices[j].get_shard_indices(self.reader_group_rank)
-                batch.append(torch.from_numpy(
-                    rearrange(data[...,grid_shard_indices], "dates variables ensemble gridpoints -> dates ensemble gridpoints variables")
-                    ))
-                
+                grid_shard_indices = self.grid_indices[j].get_shard_indices(
+                    self.reader_group_rank
+                )
+                batch.append(
+                    torch.from_numpy(
+                        rearrange(
+                            data[..., grid_shard_indices],
+                            "dates variables ensemble gridpoints -> dates ensemble gridpoints variables",
+                        )
+                    )
+                )
+
             self.ensemble_dim = 1
 
             yield (tuple(batch), str(self.data.dates[i]))
+
 
 def worker_init_func(worker_id: int) -> None:
     """Configures each dataset worker process.
@@ -276,7 +294,9 @@ def worker_init_func(worker_id: int) -> None:
     if worker_info is None:
         LOGGER.error("worker_info is None! Set num_workers > 0 in your dataloader!")
         raise RuntimeError
-    dataset_obj = worker_info.dataset  # the copy of the dataset held by this worker process.
+    dataset_obj = (
+        worker_info.dataset
+    )  # the copy of the dataset held by this worker process.
     dataset_obj.per_worker_init(
         n_workers=worker_info.num_workers,
         worker_id=worker_id,

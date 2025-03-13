@@ -3,7 +3,10 @@ import datetime
 import gridpp
 import numpy as np
 import xarray as xr
+
+import bris.units
 from bris import projections, utils
+from bris.conventions import anemoi as anemoi_conventions
 from bris.conventions import cf
 from bris.conventions.metno import Metno
 from bris.outputs import Output
@@ -34,12 +37,12 @@ class Netcdf(Output):
         interp_res=None,
         latrange=None,
         lonrange=None,
-        extra_variables=list(),
+        extra_variables=None,
         proj4_str=None,
         domain_name=None,
         mask_file=None,
         mask_field=None,
-        global_attributes=dict(),
+        global_attributes=None,
     ):
         """
         Args:
@@ -69,7 +72,9 @@ class Netcdf(Output):
         self.latrange = latrange
         self.lonrange = lonrange
         self.mask_file = mask_file
-        self.global_attributes = global_attributes
+        self.global_attributes = (
+            global_attributes if global_attributes is not None else dict()
+        )
 
         if domain_name is not None:
             self.proj4_str = projections.get_proj4_str(domain_name)
@@ -80,12 +85,12 @@ class Netcdf(Output):
             # If a mask was used during training:
             # Compute 1D->2D index to output 2D arrays by using a mask file
             self.ds_mask = xr.open_dataset(mask_file)
-            if 'time' in self.ds_mask.dims:
+            if "time" in self.ds_mask.dims:
                 mask = self.ds_mask.isel(time=0)[mask_field].values
             else:
                 mask = self.ds_mask[mask_field].values
             self.mask = mask == 1.0
-            
+
     def _add_forecast(self, times: list, ensemble_member: int, pred: np.array):
         if self.pm.num_members > 1:
             # Cache data with intermediate
@@ -167,8 +172,12 @@ class Netcdf(Output):
                     print("Warning: latrange/lonrange not handled in gridded fields")
 
                 if self.proj4_str:
-                    lats = np.reshape(self.pm.lats, self.pm.field_shape).astype(np.double)
-                    lons = np.reshape(self.pm.lons, self.pm.field_shape).astype(np.double)
+                    lats = np.reshape(self.pm.lats, self.pm.field_shape).astype(
+                        np.double
+                    )
+                    lons = np.reshape(self.pm.lons, self.pm.field_shape).astype(
+                        np.double
+                    )
                     x, y = projections.get_xy(lats, lons, self.proj4_str)
                 else:
                     x = np.arange(self.pm.field_shape[1]).astype(np.float32)
@@ -188,7 +197,9 @@ class Netcdf(Output):
                     x = self.ds_mask.x.values
                     y = self.ds_mask.y.values
                 else:
-                    raise AttributeError("Mask dataset does not contain projected coordinates variables 'x', 'y' or 'X', 'Y'")
+                    raise AttributeError(
+                        "Mask dataset does not contain projected coordinates variables 'x', 'y' or 'X', 'Y'"
+                    )
 
                 x_dim_name = c("projection_x_coordinate")
                 y_dim_name = c("projection_y_coordinate")
@@ -242,10 +253,7 @@ class Netcdf(Output):
 
                 if self.pm.altitudes is not None:
                     altitudes = self.pm.grid_altitudes.astype(np.double)
-                    self.ds[c("surface_altitude")] = (
-                        spatial_dims,
-                        altitudes
-                    )
+                    self.ds[c("surface_altitude")] = (spatial_dims, altitudes)
                 proj_attrs = dict()
                 if self.proj4_str is not None:
                     proj_attrs = projections.get_proj_attributes(self.proj4_str)
@@ -260,12 +268,16 @@ class Netcdf(Output):
                 if hasattr(self.ds_mask, "lat") and hasattr(self.ds_mask, "lon"):
                     lat = self.ds_mask.lat.values
                     lon = self.ds_mask.lon.values
-                elif hasattr(self.ds_mask, "latitude") and hasattr(self.ds_mask, "longitude"):
+                elif hasattr(self.ds_mask, "latitude") and hasattr(
+                    self.ds_mask, "longitude"
+                ):
                     lat = self.ds_mask.latitude.values
                     lon = self.ds_mask.longitude.values
                 else:
-                    raise ValueError("Mask dataset does not contain coordinates variables 'lat', 'lon' or 'latitude', 'longitude'")
-                
+                    raise ValueError(
+                        "Mask dataset does not contain coordinates variables 'lat', 'lon' or 'latitude', 'longitude'"
+                    )
+
                 self.ds[c("latitude")] = (
                     spatial_dims,
                     lat,
@@ -275,22 +287,17 @@ class Netcdf(Output):
                     lon,
                 )
                 if self.pm.altitudes is not None:
-                    altitudes_rec = np.nan * np.zeros(
-                        [len(y), len(x)], np.float32
-                    )
-                    # Reconstruct the 2D array 
+                    altitudes_rec = np.nan * np.zeros([len(y), len(x)], np.float32)
+                    # Reconstruct the 2D array
                     altitudes_rec[self.mask] = self.pm.altitudes
-                    self.ds[c("surface_altitude")] = (
-                        spatial_dims,
-                        altitudes_rec
-                        )
-                    
+                    self.ds[c("surface_altitude")] = (spatial_dims, altitudes_rec)
+
                 proj_attrs = dict()
                 if self.proj4_str is not None:
                     proj_attrs = projections.get_proj_attributes(self.proj4_str)
                 self.ds[c("projection")] = ([], 0, proj_attrs)
 
-            else: 
+            else:
                 self.ds[c("latitude")] = (
                     spatial_dims,
                     self.pm.lats,
@@ -300,17 +307,14 @@ class Netcdf(Output):
                     self.pm.lons,
                 )
                 if self.pm.altitudes is not None:
-                    self.ds[c("surface_altitude")] = (
-                        spatial_dims,
-                        self.pm.altitudes
-                    )
+                    self.ds[c("surface_altitude")] = (spatial_dims, self.pm.altitudes)
 
         for cfname in [
             "forecast_reference_time",
             "time",
             "latitude",
             "longitude",
-            "sufrace_altitude",
+            "surface_altitude",
             "projection_x_coordinate",
             "projection_y_coordinate",
             "realization",
@@ -318,6 +322,10 @@ class Netcdf(Output):
             ncname = c(cfname)
             if ncname in self.ds:
                 self.ds[ncname].attrs = cf.get_attributes(cfname)
+
+                if cfname == "surface_altitude":
+                    self.ds[ncname].attrs["grid_mapping"] = "projection"
+                    self.ds[ncname].attrs["coordinates"] = "latitude longitude"
 
         # Set up all prediction variables
         for variable_index, variable in enumerate(self.pm.variables):
@@ -366,22 +374,26 @@ class Netcdf(Output):
                 )
                 for i in range(self.pm.num_members):
                     ar[:, :, :, i] = gridpp.nearest(ipoints, ogrid, curr[:, :, i])
-            elif self._is_masked: 
+            elif self._is_masked:
                 curr = pred[..., variable_index, :]
                 ar = np.nan * np.zeros(
                     [len(times), len(y), len(x), self.pm.num_members], np.float32
                 )
                 # Reconstruct the 2D array (nans where no data)
-                ar[:,self.mask,:] = curr
+                ar[:, self.mask, :] = curr
             else:
                 ar = np.reshape(pred[..., variable_index, :], shape)
 
-            if self.pm.num_members > 1:
-                # Move ensemble dimension into the middle position
-                ar = np.moveaxis(ar, [-1], [1])
-            else:
-                # Remove ensemble dimension
-                ar = ar[..., 0]
+            ar = np.moveaxis(ar, [-1], [1]) if self.pm.num_members > 1 else ar[..., 0]
+
+            cfname = cf.get_metadata(variable)["cfname"]
+            attrs = cf.get_attributes(cfname)
+
+            # Unit conversion from anemoi to CF
+            from_units = anemoi_conventions.get_units(variable)
+            if "units" in attrs:
+                to_units = attrs["units"]
+                bris.units.convert(ar, from_units, to_units, inplace=True)
 
             if level_index is not None:
                 self.ds[ncname][:, level_index, ...] = ar
@@ -389,14 +401,14 @@ class Netcdf(Output):
                 self.ds[ncname][:] = ar
 
             # Add variable attributes
-            cfname = cf.get_metadata(variable)["cfname"]
-            attrs = cf.get_attributes(cfname)
             attrs["grid_mapping"] = "projection"
             attrs["coordinates"] = "latitude longitude"
             self.ds[ncname].attrs = attrs
 
         # Add global attributes
-        datestr = datetime.datetime.now(datetime.timezone.utc).strftime("%Y-%m-%d %H:%M:%S +00:00")
+        datestr = datetime.datetime.now(datetime.timezone.utc).strftime(
+            "%Y-%m-%d %H:%M:%S +00:00"
+        )
         self.ds.attrs["history"] = f"{datestr} Created by bris-inference"
         self.ds.attrs["Convensions"] = "CF-1.6"
         for key, value in self.global_attributes.items():
@@ -435,13 +447,13 @@ class VariableList:
     same dimension (e.g. two variables with a different set of pressure levels)
     """
 
-    def __init__(self, anemoi_names: list, conventions=Metno()):
+    def __init__(self, anemoi_names: list, conventions=None):
         """Args:
         anemoi_names: A list of variables names used in Anemoi (e.g. u10)
         conventions: What NetCDF naming convention to use
         """
         self.anemoi_names = anemoi_names
-        self.conventions = conventions
+        self.conventions = conventions if conventions is not None else Metno()
 
         self._dimensions, self._ncname_to_level_dim = self.load_dimensions()
 
@@ -456,7 +468,7 @@ class VariableList:
 
     def load_dimensions(self):
         cfname_to_levels = dict()
-        for v, variable in enumerate(self.anemoi_names):
+        for _v, variable in enumerate(self.anemoi_names):
             metadata = cf.get_metadata(variable)
             cfname = metadata["cfname"]
             leveltype = metadata["leveltype"]

@@ -1,15 +1,16 @@
-import bris.units
 import gridpp
 import numpy as np
 import scipy.interpolate
 import xarray as xr
+from scipy.spatial import Delaunay, cKDTree
+
+import bris.units
 from bris import utils
 from bris.conventions import anemoi as anemoi_conventions
 from bris.conventions import cf
 from bris.outputs import Output
 from bris.outputs.intermediate import Intermediate
 from bris.predict_metadata import PredictMetadata
-from scipy.spatial import Delaunay, cKDTree
 
 
 class Verif(Output):
@@ -24,8 +25,8 @@ class Verif(Output):
         variable_type=None,
         obs_sources=list,
         units=None,
-        thresholds=[],
-        quantile_levels=[],
+        thresholds=None,
+        quantile_levels=None,
         consensus_method="control",
         elev_gradient=None,
         max_distance=None,
@@ -36,6 +37,8 @@ class Verif(Output):
             elev_gradient: Apply this elevation gradient when downscaling from grid to point (e.g.
                 -0.0065 for temperature)
         """
+        if quantile_levels is None:
+            quantile_levels = []
         for level in quantile_levels:
             assert level >= 0 and level <= 1, f"level={level} must be between 0 and 1"
 
@@ -51,17 +54,16 @@ class Verif(Output):
         self.variable_type = variable_type
         self.obs_sources = obs_sources
         self.units = units
-        self.thresholds = thresholds
+        self.thresholds = thresholds if thresholds is not None else []
         self.quantile_levels = quantile_levels
         self.consensus_method = consensus_method
         self.elev_gradient = elev_gradient
         self.max_distance = max_distance
 
-        if self.pm.altitudes is None:
-            if elev_gradient is not None:
-                raise ValueError(
-                    "Cannot do elevation gradient since input field does not have altitude"
-                )
+        if self.pm.altitudes is None and elev_gradient is not None:
+            raise ValueError(
+                "Cannot do elevation gradient since input field does not have altitude"
+            )
 
         if self._is_gridded_input:
             if self.pm.altitudes is not None:
@@ -265,7 +267,6 @@ class Verif(Output):
             fcst[i, ...] = self.compute_consensus(curr)
 
         if self.variable_type in ["logit", "threshold_probability"]:
-
             cdf = np.copy(fcst)
             # Apply sigmoid activation function to logits
             if self.variable_type == "logit":
@@ -295,7 +296,10 @@ class Verif(Output):
                     for t, threshold in enumerate(self.thresholds):
                         cdf[i, ..., t] = self.compute_threshold_prob(curr, threshold)
 
-                        self.ds["cdf"] = (["time", "leadtime", "location", "threshold"], cdf)
+                        self.ds["cdf"] = (
+                            ["time", "leadtime", "location", "threshold"],
+                            cdf,
+                        )
 
             # Load quantile forecasts
             if len(self.quantile_levels) > 0 and self.num_members > 1:
@@ -352,7 +356,7 @@ class Verif(Output):
             curr = obs_source.get(self.variable, start_time, end_time, frequency)
             from_units = obs_source.units
             to_units = self.units
-            for t, valid_time in enumerate(unique_valid_times):
+            for _t, valid_time in enumerate(unique_valid_times):
                 Itimes, Ileadtimes = np.where(valid_times == valid_time)
                 data = curr.get_data(self.variable, valid_time)
                 if data is not None:
@@ -460,10 +464,10 @@ class Verif(Output):
 
         if max_distance is not None:
             dist = gridpp.distance(ipoints, opoints)
-            I = np.where(dist < max_distance)[0]
-            opoints = opoints.subset(I)
+            ipoint = np.where(dist < max_distance)[0]
+            opoints = opoints.subset(ipoint)
 
-            obs_ids = np.array(obs_ids)[I]
+            obs_ids = np.array(obs_ids)[ipoint]
 
         assert opoints.size() == len(obs_ids)
 

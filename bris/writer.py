@@ -1,5 +1,5 @@
-from pytorch_lightning.callbacks import BasePredictionWriter
 import numpy as np
+from pytorch_lightning.callbacks import BasePredictionWriter
 
 
 class CustomWriter(BasePredictionWriter):
@@ -26,21 +26,26 @@ class CustomWriter(BasePredictionWriter):
         dataloader_idx,
     ):
         """
-            Args:
-                prediction: This comes from predict_step in forecaster
+        Args:
+            prediction: This comes from predict_step in forecaster
         """
 
         times = prediction["times"]
         ensemble_member = prediction["ensemble_member"]
 
         # TODO: Why is this here, don't we want all data-parallel processes to write to disk?
-        if prediction["group_rank"] == 0:  # related to model parallel? 
-            
+        if prediction["group_rank"] == 0:  # related to model parallel?
             for output_dict in self.outputs:
-                pred = prediction["pred"][output_dict["decoder_index"]] 
+                pred = prediction["pred"][output_dict["decoder_index"]]
                 assert pred.shape[0] == 1, "Batchsize (per dataparallel) should be 1"
                 pred = np.squeeze(pred, axis=0)
-                pred = pred[...,output_dict["start_gridpoint"]:output_dict["end_gridpoint"],:]
+                pred = pred[
+                    ...,
+                    output_dict["start_gridpoint"] : output_dict["end_gridpoint"],
+                    :,
+                ]
 
                 for output in output_dict["outputs"]:
-                    output.add_forecast(times, ensemble_member, pred) #change timestamp to times
+                    output.add_forecast(
+                        times, ensemble_member, pred
+                    )  # change timestamp to times

@@ -1,15 +1,15 @@
 import logging
-from argparse import ArgumentParser
-import numpy as np
 import os
+from argparse import ArgumentParser
 from datetime import datetime, timedelta
 
+import numpy as np
+from anemoi.utils.dates import frequency_to_seconds
 from hydra.utils import instantiate
 
 import bris.routes
 import bris.utils
 from bris.data.datamodule import DataModule
-from anemoi.utils.dates import frequency_to_seconds
 
 from .checkpoint import Checkpoint
 from .inference import Inference
@@ -17,6 +17,7 @@ from .utils import create_config
 from .writer import CustomWriter
 
 LOGGER = logging.getLogger(__name__)
+
 
 def main():
     parser = ArgumentParser()
@@ -32,16 +33,20 @@ def main():
     checkpoint.set_encoder_decoder_num_chunks(
         getattr(config, "inference_num_chunks", 1)
     )
-    if hasattr(config.model, "graph"):
+    if hasattr(config, "graph"):
         LOGGER.info("Update graph is enabled. Proceeding to change internal graph")
-        checkpoint.update_graph(config.model.graph)  # Pass in a new graph if needed
+        # At the moment config.graph is only a POSIX path.
+        # TODO: In future a graph can be generated "on the fly" by providing a config
+        checkpoint.update_graph(config.graph)  # Pass in a new graph if needed
 
     # Get timestep from checkpoint. Also store a version in seconds for local use.
     config.timestep = None
     try:
         config.timestep = checkpoint.config.data.timestep
-    except KeyError:
-        raise RuntimeError("Error getting timestep from checkpoint (checkpoint.config.data.timestep)")
+    except KeyError as err:
+        raise RuntimeError from err(
+            "Error getting timestep from checkpoint (checkpoint.config.data.timestep)"
+        )
     timestep_seconds = frequency_to_seconds(config.timestep)
 
     num_members = 1
@@ -56,17 +61,27 @@ def main():
     # If no start_date given, calculate as end_date-((multistep-1)*timestep)
     if "start_date" not in config or config.start_date is None:
         config.start_date = datetime.strftime(
-            datetime.strptime(config.end_date, "%Y-%m-%dT%H:%M:%S") - timedelta(seconds=(multistep - 1) * timestep_seconds),
-            "%Y-%m-%dT%H:%M:%S"
+            datetime.strptime(config.end_date, "%Y-%m-%dT%H:%M:%S")
+            - timedelta(seconds=(multistep - 1) * timestep_seconds),
+            "%Y-%m-%dT%H:%M:%S",
         )
-        LOGGER.info("No start_date given, setting %s based on start_date and timestep.", config.start_date)
+        LOGGER.info(
+            "No start_date given, setting %s based on start_date and timestep.",
+            config.start_date,
+        )
     else:
         config.start_date = datetime.strftime(
-            datetime.strptime(config.start_date, "%Y-%m-%dT%H:%M:%S") - timedelta(seconds=(multistep - 1) * timestep_seconds),
-            "%Y-%m-%dT%H:%M:%S"
+            datetime.strptime(config.start_date, "%Y-%m-%dT%H:%M:%S")
+            - timedelta(seconds=(multistep - 1) * timestep_seconds),
+            "%Y-%m-%dT%H:%M:%S",
         )
 
-    config.dataset = {"dataset": config.dataset, "start": config.start_date, "end": config.end_date, "frequency": config.frequency}
+    config.dataset = {
+        "dataset": config.dataset,
+        "start": config.start_date,
+        "end": config.end_date,
+        "frequency": config.frequency,
+    }
 
     datamodule = DataModule(
         config=config,
@@ -78,14 +93,17 @@ def main():
     decoder_outputs = bris.routes.get(
         config["routing"], leadtimes, num_members, datamodule, config.workdir
     )
-    required_variables = bris.routes.get_required_variables(config["routing"], datamodule)
+    required_variables = bris.routes.get_required_variables(
+        config["routing"], datamodule
+    )
     writer = CustomWriter(decoder_outputs, write_interval="batch")
 
     # Set hydra defaults
     config.defaults = [
-        {'override hydra/job_logging': 'none'}, # disable config parsing logs
-        {'override hydra/hydra_logging': 'none'}, # disable config parsing logs
-        '_self_']
+        {"override hydra/job_logging": "none"},  # disable config parsing logs
+        {"override hydra/hydra_logging": "none"},  # disable config parsing logs
+        "_self_",
+    ]
 
     # Forecaster must know about what leadtimes to output
     model = instantiate(
@@ -98,8 +116,7 @@ def main():
         release_cache=config.release_cache,
     )
 
-    callbacks = []
-    callbacks += [writer]
+    callbacks = [writer]
 
     inference = Inference(
         config=config,
@@ -111,7 +128,9 @@ def main():
     inference.run()
 
     # Finalize all output, so they can flush to disk if needed
-    is_main_thread = ("SLURM_PROCID" not in os.environ) or (os.environ["SLURM_PROCID"] == "0")
+    is_main_thread = ("SLURM_PROCID" not in os.environ) or (
+        os.environ["SLURM_PROCID"] == "0"
+    )
     if is_main_thread:
         for decoder_output in decoder_outputs:
             for output in decoder_output["outputs"]:
