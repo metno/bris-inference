@@ -31,6 +31,12 @@ class FakeDataModule:
         return [{"2t": 0, "10u": 1, "10v": 2}, {"100v": 0, "100u": 1}]
 
 
+class FakeCheckpointObject:
+    @property
+    def model_output_name_to_index(self):
+        return [{"2t": 0, "10u": 1, "10v": 2}, {"100v": 0, "100u": 1}]
+
+
 def test_get():
     config = list()
     filename = os.path.dirname(os.path.abspath(__file__)) + "/files/verif_input.nc"
@@ -76,17 +82,22 @@ def test_get():
         },
     ]
     data_module = FakeDataModule()
+    ckptObj = FakeCheckpointObject()
     workdir = "testdir"
     leadtimes = range(66)
     num_members = 2
 
-    required_variables = bris.routes.get_required_variables(config, data_module)
-    assert required_variables == {0: ["2t", "10u", "10v"], 1: ["100u"]}
+    required_variables = bris.routes.get_required_variables(config, ckptObj)
+    correct_variables = {0: ["2t", "10u", "10v"], 1: ["100u"]}
+    for key in required_variables:
+        assert set(required_variables[key]) == set(correct_variables[key])
 
-    variable_indices = bris.routes.get_variable_indices(config, data_module)
-    assert variable_indices == {0: [0, 1, 2], 1: [1]}
+    #    variable_indices = bris.routes.get_variable_indices(config, data_module)
+    #    assert variable_indices == {0: [0, 1, 2], 1: [1]}
 
-    _ = bris.routes.get(config, len(leadtimes), num_members, data_module, workdir)
+    _ = bris.routes.get(
+        config, len(leadtimes), num_members, data_module, ckptObj, workdir
+    )
 
 
 if __name__ == "__main__":

@@ -14,6 +14,7 @@ def get(
     leadtimes: list,
     num_members: int,
     data_module: DataModule,
+    ckptObj: Checkpoint,
     workdir: str,
 ):
     """Returns outputs for each decoder and domain
@@ -36,7 +37,7 @@ def get(
 
     """
     ret = list()
-    required_variables = get_required_variables(routing_config, data_module)
+    required_variables = get_required_variables(routing_config, ckptObj)
 
     count = 0
     for config in routing_config:
