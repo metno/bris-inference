@@ -152,7 +152,10 @@ class DataModule(pl.LightningDataModule):
         Returns a tuple of dictionaries, where each dict is:
             variable_name -> index
         """
-        return self.ckptObj.name_to_index
+        if isinstance(self.data_reader.name_to_index, dict):
+            return (self.data_reader.name_to_index,)
+        return self.data_reader.name_to_index
+
 
     @cached_property
     def grid_indices(self) -> type[BaseGridIndices]:
