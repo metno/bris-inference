@@ -145,13 +145,19 @@ class Checkpoint:
         )
 
     @cached_property
-    def _model_params(self) -> dict:
+    def _get_copy_model_params(self) -> dict:
         """
-        The state of model being cached in CPU memory.
-        Keep in mind this is only the model weights and its
-        layer names, i.e does not include optimizer state.
-        It also worth mentioining this model.named_parameters()
-        and not model.state_dict.
+        Caches the model's state in CPU memory.
+
+        This cache includes only the model's weights
+        and their corresponding layer names. It does not include the
+        optimizer state. Note that this specifically refers to
+        model.named_parameters() and not model.state_dict().
+
+        A deep copy of the model state is performed
+        to ensure the integrity of the cached data,
+        even if the user decides to update
+        the internal graph of the model later.
 
         Args:
             None
@@ -198,15 +204,16 @@ class Checkpoint:
                 self._model_instance.config = self.config  # conf
 
                 LOGGER.info("Rebuilding layers to support new graph")
-
+                # copy and fetching model params has to be done
+                # before model.build() otherwise we will loose
+                # model params
+                _model_params = self._get_copy_model_params
                 try:
                     self._model_instance._build_model()
                     self.UPDATE_GRAPH = True
 
                 except Exception as e:
                     raise RuntimeError("Failed to rebuild model with new graph.") from e
-
-                _model_params = self._model_params
 
                 for layer_name, param in self._model_instance.named_parameters():
                     param.data = _model_params[layer_name].data
@@ -235,9 +242,9 @@ class Checkpoint:
         LOGGER.info("ANEMOI_BASE_SEED and ANEMOI_BASE_SEED set to 1234")
 
     def set_encoder_decoder_num_chunks(self, chunks: int = 1) -> None:
-        assert isinstance(chunks, int), (
-            f"Expecting chunks to be int, got: {chunks}, {type(chunks)}"
-        )
+        assert isinstance(
+            chunks, int
+        ), f"Expecting chunks to be int, got: {chunks}, {type(chunks)}"
         os.environ["ANEMOI_INFERENCE_NUM_CHUNKS"] = str(chunks)
         LOGGER.info("Encoder and decoder are chunked to %s", chunks)
 
