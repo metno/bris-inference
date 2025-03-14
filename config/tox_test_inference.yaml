@@ -1,4 +1,5 @@
-# run_name: test
+# Minimal config for running inference on CPU. See https://github.com/metno/bris-inference/wiki/Tests
+
 start_date: 2022-01-01T00:00:00
 end_date: 2022-12-31T06:00:00
 
