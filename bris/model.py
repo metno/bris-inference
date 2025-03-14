@@ -3,7 +3,7 @@ import math
 import os
 from abc import abstractmethod
 from collections.abc import Iterable
-from typing import Any
+from typing import Any, Union, List, Dict, Tuple
 
 import numpy as np
 import pytorch_lightning as pl
@@ -21,7 +21,7 @@ LOGGER = logging.getLogger(__name__)
 
 class BasePredictor(pl.LightningModule):
     def __init__(
-        self, *args: Any, checkpoint: Checkpoint, hardware_config, **kwargs: Any
+        self, *args: Any, checkpoint: Checkpoint, hardware_config: Dict, **kwargs: Any
     ):
         """
         Base predictor class, overwrite all the class methods
@@ -90,21 +90,21 @@ class BasePredictor(pl.LightningModule):
         self.reader_group_size = reader_group_size
 
     @abstractmethod
-    def get_static_forcings(self, datareader):
+    def get_static_forcings(self, datareader: Iterable, ):
         pass
 
     @abstractmethod
-    def forward(self, x: torch.Tensor) -> torch.Tensor:
+    def forward(self, x: torch.Tensor) -> Union[torch.Tensor, List[torch.Tensor]]:
         pass
 
     @abstractmethod
     def advance_input_predict(
-        self, x: torch.Tensor, y_pred: torch.Tensor
+        self, x: Union[torch.Tensor, List[torch.Tensor]], y_pred: Union[torch.Tensor, List[torch.Tensor]], time: np.datetime64
     ) -> torch.Tensor:
         pass
 
     @abstractmethod
-    def predict_step(self, batch: torch.Tensor, batch_idx: int) -> torch.Tensor:
+    def predict_step(self, batch: Tuple, batch_idx: int) -> Dict:
         pass
 
 
@@ -115,7 +115,7 @@ class BrisPredictor(BasePredictor):
         checkpoint: Checkpoint,
         datamodule: DataModule,
         forecast_length: int,
-        required_variables: dict,
+        required_variables: Dict,
         release_cache: bool = False,
         **kwargs,
     ) -> None:
@@ -149,13 +149,14 @@ class BrisPredictor(BasePredictor):
             0,
         )
         self.set_static_forcings(
-            datamodule.data_reader, self.metadata.config.data.forcing
+            datamodule.data_reader, self.metadata.config.data
         )
 
         self.model.eval()
         self.release_cache = release_cache
 
-    def set_static_forcings(self, data_reader: Iterable, selection: list) -> None:
+    def set_static_forcings(self, data_reader: Iterable, data_config: dict) -> None:
+        selection = data_config["forcing"]
         data = torch.from_numpy(data_reader[0].squeeze(axis=1).swapaxes(0, 1))
         data_input = torch.zeros(
             data.shape[:-1] + (len(self.variables["all"]),),
@@ -232,7 +233,7 @@ class BrisPredictor(BasePredictor):
         return x
 
     @torch.inference_mode
-    def predict_step(self, batch: tuple, batch_idx: int) -> dict:
+    def predict_step(self, batch: Tuple, batch_idx: int) -> dict:
         multistep = self.metadata.config.training.multistep_input
 
         batch = self.allgather_batch(batch)
@@ -330,7 +331,7 @@ class MultiEncDecPredictor(BasePredictor):
         checkpoint: Checkpoint,
         datamodule: DataModule,
         forecast_length: int,
-        required_variables: dict,
+        required_variables: Dict,
         release_cache: bool = False,
         **kwargs,
     ) -> None:
@@ -363,7 +364,7 @@ class MultiEncDecPredictor(BasePredictor):
         )
         self.model.eval()
 
-    def set_static_forcings(self, data_reader, zip_config):
+    def set_static_forcings(self, data_reader: Iterable, data_config: Dict):
         data = data_reader[0]
         num_dsets = len(data)
         data_input = []
@@ -386,7 +387,7 @@ class MultiEncDecPredictor(BasePredictor):
 
         self.static_forcings = [{} for _ in range(num_dsets)]
         for dset in range(num_dsets):
-            selection = zip_config[dset]["forcing"]
+            selection = data_config[dset]["forcing"]
             if "cos_latitude" in selection:
                 self.static_forcings[dset]["cos_latitude"] = torch.from_numpy(
                     np.cos(data_reader.latitudes[dset] * np.pi / 180.0)
@@ -418,10 +419,10 @@ class MultiEncDecPredictor(BasePredictor):
                     ..., self.data_indices[dset].internal_data.input.name_to_index["z"]
                 ].float()
 
-    def forward(self, x: torch.Tensor) -> list[torch.Tensor]:
+    def forward(self, x: torch.Tensor) -> List[torch.Tensor]:
         return self.model(x, self.model_comm_group)
 
-    def advance_input_predict(self, x, y_pred, time):
+    def advance_input_predict(self, x: List[torch.Tensor], y_pred: List[torch.Tensor], time: np.datetime64):
         for i in range(len(x)):
             x[i] = x[i].roll(-1, dims=1)
             # Get prognostic variables:
@@ -462,7 +463,7 @@ class MultiEncDecPredictor(BasePredictor):
         return x
 
     @torch.inference_mode
-    def predict_step(self, batch: list, batch_idx: int) -> list:
+    def predict_step(self, batch: Tuple, batch_idx: int) -> Dict:
         num_dsets = len(batch)
         multistep = self.metadata["config"]["training"]["multistep_input"]
 
@@ -560,12 +561,12 @@ class MultiEncDecPredictor(BasePredictor):
 
 
 def get_variable_indices(
-    required_variables: list,
-    datamodule_variables: list,
+    required_variables: List,
+    datamodule_variables: List,
     internal_data: DataIndex,
     internal_model: ModelIndex,
     decoder_index: int,
-) -> dict:
+) -> Tuple[Dict, Dict]:
     # Set up indices for the variables we want to write to file
     variable_indices_input = list()
     variable_indices_output = list()
