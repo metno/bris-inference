@@ -43,12 +43,12 @@ class Checkpoint:
     """This class makes accessible various information stored in Anemoi checkpoints"""
 
     AIFS_BASE_SEED = None
-    UPDATE_GRAPH = False
 
     def __init__(self, path: str):
         assert os.path.exists(path), "The given checkpoint does not exist!"
 
         self.path = path
+        self.is_graph_replaced = False
         self.set_base_seed()
 
     @cached_property
@@ -167,7 +167,7 @@ class Checkpoint:
             Value: The state for a given layer
         """
 
-        _model_params = tuple(self._model_instance.named_parameters())
+        _model_params = self._model_instance.named_parameters()
         return deepcopy({layer_name: param for layer_name, param in _model_params})
 
     def update_graph(self, path: Optional[str] = None) -> HeteroData:
@@ -189,7 +189,7 @@ class Checkpoint:
         # stretched grid, the model instance will complain
         # (not 100% sure but i think i have experienced this)
 
-        if self.UPDATE_GRAPH:
+        if self.is_graph_replaced:
             raise RuntimeError(
                 "Graph has already been updated. Mutliple updates is not allowed"
             )
@@ -201,20 +201,26 @@ class Checkpoint:
                 LOGGER.info("Loaded external graph from path")
 
                 self._model_instance.graph_data = external_graph
+
+                # Assign config, as it's not preserved in the pickle.
                 self._model_instance.config = self.config  # conf
 
-                LOGGER.info("Rebuilding layers to support new graph")
-                # copy and fetching model params has to be done
-                # before model.build() otherwise we will loose
-                # model params
+                # Copy model parameters before rebuilding to avoid losing them.
                 _model_params = self._get_copy_model_params
-                try:
-                    self._model_instance._build_model()
-                    self.UPDATE_GRAPH = True
 
-                except Exception as e:
-                    raise RuntimeError("Failed to rebuild model with new graph.") from e
+                LOGGER.info("Rebuilding layers to support the new graph.")
+                self._model_instance._build_model()
+                self.is_graph_replaced = True
 
+                # Validate parameter count consistency.
+                old_param_count = len(_model_params)
+                new_param_count = len(tuple(self._model_instance.named_parameters()))
+
+                assert old_param_count == new_param_count, (
+                    "Parameter count mismatch after build: new model parameters differ from checkpoint."
+                )
+
+                LOGGER.info("Assigning model params from checkpoint to the new model")
                 for layer_name, param in self._model_instance.named_parameters():
                     param.data = _model_params[layer_name].data
 
@@ -242,9 +248,9 @@ class Checkpoint:
         LOGGER.info("ANEMOI_BASE_SEED and ANEMOI_BASE_SEED set to 1234")
 
     def set_encoder_decoder_num_chunks(self, chunks: int = 1) -> None:
-        assert isinstance(
-            chunks, int
-        ), f"Expecting chunks to be int, got: {chunks}, {type(chunks)}"
+        assert isinstance(chunks, int), (
+            f"Expecting chunks to be int, got: {chunks}, {type(chunks)}"
+        )
         os.environ["ANEMOI_INFERENCE_NUM_CHUNKS"] = str(chunks)
         LOGGER.info("Encoder and decoder are chunked to %s", chunks)
 
