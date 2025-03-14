@@ -46,7 +46,7 @@ class Checkpoint:
     UPDATE_GRAPH = False
 
     def __init__(self, path: str):
-        assert os.path.exists(path), "The given checkpoint does not exist!"
+        assert os.path.exists(path), f"The given checkpoint {path} does not exist!"
 
         self.path = path
         self.set_base_seed()
