@@ -3,7 +3,7 @@ import math
 import os
 from abc import abstractmethod
 from collections.abc import Iterable
-from typing import Any, Union, List, Dict, Tuple
+from typing import Any, Union
 
 import numpy as np
 import pytorch_lightning as pl
@@ -21,7 +21,7 @@ LOGGER = logging.getLogger(__name__)
 
 class BasePredictor(pl.LightningModule):
     def __init__(
-        self, *args: Any, checkpoint: Checkpoint, hardware_config: Dict, **kwargs: Any
+        self, *args: Any, checkpoint: Checkpoint, hardware_config: dict, **kwargs: Any
     ):
         """
         Base predictor class, overwrite all the class methods
@@ -97,20 +97,20 @@ class BasePredictor(pl.LightningModule):
         pass
 
     @abstractmethod
-    def forward(self, x: torch.Tensor) -> Union[torch.Tensor, List[torch.Tensor]]:
+    def forward(self, x: torch.Tensor) -> Union[torch.Tensor, list[torch.Tensor]]:
         pass
 
     @abstractmethod
     def advance_input_predict(
         self,
-        x: Union[torch.Tensor, List[torch.Tensor]],
-        y_pred: Union[torch.Tensor, List[torch.Tensor]],
+        x: Union[torch.Tensor, list[torch.Tensor]],
+        y_pred: Union[torch.Tensor, list[torch.Tensor]],
         time: np.datetime64,
     ) -> torch.Tensor:
         pass
 
     @abstractmethod
-    def predict_step(self, batch: Tuple, batch_idx: int) -> Dict:
+    def predict_step(self, batch: tuple, batch_idx: int) -> dict:
         pass
 
 
@@ -121,7 +121,7 @@ class BrisPredictor(BasePredictor):
         checkpoint: Checkpoint,
         datamodule: DataModule,
         forecast_length: int,
-        required_variables: Dict,
+        required_variables: dict,
         release_cache: bool = False,
         **kwargs,
     ) -> None:
@@ -237,7 +237,7 @@ class BrisPredictor(BasePredictor):
         return x
 
     @torch.inference_mode
-    def predict_step(self, batch: Tuple, batch_idx: int) -> dict:
+    def predict_step(self, batch: tuple, batch_idx: int) -> dict:
         multistep = self.metadata.config.training.multistep_input
 
         batch = self.allgather_batch(batch)
@@ -335,7 +335,7 @@ class MultiEncDecPredictor(BasePredictor):
         checkpoint: Checkpoint,
         datamodule: DataModule,
         forecast_length: int,
-        required_variables: Dict,
+        required_variables: dict,
         release_cache: bool = False,
         **kwargs,
     ) -> None:
@@ -368,7 +368,7 @@ class MultiEncDecPredictor(BasePredictor):
         )
         self.model.eval()
 
-    def set_static_forcings(self, data_reader: Iterable, data_config: Dict):
+    def set_static_forcings(self, data_reader: Iterable, data_config: dict):
         data = data_reader[0]
         num_dsets = len(data)
         data_input = []
@@ -423,11 +423,11 @@ class MultiEncDecPredictor(BasePredictor):
                     ..., self.data_indices[dset].internal_data.input.name_to_index["z"]
                 ].float()
 
-    def forward(self, x: torch.Tensor) -> List[torch.Tensor]:
+    def forward(self, x: torch.Tensor) -> list[torch.Tensor]:
         return self.model(x, self.model_comm_group)
 
     def advance_input_predict(
-        self, x: List[torch.Tensor], y_pred: List[torch.Tensor], time: np.datetime64
+        self, x: list[torch.Tensor], y_pred: list[torch.Tensor], time: np.datetime64
     ):
         for i in range(len(x)):
             x[i] = x[i].roll(-1, dims=1)
@@ -469,7 +469,7 @@ class MultiEncDecPredictor(BasePredictor):
         return x
 
     @torch.inference_mode
-    def predict_step(self, batch: Tuple, batch_idx: int) -> Dict:
+    def predict_step(self, batch: tuple, batch_idx: int) -> dict:
         num_dsets = len(batch)
         multistep = self.metadata["config"]["training"]["multistep_input"]
 
@@ -567,12 +567,12 @@ class MultiEncDecPredictor(BasePredictor):
 
 
 def get_variable_indices(
-    required_variables: List,
-    datamodule_variables: List,
+    required_variables: list,
+    datamodule_variables: list,
     internal_data: DataIndex,
     internal_model: ModelIndex,
     decoder_index: int,
-) -> Tuple[Dict, Dict]:
+) -> tuple[dict, dict]:
     # Set up indices for the variables we want to write to file
     variable_indices_input = list()
     variable_indices_output = list()
