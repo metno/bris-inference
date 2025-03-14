@@ -156,7 +156,6 @@ class DataModule(pl.LightningDataModule):
             return (self.data_reader.name_to_index,)
         return self.data_reader.name_to_index
 
-
     @cached_property
     def grid_indices(self) -> type[BaseGridIndices]:
         # TODO: This currently only supports fullgrid for multi-encoder/decoder

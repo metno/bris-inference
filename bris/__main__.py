@@ -91,7 +91,12 @@ def main():
     # Get outputs and required_variables of each decoder
     leadtimes = np.arange(config.leadtimes) * timestep_seconds
     decoder_outputs = bris.routes.get(
-        config["routing"], leadtimes, num_members, datamodule, checkpoint, config.workdir
+        config["routing"],
+        leadtimes,
+        num_members,
+        datamodule,
+        checkpoint,
+        config.workdir,
     )
     required_variables = bris.routes.get_required_variables(
         config["routing"], checkpoint

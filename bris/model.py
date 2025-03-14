@@ -141,17 +141,33 @@ class BrisPredictor(BasePredictor):
             self.internal_model = self.data_indices.model
             self.internal_data = self.data_indices.data
 
-        self.indices, self.variables = get_variable_indices(required_variables[0], datamodule.data_reader.variables, self.internal_data, self.internal_model, 0)
-        self.set_static_forcings(datamodule.data_reader, self.metadata.config.data.forcing)
+        self.indices, self.variables = get_variable_indices(
+            required_variables[0],
+            datamodule.data_reader.variables,
+            self.internal_data,
+            self.internal_model,
+            0,
+        )
+        self.set_static_forcings(
+            datamodule.data_reader, self.metadata.config.data.forcing
+        )
 
         self.model.eval()
         self.release_cache = release_cache
 
     def set_static_forcings(self, data_reader: Iterable, selection: list) -> None:
         data = torch.from_numpy(data_reader[0].squeeze(axis=1).swapaxes(0, 1))
-        data_input = torch.zeros(data.shape[:-1] + (len(self.variables["all"]),), dtype=data.dtype, device=data.device)
-        data_input[..., self.indices["prognostic_input"]] = data[..., self.indices["prognostic_dataset"]]
-        data_input[..., self.indices["static_forcings_input"]] = data[..., self.indices["static_forcings_dataset"]]
+        data_input = torch.zeros(
+            data.shape[:-1] + (len(self.variables["all"]),),
+            dtype=data.dtype,
+            device=data.device,
+        )
+        data_input[..., self.indices["prognostic_input"]] = data[
+            ..., self.indices["prognostic_dataset"]
+        ]
+        data_input[..., self.indices["static_forcings_input"]] = data[
+            ..., self.indices["static_forcings_dataset"]
+        ]
 
         data_normalized = self.model.pre_processors(data_input, in_place=True)
 
@@ -212,9 +228,7 @@ class BrisPredictor(BasePredictor):
                     torch.from_numpy(value).to(dtype=x.dtype)
                 )
             else:
-                x[:, -1, :, :, self.internal_model.input.name_to_index[forcing]] = (
-                    value  
-                )
+                x[:, -1, :, :, self.internal_model.input.name_to_index[forcing]] = value
         return x
 
     @torch.inference_mode
@@ -237,25 +251,49 @@ class BrisPredictor(BasePredictor):
             device="cpu",
         )
 
-        # Set up data_input with variable order expected by the model. 
-        # Prognostic and static forcings come from batch, dynamic forcings 
+        # Set up data_input with variable order expected by the model.
+        # Prognostic and static forcings come from batch, dynamic forcings
         # are calculated and diagnostic variables are filled with 0.
-        data_input = torch.zeros(batch.shape[:-1] + (len(self.variables["all"]),), dtype=batch.dtype, device=batch.device)
-        data_input[..., self.indices["prognostic_input"]] = batch[..., self.indices["prognostic_dataset"]]
-        data_input[..., self.indices["static_forcings_input"]] = batch[..., self.indices["static_forcings_dataset"]]        
-        
-        #Calculate dynamic forcings
+        data_input = torch.zeros(
+            batch.shape[:-1] + (len(self.variables["all"]),),
+            dtype=batch.dtype,
+            device=batch.device,
+        )
+        data_input[..., self.indices["prognostic_input"]] = batch[
+            ..., self.indices["prognostic_dataset"]
+        ]
+        data_input[..., self.indices["static_forcings_input"]] = batch[
+            ..., self.indices["static_forcings_dataset"]
+        ]
+
+        # Calculate dynamic forcings
         for time_index in range(multistep):
-            toi = time - (multistep-1-time_index)*self.timestep
-            forcings = get_dynamic_forcings(toi, self.latitudes, self.longitudes, self.variables["dynamic_forcings"])
+            toi = time - (multistep - 1 - time_index) * self.timestep
+            forcings = get_dynamic_forcings(
+                toi, self.latitudes, self.longitudes, self.variables["dynamic_forcings"]
+            )
 
             for forcing, value in forcings.items():
-                if isinstance(value, np.ndarray): 
-                    data_input[:, time_index, :, :, self.internal_data.input.name_to_index[forcing]] = torch.from_numpy(value).to(dtype=data_input.dtype)
+                if isinstance(value, np.ndarray):
+                    data_input[
+                        :,
+                        time_index,
+                        :,
+                        :,
+                        self.internal_data.input.name_to_index[forcing],
+                    ] = torch.from_numpy(value).to(dtype=data_input.dtype)
                 else:
-                    data_input[:, time_index, :, :, self.internal_data.input.name_to_index[forcing]] = value
+                    data_input[
+                        :,
+                        time_index,
+                        :,
+                        :,
+                        self.internal_data.input.name_to_index[forcing],
+                    ] = value
 
-        y_preds[:,0,...] = data_input[:,multistep-1,...,self.indices["variables_input"]].cpu()
+        y_preds[:, 0, ...] = data_input[
+            :, multistep - 1, ..., self.indices["variables_input"]
+        ].cpu()
 
         # Possibly have to extend this to handle imputer, see _step in forecaster.
         data_input = self.model.pre_processors(data_input, in_place=True)
@@ -310,11 +348,19 @@ class MultiEncDecPredictor(BasePredictor):
         self.indices = ()
         self.variables = ()
         for dec_index, required_vars_dec in required_variables.items():
-            _indices, _variables = get_variable_indices(required_vars_dec, datamodule.data_reader.datasets[dec_index].variables, self.data_indices[dec_index].internal_data, self.data_indices[dec_index].internal_model, dec_index)
+            _indices, _variables = get_variable_indices(
+                required_vars_dec,
+                datamodule.data_reader.datasets[dec_index].variables,
+                self.data_indices[dec_index].internal_data,
+                self.data_indices[dec_index].internal_model,
+                dec_index,
+            )
             self.indices += (_indices,)
             self.variables += (_variables,)
 
-        self.set_static_forcings(datamodule.data_reader, self.metadata["config"]["data"]["zip"])
+        self.set_static_forcings(
+            datamodule.data_reader, self.metadata["config"]["data"]["zip"]
+        )
         self.model.eval()
 
     def set_static_forcings(self, data_reader, zip_config):
@@ -322,10 +368,18 @@ class MultiEncDecPredictor(BasePredictor):
         num_dsets = len(data)
         data_input = []
         for dec_index in range(num_dsets):
-            _batch = torch.from_numpy(data[dec_index].squeeze(axis=1).swapaxes(0,1))
-            _data_input = torch.zeros(_batch.shape[:-1] + (len(self.variables[dec_index]["all"]),), dtype=_batch.dtype, device=_batch.device)
-            _data_input[..., self.indices[dec_index]["prognostic_input"]] = _batch[..., self.indices[dec_index]["prognostic_dataset"]]
-            _data_input[..., self.indices[dec_index]["static_forcings_input"]] = _batch[..., self.indices[dec_index]["static_forcings_dataset"]]
+            _batch = torch.from_numpy(data[dec_index].squeeze(axis=1).swapaxes(0, 1))
+            _data_input = torch.zeros(
+                _batch.shape[:-1] + (len(self.variables[dec_index]["all"]),),
+                dtype=_batch.dtype,
+                device=_batch.device,
+            )
+            _data_input[..., self.indices[dec_index]["prognostic_input"]] = _batch[
+                ..., self.indices[dec_index]["prognostic_dataset"]
+            ]
+            _data_input[..., self.indices[dec_index]["static_forcings_input"]] = _batch[
+                ..., self.indices[dec_index]["static_forcings_dataset"]
+            ]
             data_input += [_data_input]
 
         data_normalized = self.model.pre_processors(data_input, in_place=True)
@@ -355,7 +409,8 @@ class MultiEncDecPredictor(BasePredictor):
 
             if "lsm" in selection:
                 self.static_forcings[dset]["lsm"] = data_normalized[dset][
-                    ..., self.data_indices[dset].internal_data.input.name_to_index["lsm"]
+                    ...,
+                    self.data_indices[dset].internal_data.input.name_to_index["lsm"],
                 ].float()
 
             if "z" in selection:
@@ -367,13 +422,12 @@ class MultiEncDecPredictor(BasePredictor):
         return self.model(x, self.model_comm_group)
 
     def advance_input_predict(self, x, y_pred, time):
-
         for i in range(len(x)):
             x[i] = x[i].roll(-1, dims=1)
             # Get prognostic variables:
-            x[i][:, -1, :, :, self.data_indices[i].internal_model.input.prognostic] = y_pred[
-                i
-            ][..., self.data_indices[i].internal_model.output.prognostic]
+            x[i][:, -1, :, :, self.data_indices[i].internal_model.input.prognostic] = (
+                y_pred[i][..., self.data_indices[i].internal_model.output.prognostic]
+            )
 
             forcings = get_dynamic_forcings(
                 time,
@@ -390,7 +444,9 @@ class MultiEncDecPredictor(BasePredictor):
                         -1,
                         :,
                         :,
-                        self.data_indices[i].internal_model.input.name_to_index[forcing],
+                        self.data_indices[i].internal_model.input.name_to_index[
+                            forcing
+                        ],
                     ] = torch.from_numpy(value)
                 else:
                     x[i][
@@ -398,7 +454,9 @@ class MultiEncDecPredictor(BasePredictor):
                         -1,
                         :,
                         :,
-                        self.data_indices[i].internal_model.input.name_to_index[forcing],
+                        self.data_indices[i].internal_model.input.name_to_index[
+                            forcing
+                        ],
                     ] = value
 
         return x
@@ -426,27 +484,60 @@ class MultiEncDecPredictor(BasePredictor):
         ]
         data_input = []
         for dec_index in range(num_dsets):
-            _data_input = torch.zeros(batch[dec_index].shape[:-1] + (len(self.variables[dec_index]["all"]),), dtype=batch[dec_index].dtype, device=batch[dec_index].device)
-            _data_input[..., self.indices[dec_index]["prognostic_input"]] = batch[dec_index][..., self.indices[dec_index]["prognostic_dataset"]]
-            _data_input[..., self.indices[dec_index]["static_forcings_input"]] = batch[dec_index][..., self.indices[dec_index]["static_forcings_dataset"]]
-            
+            _data_input = torch.zeros(
+                batch[dec_index].shape[:-1] + (len(self.variables[dec_index]["all"]),),
+                dtype=batch[dec_index].dtype,
+                device=batch[dec_index].device,
+            )
+            _data_input[..., self.indices[dec_index]["prognostic_input"]] = batch[
+                dec_index
+            ][..., self.indices[dec_index]["prognostic_dataset"]]
+            _data_input[..., self.indices[dec_index]["static_forcings_input"]] = batch[
+                dec_index
+            ][..., self.indices[dec_index]["static_forcings_dataset"]]
+
             # Calculate dynamic forcings and add these to data_input
             for time_index in range(multistep):
-                toi = time - (multistep-1-time_index)*self.timestep
-                forcings = get_dynamic_forcings(toi, self.latitudes[dec_index], self.longitudes[dec_index], self.variables[dec_index]["dynamic_forcings"])
+                toi = time - (multistep - 1 - time_index) * self.timestep
+                forcings = get_dynamic_forcings(
+                    toi,
+                    self.latitudes[dec_index],
+                    self.longitudes[dec_index],
+                    self.variables[dec_index]["dynamic_forcings"],
+                )
 
                 for forcing, value in forcings.items():
-                    if isinstance(value, np.ndarray): 
-                        _data_input[:, time_index, :, :, self.data_indices[dec_index].internal_data.input.name_to_index[forcing]] = torch.from_numpy(value).to(dtype=_data_input.dtype)
+                    if isinstance(value, np.ndarray):
+                        _data_input[
+                            :,
+                            time_index,
+                            :,
+                            :,
+                            self.data_indices[
+                                dec_index
+                            ].internal_data.input.name_to_index[forcing],
+                        ] = torch.from_numpy(value).to(dtype=_data_input.dtype)
                     else:
-                        _data_input[:, time_index, :, :, self.data_indices[dec_index].internal_data.input.name_to_index[forcing]] = value
+                        _data_input[
+                            :,
+                            time_index,
+                            :,
+                            :,
+                            self.data_indices[
+                                dec_index
+                            ].internal_data.input.name_to_index[forcing],
+                        ] = value
             data_input += [_data_input]
 
-            y_preds[dec_index][:,0,:,:] = data_input[dec_index][:,multistep-1,...,self.indices[dec_index]["variables_input"]].cpu()
+            y_preds[dec_index][:, 0, :, :] = data_input[dec_index][
+                :, multistep - 1, ..., self.indices[dec_index]["variables_input"]
+            ].cpu()
 
         data_input = self.model.pre_processors(data_input, in_place=True)
-        x = [data_input[i][..., self.data_indices[i].internal_data.input.full] for i in range(num_dsets)]
-
+        x = [
+            data_input[i][..., self.data_indices[i].internal_data.input.full]
+            for i in range(num_dsets)
+        ]
 
         with torch.amp.autocast(device_type="cuda", dtype=torch.bfloat16):
             for fcast_step in range(self.forecast_length - 1):
@@ -466,49 +557,113 @@ class MultiEncDecPredictor(BasePredictor):
             "group_rank": self.model_comm_group_rank,
             "ensemble_member": 0,
         }
-    
 
 
-def get_variable_indices(required_variables: list, datamodule_variables: list, internal_data: DataIndex, internal_model: ModelIndex, decoder_index: int) -> dict:
+def get_variable_indices(
+    required_variables: list,
+    datamodule_variables: list,
+    internal_data: DataIndex,
+    internal_model: ModelIndex,
+    decoder_index: int,
+) -> dict:
     # Set up indices for the variables we want to write to file
     variable_indices_input = list()
     variable_indices_output = list()
     for name in required_variables:
         variable_indices_input.append(internal_data.input.name_to_index[name])
         variable_indices_output.append(internal_model.output.name_to_index[name])
-    
-    # Set up indices that can map from the variable order in the input data to the input variable order expected by the model
-    full_ordered_variable_list = [var for var, _ in sorted(internal_data.input.name_to_index.items(), key=lambda item: item[1])]
-    
-    required_prognostic_variables = [name for name, index in internal_model.input.name_to_index.items() if index in internal_model.input.prognostic]
-    required_forcings = [name for name, index in internal_model.input.name_to_index.items() if index in internal_model.input.forcing]
-    required_dynamic_forcings = [forcing for forcing in anemoi_dynamic_forcings() if forcing in required_forcings]
-    required_static_forcings = [forcing for forcing in required_forcings if forcing not in anemoi_dynamic_forcings()]
 
-    missing_vars = [var for var in required_prognostic_variables + required_static_forcings if var not in datamodule_variables]
+    # Set up indices that can map from the variable order in the input data to the input variable order expected by the model
+    full_ordered_variable_list = [
+        var
+        for var, _ in sorted(
+            internal_data.input.name_to_index.items(), key=lambda item: item[1]
+        )
+    ]
+
+    required_prognostic_variables = [
+        name
+        for name, index in internal_model.input.name_to_index.items()
+        if index in internal_model.input.prognostic
+    ]
+    required_forcings = [
+        name
+        for name, index in internal_model.input.name_to_index.items()
+        if index in internal_model.input.forcing
+    ]
+    required_dynamic_forcings = [
+        forcing for forcing in anemoi_dynamic_forcings() if forcing in required_forcings
+    ]
+    required_static_forcings = [
+        forcing
+        for forcing in required_forcings
+        if forcing not in anemoi_dynamic_forcings()
+    ]
+
+    missing_vars = [
+        var
+        for var in required_prognostic_variables + required_static_forcings
+        if var not in datamodule_variables
+    ]
     if len(missing_vars) > 0:
-        raise ValueError(f"Missing the following required variables in dataset {decoder_index}: {missing_vars}")
-    
-    indices_prognostic_dataset = torch.tensor([index for index, var in enumerate(datamodule_variables) if var in required_prognostic_variables], dtype=torch.int64)
-    indices_static_forcings_dataset = torch.tensor([index for index, var in enumerate(datamodule_variables) if var in required_static_forcings], dtype=torch.int64)
-    
-    indices_prognostic_input = torch.tensor([full_ordered_variable_list.index(var) for var in datamodule_variables if var in required_prognostic_variables], dtype=torch.int64)
-    indices_static_forcings_input = torch.tensor([full_ordered_variable_list.index(var) for var in datamodule_variables if var in required_static_forcings], dtype=torch.int64)
-    indices_dynamic_forcings_input = torch.tensor([full_ordered_variable_list.index(var) for var in datamodule_variables if var in required_dynamic_forcings], dtype=torch.int64)
+        raise ValueError(
+            f"Missing the following required variables in dataset {decoder_index}: {missing_vars}"
+        )
+
+    indices_prognostic_dataset = torch.tensor(
+        [
+            index
+            for index, var in enumerate(datamodule_variables)
+            if var in required_prognostic_variables
+        ],
+        dtype=torch.int64,
+    )
+    indices_static_forcings_dataset = torch.tensor(
+        [
+            index
+            for index, var in enumerate(datamodule_variables)
+            if var in required_static_forcings
+        ],
+        dtype=torch.int64,
+    )
+
+    indices_prognostic_input = torch.tensor(
+        [
+            full_ordered_variable_list.index(var)
+            for var in datamodule_variables
+            if var in required_prognostic_variables
+        ],
+        dtype=torch.int64,
+    )
+    indices_static_forcings_input = torch.tensor(
+        [
+            full_ordered_variable_list.index(var)
+            for var in datamodule_variables
+            if var in required_static_forcings
+        ],
+        dtype=torch.int64,
+    )
+    indices_dynamic_forcings_input = torch.tensor(
+        [
+            full_ordered_variable_list.index(var)
+            for var in datamodule_variables
+            if var in required_dynamic_forcings
+        ],
+        dtype=torch.int64,
+    )
 
     indices = {
-            "variables_input": variable_indices_input,
-            "variables_output": variable_indices_output,
-            "prognostic_dataset": indices_prognostic_dataset,
-            "static_forcings_dataset": indices_static_forcings_dataset,
-            "prognostic_input": indices_prognostic_input,
-            "static_forcings_input": indices_static_forcings_input,
-            "dynamic_forcings_input": indices_dynamic_forcings_input
-            }
+        "variables_input": variable_indices_input,
+        "variables_output": variable_indices_output,
+        "prognostic_dataset": indices_prognostic_dataset,
+        "static_forcings_dataset": indices_static_forcings_dataset,
+        "prognostic_input": indices_prognostic_input,
+        "static_forcings_input": indices_static_forcings_input,
+        "dynamic_forcings_input": indices_dynamic_forcings_input,
+    }
     variables = {
         "all": full_ordered_variable_list,
-        "dynamic_forcings": required_dynamic_forcings
+        "dynamic_forcings": required_dynamic_forcings,
     }
 
     return indices, variables
-
