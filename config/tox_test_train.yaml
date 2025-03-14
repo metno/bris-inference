@@ -41,16 +41,16 @@ dataloader:
     predict: 1
 
   training:
-    start: 2022-01-02
-    end: 2022-06-01
+    start: 2022-01-01
+    end: 2022-01-31
 
   validation:
-    start: 2022-06-02
-    end: 2022-12-31
+    start: 2022-02-01
+    end: 2022-02-28
 
   test:
-    start: 2022-01-01
-    end: 2022-12-31
+    start: 2022-03-01
+    end: 2022-03-31
 
 diagnostics:
   checkpoint:
