@@ -90,7 +90,10 @@ class BasePredictor(pl.LightningModule):
         self.reader_group_size = reader_group_size
 
     @abstractmethod
-    def get_static_forcings(self, datareader: Iterable, ):
+    def get_static_forcings(
+        self,
+        datareader: Iterable,
+    ):
         pass
 
     @abstractmethod
@@ -99,7 +102,10 @@ class BasePredictor(pl.LightningModule):
 
     @abstractmethod
     def advance_input_predict(
-        self, x: Union[torch.Tensor, List[torch.Tensor]], y_pred: Union[torch.Tensor, List[torch.Tensor]], time: np.datetime64
+        self,
+        x: Union[torch.Tensor, List[torch.Tensor]],
+        y_pred: Union[torch.Tensor, List[torch.Tensor]],
+        time: np.datetime64,
     ) -> torch.Tensor:
         pass
 
@@ -148,9 +154,7 @@ class BrisPredictor(BasePredictor):
             self.internal_model,
             0,
         )
-        self.set_static_forcings(
-            datamodule.data_reader, self.metadata.config.data
-        )
+        self.set_static_forcings(datamodule.data_reader, self.metadata.config.data)
 
         self.model.eval()
         self.release_cache = release_cache
@@ -422,7 +426,9 @@ class MultiEncDecPredictor(BasePredictor):
     def forward(self, x: torch.Tensor) -> List[torch.Tensor]:
         return self.model(x, self.model_comm_group)
 
-    def advance_input_predict(self, x: List[torch.Tensor], y_pred: List[torch.Tensor], time: np.datetime64):
+    def advance_input_predict(
+        self, x: List[torch.Tensor], y_pred: List[torch.Tensor], time: np.datetime64
+    ):
         for i in range(len(x)):
             x[i] = x[i].roll(-1, dims=1)
             # Get prognostic variables:
