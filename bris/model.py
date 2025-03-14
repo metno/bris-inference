@@ -8,13 +8,13 @@ from typing import Any
 import numpy as np
 import pytorch_lightning as pl
 import torch
-from torch.distributed.distributed_c10d import ProcessGroup
 from anemoi.models.data_indices.index import DataIndex, ModelIndex
+from torch.distributed.distributed_c10d import ProcessGroup
 
 from .checkpoint import Checkpoint
-from .forcings import get_dynamic_forcings, anemoi_dynamic_forcings
-from .utils import check_anemoi_training, timedelta64_from_timestep
 from .data.datamodule import DataModule
+from .forcings import anemoi_dynamic_forcings, get_dynamic_forcings
+from .utils import check_anemoi_training, timedelta64_from_timestep
 
 LOGGER = logging.getLogger(__name__)
 

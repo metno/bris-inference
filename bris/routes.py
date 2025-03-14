@@ -4,9 +4,9 @@ import numpy as np
 
 import bris.outputs
 from bris import utils
+from bris.checkpoint import Checkpoint
 from bris.data.datamodule import DataModule
 from bris.predict_metadata import PredictMetadata
-from bris.checkpoint import Checkpoint
 
 
 def get(
