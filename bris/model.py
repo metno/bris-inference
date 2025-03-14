@@ -145,17 +145,18 @@ class BrisPredictor(BasePredictor):
             self.internal_model = self.data_indices.model
             self.internal_data = self.data_indices.data
 
-        self.indices, self.variables = get_variable_indices(required_variables, datamodule, self.internal_data, self.internal_model, 0)
+        self.indices, self.variables = get_variable_indices(required_variables[0], datamodule, self.internal_data, self.internal_model, 0)
         self.set_static_forcings(datamodule.data_reader, self.metadata.config.data.forcing)
 
         self.model.eval()
         self.release_cache = release_cache
 
-    def set_static_forcings(self, data_reader, selection) -> None:
+    def set_static_forcings(self, data_reader: Iterable, selection: list) -> None:
         data = torch.from_numpy(data_reader[0].squeeze(axis=1).swapaxes(0, 1))
         data_input = torch.zeros(data.shape[:-1] + (len(self.variables["all"]),), dtype=data.dtype, device=data.device)
         data_input[..., self.indices["prognostic_input"]] = data[..., self.indices["prognostic_dataset"]]
         data_input[..., self.indices["static_forcings_input"]] = data[..., self.indices["static_forcings_dataset"]]
+
         data_normalized = self.model.pre_processors(data_input, in_place=True)
 
         self.static_forcings = {}
@@ -181,12 +182,12 @@ class BrisPredictor(BasePredictor):
 
         if "lsm" in selection:
             self.static_forcings["lsm"] = data_normalized[
-                ..., data_reader.name_to_index["lsm"]
+                ..., self.internal_data.input.name_to_index["lsm"]
             ].float()
 
         if "z" in selection:
             self.static_forcings["z"] = data_normalized[
-                ..., data_reader.name_to_index["z"]
+                ..., self.internal_data.input.name_to_index["z"]
             ].float()
 
         del data_normalized
@@ -226,10 +227,10 @@ class BrisPredictor(BasePredictor):
             if isinstance(value, np.ndarray):
                 x[:, -1, :, :, self.internal_model.input.name_to_index[forcing]] = (
                     torch.from_numpy(value).to(dtype=x.dtype)
-                )  # , device=x.device)
+                )
             else:
                 x[:, -1, :, :, self.internal_model.input.name_to_index[forcing]] = (
-                    value  # torch.from_numpy(np.array(value)).to(dtype=x.dtype, device=x.device)
+                    value  
                 )
         return x
 
@@ -247,7 +248,7 @@ class BrisPredictor(BasePredictor):
                 batch.shape[0],
                 self.forecast_length,
                 batch.shape[-2],
-                len(self.indices["variable_indices_output"]),
+                len(self.indices["variables_output"]),
             ),
             dtype=batch.dtype,
             device="cpu",
@@ -256,7 +257,7 @@ class BrisPredictor(BasePredictor):
         # Set up data_input with variable order expected by the model. 
         # Prognostic and static forcings come from batch, dynamic forcings 
         # are calculated and diagnostic variables are filled with 0.
-        data_input = torch.zeros(batch.shape[:-1] + (len(self.full_ordered_variable_list),), dtype=batch.dtype, device=batch.device)
+        data_input = torch.zeros(batch.shape[:-1] + (len(self.variables["all"]),), dtype=batch.dtype, device=batch.device)
         data_input[..., self.indices["prognostic_input"]] = batch[..., self.indices["prognostic_dataset"]]
         data_input[..., self.indices["static_forcings_input"]] = batch[..., self.indices["static_forcings_dataset"]]        
         
@@ -271,11 +272,11 @@ class BrisPredictor(BasePredictor):
                 else:
                     data_input[:, time_index, :, :, self.internal_data.input.name_to_index[forcing]] = value
 
-        y_preds[:,0,...] = data_input[:,multistep-1,...,self.variable_indices_input].cpu()
+        y_preds[:,0,...] = data_input[:,multistep-1,...,self.indices["variables_input"]].cpu()
 
         # Possibly have to extend this to handle imputer, see _step in forecaster.
-        batch = self.model.pre_processors(batch, in_place=True)
-        x = batch[..., self.internal_data.input.full]
+        data_input = self.model.pre_processors(data_input, in_place=True)
+        x = data_input[..., self.internal_data.input.full]
 
         with torch.autocast(device_type="cuda", dtype=torch.bfloat16):
             for fcast_step in range(self.forecast_length - 1):
@@ -284,7 +285,7 @@ class BrisPredictor(BasePredictor):
                 x = self.advance_input_predict(x, y_pred, time)
                 y_preds[:, fcast_step + 1] = self.model.post_processors(
                     y_pred, in_place=True
-                )[:, 0, :, self.variable_indices_output].cpu()
+                )[:, 0, :, self.indices["variables_output"]].cpu()
 
                 times.append(time)
                 if self.release_cache:
@@ -489,8 +490,8 @@ def get_variable_indices(required_variables: list, datamodule: DataModule, inter
     variable_indices_input = list()
     variable_indices_output = list()
     for name in required_variables:
-        variable_indices_input += internal_data.input.name_to_index[name]
-        variable_indices_output += internal_model.output.name_to_index[name]
+        variable_indices_input.append(internal_data.input.name_to_index[name])
+        variable_indices_output.append(internal_model.output.name_to_index[name])
     
     # Set up indices that can map from the variable order in the input data to the input variable order expected by the model
     # self.full_ordered_variable_list = self.metadata.dataset.variables
