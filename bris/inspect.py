@@ -36,7 +36,7 @@ def inspect():
     print("checkpoint multistep", checkpoint.multistep)
     print("checkpoint variables", json.dumps(checkpoint.index_to_name, indent=4))
 
-    # print("Checkpoint metadata", checkpoint.metadata)
+    print(f"Checkpoint was created with python {checkpoint.metadata.provenance_training.python} and packages:", json.dumps(checkpoint.metadata.provenance_training.module_versions, indent=4))
 
 
 if __name__ == "__main__":
