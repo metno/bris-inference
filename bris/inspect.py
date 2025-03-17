@@ -78,22 +78,19 @@ def get_required_variables(checkpoint: Checkpoint) -> list:
     return required_prognostic_variables + required_static_forcings
 
 
-def inspect(checkpoint_path: str, debug: bool = False) -> bool:
-    """Inspect a checkpoint and check if all modules are installed with correct versions."""
+def inspect(checkpoint_path: str, debug: bool = False) -> int:
+    """Inspect a checkpoint and check if all modules are installed with correct versions. Return exit status."""
 
     # Load checkpoint
     checkpoint = Checkpoint(checkpoint_path)
 
     print(
-        f"Checkpoint created with\tPython {checkpoint.metadata.provenance_training.python}"
-    )
-    print("Checkpoint version\t", checkpoint.metadata.version)
-    print("checkpoint run_id\t", checkpoint.metadata.run_id)
-    print("checkpoint timestamp\t", checkpoint.metadata.timestamp)
-    print("checkpoint multistep\t", checkpoint.multistep)
-
-    print(
-        "checkpoint variables", json.dumps(get_required_variables(checkpoint), indent=4)
+        f"Checkpoint created with\tPython {checkpoint.metadata.provenance_training.python}\n"
+        f"Checkpoint version\t{checkpoint.metadata.version}\n"
+        f"checkpoint run_id\t{checkpoint.metadata.run_id}\n"
+        f"checkpoint timestamp\t{checkpoint.metadata.timestamp}\n"
+        f"checkpoint multistep\t{checkpoint.multistep}\n"
+        f"checkpoint variables\t{json.dumps(get_required_variables(checkpoint), indent=4)}"
     )
 
     if debug:
@@ -106,9 +103,9 @@ def inspect(checkpoint_path: str, debug: bool = False) -> bool:
         )
         print(f"  pip install {' '.join(modules_with_wrong_version)}")
         print("Then test again to make sure.")
-        return False
+        return 1
     print("\nAll modules are correct version.")
-    return True
+    return 0
 
 
 def main():
