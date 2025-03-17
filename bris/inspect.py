@@ -99,7 +99,7 @@ def inspect(checkpoint_path: str, debug: bool = False) -> int:
 
     if len(modules_with_wrong_version) > 0:
         print(
-            "\nThe most important module is <anemoi-model>, but showing all modules which differs. To install correct versions, run:"
+            "\nThe important module is <anemoi-models>, but showing all modules that differs. To install correct versions, run:"
         )
         print(f"  pip install {' '.join(modules_with_wrong_version)}")
         print("Then test again to make sure.")
