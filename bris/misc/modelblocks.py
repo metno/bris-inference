@@ -1,6 +1,9 @@
 import torch
+import einops
+from typing import Optional
 
 from bris.checkpoint import Checkpoint
+from bris.misc.shapes import get_shape_shards
 
 
 class ModelBlocks(Checkpoint):
@@ -24,16 +27,95 @@ class ModelBlocks(Checkpoint):
         >>> checkpoint._get_copy_model_params["model.processor.proc.0.blocks.7.lin_value.bias"] ==proc.state_dict()["proc.0.blocks.7.lin_value.bias"]
         tensor([True, True, True,  ..., True, True, True])
         """
+
+        ######### DO NOT REMOVE :) #########
+        # This is not the end product. this class
+        # will be fully changed in future and be more generic
+        # this will include, multi-domain, normal-enc-proc-dec
+        # ensemble, multi-enc-dec, etc..
+
+        # fetch from checkpoint class
         self.model = self._model_instance.model
+        self.graph_data = self.graph
 
-    def encoder(self, x: torch.Tensor) -> torch.Tensor:
-        # TODO: write logic
-        return self.model.encoder
+        if torch.cuda.is_available():
+            self._encoder = self.model.encoder.to("cuda")
+            self._processor = self.model.encoder.to("cuda")
+            self._decoder = self.model.encoder.to("cuda")
 
-    def processor(self, x: torch.Tensor) -> torch.Tensor:
-        # TODO: write logic
-        return self.model.processor
+        self.node_attributes = self.model.NamedNodesAttributes(0, self._graph_data)
 
-    def decoder(self, x: torch.Tensor) -> torch.Tensor:
+    def _preproces_data(self, x: torch.Tensor, model_comm_group: None) -> torch.Tensor:
+        """
+        hidden class method, preproccesses the data and enables the
+        data as attributes that can be accessed.
+
+        """
+        self.batch_size = x.shape[0]
+        self.ensemble_size = x.shape[2]
+
+        # add data positional info (lat/lon)
+        self.x_data_latent = torch.cat(
+            (
+                einops.rearrange(
+                    x,
+                    "batch time ensemble grid vars -> (batch ensemble grid) (time vars)",
+                ),
+                self.node_attributes(self._graph_name_data, batch_size=self.batch_size),
+            ),
+            dim=-1,  # feature dimension
+        )
+
+        self.x_hidden_latent = self.node_attributes(
+            self._graph_name_hidden, batch_size=self.batch_size
+        )
+
+        self.shard_shapes_data = get_shape_shards(
+            self.x_data_latent, 0, model_comm_group
+        )
+        self.shard_shapes_hidden = get_shape_shards(
+            self.x_hidden_latent, 0, model_comm_group
+        )
+
+    def encoder(
+        self, x: torch.Tensor, model_comm_group: Optional[int] = None
+    ) -> tuple[torch.Tensor, torch.Tensor]:
+
+        self.preproces_data(x=x)
+
+        return self._encoder(
+            (self.x_data_latent, self.x_hidden_latent),
+            batch_size=self.batch_size,
+            shard_shapes=(self.shard_shapes_data, self.shard_shapes_hidden),
+            model_comm_group=model_comm_group,
+        )
+
+    def processor(
+        self,
+        x_latent: torch.Tensor,
+        with_skip_connection: Optional[bool] = True,
+        model_comm_group: Optional[int] = None,
+    ) -> torch.Tensor:
         # TODO: write logic
-        return self.model.decoder
+        x_latent_proc = self._processor(
+            x_latent,
+            batch_size=self.batch_size,
+            shard_shapes=self.shard_shapes_hidden,
+            model_comm_group=model_comm_group,
+        )
+
+        if with_skip_connection:
+            x_latent_proc = x_latent_proc + x_latent
+
+        return x_latent_proc
+
+    def decoder(
+        self, x: torch.Tensor, model_comm_group: Optional[int] = None
+    ) -> torch.Tensor:
+        # TODO: write logic
+        return self._decoder(
+            (x, self.x_data_latent),
+            batch_size=self.batch_size,
+            shard_shapes=(self.shard_shapes_hidden, self.shard_shapes_data),
+            model_comm_group=model_comm_group,
+        )
