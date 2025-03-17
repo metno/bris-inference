@@ -18,7 +18,7 @@ def inspect():
     parser = ArgumentParser()
     parser.add_argument("--debug", action="store_true")
     parser.add_argument(
-        "-c", type=str, dest="checkpoint_path", required=True, help="Path to checkpoint"
+        "-c", "--checkpoint", type=str, dest="checkpoint_path", required=True, help="Path to checkpoint"
     )
     args, _ = parser.parse_known_args()
 
