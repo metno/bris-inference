@@ -43,12 +43,12 @@ class Checkpoint:
     """This class makes accessible various information stored in Anemoi checkpoints"""
 
     AIFS_BASE_SEED = None
-    UPDATE_GRAPH = False
 
     def __init__(self, path: str):
-        assert os.path.exists(path), "The given checkpoint does not exist!"
+        assert os.path.exists(path), f"The given checkpoint {path} does not exist!"
 
         self.path = path
+        self.is_graph_replaced = False
         self.set_base_seed()
 
     @cached_property
@@ -145,13 +145,19 @@ class Checkpoint:
         )
 
     @cached_property
-    def _model_params(self) -> dict:
+    def _get_copy_model_params(self) -> dict:
         """
-        The state of model being cached in CPU memory.
-        Keep in mind this is only the model weights and its
-        layer names, i.e does not include optimizer state.
-        It also worth mentioining this model.named_parameters()
-        and not model.state_dict.
+        Caches the model's state in CPU memory.
+
+        This cache includes only the model's weights
+        and their corresponding layer names. It does not include the
+        optimizer state. Note that this specifically refers to
+        model.named_parameters() and not model.state_dict().
+
+        A deep copy of the model state is performed
+        to ensure the integrity of the cached data,
+        even if the user decides to update
+        the internal graph of the model later.
 
         Args:
             None
@@ -161,7 +167,7 @@ class Checkpoint:
             Value: The state for a given layer
         """
 
-        _model_params = tuple(self._model_instance.named_parameters())
+        _model_params = self._model_instance.named_parameters()
         return deepcopy({layer_name: param for layer_name, param in _model_params})
 
     def update_graph(self, path: Optional[str] = None) -> HeteroData:
@@ -183,7 +189,7 @@ class Checkpoint:
         # stretched grid, the model instance will complain
         # (not 100% sure but i think i have experienced this)
 
-        if self.UPDATE_GRAPH:
+        if self.is_graph_replaced:
             raise RuntimeError(
                 "Graph has already been updated. Mutliple updates is not allowed"
             )
@@ -195,19 +201,26 @@ class Checkpoint:
                 LOGGER.info("Loaded external graph from path")
 
                 self._model_instance.graph_data = external_graph
+
+                # Assign config, as it's not preserved in the pickle.
                 self._model_instance.config = self.config  # conf
 
-                LOGGER.info("Rebuilding layers to support new graph")
+                # Copy model parameters before rebuilding to avoid losing them.
+                _model_params = self._get_copy_model_params
 
-                try:
-                    self._model_instance._build_model()
-                    self.UPDATE_GRAPH = True
+                LOGGER.info("Rebuilding layers to support the new graph.")
+                self._model_instance._build_model()
+                self.is_graph_replaced = True
 
-                except Exception as e:
-                    raise RuntimeError("Failed to rebuild model with new graph.") from e
+                # Validate parameter count consistency.
+                old_param_count = len(_model_params)
+                new_param_count = len(tuple(self._model_instance.named_parameters()))
 
-                _model_params = self._model_params
+                assert old_param_count == new_param_count, (
+                    "Parameter count mismatch after build: new model parameters differ from checkpoint."
+                )
 
+                LOGGER.info("Assigning model params from checkpoint to the new model")
                 for layer_name, param in self._model_instance.named_parameters():
                     param.data = _model_params[layer_name].data
 
