@@ -45,7 +45,7 @@ class ModelBlocks(Checkpoint):
 
         self.node_attributes = self.model.NamedNodesAttributes(0, self._graph_data)
 
-    def _preproces_data(self, x: torch.Tensor, model_comm_group: None) -> torch.Tensor:
+    def _preproces_data(self, x: torch.Tensor, model_comm_group: None) -> None:
         """
         hidden class method, preproccesses the data and enables the
         data as attributes that can be accessed.
@@ -110,12 +110,38 @@ class ModelBlocks(Checkpoint):
         return x_latent_proc
 
     def decoder(
-        self, x: torch.Tensor, model_comm_group: Optional[int] = None
+        self,
+        x: torch.Tensor,
+        model_comm_group: Optional[int] = None,
+        abstract=False,
     ) -> torch.Tensor:
         # TODO: write logic
-        return self._decoder(
+        x_out = self._decoder(
             (x, self.x_data_latent),
             batch_size=self.batch_size,
             shard_shapes=(self.shard_shapes_hidden, self.shard_shapes_data),
             model_comm_group=model_comm_group,
         )
+
+        if abstract:
+            return x_out
+        else:
+            x_out = (
+                einops.rearrange(
+                    x_out,
+                    "(batch ensemble grid) vars -> batch ensemble grid vars",
+                    batch=self.batch_size,
+                    ensemble=self.ensemble_size,
+                )
+                .to(dtype=x.dtype)
+                .clone()
+            )
+
+            # residual connection (just for the prognostic variables)
+            x_out[..., self._internal_output_idx] += x[
+                :, -1, :, :, self._internal_input_idx
+            ]
+
+            for bounding in self.boundings:
+                # bounding performed in the order specified in the config file
+                x_out = bounding(x_out)
