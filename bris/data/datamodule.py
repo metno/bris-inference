@@ -24,8 +24,8 @@ LOGGER = logging.getLogger(__name__)
 class DataModule(pl.LightningDataModule):
     def __init__(
         self,
-        config: DotDict = None,
-        checkpoint_object: Checkpoint = None,
+        config: DotDict,
+        checkpoint_object: Checkpoint,
     ) -> None:
         """
         DataModule instance and DataSets.
