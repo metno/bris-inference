@@ -69,7 +69,9 @@ class ModelBlocks(Checkpoint):
                     x,
                     "batch time ensemble grid vars -> (batch ensemble grid) (time vars)",
                 ),
-                self.node_attributes(self._graph_name_data, batch_size=self.batch_size),
+                self._model.node_attributes(
+                    self._graph_name_data, batch_size=self.batch_size
+                ),
             ),
             dim=-1,  # feature dimension
         )
