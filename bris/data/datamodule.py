@@ -43,7 +43,7 @@ class DataModule(pl.LightningDataModule):
 
         self.config = config
         self.graph = checkpoint_object.graph
-        self.ckptObj = checkpoint_object
+        self.checkpoint_object = checkpoint_object
         self.timestep = config.timestep
         self.frequency = config.frequency
 
@@ -91,7 +91,7 @@ class DataModule(pl.LightningDataModule):
             config=self.config.dataloader.datamodule,
             data_reader=data_reader,
             rollout=0,
-            multistep=self.ckptObj.multistep,
+            multistep=self.checkpoint_object.multistep,
             timeincrement=self.timeincrement,
             grid_indices=self.grid_indices,
             label="predict",
@@ -152,13 +152,15 @@ class DataModule(pl.LightningDataModule):
         Returns a tuple of dictionaries, where each dict is:
             variable_name -> index
         """
-        return self.ckptObj.name_to_index
+        if isinstance(self.data_reader.name_to_index, dict):
+            return (self.data_reader.name_to_index,)
+        return self.data_reader.name_to_index
 
     @cached_property
     def grid_indices(self) -> type[BaseGridIndices]:
         # TODO: This currently only supports fullgrid for multi-encoder/decoder
         reader_group_size = 1  # Generalize this later
-        graph_cfg = self.ckptObj.config.graph
+        graph_cfg = self.checkpoint_object.config.graph
 
         # Multi_encoder/decoder
         if "input_nodes" in graph_cfg:
