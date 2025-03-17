@@ -51,7 +51,9 @@ class ModelBlocks(Checkpoint):
 
         # self._node_attributes = self._model.node#NamedNodesAttributes(0, self._graph_data)
 
-    def _preproces_data(self, x: torch.Tensor, model_comm_group: None) -> None:
+    def _preproces_data(
+        self, x: torch.Tensor, model_comm_group: Optional[int] = None
+    ) -> None:
         """
         hidden class method, preproccesses the data and enables the
         data as attributes that can be accessed.
