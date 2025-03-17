@@ -82,18 +82,18 @@ def test_get():
         },
     ]
     data_module = FakeDataModule()
-    ckptObj = FakeCheckpointObject()
+    checkpoint_object = FakeCheckpointObject()
     workdir = "testdir"
     leadtimes = range(66)
     num_members = 2
 
-    required_variables = bris.routes.get_required_variables(config, ckptObj)
+    required_variables = bris.routes.get_required_variables(config, checkpoint_object)
     correct_variables = {0: ["2t", "10u", "10v"], 1: ["100u"]}
     for key in required_variables:
         assert set(required_variables[key]) == set(correct_variables[key])
 
     _ = bris.routes.get(
-        config, len(leadtimes), num_members, data_module, ckptObj, workdir
+        config, len(leadtimes), num_members, data_module, checkpoint_object, workdir
     )
 
 
