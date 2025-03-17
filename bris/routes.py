@@ -14,7 +14,7 @@ def get(
     leadtimes: list,
     num_members: int,
     data_module: DataModule,
-    ckptObj: Checkpoint,
+    checkpoint_object: Checkpoint,
     workdir: str,
 ):
     """Returns outputs for each decoder and domain
@@ -37,7 +37,7 @@ def get(
 
     """
     ret = list()
-    required_variables = get_required_variables(routing_config, ckptObj)
+    required_variables = get_required_variables(routing_config, checkpoint_object)
 
     count = 0
     for config in routing_config:
@@ -96,7 +96,7 @@ def get(
 
 
 def get_required_variables(
-    routing_config: dict, ckptObj: Checkpoint
+    routing_config: dict, checkpoint_object: Checkpoint
 ) -> dict[int, list[str]]:
     """Returns a list of required variables for each decoder"""
     required_variables: dict[int, list[str]] = defaultdict(list)
@@ -109,7 +109,7 @@ def get_required_variables(
 
     for decoder_index, v in required_variables.items():
         if None in v:
-            name_to_index = ckptObj.model_output_name_to_index[decoder_index]
+            name_to_index = checkpoint_object.model_output_name_to_index[decoder_index]
             required_variables[decoder_index] = sorted(list(set(name_to_index.keys())))
         else:
             required_variables[decoder_index] = sorted(list(set(v)))
