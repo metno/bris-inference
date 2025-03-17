@@ -35,15 +35,21 @@ class ModelBlocks(Checkpoint):
         # ensemble, multi-enc-dec, etc..
 
         # fetch from checkpoint class
-        self.model = self._model_instance.model
+        self._model = self._model_instance.model
         self.graph_data = self.graph
 
-        if torch.cuda.is_available():
-            self._encoder = self.model.encoder.to("cuda")
-            self._processor = self.model.encoder.to("cuda")
-            self._decoder = self.model.encoder.to("cuda")
+        # if torch.cuda.is_available():
+        self._encoder = self._model.encoder.to(
+            "cuda" if torch.cuda.is_available() else "cpu"
+        )
+        self._processor = self._model.encoder.to(
+            "cuda" if torch.cuda.is_available() else "cpu"
+        )
+        self._decoder = self._model.encoder.to(
+            "cuda" if torch.cuda.is_available() else "cpu"
+        )
 
-        self.node_attributes = self.model.NamedNodesAttributes(0, self._graph_data)
+        # self._node_attributes = self._model.node#NamedNodesAttributes(0, self._graph_data)
 
     def _preproces_data(self, x: torch.Tensor, model_comm_group: None) -> None:
         """
@@ -66,7 +72,7 @@ class ModelBlocks(Checkpoint):
             dim=-1,  # feature dimension
         )
 
-        self.x_hidden_latent = self.node_attributes(
+        self.x_hidden_latent = self._model.node_attributes(
             self._graph_name_hidden, batch_size=self.batch_size
         )
 
