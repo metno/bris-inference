@@ -4,6 +4,8 @@ import sys
 from argparse import ArgumentParser
 
 from .checkpoint import Checkpoint
+from .forcings import anemoi_dynamic_forcings
+from .model import get_variable_indices
 
 
 def clean_version_name(name: str) -> str:
@@ -54,6 +56,28 @@ def check_module_versions(checkpoint: Checkpoint, debug: bool = False) -> list:
     return modules_with_wrong_version
 
 
+def get_required_variables(checkpoint: Checkpoint) -> list:
+    """Get list of required variables from a checkpoint."""
+
+    required_prognostic_variables = [
+        name
+        for name, index in checkpoint.name_to_index[0].items()
+        if index in checkpoint.metadata.data_indices.internal_model.input.prognostic
+    ]
+    required_forcings = [
+        name
+        for name, index in checkpoint.name_to_index[0].items()
+        if index in checkpoint.metadata.data_indices.internal_model.input.forcing
+    ]
+    required_static_forcings = [
+        forcing
+        for forcing in required_forcings
+        if forcing not in anemoi_dynamic_forcings()
+    ]
+
+    return required_prognostic_variables + required_static_forcings
+
+
 def inspect(checkpoint_path: str, debug: bool = False) -> bool:
     """Inspect a checkpoint and check if all modules are installed with correct versions."""
 
@@ -68,7 +92,9 @@ def inspect(checkpoint_path: str, debug: bool = False) -> bool:
     print("checkpoint timestamp\t", checkpoint.metadata.timestamp)
     print("checkpoint multistep\t", checkpoint.multistep)
 
-    print("checkpoint variables", json.dumps(checkpoint.index_to_name, indent=4))
+    print(
+        "checkpoint variables", json.dumps(get_required_variables(checkpoint), indent=4)
+    )
 
     print("\nFor each module, checking if we have matching version installed...")
     modules_with_wrong_version = check_module_versions(checkpoint, debug)
