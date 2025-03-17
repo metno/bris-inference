@@ -4,6 +4,7 @@ import numpy as np
 
 import bris.outputs
 from bris import utils
+from bris.checkpoint import Checkpoint
 from bris.data.datamodule import DataModule
 from bris.predict_metadata import PredictMetadata
 
@@ -13,6 +14,7 @@ def get(
     leadtimes: list,
     num_members: int,
     data_module: DataModule,
+    ckptObj: Checkpoint,
     workdir: str,
 ):
     """Returns outputs for each decoder and domain
@@ -35,7 +37,7 @@ def get(
 
     """
     ret = list()
-    required_variables = get_required_variables(routing_config, data_module)
+    required_variables = get_required_variables(routing_config, ckptObj)
 
     count = 0
     for config in routing_config:
@@ -93,27 +95,8 @@ def get(
     return ret
 
 
-def get_variable_indices(
-    routing_config: dict, data_module: DataModule
-) -> dict[int, list[int]]:
-    """Returns a list of variable indices for each decoder
-
-    This is used by Model
-    """
-    required_variables = get_required_variables(routing_config, data_module)
-
-    variable_indices: dict[int, list[int]] = dict()
-    for decoder_index, _r in required_variables.items():
-        variable_indices[decoder_index] = list()
-        for name in required_variables[decoder_index]:
-            index = data_module.name_to_index[decoder_index][name]
-            variable_indices[decoder_index] += [index]
-
-    return variable_indices
-
-
 def get_required_variables(
-    routing_config: dict, data_module: DataModule
+    routing_config: dict, ckptObj: Checkpoint
 ) -> dict[int, list[str]]:
     """Returns a list of required variables for each decoder"""
     required_variables: dict[int, list[str]] = defaultdict(list)
@@ -126,15 +109,8 @@ def get_required_variables(
 
     for decoder_index, v in required_variables.items():
         if None in v:
-            name_to_index = data_module.name_to_index[decoder_index]
-
-            # Pre-initialize list
-            required_variables[decoder_index] = list(name_to_index.keys())
-
-            for name, index in name_to_index.items():
-                assert index < len(name_to_index)
-
-                required_variables[decoder_index][index] = name
+            name_to_index = ckptObj.model_output_name_to_index[decoder_index]
+            required_variables[decoder_index] = sorted(list(set(name_to_index.keys())))
         else:
             required_variables[decoder_index] = sorted(list(set(v)))
 
