@@ -1,5 +1,6 @@
 import importlib
 import json
+import sys
 from argparse import ArgumentParser
 
 from .checkpoint import Checkpoint
@@ -53,11 +54,11 @@ def check_module_versions(checkpoint: Checkpoint, debug: bool = False) -> list:
     return modules_with_wrong_version
 
 
-def inspect(checkpoint_path: str, debug: bool = False):
+def inspect(checkpoint_path: str, debug: bool = False) -> bool:
     """Inspect a checkpoint and check if all modules are installed with correct versions."""
 
     # Load checkpoint
-    checkpoint = Checkpoint(args.checkpoint_path)
+    checkpoint = Checkpoint(checkpoint_path)
 
     print(
         f"Checkpoint created with Python {checkpoint.metadata.provenance_training.python}"
@@ -70,14 +71,15 @@ def inspect(checkpoint_path: str, debug: bool = False):
     print("checkpoint variables", json.dumps(checkpoint.index_to_name, indent=4))
 
     print("\nFor each module, checking if we have matching version installed...")
-    modules_with_wrong_version = check_module_versions(checkpoint, args.debug)
+    modules_with_wrong_version = check_module_versions(checkpoint, debug)
 
     if len(modules_with_wrong_version) > 0:
         print("Done.\n\nTo install correct versions, run:\n")
         print(f"pip install {' '.join(modules_with_wrong_version)}")
         print("\nThen test again to make sure.")
-    else:
-        print("Done.\n\nAll modules are correct version.")
+        return False
+    print("Done.\n\nAll modules are correct version.")
+    return True
 
 
 def main():
@@ -85,10 +87,15 @@ def main():
     parser = ArgumentParser()
     parser.add_argument("--debug", action="store_true")
     parser.add_argument(
-        "-c", "--checkpoint", type=str, dest="checkpoint_path", required=True, help="Path to checkpoint"
+        "-c",
+        "--checkpoint",
+        type=str,
+        dest="checkpoint_path",
+        required=True,
+        help="Path to checkpoint",
     )
     args, _ = parser.parse_known_args()
-    inspect(args.checkpoint_path, args.debug)
+    sys.exit(inspect(args.checkpoint_path, args.debug))
 
 
 if __name__ == "__main__":
