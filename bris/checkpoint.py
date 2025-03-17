@@ -230,11 +230,11 @@ class Checkpoint:
                 return self._model_instance.graph_data
 
             else:
+                raise Exception(f"Path to graph '{path}' not found")
                 # future implementation
                 # _graph = anemoi.graphs.create() <-- skeleton
                 # self._model_instance.graph_data = _graph <- update graph obj within inst
                 # return _graph <- return graph
-                raise NotImplementedError
 
     def set_base_seed(self) -> None:
         """
