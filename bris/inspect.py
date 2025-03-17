@@ -87,10 +87,10 @@ def inspect(checkpoint_path: str, debug: bool = False) -> int:
     print(
         f"Checkpoint created with\tPython {checkpoint.metadata.provenance_training.python}\n"
         f"Checkpoint version\t{checkpoint.metadata.version}\n"
-        f"checkpoint run_id\t{checkpoint.metadata.run_id}\n"
-        f"checkpoint timestamp\t{checkpoint.metadata.timestamp}\n"
-        f"checkpoint multistep\t{checkpoint.multistep}\n"
-        f"checkpoint variables\t{json.dumps(get_required_variables(checkpoint), indent=4)}"
+        f"Checkpoint run_id\t{checkpoint.metadata.run_id}\n"
+        f"Checkpoint timestamp\t{checkpoint.metadata.timestamp}\n"
+        f"Checkpoint multistep\t{checkpoint.multistep}\n"
+        f"Checkpoint required variables:\t{json.dumps(get_required_variables(checkpoint), indent=4)}"
     )
 
     if debug:
