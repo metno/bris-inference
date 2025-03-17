@@ -34,6 +34,8 @@ class ModelBlocks(Checkpoint):
         # this will include, multi-domain, normal-enc-proc-dec
         # ensemble, multi-enc-dec, etc..
 
+        self._graph_name_data = "data"
+        self._graph_name_hidden = "hidden"
         # fetch from checkpoint class
         self._model = self._model_instance.model
         self.graph_data = self.graph
