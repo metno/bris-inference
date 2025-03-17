@@ -71,7 +71,7 @@ bris = ["schema/*.json"]
 
 [project.scripts]
 bris = "bris:main"
-bris-inspect = "bris:inspect"
+bris-inspect = "bris.inspect:main"
 
 [tool.ruff]
 exclude = [

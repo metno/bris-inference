@@ -23,7 +23,7 @@ def check_module_versions(checkpoint: Checkpoint, debug: bool = False) -> list:
     for module in checkpoint.metadata.provenance_training.module_versions:
         if debug:
             print(
-                f"  {module} is version\t{checkpoint.metadata.provenance_training.module_versions[module]}"
+                f"  {module} in checkpoint was version\t{checkpoint.metadata.provenance_training.module_versions[module]}"
             )
 
         if "_remote_module_non_scriptable" in module:
@@ -49,7 +49,7 @@ def check_module_versions(checkpoint: Checkpoint, debug: bool = False) -> list:
             )
         except ModuleNotFoundError:
             if debug:
-                print(f"  Warning: Could not find module <{module}>.")
+                print(f"  Warning: Could not find module <{module}>, please install.")
             modules_with_wrong_version.append(
                 f"{module}=={clean_version_name(checkpoint.metadata.provenance_training.module_versions[module])}"
             )
@@ -85,7 +85,7 @@ def inspect(checkpoint_path: str, debug: bool = False) -> bool:
     checkpoint = Checkpoint(checkpoint_path)
 
     print(
-        f"Checkpoint created with Python {checkpoint.metadata.provenance_training.python}"
+        f"Checkpoint created with\tPython {checkpoint.metadata.provenance_training.python}"
     )
     print("Checkpoint version\t", checkpoint.metadata.version)
     print("checkpoint run_id\t", checkpoint.metadata.run_id)
@@ -96,15 +96,18 @@ def inspect(checkpoint_path: str, debug: bool = False) -> bool:
         "checkpoint variables", json.dumps(get_required_variables(checkpoint), indent=4)
     )
 
-    print("\nFor each module, checking if we have matching version installed...")
+    if debug:
+        print("\nFor each module, checking if we have matching version installed...")
     modules_with_wrong_version = check_module_versions(checkpoint, debug)
 
     if len(modules_with_wrong_version) > 0:
-        print("Done.\n\nTo install correct versions, run:\n")
-        print(f"pip install {' '.join(modules_with_wrong_version)}")
-        print("\nThen test again to make sure.")
+        print(
+            "\nThe most important module is <anemoi-model>, but showing all modules which differs. To install correct versions, run:"
+        )
+        print(f"  pip install {' '.join(modules_with_wrong_version)}")
+        print("Then test again to make sure.")
         return False
-    print("Done.\n\nAll modules are correct version.")
+    print("\nAll modules are correct version.")
     return True
 
 
