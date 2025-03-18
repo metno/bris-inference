@@ -52,22 +52,22 @@ def check_anemoi_training(metadata: DotDict) -> bool:
     )
 
 
-def check_anemoi_dataset_version(metadata) -> tuple[bool, str]:
-    """Not currently in use, but can be handy for testing, debugging."""
-    assert isinstance(metadata, DotDict), (
-        f"Expected metadata to be a DotDict, got {type(metadata)}"
-    )
-    if hasattr(metadata.provenance_training, "module_versions"):
-        try:
-            _version = metadata.provenance_training.module_versions["anemoi.datasets"]
-            _version = re.match(r"^\d+\.\d+\.\d+", _version).group()
-            if _version < "0.5.0":
-                return True, _version
-            return False, _version
-        except AttributeError as e:
-            raise e
-    else:
-        raise RuntimeError("metadata.provenance_training does not module_versions")
+# def check_anemoi_dataset_version(metadata) -> tuple[bool, str]:
+#     """Not currently in use, but can be handy for testing, debugging."""
+#     assert isinstance(metadata, DotDict), (
+#         f"Expected metadata to be a DotDict, got {type(metadata)}"
+#     )
+#     if hasattr(metadata.provenance_training, "module_versions"):
+#         try:
+#             _version = metadata.provenance_training.module_versions["anemoi.datasets"]
+#             _version = re.match(r"^\d+\.\d+\.\d+", _version).group()
+#             if _version < "0.5.0":
+#                 return True, _version
+#             return False, _version
+#         except AttributeError as e:
+#             raise e
+#     else:
+#         raise RuntimeError("metadata.provenance_training does not module_versions")
 
 
 def create_config(parser: ArgumentParser) -> OmegaConf:
