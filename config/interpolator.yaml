@@ -1,0 +1,143 @@
+start_date: 2022-06-01T00:00:00
+end_date: 2022-12-31T18:00:00
+
+checkpoint:
+  forecaster:
+    path: /pfs/lustrep4/scratch/project_465001383/aifs/experiments/interpolator/core/fc6h/c1024b16/checkpoint/e0ac0b53da2e4d4a8b1332bdc8aa1f1a/inference-last.ckpt
+    graph: null
+  interpolator:
+    path: /pfs/lustrep4/scratch/project_465001383/aifs/experiments/interpolator/core/o96/checkpoint/32b2583482d046b29b6678ed3e9a81d8/inference-last.ckpt
+    graph: null
+
+leadtimes: 12
+frequency: 6h
+
+global_land_dataset: ${datasets}/ERA5/aifs-ea-an-oper-0001-mars-o96-1979-2023-6h-v3-land.zarr
+global_atm_dataset: ${datasets}/ERA5/aifs-ea-an-oper-0001-mars-o96-1979-2022-6h-v6.zarr
+#global_atm_dataset: ${datasets}/ERA5/aifs-ea-an-oper-0001-mars-n320-1979-2022-6h-v6.zarr
+#global_land_dataset: ${datasets}/ERA5/aifs-ea-an-oper-0001-mars-n320-1979-2023-6h-v1-land.zarr
+
+
+workdir: /pfs/lustrep4/scratch/project_465001383/ingstadm/core/inference/workdir/
+datasets: /pfs/lustrep4/scratch/project_465001383/aifs/dataset/
+#output: /pfs/lustrep4/scratch/project_465001383/haugenha/cloudy_skies/run-anemoi/lumi/inference/
+
+
+dataset:
+  join:
+  - dataset: ${global_atm_dataset}
+    drop: ["sdor", "slor", "cp", "u_600", "v_600", "z_600", "t_600", "q_600", "w_600"]
+  - dataset: ${global_land_dataset}
+    select: ["lcc", "mcc", "tcc", "strd", "ssrd"]
+  adjust: ["start", "end"]
+  reorder: sort
+
+verif_folder: /pfs/lustrep4/scratch/project_465001383/aifs/verification/nordic/6h/202206_202305/
+verif_name: o96_6hfc_1hi.nc #cs1536_n320.nc #cs1536_o96.nc #cs1536_o96.nc #cloudy_skies_o96.nc
+verif_name_load: IFS_9km.nc
+
+# dataset_verif:
+#   join:
+#   - dataset: ${global_atm_dataset}
+#     drop: ["sdor", "slor", "cp", "u_600", "v_600", "z_600", "t_600", "q_600", "w_600"]
+#   - dataset: ${global_land_dataset}
+#     select: ["lcc", "mcc", "tcc", "strd", "ssrd"]
+#   adjust: ["start", "end"]
+#   reorder: sort
+
+
+# If the user wants to release GPU cache and memory
+# This option releases unused cached/memory used by torch
+release_cache: False
+
+# Determine how much the encoder and decoder is chunked
+inference_num_chunks: 1
+
+dataloader:
+  datamodule:
+    _target_: bris.data.dataset.NativeGridDataset
+    _convert_: all
+
+hardware:
+
+  num_gpus_per_node: 8
+  num_gpus_per_model: 8
+  num_nodes: 1
+
+
+model:
+  _target_: bris.model.BrisPredictor
+  _convert_: all
+
+
+routing:
+  - decoder_index: 0
+    domain_index: 0
+    outputs:
+#      - netcdf:
+#          filename_pattern: ${output}predictions/meps_pred_%Y%m%dT%HZ.nc
+#          variables: [2t, 2d, msl, tp]
+#          extra_variables: [10si]
+#           domain_name: meps
+      # - verif:
+      #     filename: ${output}/verif_analysis/t2m/cloudy_skies_analysis_n320_noroll_3.nc
+      #     variable: 2t
+      #     units: K
+      #     elev_gradient: -0.0065
+      #     obs_sources:
+      #       - anemoidataset:
+      #           dataset: ${dataset_verif}
+      #           variable: 2t
+      # - verif:
+      #     filename: ${output}/verif_analysis/mslp/cloudy_skies_analysis_n320_noroll_3.nc
+      #     variable: msl
+      #     units: Pa
+      #     obs_sources:
+      #       - anemoidataset:
+      #           dataset: ${dataset_verif}
+      #           variable: msl
+      # - verif: 
+      #     filename: ${output}/verif_analysis/10u/cloudy_skies_analysis_n320_noroll_3.nc
+      #     variable: 10u
+      #     units: m/s  
+      #     obs_sources:
+      #       - anemoidataset:
+      #           dataset: ${dataset_verif}
+      #           variable: 10u
+
+     - verif:
+         filename: ${verif_folder}/t2m/${verif_name}
+         variable: 2t
+         thresholds: [0, 10, 20]
+         quantile_levels: [0.1, 0.9]
+         units: degC
+         elev_gradient: -0.0065
+         obs_sources:
+           - verif:
+               filename: ${verif_folder}/t2m/${verif_name_load}
+     - verif:
+         filename: ${verif_folder}/ws10m/${verif_name}
+         variable: 10si
+         thresholds: [0, 10, 20]
+         quantile_levels: [0.1, 0.9]
+         units: m/s
+         obs_sources:
+           - verif:
+               filename: ${verif_folder}/ws10m/${verif_name_load}
+     - verif:
+         filename: ${verif_folder}/mslp/${verif_name}
+         variable: msl
+         units: hPa
+         obs_sources:
+           - verif:
+               filename: ${verif_folder}/mslp/${verif_name_load}
+    #  - verif:
+    #      filename: ${verif_folder}/precip6h/${verif_name}
+    #      variable: tp
+    #      units: kg/m^2
+    #      obs_sources:
+    #        - verif:
+    #            filename: ${verif_folder}/precip6h/${verif_name_load}
+
+
+

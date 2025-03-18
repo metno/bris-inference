@@ -114,13 +114,14 @@ class BrisPredictor(BasePredictor):
     def __init__(
         self,
         *args,
-        checkpoint: Checkpoint,
+        checkpoints: Dict[str, Checkpoint],
         data_reader: Iterable,
         forecast_length: int,
         required_variables: list,
         release_cache: bool = False,
         **kwargs,
     ) -> None:
+        checkpoint = checkpoints['forecaster']
         super().__init__(*args, checkpoint=checkpoint, **kwargs)
 
         self.model = checkpoint.model
@@ -288,17 +289,48 @@ class BrisPredictor(BasePredictor):
         return batch  # Not implemented properly
 
 
+class MultiModelPredictor(BasePredictor):
+    def __init__(
+            self,
+            *args,
+            checkpoints: Dict[str, Checkpoint],
+            data_reader: Iterable,
+            forecast_length: int,
+            required_variables: list,
+            release_cache: bool=False,
+            **kwargs
+            ) -> None:
+
+        forecaster = checkpoints['forecaster']
+        super().__init__(*args, checkpoint=checkpoints['forecaster'], **kwargs)
+
+        models = {model_type: checkpoint.model for model_type, checkpoint in checkpoints.items()}
+        self.models = torch.nn.ModuleDict(models)
+
+        #Notes for upcoming implementation:
+        #Need to keep in mind that the interpolator might have a smaller number of parameters than the forecaster
+        #Hence need a structured way to translate between parameter lists, but this can be done using internal_model
+        #and interal_data input and output. Also keep in mind that order on the dataloader might not necessarily be
+        #the same.
+
+
+    @torch.inference_mode
+    def predict_step(self, batch: tuple, batch_idx: int) -> dict:
+        pass
+
+
 class MultiEncDecPredictor(BasePredictor):
     def __init__(
         self,
         *args,
-        checkpoint: Checkpoint,
+        checkpoint: Dict[str, Checkpoint],
         data_reader: Iterable,
         forecast_length: int,
         required_variables: list,
         release_cache: bool = False,
         **kwargs,
     ) -> None:
+        checkpoint = checkpoints['forecaster']
         super().__init__(*args, checkpoint=checkpoint, **kwargs)
 
         self.model = checkpoint.model

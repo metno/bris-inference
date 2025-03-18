@@ -18,10 +18,13 @@ class Checkpoint:
     AIFS_BASE_SEED = None
     UPDATE_GRAPH = False
 
-    def __init__(self, path: str):
+    def __init__(self, paths: DotDict):
+        path = paths.path
         assert os.path.exists(path), "The given checkpoint does not exist!"
 
         self.path = path
+        if paths.graph:
+            self.update_graph(paths.graph)
         self.set_base_seed()
 
     @cached_property
@@ -196,23 +199,23 @@ class Checkpoint:
                 # return _graph <- return graph
                 raise NotImplementedError
 
-    def set_base_seed(self) -> None:
-        """
-        TODO: Explain what this function does.
+    # def set_base_seed(self) -> None:
+    #     """
+    #     TODO: Explain what this function does.
 
-        Fetchs the original base seed used during training.
-        If not
-        """
-        os.environ["ANEMOI_BASE_SEED"] = "1234"
-        os.environ["AIFS_BASE_SEED"] = "1234"
-        LOGGER.info("ANEMOI_BASE_SEED and ANEMOI_BASE_SEED set to 1234")
+    #     Fetchs the original base seed used during training.
+    #     If not
+    #     """
+    #     os.environ["ANEMOI_BASE_SEED"] = "1234"
+    #     os.environ["AIFS_BASE_SEED"] = "1234"
+    #     LOGGER.info("ANEMOI_BASE_SEED and ANEMOI_BASE_SEED set to 1234")
 
-    def set_encoder_decoder_num_chunks(self, chunks: int = 1) -> None:
-        assert isinstance(chunks, int), (
-            f"Expecting chunks to be int, got: {chunks}, {type(chunks)}"
-        )
-        os.environ["ANEMOI_INFERENCE_NUM_CHUNKS"] = str(chunks)
-        LOGGER.info("Encoder and decoder are chunked to %s", chunks)
+    # def set_encoder_decoder_num_chunks(self, chunks: int = 1) -> None:
+    #     assert isinstance(chunks, int), (
+    #         f"Expecting chunks to be int, got: {chunks}, {type(chunks)}"
+    #     )
+    #     os.environ["ANEMOI_INFERENCE_NUM_CHUNKS"] = str(chunks)
+    #     LOGGER.info("Encoder and decoder are chunked to %s", chunks)
 
     @cached_property
     def name_to_index(self) -> dict:
