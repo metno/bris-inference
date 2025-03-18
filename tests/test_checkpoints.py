@@ -113,6 +113,7 @@ def test_metadata():
             "z_850": 99,
             "z_925": 100,
         },
+        None,
     )
 
     assert checkpoint.metadata.version == "1.0", "version is not 1.0"
