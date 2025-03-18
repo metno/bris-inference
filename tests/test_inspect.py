@@ -11,7 +11,9 @@ def test_clean_version_name():
 
 def test_get_required_variables():
     """Check required variables for test-checkpoint match expected list"""
-    expected = [
+
+    # Simple checkpoint
+    expected_simple = [
         "10u",
         "10v",
         "2d",
@@ -107,10 +109,21 @@ def test_get_required_variables():
         "skt",
         "w_850",
     ]
-    checkpoint = bris.checkpoint.Checkpoint("tests/files/checkpoint.ckpt")
-    required = bris.inspect.get_required_variables(checkpoint)
-    for v in expected:
-        assert v in required, f"Variable {v} not returned by get_required_variables()"
+    checkpoint_simple = bris.checkpoint.Checkpoint("tests/files/checkpoint.ckpt")
+    required_simple = bris.inspect.get_required_variables(checkpoint_simple)
+    for v in expected_simple:
+        assert v in required_simple, (
+            f"Variable {v} not returned by get_required_variables() for test-checkpoint {checkpoint_simple}."
+        )
+
+    # Multiencdec checkpoint
+    expected_multi = ["10u", "10v", "10u", "10v", "2t", "2t", "z"]
+    checkpoint_multi = bris.checkpoint.Checkpoint("tests/files/multiencdec.ckpt")
+    required_multi = bris.inspect.get_required_variables(checkpoint_multi)
+    for v in expected_multi:
+        assert v in required_multi, (
+            f"Variable {v} not returned by get_required_variables() for test-checkpoint {checkpoint_multi}."
+        )
 
 
 def test_check_module_versions():
@@ -128,4 +141,6 @@ def test_inspect():
 
 if __name__ == "__main__":
     test_clean_version_name()
+    test_get_required_variables()
     test_check_module_versions()
+    test_inspect()

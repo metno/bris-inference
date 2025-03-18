@@ -59,16 +59,34 @@ def check_module_versions(checkpoint: Checkpoint, debug: bool = False) -> list:
 def get_required_variables(checkpoint: Checkpoint) -> list:
     """Get list of required variables from a checkpoint."""
 
-    required_prognostic_variables = [
-        name
-        for name, index in checkpoint.name_to_index[0].items()
-        if index in checkpoint.metadata.data_indices.internal_model.input.prognostic
-    ]
-    required_forcings = [
-        name
-        for name, index in checkpoint.name_to_index[0].items()
-        if index in checkpoint.metadata.data_indices.internal_model.input.forcing
-    ]
+    required_prognostic_variables = []
+    required_forcings = []
+
+    # Check if multiEncDec checkpoint
+    if not isinstance(checkpoint.metadata.data_indices, list):
+        required_prognostic_variables = [
+            name
+            for name, index in checkpoint.name_to_index[0].items()
+            if index in checkpoint.metadata.data_indices.internal_model.input.prognostic
+        ]
+        required_forcings = [
+            name
+            for name, index in checkpoint.name_to_index[0].items()
+            if index in checkpoint.metadata.data_indices.internal_model.input.forcing
+        ]
+    else:
+        for _i, data_indices in enumerate(checkpoint.metadata.data_indices):
+            required_prognostic_variables += [
+                name
+                for name, index in checkpoint.name_to_index[0].items()
+                if index in data_indices.internal_model.input.prognostic
+            ]
+            required_forcings += [
+                name
+                for name, index in checkpoint.name_to_index[0].items()
+                if index in data_indices.internal_model.input.forcing
+            ]
+
     required_static_forcings = [
         forcing
         for forcing in required_forcings
