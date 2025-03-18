@@ -1,13 +1,17 @@
 import torch
 import einops
+
+from pathlib import Path
 from typing import Optional
 
 from bris.checkpoint import Checkpoint
 from bris.misc.shapes import get_shape_shards
+from bris.model import get_variable_indices
+from bris.data.datamodule import DataModule
 
 
 class ModelBlocks(Checkpoint):
-    def __init__(self, path):
+    def __init__(self, path: str, datamodule: DataModule) -> None:
         super().__init__(path)
         # sketch works
 
@@ -28,17 +32,21 @@ class ModelBlocks(Checkpoint):
         tensor([True, True, True,  ..., True, True, True])
         """
 
-        ######### DO NOT REMOVE :) #########
-        # This is not the end product. this class
-        # will be fully changed in future and be more generic
-        # this will include, multi-domain, normal-enc-proc-dec
-        # ensemble, multi-enc-dec, etc..
-
         self._graph_name_data = "data"
         self._graph_name_hidden = "hidden"
         # fetch from checkpoint class
         self._model = self._model_instance.model
-        self.graph_data = self.graph
+
+        self.data_indices = self._model.data_indices
+
+        if hasattr(self.data_indices, "internal_model") and hasattr(
+            self.data_indices, "internal_data"
+        ):
+            self.internal_model = self.data_indices.internal_model
+            self.internal_data = self.data_indices.internal_data
+        else:
+            self.internal_model = self.data_indices.model
+            self.internal_data = self.data_indices.data
 
         # if torch.cuda.is_available():
         self._encoder = self._model.encoder.to(
@@ -49,44 +57,6 @@ class ModelBlocks(Checkpoint):
         )
         self._decoder = self._model.encoder.to(
             "cuda" if torch.cuda.is_available() else "cpu"
-        )
-
-        # self._node_attributes = self._model.node#NamedNodesAttributes(0, self._graph_data)
-
-    def _preproces_data(
-        self, x: torch.Tensor, model_comm_group: Optional[int] = None
-    ) -> None:
-        """
-        hidden class method, preproccesses the data and enables the
-        data as attributes that can be accessed.
-
-        """
-        self.batch_size = x.shape[0]
-        self.ensemble_size = x.shape[2]
-
-        # add data positional info (lat/lon)
-        self.x_data_latent = torch.cat(
-            (
-                einops.rearrange(
-                    x,
-                    "batch time ensemble grid vars -> (batch ensemble grid) (time vars)",
-                ),
-                self._model.node_attributes(
-                    self._graph_name_data, batch_size=self.batch_size
-                ),
-            ),
-            dim=-1,  # feature dimension
-        )
-
-        self.x_hidden_latent = self._model.node_attributes(
-            self._graph_name_hidden, batch_size=self.batch_size
-        )
-
-        self.shard_shapes_data = get_shape_shards(
-            self.x_data_latent, 0, model_comm_group
-        )
-        self.shard_shapes_hidden = get_shape_shards(
-            self.x_hidden_latent, 0, model_comm_group
         )
 
     def encoder(
@@ -157,3 +127,46 @@ class ModelBlocks(Checkpoint):
             for bounding in self.boundings:
                 # bounding performed in the order specified in the config file
                 x_out = bounding(x_out)
+
+    def _preproces_data(
+        self, batch: torch.Tensor, model_comm_group: Optional[int] = None
+    ) -> None:
+        """
+        hidden class method, preproccesses the data and enables the
+        data as attributes that can be accessed.
+
+
+        args:
+            batch : input data
+
+        """
+        batch = self.model.pre_processors(batch, in_place=True)
+        x = batch[..., self.internal_data.input.full]
+
+        self.batch_size = x.shape[0]
+        self.ensemble_size = x.shape[2]
+
+        # add data positional info (lat/lon)
+        self.x_data_latent = torch.cat(
+            (
+                einops.rearrange(
+                    x,
+                    "batch time ensemble grid vars -> (batch ensemble grid) (time vars)",
+                ),
+                self._model.node_attributes(
+                    self._graph_name_data, batch_size=self.batch_size
+                ),
+            ),
+            dim=-1,  # feature dimension
+        )
+
+        self.x_hidden_latent = self._model.node_attributes(
+            self._graph_name_hidden, batch_size=self.batch_size
+        )
+
+        self.shard_shapes_data = get_shape_shards(
+            self.x_data_latent, 0, model_comm_group
+        )
+        self.shard_shapes_hidden = get_shape_shards(
+            self.x_hidden_latent, 0, model_comm_group
+        )
