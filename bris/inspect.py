@@ -56,8 +56,8 @@ def check_module_versions(checkpoint: Checkpoint, debug: bool = False) -> list:
     return modules_with_wrong_version
 
 
-def get_required_variables(checkpoint: Checkpoint):
-    """Get dict of datasets with list of required variables for each."""
+def get_required_variables(checkpoint: Checkpoint) -> dict:
+    """Get dict of datasets with list of required variables for each dataset."""
 
     # If normal checkpoint
     if not isinstance(checkpoint.metadata.data_indices, list):
@@ -91,6 +91,9 @@ def get_required_variables(checkpoint: Checkpoint):
             for name, index in checkpoint.name_to_index[i].items()
             if index in data_indices.internal_model.input.forcing
         ]
+        # required_dynamic_forcings = [
+        # forcing for forcing in anemoi_dynamic_forcings() if forcing in required_forcings
+        # ]
         required_static_forcings = [
             forcing
             for forcing in required_forcings
