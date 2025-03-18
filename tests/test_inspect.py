@@ -118,9 +118,9 @@ def test_get_required_variables():
 
     # Multiencdec checkpoint
     expected_multi = {
-        0: ["10u", "10v"],
-        1: ["skt", "msl", "cos_longitude", "cos_latitude", "sin_longitude"],
-    }  # , "z", , "sin_latitude"
+        0: ["10u", "10v", "z"],
+        1: ["skt", "msl", "cos_longitude", "cos_latitude", "sin_longitude", "sin_latitude"],
+    }
     checkpoint_multi = bris.checkpoint.Checkpoint("tests/files/multiencdec.ckpt")
     required_multi = bris.inspect.get_required_variables(checkpoint_multi)
     for dataset, required_variables in required_multi.items():

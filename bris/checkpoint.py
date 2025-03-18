@@ -262,9 +262,11 @@ class Checkpoint:
         LOGGER.info("Encoder and decoder are chunked to %s", chunks)
 
     @cached_property
-    def name_to_index(self) -> tuple[dict[str, int], None]:
+    def name_to_index(self) -> dict:
         """
-        Mapping between name and their corresponding variable index
+        Mapping between name and their corresponding variable index.
+        If checkpoint has multiple datasets, this will return a tuple
+        of dicts where each dict represents a decoder index.
         """
         _data_indices = self._model_instance.data_indices
         if isinstance(_data_indices, (tuple, list)) and len(_data_indices) >= 2:
