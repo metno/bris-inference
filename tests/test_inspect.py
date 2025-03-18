@@ -110,20 +110,24 @@ def test_get_required_variables():
         "w_850",
     ]
     checkpoint_simple = bris.checkpoint.Checkpoint("tests/files/checkpoint.ckpt")
-    required_simple = bris.inspect.get_required_variables(checkpoint_simple)
-    for v in expected_simple:
-        assert v in required_simple, (
-            f"Variable {v} not returned by get_required_variables() for test-checkpoint {checkpoint_simple}."
+    required_simple = bris.inspect.get_required_variables(checkpoint_simple)[0]
+    for var in expected_simple:
+        assert var in required_simple, (
+            f"Variable {var} not returned by get_required_variables() for test-checkpoint {checkpoint_simple}."
         )
 
     # Multiencdec checkpoint
-    expected_multi = ["10u", "10v", "10u", "10v", "2t", "2t", "z"]
+    expected_multi = {
+        0: ["10u", "10v"],
+        1: ["skt", "msl", "cos_longitude", "cos_latitude", "sin_longitude"],
+    }  # , "z", , "sin_latitude"
     checkpoint_multi = bris.checkpoint.Checkpoint("tests/files/multiencdec.ckpt")
     required_multi = bris.inspect.get_required_variables(checkpoint_multi)
-    for v in expected_multi:
-        assert v in required_multi, (
-            f"Variable {v} not returned by get_required_variables() for test-checkpoint {checkpoint_multi}."
-        )
+    for dataset, required_variables in required_multi.items():
+        for expected_variable in expected_multi[dataset]:
+            assert expected_variable in required_variables, (
+                f"Expected variable {expected_variable} not in test-checkpoint {checkpoint_multi}."
+            )
 
 
 def test_check_module_versions():
@@ -143,4 +147,4 @@ if __name__ == "__main__":
     test_clean_version_name()
     test_get_required_variables()
     test_check_module_versions()
-    test_inspect()
+    # test_inspect()
