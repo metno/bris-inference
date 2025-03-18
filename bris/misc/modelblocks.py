@@ -11,7 +11,7 @@ from bris.data.datamodule import DataModule
 
 
 class ModelBlocks(Checkpoint):
-    def __init__(self, path: str, datamodule: DataModule) -> None:
+    def __init__(self, path: str) -> None:
         super().__init__(path)
         # sketch works
 
