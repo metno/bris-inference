@@ -63,7 +63,7 @@ class ModelBlocks(Checkpoint):
         self, x: torch.Tensor, model_comm_group: Optional[int] = None
     ) -> tuple[torch.Tensor, torch.Tensor]:
 
-        self._preproces_data(x=x)
+        self._preproces_data(batch=x)
 
         return self._encoder(
             (self.x_data_latent, self.x_hidden_latent),
