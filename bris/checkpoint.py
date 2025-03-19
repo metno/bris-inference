@@ -289,7 +289,10 @@ class Checkpoint:
                     for decoder_index in range(len(self.name_to_index))
                 ]
             )
-        return ({index: name for name, index in _data_indices.name_to_index.items()},)
+        return (
+            {index: name for name, index in _data_indices.name_to_index.items()},
+            None,
+        )
 
     def _make_indices_mapping(self, indices_from, indices_to):
         """
