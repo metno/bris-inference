@@ -384,9 +384,9 @@ class Checkpoint:
         Wrapper for model.data_indices. Returns a tuple of dict and None or two dicts.
         """
 
-        if not isinstance(self._model_instance.data_indices, (tuple, list)):
-            # If normal checkpoint
-            return (self._model_instance.data_indices, None)
-
         # If Multiencdec checkpoint
-        return self._model_instance.data_indices
+        if isinstance(self._model_instance.data_indices, (tuple, list)):
+            return tuple(self._model_instance.data_indices)
+
+        # If normal checkpoint
+        return (self._model_instance.data_indices, None)
