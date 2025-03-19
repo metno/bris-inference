@@ -59,7 +59,7 @@ def check_module_versions(checkpoint: Checkpoint, debug: bool = False) -> list:
 def get_required_variables(checkpoint: Checkpoint) -> dict:
     """Get dict of datasets with list of required variables for each dataset."""
 
-    # If normal checkpoint
+    # If simple checkpoint
     if checkpoint.data_indices[1] is None:
         data_indices = checkpoint.data_indices[0]
         required_prognostic_variables = [
@@ -79,7 +79,7 @@ def get_required_variables(checkpoint: Checkpoint) -> dict:
         ]
         return {0: required_prognostic_variables + required_static_forcings}
 
-    # If multiEncDec checkpoint
+    # If Multiencdec checkpoint
     datasets = {}
     for i, data_indices in enumerate(checkpoint.data_indices):
         required_prognostic_variables = [

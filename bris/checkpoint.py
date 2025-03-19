@@ -388,5 +388,5 @@ class Checkpoint:
         if isinstance(self._model_instance.data_indices, (tuple, list)):
             return tuple(self._model_instance.data_indices)
 
-        # If normal checkpoint
+        # If simple checkpoint
         return (self._model_instance.data_indices, None)
