@@ -60,16 +60,16 @@ def get_required_variables(checkpoint: Checkpoint) -> dict:
     """Get dict of datasets with list of required variables for each dataset."""
 
     # If normal checkpoint
-    if not isinstance(checkpoint.metadata.data_indices, list):
+    if not isinstance(checkpoint.model.data_indices, tuple):
         required_prognostic_variables = [
             name
-            for name, index in checkpoint.name_to_index[0].items()
-            if index in checkpoint.metadata.data_indices.internal_model.input.prognostic
+            for name, index in checkpoint.model.data_indices.internal_model.input.name_to_index.items()
+            if index in checkpoint.model.data_indices.internal_model.input.prognostic
         ]
         required_forcings = [
             name
-            for name, index in checkpoint.name_to_index[0].items()
-            if index in checkpoint.metadata.data_indices.internal_model.input.forcing
+            for name, index in checkpoint.model.data_indices.internal_model.input.name_to_index.items()
+            if index in checkpoint.model.data_indices.internal_model.input.forcing
         ]
         required_static_forcings = [
             forcing
@@ -80,15 +80,15 @@ def get_required_variables(checkpoint: Checkpoint) -> dict:
 
     # If multiEncDec checkpoint
     datasets = {}
-    for i, data_indices in enumerate(checkpoint.metadata.data_indices):
+    for i, data_indices in enumerate(checkpoint.model.data_indices):
         required_prognostic_variables = [
             name
-            for name, index in checkpoint.model_output_name_to_index[i].items()
+            for name, index in data_indices.internal_model.input.name_to_index.items()
             if index in data_indices.internal_model.input.prognostic
         ]
         required_forcings = [
             name
-            for name, index in checkpoint.model_output_name_to_index[i].items()
+            for name, index in data_indices.internal_model.input.name_to_index.items()
             if index in data_indices.internal_model.input.forcing
         ]
         # required_dynamic_forcings = [
