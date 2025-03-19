@@ -350,7 +350,7 @@ class Checkpoint:
         return ({k: self._metadata.dataset.variables[v] for k, v in mapping.items()},)
 
     @cached_property
-    def model_output_name_to_index(self) -> tuple[dict]:
+    def model_output_name_to_index(self) -> tuple[dict, Optional[dict]]:
         """
         A mapping from model output to data output. This
         dict returns name and index pairs according to model.output.full to
@@ -376,3 +376,11 @@ class Checkpoint:
         return (
             {name: index for index, name in self.model_output_index_to_name.items()},
         )
+
+    @cached_property
+    def data_indices(self) -> tuple[dict]:
+        """
+        Wrapper for model.data_indices. Returns a tuple of dict and None or two dicts.
+        """
+
+        return self._model_instance.data_indices
