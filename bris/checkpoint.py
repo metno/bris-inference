@@ -5,6 +5,7 @@ from functools import cached_property
 from typing import Any, Optional, TypedDict
 
 import torch
+from anemoi.models.data_indices.collection import IndexCollection
 from anemoi.models.interface import AnemoiModelInterface
 from anemoi.utils.checkpoints import load_metadata
 from anemoi.utils.config import DotDict
@@ -108,7 +109,7 @@ class Checkpoint:
         raise RuntimeError("Cannot find multistep")
 
     @property
-    def model(self) -> Any:
+    def model(self) -> AnemoiModelInterface:
         return self._model_instance
 
     @cached_property
@@ -378,7 +379,7 @@ class Checkpoint:
         )
 
     @cached_property
-    def data_indices(self) -> tuple[dict]:
+    def data_indices(self) -> tuple[IndexCollection, Optional[IndexCollection]]:
         """
         Wrapper for model.data_indices. Returns a tuple of dict and None or two dicts.
         """
