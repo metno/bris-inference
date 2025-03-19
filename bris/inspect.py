@@ -60,16 +60,17 @@ def get_required_variables(checkpoint: Checkpoint) -> dict:
     """Get dict of datasets with list of required variables for each dataset."""
 
     # If normal checkpoint
-    if not isinstance(checkpoint.data_indices, tuple):
+    if checkpoint.data_indices[1] is None:
+        data_indices = checkpoint.data_indices[0]
         required_prognostic_variables = [
             name
-            for name, index in checkpoint.data_indices.internal_model.input.name_to_index.items()
-            if index in checkpoint.data_indices.internal_model.input.prognostic
+            for name, index in data_indices.internal_model.input.name_to_index.items()
+            if index in data_indices.internal_model.input.prognostic
         ]
         required_forcings = [
             name
-            for name, index in checkpoint.data_indices.internal_model.input.name_to_index.items()
-            if index in checkpoint.data_indices.internal_model.input.forcing
+            for name, index in data_indices.internal_model.input.name_to_index.items()
+            if index in data_indices.internal_model.input.forcing
         ]
         required_static_forcings = [
             forcing
@@ -91,9 +92,6 @@ def get_required_variables(checkpoint: Checkpoint) -> dict:
             for name, index in data_indices.internal_model.input.name_to_index.items()
             if index in data_indices.internal_model.input.forcing
         ]
-        # required_dynamic_forcings = [
-        # forcing for forcing in anemoi_dynamic_forcings() if forcing in required_forcings
-        # ]
         required_static_forcings = [
             forcing
             for forcing in required_forcings
