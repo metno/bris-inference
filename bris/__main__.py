@@ -34,19 +34,24 @@ def main():
         getattr(config, "inference_num_chunks", 1)
     )
     if hasattr(config, "graph"):
+        print("Update graph is enabled. Proceeding to change internal graph")
+        
         LOGGER.info("Update graph is enabled. Proceeding to change internal graph")
         # At the moment config.graph is only a POSIX path.
         # TODO: In future a graph can be generated "on the fly" by providing a config
         checkpoint.update_graph(config.graph)  # Pass in a new graph if needed
 
     # Get timestep from checkpoint. Also store a version in seconds for local use.
+    
     config.timestep = None
+    print(config.timestep)
     try:
         config.timestep = checkpoint.config.data.timestep
     except KeyError as err:
         raise RuntimeError from err(
             "Error getting timestep from checkpoint (checkpoint.config.data.timestep)"
         )
+    print(config.timestep)
     timestep_seconds = frequency_to_seconds(config.timestep)
 
     num_members = 1

@@ -188,7 +188,9 @@ class Checkpoint:
         # if the model is trained with keys named grid and we force new graph with keys
         # stretched grid, the model instance will complain
         # (not 100% sure but i think i have experienced this)
-
+        print("graph before conversion", self._model_instance.graph_data)
+        print("path ", path)
+        print(os.path.exists(path))
         if self.is_graph_replaced:
             raise RuntimeError(
                 "Graph has already been updated. Mutliple updates is not allowed"
@@ -198,10 +200,12 @@ class Checkpoint:
                 external_graph = torch.load(
                     path, map_location="cpu", weights_only=False
                 )
+                print("Loaded external graph from path")
                 LOGGER.info("Loaded external graph from path")
+                
 
                 self._model_instance.graph_data = external_graph
-
+                print("graph after conversion", self._model_instance.graph_data)
                 # Assign config, as it's not preserved in the pickle.
                 self._model_instance.config = self.config  # conf
 
