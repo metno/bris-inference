@@ -115,6 +115,7 @@ def test_metadata():
         },
         None,
     )
+    i2n = ({0: '10u', 1: '10v', 2: '2d', 3: '2t', 4: 'cos_julian_day', 5: 'cos_latitude', 6: 'cos_local_time', 7: 'cos_longitude', 8: 'cp', 9: 'insolation', 10: 'lsm', 11: 'msl', 12: 'q_100', 13: 'q_1000', 14: 'q_150', 15: 'q_200', 16: 'q_250', 17: 'q_300', 18: 'q_400', 19: 'q_50', 20: 'q_500', 21: 'q_600', 22: 'q_700', 23: 'q_850', 24: 'q_925', 25: 'sdor', 26: 'sin_julian_day', 27: 'sin_latitude', 28: 'sin_local_time', 29: 'sin_longitude', 30: 'skt', 31: 'slor', 32: 'sp', 33: 't_100', 34: 't_1000', 35: 't_150', 36: 't_200', 37: 't_250', 38: 't_300', 39: 't_400', 40: 't_50', 41: 't_500', 42: 't_600', 43: 't_700', 44: 't_850', 45: 't_925', 46: 'tcw', 47: 'tp', 48: 'u_100', 49: 'u_1000', 50: 'u_150', 51: 'u_200', 52: 'u_250', 53: 'u_300', 54: 'u_400', 55: 'u_50', 56: 'u_500', 57: 'u_600', 58: 'u_700', ...}, None)
 
     assert checkpoint.metadata.version == "1.0", "version is not 1.0"
     assert checkpoint.metadata.run_id == "775d1ad8-4457-4268-a430-3df91cc55603", (
@@ -130,6 +131,7 @@ def test_metadata():
     assert checkpoint.graph is not None, "graph is None"
 
     assert checkpoint.name_to_index == n2i, "name_to_index is not correct"
+    assert checkpoint.index_to_name == i2n, "index_to_name is not correct"
 
 
 if __name__ == "__main__":

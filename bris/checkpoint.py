@@ -271,7 +271,7 @@ class Checkpoint:
         return (self._model_instance.data_indices.name_to_index, None)
 
     @cached_property
-    def index_to_name(self) -> tuple[dict]:
+    def index_to_name(self) -> tuple[dict[str, int], Optional[dict[str, int]]]:
         """
         Mapping between index and their corresponding variable name.
         Returns a tuple. If the model is a multiencoder-decoder model
