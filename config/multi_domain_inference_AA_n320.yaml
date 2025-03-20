@@ -1,0 +1,123 @@
+start_date: 2023-06-01T00:00:00 
+end_date: 2024-05-31T18:00:00   
+timestep: 6h
+run_name: mutlidomain
+
+
+
+checkpoint_path: /pfs/lustrep4/scratch/project_465000527/buurmans/DE_330_WP14/Anemoi/multi-domain-training/output/checkpoint/119c39d45ecf4d68a82891bb6ded2859/inference-anemoi-by_time-epoch_009-step_012198.ckpt
+
+leadtimes: 12 # Number of leadtimes in each forecast 
+frequency: 6h 
+
+global:         
+  dataset: ${hardware.paths.data}/aifs-od-an-oper-0001-mars-n320-2023-2024-6h-v2.zarr
+  start: 2023-06-01
+  end: 2024-05-31
+#new
+dataset:
+  cutout:
+    - dataset: /pfs/lustrep4/scratch/project_465000527/anemoi/datasets/AROME-ARCTIC/arome_arctic-2_5km-2017-2024.zarr
+    - dataset: ${global}
+  adjust: all
+  statistics: ${hardware.paths.data}/aifs-ea-an-oper-0001-mars-n320-1979-2022-6h-v6.zarr
+  min_distance_km: 0
+
+# graph: /pfs/lustrep4/scratch/project_465000527/buurmans/DE_330_WP14/Anemoi/multi-domain-training/output/graphs/AA.pt
+# graph: /pfs/lustrep4/scratch/project_465000527/buurmans/DE_330_WP14/Anemoi/multi-domain-training/OUTPUT_OLD_3_5graphs/AA.pt
+workdir: /pfs/lustrep4/scratch/project_465000527/multi_domain_training/inference/output/temp #Used to store temporary files for verif output
+
+dataloader:
+  datamodule:
+    _target_: bris.data.dataset.NativeGridDataset
+    _convert_: all
+
+
+# Optional dataloader settings
+#  prefetch_factor: 2 
+#  num_workers: 1
+
+hardware:
+  paths:
+    output: ${output}
+    workdir: ${workdir}
+    data: /pfs/lustrep4/scratch/project_465000527/anemoi/datasets/ERA5
+  num_gpus_per_node: 8
+  num_gpus_per_model: 8
+  num_nodes: 1
+  graph_label: "AA"
+
+# If the user wants to release GPU cache and memory
+# This option releases unused cached/memory used by torch
+release_cache: False
+
+model:
+  _target_: bris.model.BrisPredictor
+  _convert_: all
+
+output: /pfs/lustrep4/scratch/project_465000527/multi_domain_training/inference/output/multidomain_AA_n320_lrsteps_150000 #Not a required field, used in output path in routing
+
+routing:
+  - decoder_index: 0
+    domain_index: 0
+    outputs:
+      # # Forecasts
+      # - netcdf:
+      #     filename_pattern: ${output}/pred_%Y%m%dT%HZ.nc
+      #     variables: [2t, msl]
+      #     extra_variables: [ws] #Compute wind speed from 10u and 10v
+      # # Verification against observatins (stored in a verif netcdf file)
+      # - verif:
+      #     filename: ${output}/verif/t2m/VERIF_FILENAME.nc 
+      #     variable: 2t
+      #     elev_gradient: -0.0065 #Height correction
+      #     units: degC
+      #     obs_sources:
+      #       - verif:
+      #           filename: PATH_TO_VERIF_FILE #Verif file with observations
+      # Point verification against analysis (typically use the inference dataset with thinning)
+      - verif:
+          filename: ${output}/verif/2t.nc
+          variable: 2t
+          units: degC
+          obs_sources:
+            - anemoidataset:
+                dataset: ${verif_dataset}
+                variable: 2t 
+      - verif:
+          filename: ${output}/verif/msl.nc
+          variable: msl
+          units: hPa
+          obs_sources:
+            - anemoidataset:
+                dataset: ${verif_dataset}
+                variable: msl
+      - verif:
+          filename: ${output}/verif/tp.nc
+          variable: tp
+          units: mm
+          obs_sources:
+            - anemoidataset:
+                dataset: ${verif_dataset}
+                variable: tp
+      - verif:
+          filename: ${output}/verif/2d.nc
+          variable: 2d
+          units: degC
+          obs_sources:
+            - anemoidataset:
+                dataset: ${verif_dataset}
+                variable: 2d 
+      - verif:
+          filename: ${output}/verif/ws.nc
+          variable: ws
+          units: m/s
+          obs_sources:
+            - anemoidataset:
+                dataset: ${verif_dataset}
+                variable: ws
+
+#Add outputs for decoder_index 0, domain_index 1 for global domain
+
+verif_dataset: 
+  dataset: /pfs/lustrep4/scratch/project_465000527/anemoi/datasets/AROME-ARCTIC/arome_arctic-2_5km-2017-2024.zarr

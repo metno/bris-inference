@@ -42,7 +42,7 @@ class DataModule(pl.LightningDataModule):
         )
 
         self.config = config
-        self.graph = checkpoint_object.graph["AA"]
+        self.graph = checkpoint_object.graph[self.config.hardware.graph_label]
         self.checkpoint_object = checkpoint_object
         self.timestep = config.timestep
         self.frequency = config.frequency
@@ -161,7 +161,6 @@ class DataModule(pl.LightningDataModule):
         # TODO: This currently only supports fullgrid for multi-encoder/decoder
         reader_group_size = 1  # Generalize this later
         graph_cfg = self.checkpoint_object.config.graph
-        print("graph ", self.graph)
 
         # Multi_encoder/decoder
         if "input_nodes" in graph_cfg:
@@ -185,7 +184,6 @@ class DataModule(pl.LightningDataModule):
                     "grid_indices not found in dataloader config, defaulting to FullGrid"
                 )
             grid_indices.setup(self.graph)
-            print("grid indices inside data module", grid_indices.compute_grid_size(self.graph))
             grid_indices = [grid_indices]
 
         return grid_indices
@@ -248,7 +246,6 @@ class DataModule(pl.LightningDataModule):
             field_shape[decoder_index] = [None] * len(grids)
             for dataset_index, grid in enumerate(grids):
                 _field_shape = self._get_field_shape(decoder_index, dataset_index)
-                print(dataset_index)
                 if np.prod(_field_shape) == grid:
                     field_shape[decoder_index][dataset_index] = list(_field_shape)
                 else:

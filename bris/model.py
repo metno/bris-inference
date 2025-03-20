@@ -61,6 +61,7 @@ class BasePredictor(pl.LightningModule):
             self.model_comm_group_id = 0
             self.model_comm_group_rank = 0
             self.model_comm_num_groups = 1
+        self.graph_label = hardware_config["graph_label"]
 
     def set_model_comm_group(
         self,
@@ -136,8 +137,6 @@ class BrisPredictor(BasePredictor):
         self.latitudes = datamodule.data_reader.latitudes
 
         self.longitudes = datamodule.data_reader.longitudes
-        print("latitudes ", self.latitudes.shape)
-        print("longitudes ", self.longitudes.shape)
 
         # this makes it backwards compatible with older
         # anemoi-models versions. I.e legendary gnome, etc..
@@ -212,8 +211,8 @@ class BrisPredictor(BasePredictor):
 
         del data_normalized
 
-    def forward(self, x: torch.Tensor, graph_label) -> torch.Tensor:
-        return self.model(x, graph_label[0], self.model_comm_group)
+    def forward(self, x: torch.Tensor) -> torch.Tensor:
+        return self.model(x, self.graph_label, self.model_comm_group)
 
     def advance_input_predict(
         self, x: torch.Tensor, y_pred: torch.Tensor, time: np.datetime64
@@ -245,10 +244,7 @@ class BrisPredictor(BasePredictor):
 
         batch = self.allgather_batch(batch)
 
-        batch, time_stamp, graph_label = batch
-        print("BATCH ", batch.shape)
-        print("time stamp", time_stamp)
-        print(graph_label)
+        batch, time_stamp = batch
         time = np.datetime64(time_stamp[0])
         times = [time]
         y_preds = torch.empty(
@@ -312,7 +308,7 @@ class BrisPredictor(BasePredictor):
 
         with torch.autocast(device_type="cuda", dtype=torch.bfloat16):
             for fcast_step in range(self.forecast_length - 1):
-                y_pred = self(x, graph_label)
+                y_pred = self(x)
                 time += self.timestep
                 x = self.advance_input_predict(x, y_pred, time)
                 y_preds[:, fcast_step + 1] = self.model.post_processors(
@@ -430,7 +426,7 @@ class MultiEncDecPredictor(BasePredictor):
                 ].float()
 
     def forward(self, x: torch.Tensor) -> list[torch.Tensor]:
-        return self.model(x[:2], x[2], self.model_comm_group)
+        return self.model(x, self.model_comm_group)
 
     def advance_input_predict(
         self, x: list[torch.Tensor], y_pred: list[torch.Tensor], time: np.datetime64

@@ -47,8 +47,6 @@ class NativeGridDataset(IterableDataset):
             label for the dataset, by default "generic"
         """
         self.label = label
-        self.data = data_reader
-        print("data shape inside native grid dataset", self.data.shape)
 
         self.rollout = rollout
         self.timeincrement = timeincrement
@@ -186,7 +184,6 @@ class NativeGridDataset(IterableDataset):
         """
 
         shuffled_chunk_indices = self.valid_date_indices[self.chunk_index_range]
-        print(self.data.shape)
 
         for i in shuffled_chunk_indices:
             start = i - (self.multi_step - 1) * self.timeincrement
@@ -203,7 +200,8 @@ class NativeGridDataset(IterableDataset):
             )
             self.ensemble_dim = 1
 
-            yield (torch.from_numpy(x), str(self.data.dates[i]), "AA")
+            yield (torch.from_numpy(x), str(self.data.dates[i]))
+
 
 
 class ZipDataset(NativeGridDataset):
@@ -262,7 +260,7 @@ class ZipDataset(NativeGridDataset):
                 grid_shard_indices = self.grid_indices[j].get_shard_indices(
                     self.reader_group_rank
                 )
-                print("grid SHARD indices inside __iter__", grid_shard_indices.shape)
+
                 batch.append(
                     torch.from_numpy(
                         rearrange(
@@ -274,7 +272,7 @@ class ZipDataset(NativeGridDataset):
 
             self.ensemble_dim = 1
 
-            yield (tuple(batch), str(self.data.dates[i]), "AA")
+            yield (tuple(batch), str(self.data.dates[i]))
 
 
 def worker_init_func(worker_id: int) -> None:
