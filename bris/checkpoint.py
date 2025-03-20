@@ -188,10 +188,7 @@ class Checkpoint:
         # stretched grid, the model instance will complain
         # (not 100% sure but i think i have experienced this)
 
-
-        external_graph = torch.load(
-            path, map_location="cpu", weights_only=False
-        )
+        external_graph = torch.load(path, map_location="cpu", weights_only=False)
         LOGGER.info("Loaded external graph from path")
 
         self._model_instance.graph_data = external_graph

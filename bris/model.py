@@ -21,7 +21,11 @@ LOGGER = logging.getLogger(__name__)
 
 class BasePredictor(pl.LightningModule):
     def __init__(
-        self, *args: Any, checkpoint: dict[str, Checkpoint], hardware_config: dict, **kwargs: Any
+        self,
+        *args: Any,
+        checkpoints: dict[str, Checkpoint],
+        hardware_config: dict,
+        **kwargs: Any,
     ):
         """
         Base predictor class, overwrite all the class methods
@@ -35,7 +39,7 @@ class BasePredictor(pl.LightningModule):
         self.model_comm_group_rank = 0
         self.model_comm_num_groups = 1
 
-        if check_anemoi_training(checkpoint.metadata):
+        if check_anemoi_training(checkpoints["forecaster"].metadata):
             self.legacy = False
         else:
             self.legacy = True
@@ -125,7 +129,7 @@ class BrisPredictor(BasePredictor):
         release_cache: bool = False,
         **kwargs,
     ) -> None:
-        super().__init__(*args, checkpoint=checkpoint, **kwargs)
+        super().__init__(*args, checkpoints=checkpoints, **kwargs)
 
         checkpoint = checkpoints["forecaster"]
         self.model = checkpoint.model
@@ -333,14 +337,14 @@ class MultiEncDecPredictor(BasePredictor):
     def __init__(
         self,
         *args,
-        checkpoints: dict[str, Checkpoints],
+        checkpoints: dict[str, Checkpoint],
         datamodule: DataModule,
         forecast_length: int,
         required_variables: dict,
         release_cache: bool = False,
         **kwargs,
     ) -> None:
-        super().__init__(*args, checkpoint=checkpoint, **kwargs)
+        super().__init__(*args, checkpoints=checkpoints, **kwargs)
 
         checkpoint = checkpoints["forecaster"]
         self.model = checkpoint.model
@@ -566,7 +570,9 @@ class MultiEncDecPredictor(BasePredictor):
             "group_rank": self.model_comm_group_rank,
             "ensemble_member": 0,
         }
-'''
+
+
+"""
 class Interpolator(BasePredictor):
     def __init__(
         self,
@@ -632,10 +638,8 @@ class Interpolator(BasePredictor):
             # Add everything to y_preds
 
             # Next timestep'
-'''    
+"""
 
-
-    
 
 def get_variable_indices(
     required_variables: list,

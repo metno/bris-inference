@@ -14,7 +14,7 @@ from bris.data.datamodule import DataModule
 
 from .checkpoint import Checkpoint
 from .inference import Inference
-from .utils import create_config, set_encoder_decoder_num_chunks, set_base_seed
+from .utils import create_config, set_base_seed, set_encoder_decoder_num_chunks
 from .writer import CustomWriter
 
 LOGGER = logging.getLogger(__name__)
@@ -28,14 +28,19 @@ def main():
     config = create_config(parser)
 
     models = list(config.models.keys())
-    #TODO: ALLOW FOR THE INTERPOLATOR AND FORECASTER TO HAVE DIFFERENT FORECASTS
+    # TODO: ALLOW FOR THE INTERPOLATOR AND FORECASTER TO HAVE DIFFERENT FORECASTS
     # Prioritize forecaster output
 
-    checkpoints = {model: Checkpoint(config.models[model].checkpoint_path, config.models[model].graph) for model in models}
-    #TODO: Force that the first one is always called forecaster here?
+    checkpoints = {
+        model: Checkpoint(
+            config.models[model].checkpoint_path, config.models[model].graph
+        )
+        for model in models
+    }
+    # TODO: Force that the first one is always called forecaster here?
 
     set_encoder_decoder_num_chunks(getattr(config, "inference_num_chunks", 1))
-    set_base_seed() #TODO: See if we can remove this
+    set_base_seed()  # TODO: See if we can remove this
 
     # Get timestep from checkpoint. Also store a version in seconds for local use.
     config.timestep = None

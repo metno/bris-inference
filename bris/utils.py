@@ -81,9 +81,9 @@ def create_config(parser: ArgumentParser) -> OmegaConf:
     except Exception as e:
         raise e
 
-#    parser.add_argument(
-#        "-c", type=str, dest="checkpoint_path", default=config.checkpoint_path
-#    )
+    #    parser.add_argument(
+    #        "-c", type=str, dest="checkpoint_path", default=config.checkpoint_path
+    #    )
     parser.add_argument(
         "-sd",
         type=str,
@@ -242,6 +242,7 @@ def set_encoder_decoder_num_chunks(chunks: int = 1) -> None:
     )
     os.environ["ANEMOI_INFERENCE_NUM_CHUNKS"] = str(chunks)
     LOGGER.info("Encoder and decoder are chunked to %s", chunks)
+
 
 def set_base_seed() -> None:
     """
