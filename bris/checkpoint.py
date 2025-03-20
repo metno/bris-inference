@@ -50,12 +50,13 @@ class Checkpoint:
         self.path = path
         self.is_graph_replaced = False
         self.set_base_seed()
+        self._model_instance = self._load_model()
 
-    @cached_property
+    @property
     def metadata(self) -> Metadata:
         return self._metadata
 
-    @cached_property
+    @property
     def _metadata(self) -> Metadata:
         """
         Metadata of the model. This includes everything as in:
@@ -81,7 +82,7 @@ class Checkpoint:
             )
             raise e
 
-    @cached_property
+    @property
     def config(self) -> TrainingConfig:
         """
         The configuriation used during model
@@ -89,14 +90,14 @@ class Checkpoint:
         """
         return self._metadata.config
 
-    @cached_property
+    @property
     def version(self) -> str:
         """
         Model version
         """
         return self._metadata.version
 
-    @cached_property
+    @property
     def multistep(self) -> int:
         """
         Fetches multistep from metadata
@@ -111,8 +112,7 @@ class Checkpoint:
     def model(self) -> Any:
         return self._model_instance
 
-    @cached_property
-    def _model_instance(self) -> AnemoiModelInterface:
+    def _load_model(self) -> AnemoiModelInterface:
         """
         Loads a given model instance. This instance
         includes both the model interface and its
@@ -144,7 +144,7 @@ class Checkpoint:
             else None
         )
 
-    @cached_property
+    @property
     def _get_copy_model_params(self) -> dict:
         """
         Caches the model's state in CPU memory.
@@ -195,38 +195,34 @@ class Checkpoint:
             )
         else:
             if path and os.path.exists(path):
+                state_dict = deepcopy(self._model_instance.state_dict())
+
                 external_graph = torch.load(
                     path, map_location="cpu", weights_only=False
                 )
                 LOGGER.info("Loaded external graph from path")
 
                 self._model_instance.graph_data = external_graph
-
                 # Assign config, as it's not preserved in the pickle.
-                self._model_instance.config = self.config  # conf
+                self._model_instance.config = self.config
 
-                # Copy model parameters before rebuilding to avoid losing them.
-                _model_params = self._get_copy_model_params
-
-                LOGGER.info("Rebuilding layers to support the new graph.")
                 self._model_instance._build_model()
-                self.is_graph_replaced = True
 
-                # Validate parameter count consistency.
-                old_param_count = len(_model_params)
-                new_param_count = len(tuple(self._model_instance.named_parameters()))
+                new_state_dict = self._model_instance.state_dict()
 
-                assert old_param_count == new_param_count, (
-                    "Parameter count mismatch after build: new model parameters differ from checkpoint."
-                )
-
-                LOGGER.info("Assigning model params from checkpoint to the new model")
-                for layer_name, param in self._model_instance.named_parameters():
-                    param.data = _model_params[layer_name].data
+                for key in new_state_dict.keys():
+                    if key in state_dict and state_dict[key].shape != new_state_dict[key].shape:
+                        # These are parameters like data_latlon, which are different now because of the graph
+                        pass
+                    else:
+                        # Overwrite with the old parameters
+                        new_state_dict[key] = state_dict[key]
 
                 LOGGER.info(
                     "Successfully builded model with external graph and reassigning model weights!"
                 )
+                self._model_instance.load_state_dict(new_state_dict)
+
                 return self._model_instance.graph_data
 
             else:
@@ -254,7 +250,7 @@ class Checkpoint:
         os.environ["ANEMOI_INFERENCE_NUM_CHUNKS"] = str(chunks)
         LOGGER.info("Encoder and decoder are chunked to %s", chunks)
 
-    @cached_property
+    @property
     def name_to_index(self) -> tuple[dict[str, int], None]:
         """
         Mapping between name and their corresponding variable index
@@ -267,7 +263,7 @@ class Checkpoint:
 
         return (_data_indices.name_to_index,)
 
-    @cached_property
+    @property
     def index_to_name(self) -> tuple[dict]:
         """
         Mapping between index and their corresponding variable name
@@ -299,7 +295,7 @@ class Checkpoint:
         assert len(indices_from) == len(indices_to)
         return dict(zip(indices_from, indices_to))
 
-    @cached_property
+    @property
     def model_output_index_to_name(self) -> tuple[dict]:
         """
         A mapping from model output to data output. This
@@ -340,7 +336,7 @@ class Checkpoint:
         )
         return ({k: self._metadata.dataset.variables[v] for k, v in mapping.items()},)
 
-    @cached_property
+    @property
     def model_output_name_to_index(self) -> tuple[dict]:
         """
         A mapping from model output to data output. This
