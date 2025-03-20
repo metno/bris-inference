@@ -23,7 +23,10 @@ class AnemoiDataset(Source):
 
         self.dataset = open_dataset(dataset_dict)
         self.variable = variable
-        self.variable_index = self.dataset.name_to_index[variable]
+        if variable == "ws":
+            self.variable_index = [self.dataset.name_to_index["10u"], self.dataset.name_to_index["10v"]]
+        else:
+            self.variable_index = self.dataset.name_to_index[variable]
 
     @cached_property
     def locations(self):
@@ -62,7 +65,12 @@ class AnemoiDataset(Source):
                         f"Date {self.dataset.dates[int(i[0])]} missing from verif dataset"
                     )
                 else:
-                    data[t, :] = self.dataset[int(i[0]), self.variable_index, 0, :]
+                    if isinstance(self.variable_index, list):
+                        u = self.dataset[int(i[0]), self.variable_index[0], 0, :]
+                        v = self.dataset[int(i[0]), self.variable_index[1], 0, :]
+                        data[t, :] = np.sqrt(u**2 + v**2)
+                    else:
+                        data[t, :] = self.dataset[int(i[0]), self.variable_index, 0, :]
 
         observations = Observations(self.locations, requested_times, {variable: data})
         return observations

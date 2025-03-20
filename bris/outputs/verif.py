@@ -121,13 +121,24 @@ class Verif(Output):
             pred: 3D array of forecasts with dimensions (time, points, variables)
         """
 
-        Iv = self.pm.variables.index(self.variable)
+
+        if self.variable == "ws":
+            Iu = self.pm.variables.index("10u")
+            Iv = self.pm.variables.index("10v")
+            pred = np.sqrt(pred[..., [Iu]]**2 + pred[..., [Iv]]**2)
+        else:
+            Iv = self.pm.variables.index(self.variable)
+            pred = pred[..., [Iv]]
+
+        # Pred is now shape [
+
         if not self.interpolate:
-            interpolated_pred = pred[:, self.verif_indices, Iv][:, :, np.newaxis]
+            interpolated_pred = pred[:, self.verif_indices, :]
         else:
             if self._is_gridded_input:
                 pred = self.reshape_pred(pred)
-                pred = pred[..., Iv]  # Extract single variable
+                pred = pred[..., 0]
+
                 interpolated_pred = gridpp.bilinear(self.igrid, self.opoints, pred)
 
                 if self.elev_gradient is not None:
@@ -140,8 +151,6 @@ class Verif(Output):
                     :, :, None
                 ]  # Add in variable dimension
             else:
-                pred = pred[..., [Iv]]
-
                 altitude_correction = None
                 if self.elev_gradient is not None:
                     interpolator = scipy.interpolate.LinearNDInterpolator(
