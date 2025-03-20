@@ -6,6 +6,7 @@ from datetime import datetime, timedelta
 import numpy as np
 from anemoi.utils.dates import frequency_to_seconds
 from hydra.utils import instantiate
+from omegaconf import DictConfig
 
 import bris.routes
 import bris.utils
@@ -13,7 +14,7 @@ from bris.data.datamodule import DataModule
 
 from .checkpoint import Checkpoint
 from .inference import Inference
-from .utils import create_config
+from .utils import create_config, set_encoder_decoder_num_chunks, set_base_seed
 from .writer import CustomWriter
 
 LOGGER = logging.getLogger(__name__)
@@ -26,23 +27,20 @@ def main():
 
     config = create_config(parser)
 
-    # Load checkpoint, and patch it if needed
-    checkpoint = Checkpoint(config.checkpoint_path)
+    models = list(config.models.keys())
+    #TODO: ALLOW FOR THE INTERPOLATOR AND FORECASTER TO HAVE DIFFERENT FORECASTS
+    # Prioritize forecaster output
 
-    # Chunking encoder and decoder, default 1
-    checkpoint.set_encoder_decoder_num_chunks(
-        getattr(config, "inference_num_chunks", 1)
-    )
-    if hasattr(config, "graph"):
-        LOGGER.info("Update graph is enabled. Proceeding to change internal graph")
-        # At the moment config.graph is only a POSIX path.
-        # TODO: In future a graph can be generated "on the fly" by providing a config
-        checkpoint.update_graph(config.graph)  # Pass in a new graph if needed
+    checkpoints = {model: Checkpoint(config.models[model].checkpoint_path, config.models[model].graph) for model in models}
+    #TODO: Force that the first one is always called forecaster here?
+
+    set_encoder_decoder_num_chunks(getattr(config, "inference_num_chunks", 1))
+    set_base_seed() #TODO: See if we can remove this
 
     # Get timestep from checkpoint. Also store a version in seconds for local use.
     config.timestep = None
     try:
-        config.timestep = checkpoint.config.data.timestep
+        config.timestep = checkpoints["forecaster"].config.data.timestep
     except KeyError as err:
         raise RuntimeError from err(
             "Error getting timestep from checkpoint (checkpoint.config.data.timestep)"
@@ -54,7 +52,7 @@ def main():
     # Get multistep. A default of 2 to ignore multistep in start_date calculation if not set.
     multistep = 2
     try:
-        multistep = checkpoint.config.training.multistep_input
+        multistep = checkpoints["forecaster"].config.training.multistep_input
     except KeyError:
         LOGGER.debug("Multistep not found in checkpoint")
 
@@ -85,7 +83,7 @@ def main():
 
     datamodule = DataModule(
         config=config,
-        checkpoint_object=checkpoint,
+        checkpoint_object=checkpoints["forecaster"],
     )
 
     # Get outputs and required_variables of each decoder
@@ -95,11 +93,11 @@ def main():
         leadtimes,
         num_members,
         datamodule,
-        checkpoint,
+        checkpoints["forecaster"],
         config.workdir,
     )
     required_variables = bris.routes.get_required_variables(
-        config["routing"], checkpoint
+        config["routing"], checkpoints["forecaster"]
     )
     writer = CustomWriter(decoder_outputs, write_interval="batch")
 
@@ -113,7 +111,7 @@ def main():
     # Forecaster must know about what leadtimes to output
     model = instantiate(
         config.model,
-        checkpoint=checkpoint,
+        checkpoints=checkpoints,
         hardware_config=config.hardware,
         datamodule=datamodule,
         forecast_length=config.leadtimes,
@@ -127,7 +125,6 @@ def main():
         config=config,
         model=model,
         callbacks=callbacks,
-        checkpoint=checkpoint,
         datamodule=datamodule,
     )
     inference.run()

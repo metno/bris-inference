@@ -81,9 +81,9 @@ def create_config(parser: ArgumentParser) -> OmegaConf:
     except Exception as e:
         raise e
 
-    parser.add_argument(
-        "-c", type=str, dest="checkpoint_path", default=config.checkpoint_path
-    )
+#    parser.add_argument(
+#        "-c", type=str, dest="checkpoint_path", default=config.checkpoint_path
+#    )
     parser.add_argument(
         "-sd",
         type=str,
@@ -234,3 +234,22 @@ def get_base_seed(env_var_list=("AIFS_BASE_SEED", "SLURM_JOB_ID")) -> int:
         base_seed = base_seed * 1000  # make it (hopefully) big enough
 
     return base_seed
+
+
+def set_encoder_decoder_num_chunks(chunks: int = 1) -> None:
+    assert isinstance(chunks, int), (
+        f"Expecting chunks to be int, got: {chunks}, {type(chunks)}"
+    )
+    os.environ["ANEMOI_INFERENCE_NUM_CHUNKS"] = str(chunks)
+    LOGGER.info("Encoder and decoder are chunked to %s", chunks)
+
+def set_base_seed() -> None:
+    """
+    TODO: Explain what this function does.
+
+    Fetchs the original base seed used during training.
+    If not
+    """
+    os.environ["ANEMOI_BASE_SEED"] = "1234"
+    os.environ["AIFS_BASE_SEED"] = "1234"
+    LOGGER.info("ANEMOI_BASE_SEED and ANEMOI_BASE_SEED set to 1234")

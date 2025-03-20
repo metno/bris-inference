@@ -42,14 +42,13 @@ class Metadata(DotDict):
 class Checkpoint:
     """This class makes accessible various information stored in Anemoi checkpoints"""
 
-    AIFS_BASE_SEED = None
-
-    def __init__(self, path: str):
+    def __init__(self, path: str, graph: Optional[str] = None):
         assert os.path.exists(path), f"The given checkpoint {path} does not exist!"
 
         self.path = path
-        self.is_graph_replaced = False
-        self.set_base_seed()
+        if graph:
+            LOGGER.info("Updating graph")
+            self.update_graph(graph)
 
     @cached_property
     def metadata(self) -> Metadata:
@@ -189,70 +188,40 @@ class Checkpoint:
         # stretched grid, the model instance will complain
         # (not 100% sure but i think i have experienced this)
 
-        if self.is_graph_replaced:
-            raise RuntimeError(
-                "Graph has already been updated. Mutliple updates is not allowed"
-            )
-        else:
-            if path and os.path.exists(path):
-                external_graph = torch.load(
-                    path, map_location="cpu", weights_only=False
-                )
-                LOGGER.info("Loaded external graph from path")
 
-                self._model_instance.graph_data = external_graph
-
-                # Assign config, as it's not preserved in the pickle.
-                self._model_instance.config = self.config  # conf
-
-                # Copy model parameters before rebuilding to avoid losing them.
-                _model_params = self._get_copy_model_params
-
-                LOGGER.info("Rebuilding layers to support the new graph.")
-                self._model_instance._build_model()
-                self.is_graph_replaced = True
-
-                # Validate parameter count consistency.
-                old_param_count = len(_model_params)
-                new_param_count = len(tuple(self._model_instance.named_parameters()))
-
-                assert old_param_count == new_param_count, (
-                    "Parameter count mismatch after build: new model parameters differ from checkpoint."
-                )
-
-                LOGGER.info("Assigning model params from checkpoint to the new model")
-                for layer_name, param in self._model_instance.named_parameters():
-                    param.data = _model_params[layer_name].data
-
-                LOGGER.info(
-                    "Successfully builded model with external graph and reassigning model weights!"
-                )
-                return self._model_instance.graph_data
-
-            else:
-                # future implementation
-                # _graph = anemoi.graphs.create() <-- skeleton
-                # self._model_instance.graph_data = _graph <- update graph obj within inst
-                # return _graph <- return graph
-                raise NotImplementedError
-
-    def set_base_seed(self) -> None:
-        """
-        TODO: Explain what this function does.
-
-        Fetchs the original base seed used during training.
-        If not
-        """
-        os.environ["ANEMOI_BASE_SEED"] = "1234"
-        os.environ["AIFS_BASE_SEED"] = "1234"
-        LOGGER.info("ANEMOI_BASE_SEED and ANEMOI_BASE_SEED set to 1234")
-
-    def set_encoder_decoder_num_chunks(self, chunks: int = 1) -> None:
-        assert isinstance(chunks, int), (
-            f"Expecting chunks to be int, got: {chunks}, {type(chunks)}"
+        external_graph = torch.load(
+            path, map_location="cpu", weights_only=False
         )
-        os.environ["ANEMOI_INFERENCE_NUM_CHUNKS"] = str(chunks)
-        LOGGER.info("Encoder and decoder are chunked to %s", chunks)
+        LOGGER.info("Loaded external graph from path")
+
+        self._model_instance.graph_data = external_graph
+
+        # Assign config, as it's not preserved in the pickle.
+        self._model_instance.config = self.config  # conf
+
+        # Copy model parameters before rebuilding to avoid losing them.
+        _model_params = self._get_copy_model_params
+
+        LOGGER.info("Rebuilding layers to support the new graph.")
+        self._model_instance._build_model()
+        self.is_graph_replaced = True
+
+        # Validate parameter count consistency.
+        old_param_count = len(_model_params)
+        new_param_count = len(tuple(self._model_instance.named_parameters()))
+
+        assert old_param_count == new_param_count, (
+            "Parameter count mismatch after build: new model parameters differ from checkpoint."
+        )
+
+        LOGGER.info("Assigning model params from checkpoint to the new model")
+        for layer_name, param in self._model_instance.named_parameters():
+            param.data = _model_params[layer_name].data
+
+        LOGGER.info(
+            "Successfully builded model with external graph and reassigning model weights!"
+        )
+        return self._model_instance.graph_data
 
     @cached_property
     def name_to_index(self) -> tuple[dict[str, int], None]:
