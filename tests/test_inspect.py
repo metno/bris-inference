@@ -12,8 +12,8 @@ def test_clean_version_name():
 def test_get_required_variables():
     """Check required variables for test-checkpoint match expected list.
 
-       Multiencdec checkpoint requires this specific anemoi-models version:
-       https://github.com/metno/anemoi-models/tree/feature/netatmo
+    Multiencdec checkpoint requires this specific anemoi-models version:
+    https://github.com/metno/anemoi-models/tree/feature/netatmo
     """
 
     # Simple checkpoint
