@@ -60,7 +60,7 @@ def get_required_variables(checkpoint: Checkpoint) -> dict:
     """Get dict of datasets with list of required variables for each dataset."""
 
     # If simple checkpoint
-    if checkpoint.data_indices[1] is None:
+    if len(checkpoint.data_indices) == 1:
         data_indices = checkpoint.data_indices[0]
         required_prognostic_variables = [
             name
