@@ -6,7 +6,6 @@ from typing import Any, Optional, TypedDict
 
 import torch
 from anemoi.models.data_indices.collection import IndexCollection
-from anemoi.models.interface import AnemoiModelInterface
 from anemoi.utils.checkpoints import load_metadata
 from anemoi.utils.config import DotDict
 from torch_geometric.data import HeteroData
@@ -109,11 +108,11 @@ class Checkpoint:
         raise RuntimeError("Cannot find multistep")
 
     @property
-    def model(self) -> AnemoiModelInterface:
+    def model(self) -> torch.nn.Module:
         return self._model_instance
 
     @cached_property
-    def _model_instance(self) -> AnemoiModelInterface:
+    def _model_instance(self) -> torch.nn.Module:
         """
         Loads a given model instance. This instance
         includes both the model interface and its
