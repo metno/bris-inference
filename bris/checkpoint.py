@@ -201,7 +201,6 @@ class Checkpoint:
 
         LOGGER.info("Rebuilding layers to support the new graph.")
         self._model_instance._build_model()
-        self.is_graph_replaced = True
 
         # Validate parameter count consistency.
         old_param_count = len(_model_params)
@@ -216,7 +215,7 @@ class Checkpoint:
             param.data = _model_params[layer_name].data
 
         LOGGER.info(
-            "Successfully builded model with external graph and reassigning model weights!"
+            "Successfully built model with external graph and reassigning model weights!"
         )
         return self._model_instance.graph_data
 

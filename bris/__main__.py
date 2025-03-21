@@ -29,7 +29,7 @@ def main():
 
     models = list(config.models.keys())
     # TODO: ALLOW FOR THE INTERPOLATOR AND FORECASTER TO HAVE DIFFERENT FORECASTS
-    # Prioritize forecaster output
+    # Prioritize output from forecaster if both can produce it.
 
     checkpoints = {
         model: Checkpoint(
