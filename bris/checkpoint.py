@@ -5,7 +5,7 @@ from functools import cached_property
 from typing import Any, Optional, TypedDict
 
 import torch
-from anemoi.models.interface import AnemoiModelInterface
+from anemoi.models.data_indices.collection import IndexCollection
 from anemoi.utils.checkpoints import load_metadata
 from anemoi.utils.config import DotDict
 from torch_geometric.data import HeteroData
@@ -108,11 +108,11 @@ class Checkpoint:
         raise RuntimeError("Cannot find multistep")
 
     @property
-    def model(self) -> Any:
+    def model(self) -> torch.nn.Module:
         return self._model_instance
 
     @cached_property
-    def _model_instance(self) -> AnemoiModelInterface:
+    def _model_instance(self) -> torch.nn.Module:
         """
         Loads a given model instance. This instance
         includes both the model interface and its
@@ -120,6 +120,13 @@ class Checkpoint:
         """
         try:
             inst = torch.load(self.path, map_location="cpu", weights_only=False)
+        except AttributeError as e:
+            if str(e.args[0]).startswith("Can't get attribute"):
+                raise RuntimeError(
+                    "You most likely have a version of anemoi-models that is "
+                    "not compatible with the checkpoint. Use bris-inspect to "
+                    "check module versions."
+                ) from e
         except Exception as e:
             raise e
         return inst
@@ -255,9 +262,11 @@ class Checkpoint:
         LOGGER.info("Encoder and decoder are chunked to %s", chunks)
 
     @cached_property
-    def name_to_index(self) -> tuple[dict[str, int], None]:
+    def name_to_index(self) -> dict:
         """
-        Mapping between name and their corresponding variable index
+        Mapping between name and their corresponding variable index.
+        If checkpoint has multiple datasets, this will return a tuple
+        of dicts where each dict represents a decoder index.
         """
         _data_indices = self._model_instance.data_indices
         if isinstance(_data_indices, (tuple, list)) and len(_data_indices) >= 2:
@@ -341,7 +350,7 @@ class Checkpoint:
         return ({k: self._metadata.dataset.variables[v] for k, v in mapping.items()},)
 
     @cached_property
-    def model_output_name_to_index(self) -> tuple[dict]:
+    def model_output_name_to_index(self) -> tuple[dict, ...]:
         """
         A mapping from model output to data output. This
         dict returns name and index pairs according to model.output.full to
@@ -367,3 +376,16 @@ class Checkpoint:
         return (
             {name: index for index, name in self.model_output_index_to_name.items()},
         )
+
+    @cached_property
+    def data_indices(self) -> tuple[IndexCollection, ...]:
+        """
+        Wrapper for model.data_indices. Returns a tuple of dict and None or two dicts.
+        """
+
+        # If Multiencdec checkpoint
+        if isinstance(self._model_instance.data_indices, (tuple, list)):
+            return tuple(self._model_instance.data_indices)
+
+        # If simple checkpoint
+        return (self._model_instance.data_indices,)
