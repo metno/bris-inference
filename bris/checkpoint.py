@@ -121,11 +121,11 @@ class Checkpoint:
         try:
             inst = torch.load(self.path, map_location="cpu", weights_only=False)
         except AttributeError as e:
-            if str(e.args[0]).startswith("Can't get attribute 'FuserModelInterface'"):
+            if str(e.args[0]).startswith("Can't get attribute"):
                 raise RuntimeError(
-                    "You have a version of anemoi-models that is not "
-                    "compatible with the checkpoint. Use bris-inspect to check"
-                    " module versions."
+                    "You most likely have a version of anemoi-models that is "
+                    "not compatible with the checkpoint. Use bris-inspect to "
+                    "check module versions."
                 ) from e
         except Exception as e:
             raise e
