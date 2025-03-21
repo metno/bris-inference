@@ -83,6 +83,7 @@ def test_get():
     ]
     data_module = FakeDataModule()
     checkpoint_object = FakeCheckpointObject()
+    checkpoints = {"forecaster": checkpoint_object}
     workdir = "testdir"
     leadtimes = range(66)
     num_members = 2
@@ -93,7 +94,7 @@ def test_get():
         assert set(required_variables[key]) == set(correct_variables[key])
 
     _ = bris.routes.get(
-        config, len(leadtimes), num_members, data_module, checkpoint_object, workdir
+        config, len(leadtimes), num_members, data_module, checkpoints, workdir
     )
 
 
