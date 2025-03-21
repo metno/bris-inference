@@ -14,7 +14,7 @@ def get(
     leadtimes: list,
     num_members: int,
     data_module: DataModule,
-    checkpoint_object: Checkpoint,
+    checkpoints: dict[str,Checkpoint],
     workdir: str,
 ):
     """Returns outputs for each decoder and domain
@@ -36,8 +36,15 @@ def get(
             decoder_index -> variable_indices
 
     """
+    
     ret = list()
-    required_variables = get_required_variables(routing_config, checkpoint_object)
+    required_variables_per_model = {model: get_required_variables(routing_config, checkpoint) for model, checkpoint in checkpoints.items()}
+    required_variables_full = defaultdict(set)
+    for model, _required_variables in required_variables_per_model.items():
+        for key, variable_list in _required_variables.items():
+            required_variables_full[key].update(variable_list)
+    
+    required_variables = {key: list(values) for key, values in required_variables_full.items()}
 
     count = 0
     for config in routing_config:

@@ -28,8 +28,6 @@ def main():
     config = create_config(parser)
 
     models = list(config.models.keys())
-    # TODO: ALLOW FOR THE INTERPOLATOR AND FORECASTER TO HAVE DIFFERENT FORECASTS
-    # Prioritize output from forecaster if both can produce it.
 
     checkpoints = {
         model: Checkpoint(
@@ -37,7 +35,6 @@ def main():
         )
         for model in models
     }
-    # TODO: Force that the first one is always called forecaster here?
 
     set_encoder_decoder_num_chunks(getattr(config, "inference_num_chunks", 1))
     set_base_seed()  # TODO: See if we can remove this
