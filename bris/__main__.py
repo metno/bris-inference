@@ -9,12 +9,12 @@ from hydra.utils import instantiate
 from omegaconf import DictConfig
 
 import bris.routes
-import bris.utils
+#import bris.utils
 from bris.data.datamodule import DataModule
 
 from .checkpoint import Checkpoint
 from .inference import Inference
-from .utils import create_config, set_base_seed, set_encoder_decoder_num_chunks
+from .utils import create_config, set_base_seed, set_encoder_decoder_num_chunks, get_all_leadtimes
 from .writer import CustomWriter
 
 LOGGER = logging.getLogger(__name__)
@@ -28,26 +28,25 @@ def main():
     config = create_config(parser)
 
     models = list(config.checkpoints.keys())
-
     checkpoints = {
         model: Checkpoint(
-            config.checkpoints[model].checkpoint_path, config.checkpoints[model].switch_graph
+            config.checkpoints[model].checkpoint_path, getattr(config.checkpoints[model], "switch_graph", None)
         )
         for model in models
     }
-
     set_encoder_decoder_num_chunks(getattr(config, "inference_num_chunks", 1))
     set_base_seed()  # TODO: See if we can remove this
 
     # Get timestep from checkpoint. Also store a version in seconds for local use.
-    config.timestep = None
-    try:
-        config.timestep = checkpoints["forecaster"].config.data.timestep
-    except KeyError as err:
-        raise RuntimeError from err(
-            "Error getting timestep from checkpoint (checkpoint.config.data.timestep)"
+    for model in models:
+        config.checkpoints[model].timestep = None
+        try:
+            config.checkpoints[model].timestep = checkpoints[model].config.data.timestep
+        except KeyError as err:
+            raise RuntimeError from err(
+            f"Error getting timestep from {model} checkpoint (checkpoint.config.data.timestep)"
         )
-    timestep_seconds = frequency_to_seconds(config.timestep)
+        config.checkpoints[model].timestep_seconds = frequency_to_seconds(config.checkpoints[model].timestep)
 
     num_members = 1
 
@@ -62,7 +61,7 @@ def main():
     if "start_date" not in config or config.start_date is None:
         config.start_date = datetime.strftime(
             datetime.strptime(config.end_date, "%Y-%m-%dT%H:%M:%S")
-            - timedelta(seconds=(multistep - 1) * timestep_seconds),
+            - timedelta(seconds=(multistep - 1) * config.checkpoints.forecaster.timestep_seconds),
             "%Y-%m-%dT%H:%M:%S",
         )
         LOGGER.info(
@@ -72,7 +71,7 @@ def main():
     else:
         config.start_date = datetime.strftime(
             datetime.strptime(config.start_date, "%Y-%m-%dT%H:%M:%S")
-            - timedelta(seconds=(multistep - 1) * timestep_seconds),
+            - timedelta(seconds=(multistep - 1) * config.checkpoints.forecaster.timestep_seconds),
             "%Y-%m-%dT%H:%M:%S",
         )
 
@@ -86,20 +85,33 @@ def main():
     datamodule = DataModule(
         config=config,
         checkpoint_object=checkpoints["forecaster"],
+        timestep=config.checkpoints.forecaster.timestep,
+        frequency=config.frequency
     )
 
     # Get outputs and required_variables of each decoder
-    leadtimes = np.arange(config.leadtimes) * timestep_seconds
+    if hasattr(config.checkpoints, "interpolator"):
+        leadtimes = get_all_leadtimes(
+                config.checkpoints.forecaster.leadtimes,
+                config.checkpoints.forecaster.timestep_seconds,
+                config.checkpoints.interpolator.leadtimes,
+                config.checkpoints.intepoltor.timestep_seconds)
+    else:
+        leadtimes = get_all_leadtimes(
+                config.checkpoints.forecaster.leadtimes,
+                config.checkpoints.forecaster.timestep_seconds
+        )
+
     decoder_outputs = bris.routes.get(
         config["routing"],
         leadtimes,
         num_members,
         datamodule,
-        checkpoints["forecaster"],
+        checkpoints,
         config.workdir,
     )
-    required_variables = bris.routes.get_required_variables(
-        config["routing"], checkpoints["forecaster"]
+    required_variables = bris.routes.get_required_variables_full(
+        config["routing"], checkpoints
     )
     writer = CustomWriter(decoder_outputs, write_interval="batch")
 
@@ -116,7 +128,7 @@ def main():
         checkpoints=checkpoints,
         hardware_config=config.hardware,
         datamodule=datamodule,
-        forecast_length=config.leadtimes,
+        forecast_length=config.checkpoints.forecaster.leadtimes,
         required_variables=required_variables,
         release_cache=config.release_cache,
     )

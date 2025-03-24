@@ -25,6 +25,7 @@ def get(
         routing_config: Dictionary from config file
         leadtimes: Which leadtimes that the model will produce
         data_module: Data module
+        checkpoints: Dictionary with checkpoints
     Returns:
         list of dicts:
             decoder_index (int)
@@ -38,18 +39,7 @@ def get(
     """
 
     ret = list()
-    required_variables_per_model = {
-        model: get_required_variables(routing_config, checkpoint)
-        for model, checkpoint in checkpoints.items()
-    }
-    required_variables_full = defaultdict(set)
-    for _, _required_variables in required_variables_per_model.items():
-        for key, variable_list in _required_variables.items():
-            required_variables_full[key].update(variable_list)
-
-    required_variables = {
-        key: list(values) for key, values in required_variables_full.items()
-    }
+    required_variables = get_required_variables_full(routing_config, checkpoints)
 
     count = 0
     for config in routing_config:
@@ -105,6 +95,23 @@ def get(
         ]
 
     return ret
+
+def get_required_variables_full(routing_config: dict, checkpoints: dict[str, Checkpoint]) -> dict[int, list[str]]:
+    """Returns a list of required variables for each decoder from all checkpoints. Will return the union if one checkpoint has more outputs than the others"""
+    
+    required_variables_per_model = {
+        model: get_required_variables(routing_config, checkpoint)
+        for model, checkpoint in checkpoints.items()
+    }
+    required_variables_full = defaultdict(set)
+    for _, _required_variables in required_variables_per_model.items():
+        for key, variable_list in _required_variables.items():
+            required_variables_full[key].update(variable_list)
+
+    required_variables = {
+        key: list(values) for key, values in required_variables_full.items()
+    }
+    return required_variables        
 
 
 def get_required_variables(
