@@ -9,7 +9,7 @@ def test_1():
         full_filename = (
             os.path.dirname(os.path.abspath(__file__)) + "/../config/" + filename
         )
-        bris.utils.validate(full_filename)
+        bris.utils.validate(full_filename, raise_on_error=True)
 
 
 if __name__ == "__main__":
