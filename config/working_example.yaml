@@ -8,7 +8,6 @@ checkpoints:
     static_forcings_dataset: null
     switch_graph: null
 
-
 dataset: aifs-od-an-oper-0001-mars-n320-2023-2024-6h-v2.zarr
 frequency: 6h
 workdir: test

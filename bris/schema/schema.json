@@ -256,5 +256,5 @@
             }
         }
     },
-    "required": ["frequency", "release_cache", "dataset", "workdir"]
+    "required": ["checkpoints", "frequency", "release_cache", "dataset", "workdir"]
 }

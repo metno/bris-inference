@@ -31,7 +31,7 @@ def main():
 
     checkpoints = {
         model: Checkpoint(
-            config.checkpoints[model].checkpoint_path, config.checkpoints[model].graph
+            config.checkpoints[model].checkpoint_path, config.checkpoints[model].switch_graph
         )
         for model in models
     }
