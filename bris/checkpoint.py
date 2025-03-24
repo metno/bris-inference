@@ -261,11 +261,12 @@ class Checkpoint:
         LOGGER.info("Encoder and decoder are chunked to %s", chunks)
 
     @cached_property
-    def name_to_index(self) -> dict:
+    def name_to_index(self) -> tuple[dict[str, int], ...]:
         """
         Mapping between name and their corresponding variable index.
-        If checkpoint has multiple datasets, this will return a tuple
-        of dicts where each dict represents a decoder index.
+        Returns a tuple. If the model is a multiencoder-decoder model
+        the tuple will contain two dicts, one for each decoder. If not
+        the tuple will contain a single dict.
         """
         _data_indices = self._model_instance.data_indices
         if isinstance(_data_indices, (tuple, list)) and len(_data_indices) >= 2:
@@ -276,9 +277,12 @@ class Checkpoint:
         return (_data_indices.name_to_index,)
 
     @cached_property
-    def index_to_name(self) -> tuple[dict]:
+    def index_to_name(self) -> tuple[dict[int, str], ...]:
         """
-        Mapping between index and their corresponding variable name
+        Mapping between index and their corresponding variable name.
+        Returns a tuple. If the model is a multiencoder-decoder model
+        the tuple will contain two dicts, one for each decoder. If not
+        the tuple will contain a single dict.
         """
         _data_indices = self._model_instance.data_indices
         if isinstance(_data_indices, (tuple, list)) and len(_data_indices) >= 2:
@@ -308,7 +312,7 @@ class Checkpoint:
         return dict(zip(indices_from, indices_to))
 
     @cached_property
-    def model_output_index_to_name(self) -> tuple[dict]:
+    def model_output_index_to_name(self) -> tuple[dict[int, str], ...]:
         """
         A mapping from model output to data output. This
         dict returns index and name pairs according to model.output.full to
@@ -349,7 +353,7 @@ class Checkpoint:
         return ({k: self._metadata.dataset.variables[v] for k, v in mapping.items()},)
 
     @cached_property
-    def model_output_name_to_index(self) -> tuple[dict, ...]:
+    def model_output_name_to_index(self) -> tuple[dict[str, int], ...]:
         """
         A mapping from model output to data output. This
         dict returns name and index pairs according to model.output.full to
@@ -373,7 +377,7 @@ class Checkpoint:
             )
 
         return (
-            {name: index for index, name in self.model_output_index_to_name.items()},
+            {name: index for index, name in self.model_output_index_to_name[0].items()},
         )
 
     @cached_property
