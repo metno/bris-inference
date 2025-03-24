@@ -186,7 +186,7 @@ class Checkpoint:
         LOGGER.info("Loaded external graph from path")
 
         self._model_instance.graph_data = external_graph
-        self._model_instance.config = self.config 
+        self._model_instance.config = self.config
         _model_params = self._get_copy_model_params
 
         LOGGER.info("Rebuilding layers to support the new graph.")

@@ -96,9 +96,12 @@ def get(
 
     return ret
 
-def get_required_variables_full(routing_config: dict, checkpoints: dict[str, Checkpoint]) -> dict[int, list[str]]:
+
+def get_required_variables_full(
+    routing_config: dict, checkpoints: dict[str, Checkpoint]
+) -> dict[int, list[str]]:
     """Returns a list of required variables for each decoder from all checkpoints. Will return the union if one checkpoint has more outputs than the others"""
-    
+
     required_variables_per_model = {
         model: get_required_variables(routing_config, checkpoint)
         for model, checkpoint in checkpoints.items()
@@ -111,7 +114,7 @@ def get_required_variables_full(routing_config: dict, checkpoints: dict[str, Che
     required_variables = {
         key: list(values) for key, values in required_variables_full.items()
     }
-    return required_variables        
+    return required_variables
 
 
 def get_required_variables(

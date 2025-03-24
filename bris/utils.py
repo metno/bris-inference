@@ -113,7 +113,12 @@ def create_config(parser: ArgumentParser) -> OmegaConf:
     # TODO: Logic that can add dataset or cutout dataset to the dataloader config
 
     parser.add_argument("-f", type=str, dest="frequency", default=config.frequency)
-    parser.add_argument("-l", type=int, dest="checkpoints.forecaster.leadtimes", default=config.checkpoints.forecaster.leadtimes)
+    parser.add_argument(
+        "-l",
+        type=int,
+        dest="checkpoints.forecaster.leadtimes",
+        default=config.checkpoints.forecaster.leadtimes,
+    )
     args = parser.parse_args()
 
     args_dict = vars(args)
@@ -252,16 +257,24 @@ def set_base_seed() -> None:
     os.environ["AIFS_BASE_SEED"] = "1234"
     LOGGER.info("ANEMOI_BASE_SEED and ANEMOI_BASE_SEED set to 1234")
 
+
 def get_all_leadtimes(
-    leadtimes_forecaster: int, 
+    leadtimes_forecaster: int,
     timestep_forecaster: int,
     leadtimes_interpolator: int = 0,
     timestep_interpolator: int = 3600,
 ) -> np.ndarray:
     """
-    Calculates all the leadtimes in the output with combined forecaster and interpolator. 
+    Calculates all the leadtimes in the output with combined forecaster and interpolator.
     """
-    high_res = np.arange(leadtimes_interpolator * timestep_forecaster // timestep_interpolator) * timestep_interpolator
-    low_res = np.arange( (leadtimes_interpolator * timestep_forecaster), (leadtimes_forecaster * timestep_forecaster), timestep_forecaster)
+    high_res = (
+        np.arange(leadtimes_interpolator * timestep_forecaster // timestep_interpolator)
+        * timestep_interpolator
+    )
+    low_res = np.arange(
+        (leadtimes_interpolator * timestep_forecaster),
+        (leadtimes_forecaster * timestep_forecaster),
+        timestep_forecaster,
+    )
 
     return np.concatenate([high_res, low_res])

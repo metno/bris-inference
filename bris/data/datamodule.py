@@ -27,7 +27,7 @@ class DataModule(pl.LightningDataModule):
         config: DotDict,
         checkpoint_object: Checkpoint,
         timestep: int,
-        frequency: int
+        frequency: int,
     ) -> None:
         """
         DataModule instance and DataSets.

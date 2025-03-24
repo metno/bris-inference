@@ -9,12 +9,18 @@ from hydra.utils import instantiate
 from omegaconf import DictConfig
 
 import bris.routes
-#import bris.utils
+
+# import bris.utils
 from bris.data.datamodule import DataModule
 
 from .checkpoint import Checkpoint
 from .inference import Inference
-from .utils import create_config, set_base_seed, set_encoder_decoder_num_chunks, get_all_leadtimes
+from .utils import (
+    create_config,
+    get_all_leadtimes,
+    set_base_seed,
+    set_encoder_decoder_num_chunks,
+)
 from .writer import CustomWriter
 
 LOGGER = logging.getLogger(__name__)
@@ -30,7 +36,8 @@ def main():
     models = list(config.checkpoints.keys())
     checkpoints = {
         model: Checkpoint(
-            config.checkpoints[model].checkpoint_path, getattr(config.checkpoints[model], "switch_graph", None)
+            config.checkpoints[model].checkpoint_path,
+            getattr(config.checkpoints[model], "switch_graph", None),
         )
         for model in models
     }
@@ -44,9 +51,11 @@ def main():
             config.checkpoints[model].timestep = checkpoints[model].config.data.timestep
         except KeyError as err:
             raise RuntimeError from err(
-            f"Error getting timestep from {model} checkpoint (checkpoint.config.data.timestep)"
+                f"Error getting timestep from {model} checkpoint (checkpoint.config.data.timestep)"
+            )
+        config.checkpoints[model].timestep_seconds = frequency_to_seconds(
+            config.checkpoints[model].timestep
         )
-        config.checkpoints[model].timestep_seconds = frequency_to_seconds(config.checkpoints[model].timestep)
 
     num_members = 1
 
@@ -61,7 +70,9 @@ def main():
     if "start_date" not in config or config.start_date is None:
         config.start_date = datetime.strftime(
             datetime.strptime(config.end_date, "%Y-%m-%dT%H:%M:%S")
-            - timedelta(seconds=(multistep - 1) * config.checkpoints.forecaster.timestep_seconds),
+            - timedelta(
+                seconds=(multistep - 1) * config.checkpoints.forecaster.timestep_seconds
+            ),
             "%Y-%m-%dT%H:%M:%S",
         )
         LOGGER.info(
@@ -71,7 +82,9 @@ def main():
     else:
         config.start_date = datetime.strftime(
             datetime.strptime(config.start_date, "%Y-%m-%dT%H:%M:%S")
-            - timedelta(seconds=(multistep - 1) * config.checkpoints.forecaster.timestep_seconds),
+            - timedelta(
+                seconds=(multistep - 1) * config.checkpoints.forecaster.timestep_seconds
+            ),
             "%Y-%m-%dT%H:%M:%S",
         )
 
@@ -86,20 +99,21 @@ def main():
         config=config,
         checkpoint_object=checkpoints["forecaster"],
         timestep=config.checkpoints.forecaster.timestep,
-        frequency=config.frequency
+        frequency=config.frequency,
     )
 
     # Get outputs and required_variables of each decoder
     if hasattr(config.checkpoints, "interpolator"):
         leadtimes = get_all_leadtimes(
-                config.checkpoints.forecaster.leadtimes,
-                config.checkpoints.forecaster.timestep_seconds,
-                config.checkpoints.interpolator.leadtimes,
-                config.checkpoints.intepoltor.timestep_seconds)
+            config.checkpoints.forecaster.leadtimes,
+            config.checkpoints.forecaster.timestep_seconds,
+            config.checkpoints.interpolator.leadtimes,
+            config.checkpoints.intepoltor.timestep_seconds,
+        )
     else:
         leadtimes = get_all_leadtimes(
-                config.checkpoints.forecaster.leadtimes,
-                config.checkpoints.forecaster.timestep_seconds
+            config.checkpoints.forecaster.leadtimes,
+            config.checkpoints.forecaster.timestep_seconds,
         )
 
     decoder_outputs = bris.routes.get(
