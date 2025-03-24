@@ -133,7 +133,7 @@ class BrisPredictor(BasePredictor):
 
         checkpoint = checkpoints["forecaster"]
         self.model = checkpoint.model
-        self.data_indices = self.model.data_indices
+        self.data_indices = checkpoint.data_indices[0]
         self.metadata = checkpoint.metadata
 
         self.timestep = timedelta64_from_timestep(self.metadata.config.data.timestep)
@@ -354,7 +354,7 @@ class MultiEncDecPredictor(BasePredictor):
         self.forecast_length = forecast_length
         self.latitudes = datamodule.data_reader.latitudes
         self.longitudes = datamodule.data_reader.longitudes
-        self.data_indices = self.model.data_indices
+        self.data_indices = checkpoint.data_indices
 
         self.indices = ()
         self.variables = ()

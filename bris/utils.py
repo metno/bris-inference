@@ -75,11 +75,8 @@ def create_config(parser: ArgumentParser) -> OmegaConf:
 
     validate(args.config, raise_on_error=True)
 
-    try:
-        config = OmegaConf.load(args.config)
-        LOGGER.debug("config file from %s is loaded", args.config)
-    except Exception as e:
-        raise e
+    config = OmegaConf.load(args.config)
+    LOGGER.debug("config file from %s is loaded", args.config)
 
     parser.add_argument(
         "-sd",
@@ -158,10 +155,10 @@ def validate(filename: str, raise_on_error: bool = False) -> None:
     try:
         jsonschema.validate(instance=config, schema=schema)
     except jsonschema.exceptions.ValidationError as e:
-        if raise_on_error:
-            raise
         print("WARNING: Schema does not validate")
         print(e)
+        if raise_on_error:
+            raise
 
 
 def recursive_list_to_tuple(data):

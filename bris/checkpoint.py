@@ -5,7 +5,7 @@ from functools import cached_property
 from typing import Any, Optional, TypedDict
 
 import torch
-from anemoi.models.interface import AnemoiModelInterface
+from anemoi.models.data_indices.collection import IndexCollection
 from anemoi.utils.checkpoints import load_metadata
 from anemoi.utils.config import DotDict
 from torch_geometric.data import HeteroData
@@ -46,15 +46,16 @@ class Checkpoint:
         assert os.path.exists(path), f"The given checkpoint {path} does not exist!"
 
         self.path = path
+        self._model_instance = self._load_model()
         if graph:
-            LOGGER.info("Updating graph")
+            LOGGER.info("Updating graph to the one provided in config")
             self.update_graph(graph)
 
-    @cached_property
+    @property
     def metadata(self) -> Metadata:
         return self._metadata
 
-    @cached_property
+    @property
     def _metadata(self) -> Metadata:
         """
         Metadata of the model. This includes everything as in:
@@ -74,13 +75,13 @@ class Checkpoint:
         """
         try:
             return DotDict(load_metadata(self.path))
-        except Exception as e:
+        except ValueError as e:
             LOGGER.warning(
                 "Could not load and peek into the checkpoint metadata. Raising an expection"
             )
             raise e
 
-    @cached_property
+    @property
     def config(self) -> TrainingConfig:
         """
         The configuriation used during model
@@ -88,14 +89,14 @@ class Checkpoint:
         """
         return self._metadata.config
 
-    @cached_property
+    @property
     def version(self) -> str:
         """
         Model version
         """
         return self._metadata.version
 
-    @cached_property
+    @property
     def multistep(self) -> int:
         """
         Fetches multistep from metadata
@@ -107,11 +108,10 @@ class Checkpoint:
         raise RuntimeError("Cannot find multistep")
 
     @property
-    def model(self) -> Any:
+    def model(self) -> torch.nn.Module:
         return self._model_instance
 
-    @cached_property
-    def _model_instance(self) -> AnemoiModelInterface:
+    def _load_model(self) -> torch.nn.Module:
         """
         Loads a given model instance. This instance
         includes both the model interface and its
@@ -119,7 +119,13 @@ class Checkpoint:
         """
         try:
             inst = torch.load(self.path, map_location="cpu", weights_only=False)
-        except Exception as e:
+        except AttributeError as e:
+            if str(e.args[0]).startswith("Can't get attribute"):
+                raise RuntimeError(
+                    "You most likely have a version of anemoi-models that is "
+                    "not compatible with the checkpoint. Use bris-inspect to "
+                    "check module versions."
+                ) from e
             raise e
         return inst
 
@@ -143,7 +149,8 @@ class Checkpoint:
             else None
         )
 
-    @cached_property
+    # Do we need this now?
+    @property
     def _get_copy_model_params(self) -> dict:
         """
         Caches the model's state in CPU memory.
@@ -185,34 +192,46 @@ class Checkpoint:
         external_graph = torch.load(path, map_location="cpu", weights_only=False)
         LOGGER.info("Loaded external graph from path")
 
+
+        state_dict = deepcopy(self._model_instance.state_dict())
+
+        external_graph = torch.load(
+            path, map_location="cpu", weights_only=False
+        )
+        LOGGER.info("Loaded external graph from path")
+
         self._model_instance.graph_data = external_graph
         self._model_instance.config = self.config
-        _model_params = self._get_copy_model_params
 
-        LOGGER.info("Rebuilding layers to support the new graph.")
         self._model_instance._build_model()
 
-        # Validate parameter count consistency.
-        old_param_count = len(_model_params)
-        new_param_count = len(tuple(self._model_instance.named_parameters()))
+        new_state_dict = self._model_instance.state_dict()
 
-        assert old_param_count == new_param_count, (
-            "Parameter count mismatch after build: new model parameters differ from checkpoint."
-        )
+        for key in new_state_dict.keys():
+            if (
+                key in state_dict
+                and state_dict[key].shape != new_state_dict[key].shape
+            ):
+                # These are parameters like data_latlon, which are different now because of the graph
+                pass
+            else:
+                # Overwrite with the old parameters
+                new_state_dict[key] = state_dict[key]
 
-        LOGGER.info("Assigning model params from checkpoint to the new model")
-        for layer_name, param in self._model_instance.named_parameters():
-            param.data = _model_params[layer_name].data
+            LOGGER.info(
+                "Successfully builded model with external graph and reassigning model weights!"
+            )
+            self._model_instance.load_state_dict(new_state_dict)
 
-        LOGGER.info(
-            "Successfully built model with external graph and reassigning model weights!"
-        )
         return self._model_instance.graph_data
 
-    @cached_property
-    def name_to_index(self) -> tuple[dict[str, int], None]:
+    @property
+    def name_to_index(self) -> tuple[dict[str, int], ...]:
         """
-        Mapping between name and their corresponding variable index
+        Mapping between name and their corresponding variable index.
+        Returns a tuple. If the model is a multiencoder-decoder model
+        the tuple will contain two dicts, one for each decoder. If not
+        the tuple will contain a single dict.
         """
         _data_indices = self._model_instance.data_indices
         if isinstance(_data_indices, (tuple, list)) and len(_data_indices) >= 2:
@@ -222,10 +241,13 @@ class Checkpoint:
 
         return (_data_indices.name_to_index,)
 
-    @cached_property
-    def index_to_name(self) -> tuple[dict]:
+    @property
+    def index_to_name(self) -> tuple[dict[int, str], ...]:
         """
-        Mapping between index and their corresponding variable name
+        Mapping between index and their corresponding variable name.
+        Returns a tuple. If the model is a multiencoder-decoder model
+        the tuple will contain two dicts, one for each decoder. If not
+        the tuple will contain a single dict.
         """
         _data_indices = self._model_instance.data_indices
         if isinstance(_data_indices, (tuple, list)) and len(_data_indices) >= 2:
@@ -254,8 +276,8 @@ class Checkpoint:
         assert len(indices_from) == len(indices_to)
         return dict(zip(indices_from, indices_to))
 
-    @cached_property
-    def model_output_index_to_name(self) -> tuple[dict]:
+    @property
+    def model_output_index_to_name(self) -> tuple[dict[int, str], ...]:
         """
         A mapping from model output to data output. This
         dict returns index and name pairs according to model.output.full to
@@ -295,8 +317,8 @@ class Checkpoint:
         )
         return ({k: self._metadata.dataset.variables[v] for k, v in mapping.items()},)
 
-    @cached_property
-    def model_output_name_to_index(self) -> tuple[dict]:
+    @property
+    def model_output_name_to_index(self) -> tuple[dict[str, int], ...]:
         """
         A mapping from model output to data output. This
         dict returns name and index pairs according to model.output.full to
@@ -320,5 +342,18 @@ class Checkpoint:
             )
 
         return (
-            {name: index for index, name in self.model_output_index_to_name.items()},
+            {name: index for index, name in self.model_output_index_to_name[0].items()},
         )
+
+    @cached_property
+    def data_indices(self) -> tuple[IndexCollection, ...]:
+        """
+        Wrapper for model.data_indices. Returns a tuple of dict and None or two dicts.
+        """
+
+        # If Multiencdec checkpoint
+        if isinstance(self._model_instance.data_indices, (tuple, list)):
+            return tuple(self._model_instance.data_indices)
+
+        # If simple checkpoint
+        return (self._model_instance.data_indices,)
