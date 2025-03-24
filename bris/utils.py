@@ -153,10 +153,10 @@ def validate(filename: str, raise_on_error: bool = False) -> None:
     try:
         jsonschema.validate(instance=config, schema=schema)
     except jsonschema.exceptions.ValidationError as e:
-        if raise_on_error:
-            raise
         print("WARNING: Schema does not validate")
         print(e)
+        if raise_on_error:
+            raise
 
 
 def recursive_list_to_tuple(data):
