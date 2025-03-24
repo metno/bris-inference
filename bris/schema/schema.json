@@ -4,7 +4,7 @@
     "title": "Schema for bris inference configuration",
     "description": "This schema provides definitions for the bris-inference configuration files",
     "type": "object",
-    "definitions": {
+    "$defs": {
         "VerifOutput": {
             "description": "Verif-compatible Netcdf output file",
             "type": "object",
@@ -30,9 +30,9 @@
                             "type": "array",
                             "items": {
                                 "oneOf": [
-                                    {"$ref": "#/definitions/VerifSource"},
-                                    {"$ref": "#/definitions/FrostSource"},
-                                    {"$ref": "#/definitions/AnemoiDatasetSource"}
+                                    {"$ref": "#/$defs/VerifSource"},
+                                    {"$ref": "#/$defs/FrostSource"},
+                                    {"$ref": "#/$defs/AnemoiDatasetSource"}
                                 ]
                             }
                         },
@@ -139,6 +139,53 @@
                 }
             },
             "required": ["anemoidataset"]
+        },
+
+        "Forecaster": {
+            "description": "Forecaster checkpoint configuration dict",
+            "type": "object",
+            "properties": {
+                "checkpoint_path": {
+                    "description": "Full absolute path to checkpoint",
+                    "type": "string"
+                },
+                "leadtimes": {
+                    "description": "How many leadtimes (number of forecaster rollout steps) should be provided in the output? This includes the analysis leadtime.",
+                    "type": "integer",
+                    "minimum": 1
+                },
+                "static_forcings_dataset": {
+                    "description": "Anemoi datasets open_dataset recipe for dataset with static forcings (e.g. z, lsm). Not required if these forcings are in the main dataset"                  
+                },
+                "switch_graph":{
+                    "description": "Optional, full path to graph file (.pt). Used to run inference for a different graph than the one used to train the model.",
+                    "type": ["string", "null"]
+                }
+            },
+            "required": ["checkpoint_path", "leadtimes"]
+        },
+
+        "Interpolator": {
+            "description": "Interpolator checkpoint configuration dict",
+            "type": "object",
+            "properties": {
+                "checkpoint_path": {
+                    "description": "Full absolute path to checkpoint",
+                    "type": "string"
+                },
+                "leadtimes": {
+                    "description": "How many leadtimes (number of forecaster rollout steps) should be interpolated in the output? Must be lower than or equal to forecaster leadtimes.",
+                    "type": "integer"
+                },
+                "static_forcings_dataset": {
+                    "description": "Anemoi datasets open_dataset recipe for dataset with static forcings (e.g. z, lsm). Not required if these forcings are in the main dataset"                  
+                },
+                "switch_graph":{
+                    "description": "Optional, full path to graph file (.pt). Used to run inference for a different graph than the one used to train the model.",
+                    "type": ["string", "null"]
+                }
+            },
+            "required": ["checkpoint_path", "leadtimes", "static_forcings_dataset"]
         }
     },
     "properties": {
@@ -150,14 +197,22 @@
             "description": "Last date to produce a forecast. E.g. 2023-11-24T12:00:00",
             "format": "date-time"
         },
+        "checkpoints": {
+            "description": "Dictionairy with checkpoints for different tasks.",
+            "type": "object",
+            "properties": {
+                "forecaster": {
+                    "$ref": "#/$defs/Forecaster"
+                },
+                "interpolator": {
+                    "$ref": "#/$defs/Interpolator"
+                }
+            },
+            "required": ["forecaster"]
+        },
         "frequency": {
             "description": "How often to make forecast runs? E.g. 6h",
             "type": "string"
-        },
-        "leadtimes": {
-            "description": "How many leadtimes should be provided in the output? This includes the analysis leadtime.",
-            "type": "integer",
-            "minimum": 1
         },
         "release_cache": {
             "description": "This option releases unused cached/memory used by torch",
@@ -191,8 +246,8 @@
                         "type": "array",
                         "items": {
                             "oneOf": [
-                                {"$ref": "#/definitions/NetcdfOutput"},
-                                {"$ref": "#/definitions/VerifOutput"}
+                                {"$ref": "#/$defs/NetcdfOutput"},
+                                {"$ref": "#/$defs/VerifOutput"}
                             ]
                         }
                     }
@@ -201,5 +256,5 @@
             }
         }
     },
-    "required": ["leadtimes", "frequency", "release_cache", "dataset", "workdir"]
+    "required": ["frequency", "release_cache", "dataset", "workdir"]
 }

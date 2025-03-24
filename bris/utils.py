@@ -81,9 +81,6 @@ def create_config(parser: ArgumentParser) -> OmegaConf:
     except Exception as e:
         raise e
 
-    #    parser.add_argument(
-    #        "-c", type=str, dest="checkpoint_path", default=config.checkpoint_path
-    #    )
     parser.add_argument(
         "-sd",
         type=str,

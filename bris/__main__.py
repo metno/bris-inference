@@ -27,11 +27,11 @@ def main():
 
     config = create_config(parser)
 
-    models = list(config.models.keys())
+    models = list(config.checkpoints.keys())
 
     checkpoints = {
         model: Checkpoint(
-            config.models[model].checkpoint_path, config.models[model].graph
+            config.checkpoints[model].checkpoint_path, config.checkpoints[model].graph
         )
         for model in models
     }

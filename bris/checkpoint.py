@@ -182,12 +182,6 @@ class Checkpoint:
             HeteroData graph object
         """
 
-        # TODO: add check which checks the keys within the graph
-        # the model weights have names tied to f.ex stretched grid or grid.
-        # if the model is trained with keys named grid and we force new graph with keys
-        # stretched grid, the model instance will complain
-        # (not 100% sure but i think i have experienced this)
-
         external_graph = torch.load(path, map_location="cpu", weights_only=False)
         LOGGER.info("Loaded external graph from path")
 

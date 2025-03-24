@@ -1,12 +1,16 @@
 start_date: 2023-05-31T18:00:00
 end_date: 2023-06-01T12:00:00
 
-checkpoint_path: /pfs/lustrep4/scratch/project_465001383/aifs/experiments/reference/o96_pretrain/checkpoint/3fb85b72ba9647d5ae4fe86ce1b5a885/inference-last.ckpt
+checkpoints:
+  forecaster:
+    checkpoint_path: /pfs/lustrep4/scratch/project_465001383/aifs/experiments/reference/o96_pretrain/checkpoint/3fb85b72ba9647d5ae4fe86ce1b5a885/inference-last.ckpt
+    leadtimes: 12
+    static_forcings_dataset: null
+    switch_graph: null
 
-leadtimes: 12
-frequency: 6h
 
 dataset: aifs-od-an-oper-0001-mars-n320-2023-2024-6h-v2.zarr
+frequency: 6h
 workdir: test
 
 dataloader:
