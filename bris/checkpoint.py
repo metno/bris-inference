@@ -192,12 +192,9 @@ class Checkpoint:
         external_graph = torch.load(path, map_location="cpu", weights_only=False)
         LOGGER.info("Loaded external graph from path")
 
-
         state_dict = deepcopy(self._model_instance.state_dict())
 
-        external_graph = torch.load(
-            path, map_location="cpu", weights_only=False
-        )
+        external_graph = torch.load(path, map_location="cpu", weights_only=False)
         LOGGER.info("Loaded external graph from path")
 
         self._model_instance.graph_data = external_graph
@@ -207,11 +204,8 @@ class Checkpoint:
 
         new_state_dict = self._model_instance.state_dict()
 
-        for key in new_state_dict.keys():
-            if (
-                key in state_dict
-                and state_dict[key].shape != new_state_dict[key].shape
-            ):
+        for key in new_state_dict:
+            if key in state_dict and state_dict[key].shape != new_state_dict[key].shape:
                 # These are parameters like data_latlon, which are different now because of the graph
                 pass
             else:
