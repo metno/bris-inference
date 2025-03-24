@@ -127,7 +127,6 @@ class Checkpoint:
                     "not compatible with the checkpoint. Use bris-inspect to "
                     "check module versions."
                 ) from e
-        except Exception as e:
             raise e
         return inst
 
