@@ -75,7 +75,7 @@ class Checkpoint:
         """
         try:
             return DotDict(load_metadata(self.path))
-        except Exception as e:
+        except ValueError as e:
             LOGGER.warning(
                 "Could not load and peek into the checkpoint metadata. Raising an expection"
             )
