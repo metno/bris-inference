@@ -186,11 +186,7 @@ class Checkpoint:
         LOGGER.info("Loaded external graph from path")
 
         self._model_instance.graph_data = external_graph
-
-        # Assign config, as it's not preserved in the pickle.
-        self._model_instance.config = self.config  # conf
-
-        # Copy model parameters before rebuilding to avoid losing them.
+        self._model_instance.config = self.config 
         _model_params = self._get_copy_model_params
 
         LOGGER.info("Rebuilding layers to support the new graph.")
