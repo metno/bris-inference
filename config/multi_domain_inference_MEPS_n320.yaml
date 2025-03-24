@@ -1,18 +1,18 @@
-start_date: 2023-06-01T00:00:00 
-end_date: 2024-05-31T18:00:00   
+start_date: 2022-06-01T00:00:00 
+end_date: 2023-05-31T18:00:00   
 timestep: 6h
 run_name: mutlidomain
-graph_label: "MEPS"
 
-checkpoint_path: /pfs/lustrep4/scratch/project_465000527/buurmans/DE_330_WP14/Anemoi/multi-domain-training/output/checkpoint/da64f6127b654ba69b120c8e0aec8304/inference-anemoi-by_time-epoch_032-step_042891.ckpt #Full path to checkpoint
 
-leadtimes: 12 # Number of leadtimes in each forecast 
+checkpoint_path: /pfs/lustrep4/scratch/project_465000527/buurmans/DE_330_WP14/Anemoi/multi-domain-training/output/checkpoint/119c39d45ecf4d68a82891bb6ded2859/inference-anemoi-by_time-epoch_009-step_012198.ckpt
+
+leadtimes: 40 # Number of leadtimes in each forecast 
 frequency: 6h 
 
 global:         
-  dataset: ${hardware.paths.data}/aifs-od-an-oper-0001-mars-n320-2023-2024-6h-v2.zarr
-  start: 2023-06-01
-  end: 2024-05-31
+  dataset: ${hardware.paths.data}/aifs-od-an-oper-0001-mars-n320-2019-2023-6h-v6.zarr
+  start: 2022-06-01
+  end: 2023-05-31
 #new
 dataset:
   cutout:
@@ -24,12 +24,13 @@ dataset:
 
 # graph: /pfs/lustrep4/scratch/project_465000527/buurmans/DE_330_WP14/Anemoi/multi-domain-training/output/graphs/AA.pt
 # graph: /pfs/lustrep4/scratch/project_465000527/buurmans/DE_330_WP14/Anemoi/multi-domain-training/OUTPUT_OLD_3_5graphs/AA.pt
-workdir: buurmans@uan04:/pfs/lustrep4/scratch/project_465000527/multi_domain_training/inference/temp  #Used to store temporary files for verif output
+workdir: /pfs/lustrep4/scratch/project_465000527/multi_domain_training/inference/output/temp #Used to store temporary files for verif output
 
 dataloader:
   datamodule:
     _target_: bris.data.dataset.NativeGridDataset
     _convert_: all
+
 
 # Optional dataloader settings
 #  prefetch_factor: 2 
@@ -43,6 +44,7 @@ hardware:
   num_gpus_per_node: 8
   num_gpus_per_model: 8
   num_nodes: 1
+  graph_label: "MEPS"
 
 # If the user wants to release GPU cache and memory
 # This option releases unused cached/memory used by torch
@@ -52,7 +54,7 @@ model:
   _target_: bris.model.BrisPredictor
   _convert_: all
 
-output: /pfs/lustrep4/scratch/project_465000527/buurmans/DE_330_WP14/Anemoi/bris-inference/output #Not a required field, used in output path in routing
+output: /pfs/lustrep4/scratch/project_465000527/multi_domain_training/inference/output/multidomain_MEPS_n320_lrsteps_150000 #Not a required field, used in output path in routing
 
 routing:
   - decoder_index: 0
@@ -74,22 +76,37 @@ routing:
       #           filename: PATH_TO_VERIF_FILE #Verif file with observations
       # Point verification against analysis (typically use the inference dataset with thinning)
       - verif:
-          filename: ${output}/verif/2t/verif_AA_n320.nc
+          filename: ${output}/verif/2t.nc
           variable: 2t
+          elev_gradient: -0.0065 #Height correction
           units: degC
           obs_sources:
-            - anemoidataset:
-                dataset: ${verif_dataset}
-                variable: 2t 
+            - verif:
+                filename: /pfs/lustrep4/scratch/project_465000527/nipentho/verification/nordic/6h/202206_202305/t2m/MEPS_2.5km.nc
       - verif:
-          filename: ${output}/verif/msl/verif_AA_n320.nc
+          filename: ${output}/verif/msl.nc
           variable: msl
           units: hPa
           obs_sources:
-            - anemoidataset:
-                dataset: ${verif_dataset}
-                variable: msl
+            - verif:
+                filename: /pfs/lustrep4/scratch/project_465000527/nipentho/verification/nordic/6h/202206_202305/mslp/MEPS_2.5km.nc
+      - verif:
+          filename: ${output}/verif/tp.nc
+          variable: tp
+          units: mm
+          obs_sources:
+            - verif:
+                filename: /pfs/lustrep4/scratch/project_465000527/nipentho/verification/nordic/6h/202206_202305/precip6h/MEPS_2.5km.nc
+      - verif:
+          filename: ${output}/verif/ws.nc
+          variable: ws
+          units: m/s
+          obs_sources:
+            - verif:
+                filename: /pfs/lustrep4/scratch/project_465000527/nipentho/verification/nordic/6h/202206_202305/ws10m/MEPS_2.5km.nc
+
 #Add outputs for decoder_index 0, domain_index 1 for global domain
 
 verif_dataset: 
-  dataset: /pfs/lustrep4/scratch/project_465000527/anemoi/datasets/AROME-ARCTIC/arome_arctic-2_5km-2017-2024.zarr
+  dataset: /pfs/lustrep4/scratch/project_465000527/anemoi/datasets/MEPS/aifs-meps-2.5km-2020-2024-6h-v6.zarr
+  thinning: 16
