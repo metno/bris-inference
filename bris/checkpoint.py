@@ -267,7 +267,7 @@ class Checkpoint:
         Mapping between name and their corresponding variable index.
         Returns a tuple. If the model is a multiencoder-decoder model
         the tuple will contain two dicts, one for each decoder. If not
-        the tuple will contain a single dict and None.
+        the tuple will contain a single dict.
         """
         _data_indices = self._model_instance.data_indices
         if isinstance(_data_indices, (tuple, list)) and len(_data_indices) >= 2:
@@ -275,7 +275,7 @@ class Checkpoint:
                 [_data_indices[k].name_to_index for k in range(len(_data_indices))]
             )
 
-        return (self._model_instance.data_indices.name_to_index,)
+        return (_data_indices.name_to_index,)
 
     @cached_property
     def index_to_name(self) -> tuple[dict[str, int], Optional[dict[str, int]]]:
@@ -283,7 +283,7 @@ class Checkpoint:
         Mapping between index and their corresponding variable name.
         Returns a tuple. If the model is a multiencoder-decoder model
         the tuple will contain two dicts, one for each decoder. If not
-        the tuple will contain a single dict and None.
+        the tuple will contain a single dict.
         """
         _data_indices = self._model_instance.data_indices
         if isinstance(_data_indices, (tuple, list)) and len(_data_indices) >= 2:
@@ -296,9 +296,7 @@ class Checkpoint:
                     for decoder_index in range(len(self.name_to_index))
                 ]
             )
-        return (
-            {index: name for name, index in _data_indices.name_to_index.items()},
-        )
+        return ({index: name for name, index in _data_indices.name_to_index.items()},)
 
     def _make_indices_mapping(self, indices_from, indices_to):
         """

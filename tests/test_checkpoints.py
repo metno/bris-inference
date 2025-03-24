@@ -113,7 +113,6 @@ def test_metadata():
             "z_850": 99,
             "z_925": 100,
         },
-        None,
     )
     i2n = (
         {
@@ -219,7 +218,6 @@ def test_metadata():
             99: "z_850",
             100: "z_925",
         },
-        None,
     )
 
     assert checkpoint.metadata.version == "1.0", "version is not 1.0"
