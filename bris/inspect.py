@@ -26,7 +26,12 @@ def check_module_versions(checkpoint: Checkpoint, debug: bool = False) -> list:
                 f"  {module} in checkpoint was version\t{checkpoint.metadata.provenance_training.module_versions[module]}"
             )
 
-        if "_remote_module_non_scriptable" in module:
+        # Skip non-scriptable modules, modules from standard library.
+        if module in [
+            "_remote_module_non_scriptable",
+            "hydra_plugins.anemoi_searchpath",
+            "distutils",  # Standard library
+        ]:
             continue
 
         try:
@@ -39,8 +44,14 @@ def check_module_versions(checkpoint: Checkpoint, debug: bool = False) -> list:
                         f"  Warning: Installed version of {module} is <{m.__version__}>, while "
                         f"checkpoint was created with <{checkpoint.metadata.provenance_training.module_versions[module]}>."
                     )
+
+                # Workaround for modules with legacy name
+                module_name = module
+                if module == "PIL":
+                    module_name = "Pillow"
+
                 modules_with_wrong_version.append(
-                    f"{module}=={clean_version_name(checkpoint.metadata.provenance_training.module_versions[module])}"
+                    f"{module_name}=={clean_version_name(checkpoint.metadata.provenance_training.module_versions[module])}"
                 )
         except AttributeError:
             print(f"  Error: Could not find version for module <{module}>.")
