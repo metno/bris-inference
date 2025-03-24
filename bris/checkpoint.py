@@ -313,7 +313,7 @@ class Checkpoint:
         return dict(zip(indices_from, indices_to))
 
     @cached_property
-    def model_output_index_to_name(self) -> tuple[dict]:
+    def model_output_index_to_name(self) -> tuple[dict[int, str], ...]:
         """
         A mapping from model output to data output. This
         dict returns index and name pairs according to model.output.full to
@@ -354,7 +354,7 @@ class Checkpoint:
         return ({k: self._metadata.dataset.variables[v] for k, v in mapping.items()},)
 
     @cached_property
-    def model_output_name_to_index(self) -> tuple[dict, ...]:
+    def model_output_name_to_index(self) -> tuple[dict[str, int], ...]:
         """
         A mapping from model output to data output. This
         dict returns name and index pairs according to model.output.full to
@@ -378,7 +378,7 @@ class Checkpoint:
             )
 
         return (
-            {name: index for index, name in self.model_output_index_to_name.items()},
+            {name: index for index, name in self.model_output_index_to_name[0].items()},
         )
 
     @cached_property
