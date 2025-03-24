@@ -70,6 +70,7 @@ hardware:
   files:
     dataset: bris_random_data.zarr
     graph: small_graph_20p0.pt
+  accelerator: cpu # Force training to CPU
 
 graph:
   overwrite: True
