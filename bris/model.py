@@ -21,7 +21,11 @@ LOGGER = logging.getLogger(__name__)
 
 class BasePredictor(pl.LightningModule):
     def __init__(
-        self, *args: Any, checkpoint: Checkpoint, hardware_config: dict, **kwargs: Any
+        self,
+        *args: Any,
+        checkpoints: dict[str, Checkpoint],
+        hardware_config: dict,
+        **kwargs: Any,
     ):
         """
         Base predictor class, overwrite all the class methods
@@ -35,7 +39,7 @@ class BasePredictor(pl.LightningModule):
         self.model_comm_group_rank = 0
         self.model_comm_num_groups = 1
 
-        if check_anemoi_training(checkpoint.metadata):
+        if check_anemoi_training(checkpoints["forecaster"].metadata):
             self.legacy = False
         else:
             self.legacy = True
@@ -90,10 +94,10 @@ class BasePredictor(pl.LightningModule):
         self.reader_group_size = reader_group_size
 
     @abstractmethod
-    def get_static_forcings(
+    def set_static_forcings(
         self,
         datareader: Iterable,
-    ):
+    ) -> None:
         pass
 
     @abstractmethod
@@ -118,15 +122,16 @@ class BrisPredictor(BasePredictor):
     def __init__(
         self,
         *args,
-        checkpoint: Checkpoint,
+        checkpoints: dict[str, Checkpoint],
         datamodule: DataModule,
         forecast_length: int,
         required_variables: dict,
         release_cache: bool = False,
         **kwargs,
     ) -> None:
-        super().__init__(*args, checkpoint=checkpoint, **kwargs)
+        super().__init__(*args, checkpoints=checkpoints, **kwargs)
 
+        checkpoint = checkpoints["forecaster"]
         self.model = checkpoint.model
         self.data_indices = checkpoint.data_indices[0]
         self.metadata = checkpoint.metadata
@@ -332,15 +337,16 @@ class MultiEncDecPredictor(BasePredictor):
     def __init__(
         self,
         *args,
-        checkpoint: Checkpoint,
+        checkpoints: dict[str, Checkpoint],
         datamodule: DataModule,
         forecast_length: int,
         required_variables: dict,
         release_cache: bool = False,
         **kwargs,
     ) -> None:
-        super().__init__(*args, checkpoint=checkpoint, **kwargs)
+        super().__init__(*args, checkpoints=checkpoints, **kwargs)
 
+        checkpoint = checkpoints["forecaster"]
         self.model = checkpoint.model
         self.metadata = checkpoint.metadata
 
