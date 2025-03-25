@@ -128,7 +128,7 @@ class Checkpoint:
                 ) from e
             raise e
         return inst
-    
+
     @property
     def graph(self) -> HeteroData:
         """
@@ -148,7 +148,7 @@ class Checkpoint:
             if hasattr(self._model_instance, "graph_data")
             else None
         )
-    
+
     @property
     def _get_copy_model_params(self) -> dict:
         """
