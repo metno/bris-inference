@@ -12,7 +12,6 @@ dataset: ./bris_random_data.zarr
 workdir: /tmp/
 leadtimes: 2
 frequency: 6h
-workdir: /tmp/
 
 dataloader:
   datamodule:
