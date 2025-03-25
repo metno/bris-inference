@@ -106,7 +106,7 @@ def test_bris_predictor():
     # Forecaster must know about what leadtimes to output
     _model = instantiate(
         config.model,
-        checkpoint=checkpoint,
+        checkpoints={"forecaster": checkpoint},
         hardware_config=config.hardware,
         datamodule=datamodule,
         forecast_length=config.leadtimes,
@@ -115,7 +115,7 @@ def test_bris_predictor():
     )
 
     _bp = bris.model.BrisPredictor(
-        checkpoint=checkpoint,
+        checkpoints={"forecaster": checkpoint},
         datamodule=datamodule,
         forecast_length=1,
         required_variables=required_variables,
