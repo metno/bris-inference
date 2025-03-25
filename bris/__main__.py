@@ -16,6 +16,7 @@ from .inference import Inference
 from .utils import (
     create_config,
     get_all_leadtimes,
+    set_base_seed,
     set_encoder_decoder_num_chunks,
 )
 from .writer import CustomWriter
@@ -39,6 +40,7 @@ def main():
         for model in models
     }
     set_encoder_decoder_num_chunks(getattr(config, "inference_num_chunks", 1))
+    set_base_seed()
 
     # Get timestep from checkpoint. Also store a version in seconds for local use.
     for model in models:
