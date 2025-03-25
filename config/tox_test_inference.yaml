@@ -8,7 +8,7 @@ checkpoints:
     checkpoint_path: ./inference-last.ckpt
     leadtimes: 2
 
-dataset: ../../train/tmp/bris_random_data.zarr
+dataset: ./bris_random_data.zarr
 frequency: 6h
 workdir: /tmp/
 
