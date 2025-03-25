@@ -216,7 +216,7 @@ class Checkpoint:
 
                 new_state_dict = self._model_instance.state_dict()
 
-                for key in new_state_dict.keys():
+                for key in new_state_dict:
                     if (
                         key in state_dict
                         and state_dict[key].shape != new_state_dict[key].shape
