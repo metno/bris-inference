@@ -128,7 +128,7 @@ class Checkpoint:
                 ) from e
             raise e
         return inst
-
+    
     @property
     def graph(self) -> HeteroData:
         """
@@ -148,7 +148,7 @@ class Checkpoint:
             if hasattr(self._model_instance, "graph_data")
             else None
         )
-
+    
     @property
     def _get_copy_model_params(self) -> dict:
         """
@@ -193,9 +193,6 @@ class Checkpoint:
 
         state_dict = deepcopy(self._model_instance.state_dict())
 
-        external_graph = torch.load(path, map_location="cpu", weights_only=False)
-        LOGGER.info("Loaded external graph from path")
-
         self._model_instance.graph_data = external_graph
         self._model_instance.config = self.config
 
@@ -211,11 +208,10 @@ class Checkpoint:
                 # Overwrite with the old parameters
                 new_state_dict[key] = state_dict[key]
 
-            LOGGER.info(
-                "Successfully builded model with external graph and reassigning model weights!"
-            )
-            self._model_instance.load_state_dict(new_state_dict)
-
+        LOGGER.info(
+            "Successfully built model with external graph and reassigning model weights!"
+        )
+        self._model_instance.load_state_dict(new_state_dict)
         return self._model_instance.graph_data
 
     @property

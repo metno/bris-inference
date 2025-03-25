@@ -16,7 +16,6 @@ from .inference import Inference
 from .utils import (
     create_config,
     get_all_leadtimes,
-    set_base_seed,
     set_encoder_decoder_num_chunks,
 )
 from .writer import CustomWriter
@@ -35,7 +34,7 @@ def main():
     checkpoints = {
         model: Checkpoint(
             config.checkpoints[model].checkpoint_path,
-            getattr(config.checkpoints[model], "switch_graph", None),
+            getattr(config.checkpoints[model], "graph_switch", None),
         )
         for model in models
     }
