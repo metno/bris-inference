@@ -9,7 +9,6 @@ from hydra.utils import instantiate
 from omegaconf import DictConfig
 
 import bris.routes
-
 from bris.data.datamodule import DataModule
 
 from .checkpoint import Checkpoint

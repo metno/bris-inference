@@ -259,7 +259,7 @@ def get_all_leadtimes(
     timestep_interpolator: int = 3600,
 ) -> np.ndarray:
     """
-    Calculates all the leadtimes in the output with combined forecaster and interpolator. 
+    Calculates all the leadtimes in the output with combined forecaster and interpolator.
     """
     high_res = (
         np.arange(leadtimes_interpolator * timestep_forecaster // timestep_interpolator)
