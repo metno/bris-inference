@@ -39,7 +39,7 @@ def get(
     """
 
     ret = list()
-    required_variables = get_required_variables_full(routing_config, checkpoints)
+    required_variables = get_required_variables_all_checkpoints(routing_config, checkpoints)
 
     count = 0
     for config in routing_config:
@@ -97,7 +97,7 @@ def get(
     return ret
 
 
-def get_required_variables_full(
+def get_required_variables_all_checkpoints(
     routing_config: dict, checkpoints: dict[str, Checkpoint]
 ) -> dict[int, list[str]]:
     """Returns a list of required variables for each decoder from all checkpoints. Will return the union if one checkpoint has more outputs than the others"""

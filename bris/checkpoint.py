@@ -149,7 +149,6 @@ class Checkpoint:
             else None
         )
 
-    # Do we need this now?
     @property
     def _get_copy_model_params(self) -> dict:
         """

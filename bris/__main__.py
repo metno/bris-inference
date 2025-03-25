@@ -10,7 +10,6 @@ from omegaconf import DictConfig
 
 import bris.routes
 
-# import bris.utils
 from bris.data.datamodule import DataModule
 
 from .checkpoint import Checkpoint
@@ -42,7 +41,6 @@ def main():
         for model in models
     }
     set_encoder_decoder_num_chunks(getattr(config, "inference_num_chunks", 1))
-    set_base_seed()  # TODO: See if we can remove this
 
     # Get timestep from checkpoint. Also store a version in seconds for local use.
     for model in models:
@@ -124,7 +122,7 @@ def main():
         checkpoints,
         config.workdir,
     )
-    required_variables = bris.routes.get_required_variables_full(
+    required_variables = bris.routes.get_required_variables_all_checkpoints(
         config["routing"], checkpoints
     )
     writer = CustomWriter(decoder_outputs, write_interval="batch")

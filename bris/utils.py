@@ -245,10 +245,7 @@ def set_encoder_decoder_num_chunks(chunks: int = 1) -> None:
 
 def set_base_seed() -> None:
     """
-    TODO: Explain what this function does.
-
-    Fetchs the original base seed used during training.
-    If not
+    Sets os environment variables ANEMOI_BASE_SEED and AIFS_BASE_SEED.
     """
     os.environ["ANEMOI_BASE_SEED"] = "1234"
     os.environ["AIFS_BASE_SEED"] = "1234"
@@ -262,7 +259,7 @@ def get_all_leadtimes(
     timestep_interpolator: int = 3600,
 ) -> np.ndarray:
     """
-    Calculates all the leadtimes in the output with combined forecaster and interpolator.
+    Calculates all the leadtimes in the output with combined forecaster and interpolator. 
     """
     high_res = (
         np.arange(leadtimes_interpolator * timestep_forecaster // timestep_interpolator)
