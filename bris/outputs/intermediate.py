@@ -1,5 +1,6 @@
 import glob
 import os
+from typing import Optional
 
 import numpy as np
 
@@ -14,8 +15,13 @@ class Intermediate(Output):
     forecast_reference_time and ensemble_member
     """
 
-    def __init__(self, predict_metadata: PredictMetadata, workdir: str):
-        super().__init__(predict_metadata)
+    def __init__(
+            self, 
+            predict_metadata: PredictMetadata, 
+            workdir: str, 
+            extra_variables: Optional[list] = None,
+        ) -> None:
+        super().__init__(predict_metadata, extra_variables)
         self.pm = predict_metadata
         self.workdir = workdir
 
@@ -26,12 +32,14 @@ class Intermediate(Output):
         np.save(filename, pred)
 
     def get_filename(self, forecast_reference_time, ensemble_member):
+        print('forecast_reference_time:', forecast_reference_time)
         frt_ut = utils.datetime_to_unixtime(forecast_reference_time)
         return f"{self.workdir}/{frt_ut:.0f}_{ensemble_member:.0f}.npy"
 
     def get_forecast_reference_times(self):
         """Returns all forecast reference times that have been saved"""
         filenames = self.get_filenames()
+        print('filenames:', filenames)
         frts = list()
         for filename in filenames:
             frt_ut, _ = filename.split("/")[-1].split("_")

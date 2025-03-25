@@ -34,7 +34,11 @@ class BasePredictor(pl.LightningModule):
         self.model_comm_group_id = 0
         self.model_comm_group_rank = 0
         self.model_comm_num_groups = 1
-        self.model_comm_ens_group_rank = 0
+
+        self.ens_comm_group = None
+        self.ens_comm_group_id = 0
+        self.ens_comm_group_rank = 0
+        self.ens_comm_num_groups = 1
 
         if check_anemoi_training(checkpoint.metadata):
             self.legacy = False
@@ -55,18 +59,20 @@ class BasePredictor(pl.LightningModule):
                 hardware_config["num_gpus_per_ensemble"]
                 // hardware_config["num_gpus_per_model"]
             )
-            self.ens_comm_num_groups = math.ceil(
-                hardware_config["num_gpus_per_node"]
-                * hardware_config["num_nodes"]
-                / hardware_config["num_gpus_per_ensemble"]
+
+            self.ens_comm_group = None
+            self.ens_comm_num_groups = int(
+                hardware_config["num_gpus_per_ensemble"]
+                // hardware_config["num_gpus_per_model"]
             )
             self.ens_comm_group_id = (
                 int(os.environ.get("SLURM_PROCID", "0")) 
-                // hardware_config["num_gpus_per_ensemble"]
+                % self.ens_comm_num_groups
             )
             self.ens_comm_group_rank = (
                 int(os.environ.get("SLURM_PROCID", "0"))
                 % hardware_config["num_gpus_per_ensemble"]
+                // hardware_config["num_gpus_per_model"]
             )
         else:
             # Lazy init
@@ -74,7 +80,16 @@ class BasePredictor(pl.LightningModule):
             self.model_comm_group_id = 0
             self.model_comm_group_rank = 0
             self.model_comm_num_groups = 1
-            self.model_comm_ens_group_rank = 0
+
+            self.ens_comm_group = None
+            self.ens_comm_group_id = 0
+            self.ens_comm_group_rank = 0
+            self.ens_comm_num_groups = 1
+
+        #print('self.ens_comm_group_id:', self.ens_comm_group_id)
+        print('self.ens_comm_group_rank:', self.ens_comm_group_rank)
+        #print('self.ens_comm_num_groups:', self.ens_comm_num_groups)
+        #stop
 
     def set_model_comm_group(
         self,
@@ -94,9 +109,18 @@ class BasePredictor(pl.LightningModule):
     def set_ensemble_comm_group(
         self, 
         ens_comm_group: ProcessGroup,
+        ens_comm_group_id: int = None,
+        ens_comm_group_rank: int = None,
+        ens_comm_num_groups: int = None,
+        ens_comm_group_size: int = None,
     ) -> None:
         self.ens_comm_group = ens_comm_group
         self.ens_comm_group_size = None #dist.get_world_size(group=ens_comm_group)
+        if not self.legacy:
+            self.ens_comm_group_id = ens_comm_group_id
+            self.ens_comm_group_rank = ens_comm_group_rank
+            self.ens_comm_num_groups = ens_comm_num_groups
+            self.ens_comm_group_size = ens_comm_group_size
 
     def set_reader_groups(
         self,
@@ -583,7 +607,7 @@ class MultiEncDecPredictor(BasePredictor):
             "pred": y_preds,
             "times": times,
             "group_rank": self.model_comm_group_rank,
-            "ensemble_member": self.ens_comm_group_rank,
+            "ensemble_member": self.ens_comm_group_id,
         }
 
 

@@ -3,6 +3,7 @@ import datetime
 import gridpp
 import numpy as np
 import xarray as xr
+import pandas as pd
 
 import bris.units
 from bris import projections, utils
@@ -61,9 +62,8 @@ class Netcdf(Output):
 
         self.intermediate = None
         if self.pm.num_members > 1:
-            self.intermediate = Intermediate(predict_metadata, workdir)
+            self.intermediate = Intermediate(predict_metadata, workdir, extra_variables)
             print(self.intermediate.extra_variables)
-            stop
 
         self.variable_list = VariableList(self.extract_variables)
 
@@ -101,7 +101,9 @@ class Netcdf(Output):
         else:
             assert ensemble_member == 0
 
+            print('times:', times)
             forecast_reference_time = times[0].astype("datetime64[s]").astype("int")
+            print('forecast_reference_time:', forecast_reference_time)
 
             filename = self.get_filename(forecast_reference_time)
 
@@ -141,7 +143,9 @@ class Netcdf(Output):
 
         # TODO: Seconds or hours for leadtimes?
         times_ut = utils.datetime_to_unixtime(times)
+        print("times_ut:", times_ut)
         frt_ut = times_ut[0]
+        print("frt_ut:", frt_ut)
         coords[c("time")] = np.array(times_ut).astype(np.double)
 
         if self._is_gridded:
@@ -384,6 +388,8 @@ class Netcdf(Output):
                 # Reconstruct the 2D array (nans where no data)
                 ar[:, self.mask, :] = curr
             else:
+                print('pred.shape:', pred.shape)
+                print('shape:', shape)
                 ar = np.reshape(pred[..., variable_index, :], shape)
 
             ar = np.moveaxis(ar, [-1], [1]) if self.pm.num_members > 1 else ar[..., 0]
@@ -425,7 +431,7 @@ class Netcdf(Output):
     def finalize(self):
         if self.intermediate is not None:
             # Load data from the intermediate and write to disk
-            forecast_reference_times = self.intermediate.get_time_sets()
+            forecast_reference_times = self.intermediate.get_forecast_reference_times()
             for forecast_reference_time in forecast_reference_times:
                 # Arange all ensemble members
                 pred = np.zeros(self.pm.shape + [self.pm.num_members], np.float32)
@@ -434,8 +440,11 @@ class Netcdf(Output):
                     if curr is not None:
                         pred[..., m] = curr
 
-                filename = self.get_filename(forecast_reference_time)
-                self.write(filename, forecast_reference_time, pred)
+                
+                time = forecast_reference_time.astype("datetime64[s]").astype("int")
+                filename = self.get_filename(time)
+                lead_times = pd.date_range(start=forecast_reference_time, periods=pred.shape[0], freq='6h')
+                self.write(filename, lead_times, pred)
 
     def get_lower(self, array):
         m = np.min(array)
@@ -491,6 +500,7 @@ class VariableList:
         # Sort levels
         for cfname, v in cfname_to_levels.items():
             for leveltype, vv in v.items():
+                print('vv:', vv)
                 if leveltype == "height" and len(vv) > 1:
                     raise Exception(
                         f"A variable {cfname} with height leveltype should only have one level"
