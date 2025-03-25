@@ -79,9 +79,6 @@ def create_config(parser: ArgumentParser) -> OmegaConf:
     LOGGER.debug("config file from %s is loaded", args.config)
 
     parser.add_argument(
-        "-c", type=str, dest="checkpoint_path", default=config.checkpoint_path
-    )
-    parser.add_argument(
         "-sd",
         type=str,
         dest="start_date",
@@ -113,7 +110,12 @@ def create_config(parser: ArgumentParser) -> OmegaConf:
     # TODO: Logic that can add dataset or cutout dataset to the dataloader config
 
     parser.add_argument("-f", type=str, dest="frequency", default=config.frequency)
-    parser.add_argument("-l", type=int, dest="leadtimes", default=config.leadtimes)
+    parser.add_argument(
+        "-l",
+        type=int,
+        dest="checkpoints.forecaster.leadtimes",
+        default=config.checkpoints.forecaster.leadtimes,
+    )
     args = parser.parse_args()
 
     args_dict = vars(args)
@@ -231,3 +233,42 @@ def get_base_seed(env_var_list=("AIFS_BASE_SEED", "SLURM_JOB_ID")) -> int:
         base_seed = base_seed * 1000  # make it (hopefully) big enough
 
     return base_seed
+
+
+def set_encoder_decoder_num_chunks(chunks: int = 1) -> None:
+    assert isinstance(chunks, int), (
+        f"Expecting chunks to be int, got: {chunks}, {type(chunks)}"
+    )
+    os.environ["ANEMOI_INFERENCE_NUM_CHUNKS"] = str(chunks)
+    LOGGER.info("Encoder and decoder are chunked to %s", chunks)
+
+
+def set_base_seed() -> None:
+    """
+    Sets os environment variables ANEMOI_BASE_SEED and AIFS_BASE_SEED.
+    """
+    os.environ["ANEMOI_BASE_SEED"] = "1234"
+    os.environ["AIFS_BASE_SEED"] = "1234"
+    LOGGER.info("ANEMOI_BASE_SEED and ANEMOI_BASE_SEED set to 1234")
+
+
+def get_all_leadtimes(
+    leadtimes_forecaster: int,
+    timestep_forecaster: int,
+    leadtimes_interpolator: int = 0,
+    timestep_interpolator: int = 3600,
+) -> np.ndarray:
+    """
+    Calculates all the leadtimes in the output with combined forecaster and interpolator.
+    """
+    high_res = (
+        np.arange(leadtimes_interpolator * timestep_forecaster // timestep_interpolator)
+        * timestep_interpolator
+    )
+    low_res = np.arange(
+        (leadtimes_interpolator * timestep_forecaster),
+        (leadtimes_forecaster * timestep_forecaster),
+        timestep_forecaster,
+    )
+
+    return np.concatenate([high_res, low_res])

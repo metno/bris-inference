@@ -21,13 +21,11 @@ class Inference:
         model: pl.LightningModule,
         callbacks: Any,
         datamodule: DataModule,
-        checkpoint: Checkpoint,
         precision: Optional[str] = None,
         device: Optional[str] = None,
     ) -> None:
         self.config = config
         self.model = model
-        self.checkpoint = checkpoint
         self.callbacks = callbacks
         self.datamodule = datamodule
         self.precision = precision
