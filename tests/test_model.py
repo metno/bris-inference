@@ -1,14 +1,33 @@
 import os
 
+import pytest
 from anemoi.utils.config import DotDict
+from hydra.utils import instantiate
 from omegaconf import OmegaConf
 
 import bris.checkpoint
 import bris.model
+import bris.routes
 from bris.data.datamodule import DataModule
 
 
 def test_bris_predictor():
+    """Set up a default configuration and do a simple test of the BrisPredictor class.
+    Test will be skipped if the required dataset is not available."""
+    dataset_path = "./bris_random_data.zarr"
+    if os.environ.get("TOX_WORK_DIR"):
+        dataset_path = os.environ.get("TOX_WORK_DIR") + "/bris_random_data.zarr"
+
+    if not os.path.exists(dataset_path):
+        pytest.skip(
+            "Skipping test_bris_predictor, as the required dataset is not available. Run `tox -e trainingdata`."
+        )
+
+    if not os.path.exists(dataset_path):
+        raise FileNotFoundError(
+            f"File {dataset_path} not found at {os.path.abspath(dataset_path)}"
+        )
+
     checkpoint_path = (
         os.path.dirname(os.path.abspath(__file__)) + "/files/checkpoint.ckpt"
     )
@@ -25,7 +44,7 @@ def test_bris_predictor():
         "frequency": "6h",
         "release_cache": True,
         "inference_num_chunks": 32,
-        "dataset_path": "/home/larsfp/nobackup/bris_random_data.zarr",
+        "dataset": dataset_path,
         "workdir": "/tmp",
         "dataloader": {
             "prefetch_factor": 2,
@@ -61,32 +80,45 @@ def test_bris_predictor():
     }
     args_dict = {
         "debug": False,
-        # "config": "config/larsfp.yaml",
-        # "checkpoint_path": "/home/larsfp/nobackup/output/checkpoint/1aece27b-be55-496a-b4f5-72649019f1d4/inference-last.ckpt",
-        # "start_date": "2022-01-01T00:00:00",
-        # "end_date": "2022-01-02T00:00:00",
-        # "dataset_path": None,
-        # "workdir": "/tmp",
+        "config": "config/tox_test_inference.yaml",
+        "dataset_path": None,
         "dataset_path_cutout": None,
-        # "frequency": "6h",
-        # "leadtimes": 2,
     }
     config = OmegaConf.merge(config, OmegaConf.create(args_dict))
+    config.dataset = {
+        "dataset": config.dataset,
+        "start": config.start_date,
+        "end": config.end_date,
+        "frequency": config.frequency,
+    }
 
     datamodule = DataModule(
         config=config,
         checkpoint_object=checkpoint,
     )
 
-    bp = bris.model.BrisPredictor(
+    required_variables = bris.routes.get_required_variables(
+        config["routing"], checkpoint
+    )
+
+    # Forecaster must know about what leadtimes to output
+    _model = instantiate(
+        config.model,
+        checkpoint=checkpoint,
+        hardware_config=config.hardware,
+        datamodule=datamodule,
+        forecast_length=config.leadtimes,
+        required_variables=required_variables,
+        release_cache=config.release_cache,
+    )
+
+    _bp = bris.model.BrisPredictor(
         checkpoint=checkpoint,
         datamodule=datamodule,
         forecast_length=1,
-        required_variables={},
+        required_variables=required_variables,
         hardware_config=DotDict(config.hardware_config),
     )
-
-    print(bp)
 
 
 if __name__ == "__main__":

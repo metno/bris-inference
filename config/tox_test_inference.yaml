@@ -5,7 +5,7 @@ end_date: 2022-01-02T00:00:00
 
 checkpoint_path: ./inference-last.ckpt
 
-dataset: ../../train/tmp/bris_random_data.zarr
+dataset: ./bris_random_data.zarr
 workdir: /tmp/
 
 leadtimes: 2
