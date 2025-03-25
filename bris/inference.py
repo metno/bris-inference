@@ -6,7 +6,7 @@ import pytorch_lightning as pl
 import torch
 from anemoi.utils.config import DotDict
 
-from bris.ddp_strategy import DDPGroupStrategy
+from bris.ddp_strategy import DDPGroupStrategy, DDPEnsGroupStrategy
 
 from .checkpoint import Checkpoint
 from .data.datamodule import DataModule
@@ -50,8 +50,9 @@ class Inference:
 
     @cached_property
     def strategy(self):
-        return DDPGroupStrategy(
+        return DDPEnsGroupStrategy(
             num_gpus_per_model=self.config.hardware.num_gpus_per_model,
+            num_gpus_per_ensemble=self.config.hardware.num_gpus_per_ensemble,
             read_group_size=1,
             static_graph=False,
         )

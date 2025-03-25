@@ -160,7 +160,7 @@ class DataModule(pl.LightningDataModule):
     def grid_indices(self) -> type[BaseGridIndices]:
         # TODO: This currently only supports fullgrid for multi-encoder/decoder
         reader_group_size = 1  # Generalize this later
-        graph_cfg = self.checkpoint_object.config.graph
+        graph_cfg = self.checkpoint_object.config.graphs
 
         # Multi_encoder/decoder
         if "input_nodes" in graph_cfg:
@@ -178,7 +178,7 @@ class DataModule(pl.LightningDataModule):
                 LOGGER.info("Using grid indices from dataloader config")
             else:
                 grid_indices = FullGrid(
-                    nodes_name="data", reader_group_size=reader_group_size
+                    nodes_name="grid", reader_group_size=reader_group_size
                 )
                 LOGGER.info(
                     "grid_indices not found in dataloader config, defaulting to FullGrid"

@@ -62,6 +62,8 @@ class Netcdf(Output):
         self.intermediate = None
         if self.pm.num_members > 1:
             self.intermediate = Intermediate(predict_metadata, workdir)
+            print(self.intermediate.extra_variables)
+            stop
 
         self.variable_list = VariableList(self.extract_variables)
 
@@ -413,6 +415,9 @@ class Netcdf(Output):
         self.ds.attrs["Convensions"] = "CF-1.6"
         for key, value in self.global_attributes.items():
             self.ds.attrs[key] = value
+
+        #print('tp.min():', self.ds['precipitation_amount'].min())
+        #stop
 
         utils.create_directory(filename)
         self.ds.to_netcdf(filename)

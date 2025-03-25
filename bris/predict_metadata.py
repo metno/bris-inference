@@ -17,6 +17,7 @@ class PredictMetadata:
             assert np.prod(field_shape) == len(lats), (field_shape, len(lats))
 
         self.variables = variables
+        print('PredictMetadata: self.variables:', self.variables)
 
         # Ensure lons are on the interval -180, 180
         self.lats = np.array(lats)

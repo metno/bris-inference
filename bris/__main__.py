@@ -50,6 +50,13 @@ def main():
     timestep_seconds = frequency_to_seconds(config.timestep)
 
     num_members = 1
+    try:
+        num_members = int(
+            config['hardware']['num_gpus_per_ensemble']
+            // config['hardware']['num_gpus_per_model']
+        )
+    except:
+        LOGGER.debug("GPUs per ensembles not found in config")
 
     # Get multistep. A default of 2 to ignore multistep in start_date calculation if not set.
     multistep = 2
@@ -98,6 +105,7 @@ def main():
         checkpoint,
         config.workdir,
     )
+    print('decoder_outputs:', decoder_outputs)
     required_variables = bris.routes.get_required_variables(
         config["routing"], checkpoint
     )

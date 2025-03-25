@@ -71,11 +71,17 @@ class Output:
         Args:
             predict_metadata: Contains metadata about the batch the output will recieve
         """
+
+        print('extra_variables:', extra_variables)
         if extra_variables is None:
             extra_variables = []
 
+        print('predict_metadata.variables:', predict_metadata.variables)
+
         predict_metadata = copy.deepcopy(predict_metadata)
         predict_metadata.variables += extra_variables
+
+        print('predict_metadata.variables:', predict_metadata.variables)
 
         self.pm = predict_metadata
         self.extra_variables = extra_variables
@@ -88,6 +94,9 @@ class Output:
             ensemble_member: Which ensemble member is this?
             pred: 3D numpy array with dimensions (leadtime, location, variable)
         """
+
+        print('ensemble_member:', ensemble_member)
+        print('pred.shape:', pred.shape)
 
         # Append extra variables to prediction
         extra_pred = list()
@@ -104,11 +113,15 @@ class Output:
 
         assert pred.shape[0] == self.pm.num_leadtimes
         assert pred.shape[1] == len(self.pm.lats)
+        print('pred.shape[2]:', pred.shape[2])
+        print('len(self.pm.variables:', len(self.pm.variables))
+        print('self.pm.variables:', self.pm.variables)
         assert pred.shape[2] == len(self.pm.variables), (
-            pred.shape,
+            pred.shape[2],
             len(self.pm.variables),
         )
         assert ensemble_member >= 0
+        print('self.pm.num_members:', self.pm.num_members)
         assert ensemble_member < self.pm.num_members
 
         self._add_forecast(times, ensemble_member, pred)
