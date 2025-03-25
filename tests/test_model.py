@@ -95,6 +95,8 @@ def test_bris_predictor():
     datamodule = DataModule(
         config=config,
         checkpoint_object=checkpoint,
+        timestep=config.timestep,
+        frequency=config.frequency,
     )
 
     required_variables = bris.routes.get_required_variables(
