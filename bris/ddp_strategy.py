@@ -287,10 +287,16 @@ class DDPGroupStrategy(DDPStrategy):
 class DDPEnsGroupStrategy(DDPStrategy):
     """Distributed Data Parallel strategy with group communication for ensembles."""
 
-    def __init__(self, num_gpus_per_model: int, num_gpus_per_ensemble: int, **kwargs):
+    def __init__(
+            self,
+            num_gpus_per_model: int,
+            members_in_parallel: int,
+            **kwargs,
+        ) -> None:
         super().__init__(**kwargs)
-        self.ens_comm_group_size = num_gpus_per_ensemble
+        self.ens_comm_group_size = num_gpus_per_model * members_in_parallel
         self.model_comm_group_size = num_gpus_per_model
+        self.members_in_parallel = members_in_parallel
 
     def setup(self, trainer: pl.Trainer) -> None:
         assert self.accelerator is not None, "Accelerator is not initialized for distributed strategy"

@@ -52,7 +52,7 @@ class Inference:
     def strategy(self):
         return DDPEnsGroupStrategy(
             num_gpus_per_model=self.config.hardware.num_gpus_per_model,
-            num_gpus_per_ensemble=self.config.hardware.num_gpus_per_ensemble,
+            members_in_parallel=self.config.hardware.members_in_parallel,
             read_group_size=1,
             static_graph=False,
         )

@@ -52,11 +52,10 @@ def main():
     num_members = 1
     try:
         num_members = int(
-            config['hardware']['num_gpus_per_ensemble']
-            // config['hardware']['num_gpus_per_model']
+            config['hardware']['members_in_parallel']
         )
     except:
-        LOGGER.debug("GPUs per ensembles not found in config")
+        LOGGER.debug("Key 'members_in_parallel' was not found in config")
 
     # Get multistep. A default of 2 to ignore multistep in start_date calculation if not set.
     multistep = 2
