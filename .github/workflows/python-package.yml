@@ -64,6 +64,10 @@ jobs:
       run: |
         tox -e ruff_check
 
+    - name: Fetch dataset
+      run: |
+        tox -e trainingdata
+
     - name: Run inference
       run: |
         tox -e inference_CI
