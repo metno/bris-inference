@@ -152,8 +152,8 @@ def inspect(checkpoint_path: str, debug: bool = False) -> int:
 
     if hash_modules:
         print(
-            "The following modules were not installed from a package. Visit"
-            "the repo for each module and search for the hash. Install"
+            "The following modules were not installed from a package. Visit "
+            "the repo for each module and search for the hash. Install "
             "directly from hash using for example `pip install "
             "git+https://github.com/metno/example-module.git@80c9fbf`"
         )
