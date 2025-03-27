@@ -17,10 +17,10 @@ def clean_version_name(name: str) -> str:
     return name
 
 
-def get_installable_name(name: str) -> str:
+def get_pip_name(name: str) -> str:
     """Workaround for modules with legacy name, like PIL is really Pillow. If
     not found, return input."""
-    names = {"PIL": "Pillow", "attr": "attrs"}
+    names = {"PIL": "pillow", "attr": "attrs"}
     return names.get(name, name)
 
 
@@ -53,10 +53,12 @@ def check_module_versions(checkpoint: Checkpoint, debug: bool = False) -> list:
                     )
 
                 modules_with_wrong_version.append(
-                    f"{get_installable_name(module)}=={clean_version_name(checkpoint.metadata.provenance_training.module_versions[module])}"
+                    f"{get_pip_name(module)}=={clean_version_name(checkpoint.metadata.provenance_training.module_versions[module])}"
                 )
         except AttributeError:
-            print(f"  Error: Could not find version for module <{get_installable_name(module)}>.")
+            print(
+                f"  Error: Could not find version for module <{get_pip_name(module)}>."
+            )
             modules_with_wrong_version.append(
                 f"{module}=={clean_version_name(checkpoint.metadata.provenance_training.module_versions[module])}"
             )
