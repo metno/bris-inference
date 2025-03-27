@@ -6,7 +6,11 @@ import bris.inspect
 
 def test_clean_version_name():
     """Very basic test of removing +... from version name"""
-    assert bris.inspect.clean_version_name("2.6.0+cu124") == "2.6.0"
+    assert bris.inspect.clean_version_name("2.6.0+cu124") == ("2.6.0", "")
+    assert bris.inspect.clean_version_name("anemoi-models-0.1.dev92+g80c9fbf") == (
+        "anemoi-models-0.1.dev92",
+        "80c9fbf",
+    )
 
 
 def test_get_required_variables():
