@@ -62,7 +62,7 @@ class BasePredictor(pl.LightningModule):
 
             self.ens_comm_group = None
             self.ens_comm_num_groups = int(
-                hardware_config["members_per_model"]
+                hardware_config["members_in_parallel"]
             )
             self.ens_comm_group_id = (
                 int(os.environ.get("SLURM_PROCID", "0")) 
@@ -83,8 +83,6 @@ class BasePredictor(pl.LightningModule):
             self.ens_comm_group_id = 0
             self.ens_comm_group_rank = 0
             self.ens_comm_num_groups = 1
-
-        print('self.ens_comm_group_rank:', self.ens_comm_group_rank)
 
     def set_model_comm_group(
         self,
