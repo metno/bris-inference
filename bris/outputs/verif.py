@@ -21,21 +21,24 @@ class Verif(Output):
         predict_metadata: PredictMetadata,
         workdir: str,
         filename: str,
-        variable=None,
-        variable_type=None,
-        obs_sources=list,
-        units=None,
-        thresholds=None,
-        quantile_levels=None,
-        consensus_method="control",
-        elev_gradient=None,
-        max_distance=None,
+        variable: str = None,
+        variable_type: str = None,
+        obs_sources: list = None,
+        units: str = None,
+        thresholds: list = None,
+        quantile_levels: list = None,
+        consensus_method:str = "control",
+        elev_gradient: float = None,
+        max_distance: float = None,
     ):
         """
         Args:
             units: Units to put in Verif file. Should be the same as the observations
             elev_gradient: Apply this elevation gradient when downscaling from grid to point (e.g.
                 -0.0065 for temperature)
+            variable_type: 'logit' or 'threshold_probability'
+            consensus_method: Whether to use the control member ('control') or ensemble mean
+            ('mean') as the forecast prediction
         """
         if quantile_levels is None:
             quantile_levels = []
@@ -194,7 +197,13 @@ class Verif(Output):
 
     @property
     def num_members(self):
+        print('self.intermediate.num_members:', self.intermediate.num_members)
         return self.intermediate.num_members
+
+    @staticmethod
+    def create_nan_array(shape, dtype=np.float32):
+        """Create numpy array of NaNs to be overwritten"""
+        return np.full(shape, np.nan, dtype)
 
     def finalize(self):
         """Write forecasts and observations to file"""
@@ -226,14 +235,12 @@ class Verif(Output):
             self.opoints.get_elevs(),
             cf.get_attributes("surface_altitude"),
         )
-        """
-        coords["ensemble_member"] = (
-                ["ensemble_member"],
-                self.ensemble_members,
-                cf.get_attributes("ensemble_member"),
-        )
-        """
+        print('self.num_members:', self.num_members)
         if self.num_members > 1:
+            coords["ensemble_member"] = (
+                ["ensemble_member"],
+                np.arange(self.num_members),
+            )
             if len(self.thresholds) > 0:
                 coords["threshold"] = (
                     ["threshold"],
@@ -254,17 +261,18 @@ class Verif(Output):
         self.ds["time"] = utils.datetime_to_unixtime(frts).astype(np.double)
 
         # Load forecasts
-        fcst = np.nan * np.zeros(
-            [
-                len(frts),
-                self.intermediate.pm.num_leadtimes,
-                self.intermediate.pm.num_points,
-            ],
-            np.float32,
+        fcst_shape = (
+            len(frts),
+            self.intermediate.pm.num_leadtimes,
+            self.intermediate.pm.num_points,
         )
+        fcst = self.create_nan_array(fcst_shape)
+        ens = self.create_nan_array(fcst_shape + (self.num_members,))
         for i, frt in enumerate(frts):
             curr = self.intermediate.get_forecast(frt)[..., 0, :]
             fcst[i, ...] = self.compute_consensus(curr)
+            if self.num_members > 1:
+                ens[i, ...] = curr
 
         if self.variable_type in ["logit", "threshold_probability"]:
             cdf = np.copy(fcst)
@@ -280,17 +288,14 @@ class Verif(Output):
         else:
             self.ds["fcst"] = (["time", "leadtime", "location"], fcst)
 
+            if self.num_members > 1:
+                self.ds["ensemble"] = (
+                        ["time", "leadtime", "location", "ensemble_member"], 
+                        ens
+                )
             # Load threshold forecasts
             if len(self.thresholds) > 0 and self.num_members > 1:
-                cdf = np.nan * np.zeros(
-                    [
-                        len(frts),
-                        self.intermediate.pm.num_leadtimes,
-                        self.intermediate.pm.num_points,
-                        len(self.thresholds),
-                    ],
-                    np.float32,
-                )
+                cdf = self.create_nan_array(fcst_shape + (len(self.thresholds),))
                 for i, frt in enumerate(frts):
                     curr = self.intermediate.get_forecast(frt)[..., 0, :]
                     for t, threshold in enumerate(self.thresholds):
@@ -303,15 +308,7 @@ class Verif(Output):
 
             # Load quantile forecasts
             if len(self.quantile_levels) > 0 and self.num_members > 1:
-                x = np.nan * np.zeros(
-                    [
-                        len(frts),
-                        self.intermediate.pm.num_leadtimes,
-                        self.intermediate.pm.num_points,
-                        len(self.quantile_levels),
-                    ],
-                    np.float32,
-                )
+                x = self.create_nan_array(fcst_shape + (len(self.quantile_levels),))
                 for i, frt in enumerate(frts):
                     curr = self.intermediate.get_forecast(frt)[
                         :, :, 0, :
@@ -343,14 +340,7 @@ class Verif(Output):
             frequency = int(np.min(np.diff(unique_valid_times)))
 
         # Fill in retrieved observations into our obs array.
-        obs = np.nan * np.zeros(
-            [
-                len(frts),
-                self.intermediate.pm.num_leadtimes,
-                self.intermediate.pm.num_points,
-            ],
-            np.float32,
-        )
+        obs = self.create_nan_array(fcst_shape)
         count = 0
         for obs_source in self.obs_sources:
             curr = obs_source.get(self.variable, start_time, end_time, frequency)
@@ -437,6 +427,25 @@ class Verif(Output):
             p[p > 1] = 1
             p[p < 0] = 0
         return p
+
+    def compute_crps(self, preds, targets, alpha=1.0):
+        """(Almost fair) CRPS. Inspired by AIFS-CRPS article."""
+
+        epsilon = (1.0 - alpha) / self.num_members
+
+        var = np.abs(preds[..., None] - preds[..., None, :])
+        diag = np.eye(self.num_members, dtype=np.bool)
+        err_r = np.repeat(np.abs(preds - targets[None]), self.num_members, axis=-2)
+        #err_r = einops.repeat(
+        #                 torch.abs(preds - targets.unsqueeze(dim=-1)), "batch var latlon ens -> batch var latlon n ens", n=ens_size
+        #                     )
+
+        mem_err = err_r * ~diag
+        mem_err_T = mem_err.transpose(-1, -2)
+
+        coef = 1.0 / (2.0 * self.num_members * (self.num_members - 1))
+        CRPS = coef * np.sum(mem_err + mem_err_T - (1 - epsilon) * var, axis=(-1, -2)) #+ 1e-4 * 1./(var1 + 1e-3)
+        return CRPS
 
     @staticmethod
     def get_points(predict_metadata, obs_sources, max_distance=None):
