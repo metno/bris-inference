@@ -18,7 +18,7 @@ def instantiate(name: str, predict_metadata: PredictMetadata, workdir: str, init
         # Parse obs sources
         obs_sources = list()
 
-        # Convert to dict, since iverriding obs_sources doesn't seem to work with OmegaConf
+        # Convert to dict, since overriding obs_sources doesn't seem to work with OmegaConf
         args = dict(**init_args)
         for s in init_args["obs_sources"]:
             for name, opts in s.items():
