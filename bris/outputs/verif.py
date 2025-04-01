@@ -197,8 +197,8 @@ class Verif(Output):
 
     @property
     def num_members(self):
-        print('self.intermediate.num_members:', self.intermediate.num_members)
-        return self.intermediate.num_members
+        #return self.intermediate.num_members
+        return self.pm.num_members
 
     @staticmethod
     def create_nan_array(shape, dtype=np.float32):
@@ -270,7 +270,6 @@ class Verif(Output):
         ens = self.create_nan_array(fcst_shape + (self.num_members,))
         for i, frt in enumerate(frts):
             curr = self.intermediate.get_forecast(frt)[..., 0, :]
-            print('curr.shape:', curr.shape)
             fcst[i, ...] = self.compute_consensus(curr)
             if self.num_members > 1:
                 ens[i, ...] = curr
