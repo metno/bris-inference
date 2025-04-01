@@ -270,6 +270,7 @@ class Verif(Output):
         ens = self.create_nan_array(fcst_shape + (self.num_members,))
         for i, frt in enumerate(frts):
             curr = self.intermediate.get_forecast(frt)[..., 0, :]
+            print('curr.shape:', curr.shape)
             fcst[i, ...] = self.compute_consensus(curr)
             if self.num_members > 1:
                 ens[i, ...] = curr

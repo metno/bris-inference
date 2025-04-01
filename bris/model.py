@@ -61,9 +61,12 @@ class BasePredictor(pl.LightningModule):
             )
 
             self.ens_comm_group = None
-            self.ens_comm_num_groups = int(
-                hardware_config["members_in_parallel"]
-            )
+            try:
+                self.ens_comm_num_groups = int(
+                    hardware_config["members_in_parallel"]
+                )
+            except KeyError:
+                self.ens_comm_num_groups = 1
             self.ens_comm_group_id = (
                 int(os.environ.get("SLURM_PROCID", "0")) 
                 // self.ens_comm_num_groups
