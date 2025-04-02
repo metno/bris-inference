@@ -14,7 +14,7 @@ def get_metadata(anemoi_variable: str) -> dict:
     """
     variable_mapping = {
         "2t": ("air_temperature", "height", 2),
-        # This is problematic for metno conventions, since this would put skt into the same
+        # This is problematic for met.no conventions, since this would put skt into the same
         # variable as 2m temperature, which we don't want.
         # "skt": ("air_temperature", "height", 0),
         "2d": ("dew_point_temperature", "height", 2),
@@ -55,7 +55,7 @@ def get_metadata(anemoi_variable: str) -> dict:
         words = anemoi_variable.split("_")
         if len(words) == 2 and words[0] in ["t", "u", "v", "z", "q", "w"]:
             name, level = words[0], int(words[1])
-            cfname = { # noqa: SIM910 None is handled below
+            cfname = {  # noqa: SIM910 - None is explicitly handled in the following code block
                 "t": "air_temperature",
                 "u": "x_wind",
                 "v": "y_wind",
@@ -135,7 +135,6 @@ def get_attributes(cfname):
         "wind_speed",
         "wind_speed_of_gust",
         "vertical_velocity",
-        "wind_speed_of_gust",
     ]:
         ret["units"] = "m/s"
     elif cfname in ["air_temperature", "dew_point_temperature"]:
@@ -160,8 +159,7 @@ def get_attributes(cfname):
     ]:
         ret["units"] = "J/m^2"
 
-    # Unknown cfname, let's not write any attributes
-    else:
-        ret = {}
+    else:  # Handle unknown `cfname` by returning an empty dictionary
+        return {}
 
     return ret
