@@ -8,6 +8,7 @@ the [Anemoi framework](https://github.com/ecmwf/anemoi-training).
 - Model and data-parallel inference
 - Multi encoder/decoder
 - Time interpolation
+- Ensembles
 
 ## Documentation
 
