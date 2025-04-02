@@ -40,7 +40,7 @@ class Metadata(DotDict):
 
 
 class Checkpoint:
-    """This class makes accessible various information stored in Anemoi checkpoints"""
+    """This class makes accessible various information stored in Anemoi checkpoints."""
 
     def __init__(self, path: str, graph: Optional[str] = None):
         assert os.path.exists(path), f"The given checkpoint {path} does not exist!"
