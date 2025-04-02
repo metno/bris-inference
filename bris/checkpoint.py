@@ -2,7 +2,7 @@ import logging
 import os
 from copy import deepcopy
 from functools import cached_property
-from typing import Optional, TypedDict
+from typing import Optional
 
 import torch
 from anemoi.models.data_indices.collection import IndexCollection
@@ -241,13 +241,11 @@ class Checkpoint:
         _data_indices = self._model_instance.data_indices
         if isinstance(_data_indices, (tuple, list)) and len(_data_indices) >= 2:
             return tuple(
-                [
-                    {
-                        index: var
-                        for var, index in self.name_to_index[decoder_index].items()
-                    }
-                    for decoder_index in range(len(self.name_to_index))
-                ]
+                {
+                    index: var
+                    for (var, index) in self.name_to_index[decoder_index].items()
+                }
+                for decoder_index in range(len(self.name_to_index))
             )
         return ({index: name for name, index in _data_indices.name_to_index.items()},)
 
