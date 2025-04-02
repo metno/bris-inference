@@ -5,6 +5,8 @@ pylint:
     - too-many-locals
     - import-outside-toplevel
     - wrong-import-position
+  options:
+    use_pylint_default_path_finder: True
 
 pycodestyle:
   disable:
