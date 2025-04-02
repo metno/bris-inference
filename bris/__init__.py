@@ -11,6 +11,3 @@ def inspect():
     import bris.inspect
 
     bris.inspect.inspect()
-
-
-from . import conventions, outputs, sources, utils
