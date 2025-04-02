@@ -52,22 +52,22 @@ def check_anemoi_training(metadata: DotDict) -> bool:
     )
 
 
-def check_anemoi_dataset_version(metadata) -> tuple[bool, str]:
-    """Not currently in use, but can be handy for testing, debugging."""
-    assert isinstance(metadata, DotDict), (
-        f"Expected metadata to be a DotDict, got {type(metadata)}"
-    )
-    if hasattr(metadata.provenance_training, "module_versions"):
-        try:
-            _version = metadata.provenance_training.module_versions["anemoi.datasets"]
-            _version = re.match(r"^\d+\.\d+\.\d+", _version).group()
-            if _version < "0.5.0":
-                return True, _version
-            return False, _version
-        except AttributeError as e:
-            raise e
-    else:
-        raise RuntimeError("metadata.provenance_training does not module_versions")
+# def check_anemoi_dataset_version(metadata) -> tuple[bool, str]:
+#     """Not currently in use, but can be handy for testing, debugging."""
+#     assert isinstance(metadata, DotDict), (
+#         f"Expected metadata to be a DotDict, got {type(metadata)}"
+#     )
+#     if hasattr(metadata.provenance_training, "module_versions"):
+#         try:
+#             _version = metadata.provenance_training.module_versions["anemoi.datasets"]
+#             _version = re.match(r"^\d+\.\d+\.\d+", _version).group()
+#             if _version < "0.5.0":
+#                 return True, _version
+#             return False, _version
+#         except AttributeError as e:
+#             raise e
+#     else:
+#         raise RuntimeError("metadata.provenance_training does not module_versions")
 
 
 def create_config(parser: ArgumentParser) -> OmegaConf:
@@ -75,15 +75,9 @@ def create_config(parser: ArgumentParser) -> OmegaConf:
 
     validate(args.config, raise_on_error=True)
 
-    try:
-        config = OmegaConf.load(args.config)
-        LOGGER.debug("config file from %s is loaded", args.config)
-    except Exception as e:
-        raise e
+    config = OmegaConf.load(args.config)
+    LOGGER.debug("config file from %s is loaded", args.config)
 
-    parser.add_argument(
-        "-c", type=str, dest="checkpoint_path", default=config.checkpoint_path
-    )
     parser.add_argument(
         "-sd",
         type=str,
@@ -116,7 +110,12 @@ def create_config(parser: ArgumentParser) -> OmegaConf:
     # TODO: Logic that can add dataset or cutout dataset to the dataloader config
 
     parser.add_argument("-f", type=str, dest="frequency", default=config.frequency)
-    parser.add_argument("-l", type=int, dest="leadtimes", default=config.leadtimes)
+    parser.add_argument(
+        "-l",
+        type=int,
+        dest="checkpoints.forecaster.leadtimes",
+        default=config.checkpoints.forecaster.leadtimes,
+    )
     args = parser.parse_args()
 
     args_dict = vars(args)
@@ -156,10 +155,10 @@ def validate(filename: str, raise_on_error: bool = False) -> None:
     try:
         jsonschema.validate(instance=config, schema=schema)
     except jsonschema.exceptions.ValidationError as e:
-        if raise_on_error:
-            raise
         print("WARNING: Schema does not validate")
         print(e)
+        if raise_on_error:
+            raise
 
 
 def recursive_list_to_tuple(data):
@@ -234,3 +233,42 @@ def get_base_seed(env_var_list=("AIFS_BASE_SEED", "SLURM_JOB_ID")) -> int:
         base_seed = base_seed * 1000  # make it (hopefully) big enough
 
     return base_seed
+
+
+def set_encoder_decoder_num_chunks(chunks: int = 1) -> None:
+    assert isinstance(chunks, int), (
+        f"Expecting chunks to be int, got: {chunks}, {type(chunks)}"
+    )
+    os.environ["ANEMOI_INFERENCE_NUM_CHUNKS"] = str(chunks)
+    LOGGER.info("Encoder and decoder are chunked to %s", chunks)
+
+
+def set_base_seed() -> None:
+    """
+    Sets os environment variables ANEMOI_BASE_SEED and AIFS_BASE_SEED.
+    """
+    os.environ["ANEMOI_BASE_SEED"] = "1234"
+    os.environ["AIFS_BASE_SEED"] = "1234"
+    LOGGER.info("ANEMOI_BASE_SEED and ANEMOI_BASE_SEED set to 1234")
+
+
+def get_all_leadtimes(
+    leadtimes_forecaster: int,
+    timestep_forecaster: int,
+    leadtimes_interpolator: int = 0,
+    timestep_interpolator: int = 3600,
+) -> np.ndarray:
+    """
+    Calculates all the leadtimes in the output with combined forecaster and interpolator.
+    """
+    high_res = (
+        np.arange(leadtimes_interpolator * timestep_forecaster // timestep_interpolator)
+        * timestep_interpolator
+    )
+    low_res = np.arange(
+        (leadtimes_interpolator * timestep_forecaster),
+        (leadtimes_forecaster * timestep_forecaster),
+        timestep_forecaster,
+    )
+
+    return np.concatenate([high_res, low_res])

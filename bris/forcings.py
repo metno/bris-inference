@@ -101,6 +101,20 @@ def cos_solar_zenith_angle(date, lat, lon):
     return result.flatten()
 
 
+def anemoi_dynamic_forcings():
+    """
+    Returns list of dynamic forcings calculated by anemoi datasets.
+    If this list is updated the forcing should also be implemented in get_dynamic_forcings
+    """
+    return [
+        "cos_julian_day",
+        "sin_julian_day",
+        "cos_local_time",
+        "sin_local_time",
+        "insolation",
+    ]
+
+
 def get_dynamic_forcings(time, lats, lons, selection):
     forcings = {}
     if "cos_julian_day" in selection:

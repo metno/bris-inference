@@ -1,4 +1,5 @@
 import copy
+from typing import Optional
 
 import numpy as np
 
@@ -58,7 +59,9 @@ def get_required_variables(name, init_args):
 class Output:
     """This class writes output for a specific part of the domain"""
 
-    def __init__(self, predict_metadata: PredictMetadata, extra_variables: dict = None):
+    def __init__(
+        self, predict_metadata: PredictMetadata, extra_variables: Optional[list] = None
+    ):
         """Creates an object of type name with config
 
         Args:
@@ -73,7 +76,7 @@ class Output:
         self.pm = predict_metadata
         self.extra_variables = extra_variables
 
-    def add_forecast(self, times: list, ensemble_member: int, pred: np.array):
+    def add_forecast(self, times: list, ensemble_member: int, pred: np.ndarray):
         """Registers a forecast from a single ensemble member in the output
 
         Args:
@@ -106,7 +109,7 @@ class Output:
 
         self._add_forecast(times, ensemble_member, pred)
 
-    def _add_forecast(self, times: list, ensemble_member: int, pred: np.array):
+    def _add_forecast(self, times: list, ensemble_member: int, pred: np.ndarray):
         """Subclasses should implement this"""
         raise NotImplementedError()
 
