@@ -35,7 +35,7 @@ def get_default_units(iunits):
     return None
 
 
-def get_conversion_map():
+def get_conversion_map() -> dict[tuple[str, str], tuple[float, float]]:
     """Returns conversion map of all possible unit conversions
 
     Returns:
@@ -76,7 +76,7 @@ def get_conversion_map():
     return linear_convert
 
 
-def find_common_name(units):
+def find_common_name(units: str) -> str:
     """Finds a more common name for a strange unit, e.g. celsius instead of C or degC
 
     Args:
@@ -108,7 +108,7 @@ def find_common_name(units):
     return units
 
 
-def convert(array, iunits, ounits=None, inplace=False):
+def convert(array, iunits: str, ounits: str = None, inplace: bool = False):
     """Converts data from one unit to another
 
     Args:
@@ -190,7 +190,7 @@ def convert(array, iunits, ounits=None, inplace=False):
     )
 
 
-def get_time_units_from_unix_time_steps(t0, t1):
+def get_time_units_from_unix_time_steps(t0: float, t1: float) -> str:
     """Compute the unit of the time step: seconds, minutes, hours, days or weeks.
         If none of the above, return units=1.
 

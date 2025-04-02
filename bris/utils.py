@@ -10,7 +10,7 @@ import jsonschema
 import numpy as np
 import yaml
 from anemoi.utils.config import DotDict
-from omegaconf import OmegaConf
+from omegaconf import DictConfig, ListConfig, OmegaConf
 
 LOGGER = logging.getLogger(__name__)
 
@@ -69,7 +69,7 @@ def check_anemoi_training(metadata: DotDict) -> bool:
 #         raise RuntimeError("metadata.provenance_training does not module_versions")
 
 
-def create_config(parser: ArgumentParser) -> OmegaConf:
+def create_config(parser: ArgumentParser) -> DictConfig | ListConfig:
     args, _ = parser.parse_known_args()
 
     validate(args.config, raise_on_error=True)
