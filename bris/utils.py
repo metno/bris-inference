@@ -22,11 +22,6 @@ def expand_time_tokens(filename: str, unixtime: int):
 
     return os.path.abspath(time.strftime(filename, time.gmtime(unixtime)))
 
-#def expand_time_tokens(filename: str, reference_time: str):
-#    """Expand time tokens in a filename and return absolute path."""
-#    print('reference_time:', reference_time)
-#    print('filename:', filename)
-#    return os.path.abspath(time.strftime(filename, reference_time))
 
 def create_directory(filename: str):
     """Creates all sub directories necessary to be able to write filename"""

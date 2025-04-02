@@ -235,7 +235,6 @@ class Verif(Output):
             self.opoints.get_elevs(),
             cf.get_attributes("surface_altitude"),
         )
-        print('self.num_members:', self.num_members)
         if self.num_members > 1:
             coords["ensemble_member"] = (
                 ["ensemble_member"],

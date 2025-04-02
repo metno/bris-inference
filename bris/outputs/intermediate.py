@@ -32,14 +32,12 @@ class Intermediate(Output):
         np.save(filename, pred)
 
     def get_filename(self, forecast_reference_time, ensemble_member):
-        print('forecast_reference_time:', forecast_reference_time)
         frt_ut = utils.datetime_to_unixtime(forecast_reference_time)
         return f"{self.workdir}/{frt_ut:.0f}_{ensemble_member:.0f}.npy"
 
     def get_forecast_reference_times(self):
         """Returns all forecast reference times that have been saved"""
         filenames = self.get_filenames()
-        print('filenames:', filenames)
         frts = list()
         for filename in filenames:
             frt_ut, _ = filename.split("/")[-1].split("_")
@@ -92,7 +90,6 @@ class Intermediate(Output):
         for filename in filenames:
             _, member = filename.split("/")[-1].split(".npy")[0].split("_")
             max_member = max(int(member), max_member)
-
         return max_member + 1
 
     def get_filenames(self):

@@ -74,13 +74,11 @@ def get(
                 num_members,
                 field_shape,
             )
-            print('field_shape:', field_shape)
 
             for output_type, args in oc.items():
                 curr_workdir = utils.get_workdir(workdir) + "_" + str(count)
                 count += 1
                 output = bris.outputs.instantiate(output_type, pm, curr_workdir, args)
-                print('output.extra_variables:', output.extra_variables)
                 outputs += [output]
 
         # We don't need to pass out domain_index, since this is only used to get start/end

@@ -35,7 +35,6 @@ class CustomWriter(BasePredictionWriter):
 
         # TODO: Why is this here, don't we want all data-parallel processes to write to disk?
         if prediction["group_rank"] == 0:  # related to model parallel?
-            print('self.outputs:', self.outputs)
             for output_dict in self.outputs:
                 pred = prediction["pred"][output_dict["decoder_index"]]
                 assert pred.shape[0] == 1, "Batchsize (per dataparallel) should be 1"
@@ -47,7 +46,6 @@ class CustomWriter(BasePredictionWriter):
                 ]
 
                 for output in output_dict["outputs"]:
-                    print('output.extra_variables:', output.extra_variables)
                     output.add_forecast(
                         times, ensemble_member, pred
                     )  # change timestamp to times

@@ -104,7 +104,6 @@ def main():
         checkpoint,
         config.workdir,
     )
-    print('decoder_outputs:', decoder_outputs)
     required_variables = bris.routes.get_required_variables(
         config["routing"], checkpoint
     )
