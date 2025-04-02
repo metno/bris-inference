@@ -62,8 +62,8 @@ def get_metadata(anemoi_variable: str) -> dict:
                 "z": "geopotential",
                 "w": "vertical_velocity",
                 "q": "specific_humidity",
-            }.get(name, None)
-            if cfname is None:
+            }.get(name, "unknown")
+            if cfname == "unknown":
                 raise ValueError(f"Unknown variable name: {name}")
             leveltype = "air_pressure"
         else:
