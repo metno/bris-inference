@@ -8,7 +8,6 @@ from anemoi.utils.config import DotDict
 
 from bris.ddp_strategy import DDPGroupStrategy
 
-from .checkpoint import Checkpoint
 from .data.datamodule import DataModule
 
 LOGGER = logging.getLogger(__name__)

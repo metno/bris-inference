@@ -580,8 +580,8 @@ def get_variable_indices(
     decoder_index: int,
 ) -> tuple[dict, dict]:
     # Set up indices for the variables we want to write to file
-    variable_indices_input = list()
-    variable_indices_output = list()
+    variable_indices_input = []
+    variable_indices_output = []
     for name in required_variables:
         variable_indices_input.append(internal_data.input.name_to_index[name])
         variable_indices_output.append(internal_model.output.name_to_index[name])
