@@ -143,7 +143,7 @@ class Output:
             3D numpy array with dimensions (leadtime, location, variable)
         """
         assert len(pred.shape) == 4
-        T, _Y, X, V = pred.shape
+        T, _Y, _X, V = pred.shape
 
         shape = [T, self.pm.field_shape[0] * self.pm.field_shape[1], V]
         pred = np.reshape(pred, shape)

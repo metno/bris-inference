@@ -237,7 +237,7 @@ class Netcdf(Output):
             if self._interpolate:
                 proj_attrs = {}
                 proj_attrs["grid_mapping_name"] = "latitude_longitude"
-                proj_attrs["earth_radius"] = 6371000.0
+                proj_attrs["earth_radius"] = "6371000.0"
                 self.ds["projection"] = ([], 1, proj_attrs)
             else:
                 lats = self.pm.grid_lats.astype(np.double)
@@ -481,7 +481,7 @@ class VariableList:
             if cfname not in cfname_to_levels:
                 cfname_to_levels[cfname] = {}
             if leveltype not in cfname_to_levels[cfname]:
-                cfname_to_levels[cfname][leveltype] = list()
+                cfname_to_levels[cfname][leveltype] = []
             cfname_to_levels[cfname][leveltype] += [level]
         # Sort levels
         for cfname, v in cfname_to_levels.items():

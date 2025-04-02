@@ -362,9 +362,9 @@ class Verif(Output):
                         bris.units.convert(data, from_units, to_units, inplace=True)
 
                     Iout = range(count, len(obs_source.locations) + count)
-                    for i in range(len(Itimes)):
+                    for _, (itime, ileadtime) in enumerate(zip(Itimes, Ileadtimes)):
                         # Copy observation into all times/leadtimes that matches this valid time
-                        obs[Itimes[i], Ileadtimes[i], Iout] = data
+                        obs[itime, ileadtime, Iout] = data
             count += len(obs_source.locations)
 
         self.ds["obs"] = (["time", "leadtime", "location"], obs)
@@ -376,19 +376,16 @@ class Verif(Output):
         utils.create_directory(self.filename)
         self.ds.to_netcdf(self.filename, mode="w", engine="netcdf4")
 
-    def compute_consensus(self, pred):
+    def compute_consensus(self, pred) -> np.ndarray:
         assert len(pred.shape) == 3, pred.shape
 
         if self.consensus_method == "control":
             return pred[..., 0]
-        elif self.consensus_method == "mean":
+        if self.consensus_method == "mean":
             return np.mean(pred, axis=-1)
-        else:
-            raise NotImplementedError(
-                f"Unknown consensus method {self.consensus_method}"
-            )
+        raise NotImplementedError(f"Unknown consensus method {self.consensus_method}")
 
-    def compute_quantile(self, ar, level, fair=True):
+    def compute_quantile(self, ar, level, fair=True) -> np.ndarray:
         """Extracts a quantile from an array
 
         Args:
@@ -399,7 +396,7 @@ class Verif(Output):
         Returns:
             (N-1)-D numpy array with quantiles
         """
-        assert level >= 0 and level <= 1, f"level={level} must be between 0 and 1"
+        assert 0 <= level <= 1, f"level={level} must be between 0 and 1"
 
         if fair:
             # What quantile level do we assign the lowest member?
@@ -440,10 +437,10 @@ class Verif(Output):
     def get_points(predict_metadata, obs_sources, max_distance=None):
         """Returns point objects for input and output, filtering out output points that are too
         far outside the input"""
-        obs_lats = list()
-        obs_lons = list()
-        obs_altitudes = list()
-        obs_ids = list()
+        obs_lats = []
+        obs_lons = []
+        obs_altitudes = []
+        obs_ids = []
         for obs_source in obs_sources:
             obs_lats += [loc.lat for loc in obs_source.locations]
             obs_lons += [loc.lon for loc in obs_source.locations]
