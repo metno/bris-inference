@@ -2,7 +2,7 @@ import logging
 import os
 from copy import deepcopy
 from functools import cached_property
-from typing import Any, Optional, TypedDict
+from typing import Optional, TypedDict
 
 import torch
 from anemoi.models.data_indices.collection import IndexCollection
@@ -173,7 +173,7 @@ class Checkpoint:
         """
 
         _model_params = self._model_instance.named_parameters()
-        return deepcopy({layer_name: param for layer_name, param in _model_params})
+        return deepcopy(dict(_model_params))
 
     def update_graph(self, path: Optional[str] = None) -> HeteroData:
         """
