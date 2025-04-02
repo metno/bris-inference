@@ -10,14 +10,13 @@ def instantiate(name: str, init_args: dict):
     """
     if name == "frost":
         return sources.frost.Frost(init_args["frost_variable_name"])
-    elif name == "verif":
+    if name == "verif":
         return sources.verif.Verif(init_args["filename"])
-    elif name == "anemoidataset":
+    if name == "anemoidataset":
         return sources.anemoidataset.AnemoiDataset(
             init_args["dataset"], init_args["variable"]
         )
-    else:
-        raise ValueError(f"Invalid source: {name}")
+    raise ValueError(f"Invalid source: {name}")
 
 
 class Source:

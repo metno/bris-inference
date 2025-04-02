@@ -2,7 +2,6 @@ import json
 import logging
 import numbers
 import os
-import re
 import time
 import uuid
 from argparse import ArgumentParser
