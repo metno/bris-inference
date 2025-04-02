@@ -3,10 +3,8 @@ import os
 from argparse import ArgumentParser
 from datetime import datetime, timedelta
 
-import numpy as np
 from anemoi.utils.dates import frequency_to_seconds
 from hydra.utils import instantiate
-from omegaconf import DictConfig
 
 import bris.routes
 from bris.data.datamodule import DataModule
@@ -48,9 +46,9 @@ def main():
         try:
             config.checkpoints[model].timestep = checkpoints[model].config.data.timestep
         except KeyError as err:
-            raise RuntimeError from err(
+            raise RuntimeError(
                 f"Error getting timestep from {model} checkpoint (checkpoint.config.data.timestep)"
-            )
+            ) from err
         config.checkpoints[model].timestep_seconds = frequency_to_seconds(
             config.checkpoints[model].timestep
         )
