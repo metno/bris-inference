@@ -75,29 +75,29 @@ def get_metadata(anemoi_variable: str) -> dict:
     return {"cfname": cfname, "leveltype": leveltype, "level": level}
 
 
-def get_attributes_from_leveltype(leveltype):
-    if leveltype == "air_pressure":
-        return {
-            "units": "hPa",
-            "description": "pressure",
-            "standard_name": "air_pressure",
-            "positive": "up",
-        }
-    if leveltype == "height":
-        return {
-            "units": "m",
-            "description": "height above ground",
-            "long_name": "height",
-            "positive": "up",
-        }
-    if leveltype == "height_above_msl":
-        return {
-            "units": "m",
-            "description": "height above MSL",
-            "long_name": "height",
-            "positive": "up",
-        }
-    raise ValueError(f"Unknown leveltype: {leveltype}")
+# def get_attributes_from_leveltype(leveltype):
+#     if leveltype == "air_pressure":
+#         return {
+#             "units": "hPa",
+#             "description": "pressure",
+#             "standard_name": "air_pressure",
+#             "positive": "up",
+#         }
+#     if leveltype == "height":
+#         return {
+#             "units": "m",
+#             "description": "height above ground",
+#             "long_name": "height",
+#             "positive": "up",
+#         }
+#     if leveltype == "height_above_msl":
+#         return {
+#             "units": "m",
+#             "description": "height above MSL",
+#             "long_name": "height",
+#             "positive": "up",
+#         }
+#     raise ValueError(f"Unknown leveltype: {leveltype}")
 
 
 def get_attributes(cfname):

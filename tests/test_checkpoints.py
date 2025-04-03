@@ -454,11 +454,16 @@ def test_model_output_name_to_index():
 
 
 def test__get_copy_model_params():
-    checkpoint_path = os.path.dirname(os.path.abspath(__file__)) + "/files/checkpoint.ckpt"
+    checkpoint_path = (
+        os.path.dirname(os.path.abspath(__file__)) + "/files/checkpoint.ckpt"
+    )
     checkpoint = bris.checkpoint.Checkpoint(path=checkpoint_path)
     copy_model_params = checkpoint._get_copy_model_params
     assert copy_model_params is not None, "copy_model_params is None"
-    assert "model.encoder.proc.lin_key.weight" in copy_model_params, "copy_model_params does not have model.encoder.proc.lin_key.weight"
+    assert "model.encoder.proc.lin_key.weight" in copy_model_params, (
+        "copy_model_params does not have model.encoder.proc.lin_key.weight"
+    )
+
 
 if __name__ == "__main__":
     test_metadata()
