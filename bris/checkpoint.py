@@ -149,31 +149,31 @@ class Checkpoint:
             else None
         )
 
-    @property
-    def _get_copy_model_params(self) -> dict:
-        """
-        Caches the model's state in CPU memory.
+    # @property
+    # def _get_copy_model_params(self) -> dict:
+    #     """
+    #     Caches the model's state in CPU memory.
 
-        This cache includes only the model's weights
-        and their corresponding layer names. It does not include the
-        optimizer state. Note that this specifically refers to
-        model.named_parameters() and not model.state_dict().
+    #     This cache includes only the model's weights
+    #     and their corresponding layer names. It does not include the
+    #     optimizer state. Note that this specifically refers to
+    #     model.named_parameters() and not model.state_dict().
 
-        A deep copy of the model state is performed
-        to ensure the integrity of the cached data,
-        even if the user decides to update
-        the internal graph of the model later.
+    #     A deep copy of the model state is performed
+    #     to ensure the integrity of the cached data,
+    #     even if the user decides to update
+    #     the internal graph of the model later.
 
-        Args:
-            None
-        Return
-            torch dict containing the state of the model.
-            Keys: name of the layer
-            Value: The state for a given layer
-        """
+    #     Args:
+    #         None
+    #     Return
+    #         torch dict containing the state of the model.
+    #         Keys: name of the layer
+    #         Value: The state for a given layer
+    #     """
 
-        _model_params = self._model_instance.named_parameters()
-        return deepcopy(dict(_model_params))
+    #     _model_params = self._model_instance.named_parameters()
+    #     return deepcopy(dict(_model_params))
 
     def update_graph(self, path: Optional[str] = None) -> HeteroData:
         """
