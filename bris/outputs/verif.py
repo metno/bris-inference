@@ -362,9 +362,9 @@ class Verif(Output):
                         bris.units.convert(data, from_units, to_units, inplace=True)
 
                     Iout = range(count, len(obs_source.locations) + count)
-                    for _, (itime, ileadtime) in enumerate(zip(Itimes, Ileadtimes)):
+                    for i in range(len(Itimes)):
                         # Copy observation into all times/leadtimes that matches this valid time
-                        obs[itime, ileadtime, Iout] = data
+                        obs[Itimes[i], Ileadtimes[i], Iout] = data
             count += len(obs_source.locations)
 
         self.ds["obs"] = (["time", "leadtime", "location"], obs)
