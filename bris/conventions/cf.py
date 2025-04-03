@@ -8,126 +8,63 @@ def get_metadata(anemoi_variable: str) -> dict:
     Returns:
         dict with:
             ncname: Name of variable in NetCDF
-            cfname: CF-standard name of variable
+            cfname: CF-standard name of variable (or the original anemoi_variable name if unknown)
             leveltype: e.g. pressure, height
             level: e.g 800
     """
-    if anemoi_variable == "2t":
-        cfname = "air_temperature"
-        leveltype = "height"
-        level = 2
-    # This is problematic for metno conventions, since this would put skt into the same
-    # variable as 2m temperature, which we don't want.
-    # elif anemoi_variable == "skt":
-    #     cfname = "air_temperature"
-    #     leveltype = "height"
-    #     level = 0
-    elif anemoi_variable == "2d":
-        cfname = "dew_point_temperature"
-        leveltype = "height"
-        level = 2
-    elif anemoi_variable == "10u":
-        cfname = "x_wind"
-        leveltype = "height"
-        level = 10
-    elif anemoi_variable == "10v":
-        cfname = "y_wind"
-        leveltype = "height"
-        level = 10
-    elif anemoi_variable == "10si":
-        cfname = "wind_speed"
-        leveltype = "height"
-        level = 10
-    elif anemoi_variable == "10fg":
-        cfname = "wind_speed_of_gust"
-        leveltype = "height"
-        level = 10
-    elif anemoi_variable == "100u":
-        cfname = "x_wind"
-        leveltype = "height"
-        level = 100
-    elif anemoi_variable == "100v":
-        cfname = "y_wind"
-        leveltype = "height"
-        level = 100
-    elif anemoi_variable == "msl":
-        cfname = "air_pressure_at_sea_level"
-        leveltype = "height_above_msl"
-        level = 0
-    elif anemoi_variable == "tp":
-        cfname = "precipitation_amount"
-        leveltype = "height"
-        level = 0
-    elif anemoi_variable == "z":
-        cfname = "surface_geopotential"
-        leveltype = "height"
-        level = 0
-    elif anemoi_variable == "lsm":
-        cfname = "land_sea_mask"
-        leveltype = "height"
-        level = 0
-    elif anemoi_variable == "sp":
-        cfname = "surface_air_pressure"
-        leveltype = "height"
-        level = 0
-    elif anemoi_variable == "vis":
-        cfname = "visibility_in_air"
-        leveltype = "height"
-        level = 0
-    elif anemoi_variable == "cbh":
-        cfname = "cloud_base_altitude"
-        leveltype = "height"
-        level = 0
-    elif anemoi_variable == "ws":
-        cfname = "wind_speed"
-        leveltype = "height"
-        level = 10
-    elif anemoi_variable == "fog":
-        cfname = "fog_type_cloud_area_fraction"
-        leveltype = "height"
-        level = 0
-    elif anemoi_variable == "hcc":
-        cfname = "high_type_cloud_area_fraction"
-        leveltype = "height"
-        level = 0
-    elif anemoi_variable == "lcc":
-        cfname = "low_type_cloud_area_fraction"
-        leveltype = "height"
-        level = 0
-    elif anemoi_variable == "mcc":
-        cfname = "medium_type_cloud_area_fraction"
-        leveltype = "height"
-        level = 0
-    elif anemoi_variable == "tcc":
-        cfname = "cloud_area_fraction"
-        leveltype = "height"
-        level = 0
-    elif anemoi_variable == "ssrd":
-        cfname = "integral_of_surface_downwelling_shortwave_flux_in_air_wrt_time"
-        leveltype = "height"
-        level = 0
-    elif anemoi_variable == "strd":
-        cfname = "integral_of_surface_downwelling_longwave_flux_in_air_wrt_time"
-        leveltype = "height"
-        level = 0
+    variable_mapping = {
+        "2t": ("air_temperature", "height", 2),
+        # This is problematic for met.no conventions, since this would put skt into the same
+        # variable as 2m temperature, which we don't want.
+        # "skt": ("air_temperature", "height", 0),
+        "2d": ("dew_point_temperature", "height", 2),
+        "10u": ("x_wind", "height", 10),
+        "10v": ("y_wind", "height", 10),
+        "10si": ("wind_speed", "height", 10),
+        "10fg": ("wind_speed_of_gust", "height", 10),
+        "100u": ("x_wind", "height", 100),
+        "100v": ("y_wind", "height", 100),
+        "msl": ("air_pressure_at_sea_level", "height_above_msl", 0),
+        "tp": ("precipitation_amount", "height", 0),
+        "z": ("surface_geopotential", "height", 0),
+        "lsm": ("land_sea_mask", "height", 0),
+        "sp": ("surface_air_pressure", "height", 0),
+        "vis": ("visibility_in_air", "height", 0),
+        "cbh": ("cloud_base_altitude", "height", 0),
+        "ws": ("wind_speed", "height", 10),
+        "fog": ("fog_type_cloud_area_fraction", "height", 0),
+        "hcc": ("high_type_cloud_area_fraction", "height", 0),
+        "lcc": ("low_type_cloud_area_fraction", "height", 0),
+        "mcc": ("medium_type_cloud_area_fraction", "height", 0),
+        "tcc": ("cloud_area_fraction", "height", 0),
+        "ssrd": (
+            "integral_of_surface_downwelling_shortwave_flux_in_air_wrt_time",
+            "height",
+            0,
+        ),
+        "strd": (
+            "integral_of_surface_downwelling_longwave_flux_in_air_wrt_time",
+            "height",
+            0,
+        ),
+    }
+
+    if anemoi_variable in variable_mapping:
+        cfname, leveltype, level = variable_mapping[anemoi_variable]
     else:
         words = anemoi_variable.split("_")
         if len(words) == 2 and words[0] in ["t", "u", "v", "z", "q", "w"]:
             name, level = words[0], int(words[1])
-            if name == "t":
-                cfname = "air_temperature"
-            elif name == "u":
-                cfname = "x_wind"
-            elif name == "v":
-                cfname = "y_wind"
-            elif name == "z":
-                cfname = "geopotential"
-            elif name == "w":
-                cfname = "vertical_velocity"
-            elif name == "q":
-                cfname = "specific_humidity"
-            else:
-                raise ValueError()
+            cfname = {  # noqa: SIM910 - None is explicitly handled in the following code block
+                "t": "air_temperature",
+                "u": "x_wind",
+                "v": "y_wind",
+                "z": "geopotential",
+                "w": "vertical_velocity",
+                "q": "specific_humidity",
+            }.get(name, "unknown")
+            if cfname == "unknown":
+                raise ValueError(f"Unknown variable name: {name}")
             leveltype = "air_pressure"
         else:
             # Forcing parameters
@@ -138,29 +75,29 @@ def get_metadata(anemoi_variable: str) -> dict:
     return {"cfname": cfname, "leveltype": leveltype, "level": level}
 
 
-def get_attributes_from_leveltype(leveltype):
-    if leveltype == "air_pressure":
-        return {
-            "units": "hPa",
-            "description": "pressure",
-            "standard_name": "air_pressure",
-            "positive": "up",
-        }
-    if leveltype == "height":
-        return {
-            "units": "m",
-            "description": "height above ground",
-            "long_name": "height",
-            "positive": "up",
-        }
-    if leveltype == "height_above_msl":
-        return {
-            "units": "m",
-            "description": "height above MSL",
-            "long_name": "height",
-            "positive": "up",
-        }
-    # TODO: return a default value or raise error
+# def get_attributes_from_leveltype(leveltype):
+#     if leveltype == "air_pressure":
+#         return {
+#             "units": "hPa",
+#             "description": "pressure",
+#             "standard_name": "air_pressure",
+#             "positive": "up",
+#         }
+#     if leveltype == "height":
+#         return {
+#             "units": "m",
+#             "description": "height above ground",
+#             "long_name": "height",
+#             "positive": "up",
+#         }
+#     if leveltype == "height_above_msl":
+#         return {
+#             "units": "m",
+#             "description": "height above MSL",
+#             "long_name": "height",
+#             "positive": "up",
+#         }
+#     raise ValueError(f"Unknown leveltype: {leveltype}")
 
 
 def get_attributes(cfname):
@@ -198,7 +135,6 @@ def get_attributes(cfname):
         "wind_speed",
         "wind_speed_of_gust",
         "vertical_velocity",
-        "wind_speed_of_gust",
     ]:
         ret["units"] = "m/s"
     elif cfname in ["air_temperature", "dew_point_temperature"]:
@@ -223,8 +159,7 @@ def get_attributes(cfname):
     ]:
         ret["units"] = "J/m^2"
 
-    # Unknown cfname, let's not write any attributes
-    else:
-        ret = {}
+    else:  # Handle unknown `cfname` by returning an empty dictionary
+        return {}
 
     return ret

@@ -52,7 +52,7 @@ def proj_from_ncfile(filename):
     for variable in file.variables:
         var = file.variables[variable]
         if hasattr(var, "grid_mapping_name"):
-            attributes = dict()
+            attributes = {}
             for attr in var.ncattrs():
                 attributes[attr] = getattr(var, attr)
             try:

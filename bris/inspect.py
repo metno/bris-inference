@@ -5,22 +5,22 @@ from argparse import ArgumentParser
 
 from .checkpoint import Checkpoint
 from .forcings import anemoi_dynamic_forcings
-from .model import get_variable_indices
 
 
 def clean_version_name(name: str) -> tuple[str, str]:
     """Filter out these weird version names that can't be compared, like torch==2.6.0+cu124.
 
-    anemoi-models 0.1.dev92+g80c9fbf comes from https://github.com/metno/anemoi-models/commit/80c9fbf, but there's no automatic way to figure out which fork it's from.
+    anemoi-models 0.1.dev92+g80c9fbf comes from https://github.com/metno/anemoi-models/commit/80c9fbf,
+    but there's no automatic way to figure out which fork it's from.
     """
     clean_version = name
-    hash = ""
+    version_hash = ""
     if "+g" in name:
         clean_version = name.split("+")[0]
-        hash = name.split("+g")[1]
+        version_hash = name.split("+g")[1]
     if "+" in name:
         clean_version = name.split("+")[0]
-    return clean_version, hash
+    return clean_version, version_hash
 
 
 def get_pip_name(name: str) -> str:
@@ -54,7 +54,7 @@ def check_module_versions(
 
         try:  # Import each module to check version
             m = importlib.import_module(module)
-            clean_version, hash = clean_version_name(
+            clean_version, version_hash = clean_version_name(
                 checkpoint.metadata.provenance_training.module_versions[module]
             )
             if clean_version != clean_version_name(m.__version__)[0]:
@@ -64,8 +64,8 @@ def check_module_versions(
                         f"checkpoint was created with <{checkpoint.metadata.provenance_training.module_versions[module]}>."
                     )
 
-                if hash:
-                    hash_modules.append(f"{get_pip_name(module)} hash: {hash}")
+                if version_hash:
+                    hash_modules.append(f"{get_pip_name(module)} hash: {version_hash}")
                 else:
                     pip_modules.append(f"{get_pip_name(module)}=={clean_version}")
 

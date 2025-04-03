@@ -32,7 +32,7 @@ class Intermediate(Output):
     def get_forecast_reference_times(self):
         """Returns all forecast reference times that have been saved"""
         filenames = self.get_filenames()
-        frts = list()
+        frts = []
         for filename in filenames:
             frt_ut, _ = filename.split("/")[-1].split("_")
             frt = utils.unixtime_to_datetime(int(frt_ut))
