@@ -18,4 +18,5 @@ def test_get_attributes():
 
 
 if __name__ == "__main__":
+    test_get_metadata()
     test_get_attributes()
