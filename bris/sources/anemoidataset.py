@@ -15,15 +15,18 @@ class AnemoiDataset(Source):
     Creates a file that can be read by verif
     """
 
-    def __init__(self, dataset_dict: dict, variable: str):
+    def __init__(self, dataset_dict: dict, variable: str, every_loc: int = 1):
         """
         Args:
-            dataset_dict: open_dataset recipie, dictionairy.
+            dataset_dict: open_dataset recipe, dictionary.
+            variable: variable to fetch from dataset
+            every: include every this number of locations in the verif file
         """
 
         self.dataset = open_dataset(dataset_dict)
         self.variable = variable
         self.variable_index = self.dataset.name_to_index[variable]
+        self.every_loc = every_loc
 
     @cached_property
     def locations(self):
@@ -62,7 +65,7 @@ class AnemoiDataset(Source):
                         f"Date {self.dataset.dates[int(i[0])]} missing from verif dataset"
                     )
                 else:
-                    data[t, :] = self.dataset[int(i[0]), self.variable_index, 0, :]
+                    data[t, :] = self.dataset[int(i[0]), self.variable_index, 0, ::self.every_loc]
 
         observations = Observations(self.locations, requested_times, {variable: data})
         return observations
