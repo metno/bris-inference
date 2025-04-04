@@ -266,12 +266,14 @@ class Verif(Output):
             self.intermediate.pm.num_points,
         )
         fcst = self.create_nan_array(fcst_shape)
+        ens_mean = self.create_nan_array(fcst_shape)
         ens = self.create_nan_array(fcst_shape + (self.num_members,))
         for i, frt in enumerate(frts):
             curr = self.intermediate.get_forecast(frt)[..., 0, :]
             fcst[i, ...] = self.compute_consensus(curr)
             if self.num_members > 1:
                 ens[i, ...] = curr
+                ens_mean[i, ...] = curr.mean(axis=-1)
 
         if self.variable_type in ["logit", "threshold_probability"]:
             cdf = np.copy(fcst)
@@ -292,6 +294,7 @@ class Verif(Output):
                         ["time", "leadtime", "location", "ensemble_member"], 
                         ens
                 )
+                self.ds["ens-mean"] = (["time", "leadtime", "location"], ens_mean)
             # Load threshold forecasts
             if len(self.thresholds) > 0 and self.num_members > 1:
                 cdf = self.create_nan_array(fcst_shape + (len(self.thresholds),))
@@ -360,6 +363,10 @@ class Verif(Output):
 
         self.ds["obs"] = (["time", "leadtime", "location"], obs)
 
+        if self.num_members > 1:
+            crps = self.compute_crps(ens, obs)
+            self.ds["crps"] = (["time", "leadtime", "location"], crps)
+
         self.ds.attrs["units"] = self.units
         self.ds.attrs["verif_version"] = "1.0.0"
         self.ds.attrs["standard_name"] = cf.get_metadata(self.variable)["cfname"]
@@ -427,24 +434,19 @@ class Verif(Output):
             p[p < 0] = 0
         return p
 
-    def compute_crps(self, preds, targets, alpha=1.0):
-        """(Almost fair) CRPS. Inspired by AIFS-CRPS article."""
+    def compute_crps(self, preds, targets, fair=True):
+        """Continuous Ranked PRobability Score (CRPS)."""
 
-        epsilon = (1.0 - alpha) / self.num_members
+        coef = -1.0 / (self.num_members * (self.num_members - 1)) if fair else -1.0 / (self.num_members**2)
 
-        var = np.abs(preds[..., None] - preds[..., None, :])
-        diag = np.eye(self.num_members, dtype=np.bool)
-        err_r = np.repeat(np.abs(preds - targets[None]), self.num_members, axis=-2)
-        #err_r = einops.repeat(
-        #                 torch.abs(preds - targets.unsqueeze(dim=-1)), "batch var latlon ens -> batch var latlon n ens", n=ens_size
-        #                     )
+        mae = np.mean(np.abs(targets[..., None] - preds), axis=-1)
 
-        mem_err = err_r * ~diag
-        mem_err_T = mem_err.transpose(-1, -2)
-
-        coef = 1.0 / (2.0 * self.num_members * (self.num_members - 1))
-        CRPS = coef * np.sum(mem_err + mem_err_T - (1 - epsilon) * var, axis=(-1, -2)) #+ 1e-4 * 1./(var1 + 1e-3)
-        return CRPS
+        #var = np.abs(preds[..., None] - preds[..., None, :])
+        var = np.zeros(preds.shape[:-1])
+        for i in range(self.num_members):  # loop version to reduce memory usage
+            var += np.sum(np.abs(preds[..., i, None] - preds[..., i + 1 :]), axis=-1)
+        var *= coef
+        return mae + var
 
     @staticmethod
     def get_points(predict_metadata, obs_sources, max_distance=None):
