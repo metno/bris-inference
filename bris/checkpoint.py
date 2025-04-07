@@ -1,16 +1,24 @@
 import logging
 import os
+import sys
 from copy import deepcopy
 from functools import cached_property
 from typing import Optional
 
 import torch
-from anemoi.models.data_indices.collection import IndexCollection
+
 from anemoi.utils.checkpoints import load_metadata
 from anemoi.utils.config import DotDict
 from torch_geometric.data import HeteroData
 
 LOGGER = logging.getLogger(__name__)
+
+try:
+    from anemoi.models.data_indices.collection import IndexCollection
+except ImportError:
+    LOGGER.error(
+        "\nAnemoi-models package missing. Install a version compatible with the checkpoint. <https://pypi.org/project/anemoi-models/>\n"
+    )
 
 
 class TrainingConfig(DotDict):
