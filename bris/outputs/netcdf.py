@@ -353,8 +353,8 @@ class Netcdf(Output):
                         shape = [len(times), len(y)]
 
                 if self.pm.num_members > 1:
-                    dims.insert(len(shape) - 2, c("ensemble_member"))
-                    shape.insert(len(shape) - 2, self.pm.num_members)
+                    dims.insert(1, c("ensemble_member"))
+                    shape.insert(1, self.pm.num_members)
 
                 ar = np.nan * np.zeros(shape, np.float32)
                 self.ds[ncname] = (dims, ar)
@@ -397,7 +397,7 @@ class Netcdf(Output):
                 bris.units.convert(ar, from_units, to_units, inplace=True)
 
             if level_index is not None:
-                self.ds[ncname][:, level_index, ...] = ar
+                self.ds[ncname][:, :, level_index, ...] = ar
             else:
                 self.ds[ncname][:] = ar
 
