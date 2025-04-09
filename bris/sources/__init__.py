@@ -13,8 +13,10 @@ def instantiate(name: str, init_args: dict):
     elif name == "verif":
         return sources.verif.Verif(init_args["filename"])
     elif name == "anemoidataset":
+        if not "every_loc" in init_args.keys():
+            init_args["every_loc"] = 1
         return sources.anemoidataset.AnemoiDataset(
-            init_args["dataset"], init_args["variable"]
+            init_args["dataset"], init_args["variable"], init_args["every_loc"]
         )
     else:
         raise ValueError(f"Invalid source: {name}")

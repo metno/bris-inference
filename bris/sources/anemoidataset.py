@@ -44,7 +44,7 @@ class AnemoiDataset(Source):
             )
             _altitudes = np.zeros_like(_latitudes)
         _locations = list()
-        for i in range(num_locations):
+        for i in range(0, num_locations, self.every_loc):
             location = Location(_latitudes[i], _longitudes[i], _altitudes[i], i)
             _locations += [location]
         return _locations
