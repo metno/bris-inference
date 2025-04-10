@@ -1,0 +1,86 @@
+defaults:
+  - override hydra/job_logging: none
+  - override hydra/hydra_logging: none
+  - _self_
+  
+start_date: 2022-06-01T00:00:00
+end_date: 2022-06-02T00:00:00
+  #end_date: 2023-05-31T18:00:00
+
+checkpoint_path: /path/to/checkpoint
+
+leadtimes: 20
+timestep: 6h
+frequency: 6h
+
+deterministic: True
+
+workdir: .
+
+dataset:
+  cutout:
+    - dataset: ${hardware.paths.data}/MEPS/${hardware.files.dataset_lam}
+    - dataset: ${hardware.paths.data}/ERA5/${hardware.files.dataset}
+  adjust: all
+  min_distance_km: 0
+
+# If the user wants to release GPU cache and memory
+# This option releases unused cached/memory used by torch
+release_cache: False
+
+# Determine how much the encoder and decoder is chunked
+inference_num_chunks: 16
+
+dataloader:
+  batch_size: 1
+  prefetch_factor: 2
+  num_workers: 1
+  pin_memory: True
+
+  read_group_size: 1 #Do not change this, not implemented properly
+
+  datamodule:
+    _target_: bris.data.dataset.NativeGridDataset
+    _convert_: all
+
+hardware:
+  paths:
+    data: /path/to/datasets
+  files:
+    dataset: aifs-od-an-oper-0001-mars-n320-2019-2023-6h-v6.zarr
+    dataset_lam: aifs-meps-2.5km-2020-2023-6h-v7.zarr
+
+  num_gpus_per_node: ${oc.decode:${oc.env:SLURM_GPUS_PER_NODE}}
+  num_gpus_per_model: 8
+  num_nodes: ${oc.decode:${oc.env:SLURM_NNODES}}
+  members_per_model: 1
+  members_in_parallel: ${oc.decode:${oc.env:SLURM_NNODES}}
+
+model:
+  _target_: bris.model.BrisPredictor
+  _convert_: all
+
+routing:
+  - decoder_index: 0
+    domain_index: 0
+    outputs:
+      - netcdf:
+          filename_pattern: meps_pred_%Y-%m-%dT%H.nc
+          variables: [2t, msl, tp]
+          extra_variables: [ws]
+      - verif:
+          filename: verif/t2m/ens-stretched.nc
+          variable: 2t
+          elev_gradient: -0.0065
+          units: degC
+          obs_sources:
+            - verif:
+                filename: verif/t2m/ref.nc
+  - decoder_index: 0
+    domain_index: 1
+    outputs:
+      - netcdf:
+          filename_pattern: era_pred_%Y-%m-%dT%H.nc
+          variables: [2t, msl, tp]
+          extra_variables: [ws]
+          interp_res: 0.25

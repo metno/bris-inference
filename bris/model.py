@@ -39,6 +39,11 @@ class BasePredictor(pl.LightningModule):
         self.model_comm_group_rank = 0
         self.model_comm_num_groups = 1
 
+        self.ens_comm_group = None
+        self.ens_comm_group_id = 0
+        self.ens_comm_group_rank = 0
+        self.ens_comm_num_groups = 1
+
         if check_anemoi_training(checkpoints["forecaster"].metadata):
             self.legacy = False
         else:
@@ -55,9 +60,24 @@ class BasePredictor(pl.LightningModule):
                 % hardware_config["num_gpus_per_model"]
             )
             self.model_comm_num_groups = math.ceil(
-                hardware_config["num_gpus_per_node"]
-                * hardware_config["num_nodes"]
-                / hardware_config["num_gpus_per_model"],
+                hardware_config["num_nodes"]
+                // hardware_config["num_gpus_per_model"]
+            )
+
+            self.ens_comm_group = None
+            try:
+                self.ens_comm_num_groups = int(
+                    hardware_config["members_in_parallel"]
+                )
+            except KeyError:
+                self.ens_comm_num_groups = 1
+            self.ens_comm_group_id = (
+                int(os.environ.get("SLURM_PROCID", "0")) 
+                // self.ens_comm_num_groups
+            )
+            self.ens_comm_group_rank = (
+                int(os.environ.get("SLURM_PROCID", "0"))
+                % self.ens_comm_num_groups
             )
         else:
             # Lazy init
@@ -65,6 +85,11 @@ class BasePredictor(pl.LightningModule):
             self.model_comm_group_id = 0
             self.model_comm_group_rank = 0
             self.model_comm_num_groups = 1
+
+            self.ens_comm_group = None
+            self.ens_comm_group_id = 0
+            self.ens_comm_group_rank = 0
+            self.ens_comm_num_groups = 1
 
     def set_model_comm_group(
         self,
@@ -80,6 +105,22 @@ class BasePredictor(pl.LightningModule):
             self.model_comm_group_rank = model_comm_group_rank
             self.model_comm_num_groups = model_comm_num_groups
             self.model_comm_group_size = model_comm_group_size
+
+    def set_ensemble_comm_group(
+        self, 
+        ens_comm_group: ProcessGroup,
+        ens_comm_group_id: int = None,
+        ens_comm_group_rank: int = None,
+        ens_comm_num_groups: int = None,
+        ens_comm_group_size: int = None,
+    ) -> None:
+        self.ens_comm_group = ens_comm_group
+        self.ens_comm_group_size = None #dist.get_world_size(group=ens_comm_group)
+        if not self.legacy:
+            self.ens_comm_group_id = ens_comm_group_id
+            self.ens_comm_group_rank = ens_comm_group_rank
+            self.ens_comm_num_groups = ens_comm_num_groups
+            self.ens_comm_group_size = ens_comm_group_size
 
     def set_reader_groups(
         self,
@@ -326,7 +367,7 @@ class BrisPredictor(BasePredictor):
             "pred": [y_preds.to(torch.float32).numpy()],
             "times": times,
             "group_rank": self.model_comm_group_rank,
-            "ensemble_member": 0,
+            "ensemble_member": self.ens_comm_group_rank,
         }
 
     def allgather_batch(self, batch: torch.Tensor) -> torch.Tensor:
@@ -568,7 +609,7 @@ class MultiEncDecPredictor(BasePredictor):
             "pred": y_preds,
             "times": times,
             "group_rank": self.model_comm_group_rank,
-            "ensemble_member": 0,
+            "ensemble_member": self.ens_comm_group_rank,
         }
 
 
