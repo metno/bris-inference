@@ -43,16 +43,16 @@ class Verif(Output):
         if quantile_levels is None:
             quantile_levels = []
         for level in quantile_levels:
-            assert level >= 0 and level <= 1, f"level={level} must be between 0 and 1"
+            assert 0 <= level <= 1, f"level={level} must be between 0 and 1"
 
-        extra_variables = list()
+        extra_variables = []
         if variable not in predict_metadata.variables:
             extra_variables += [variable]
 
         super().__init__(predict_metadata, extra_variables)
 
         self.filename = filename
-        self.fcst = dict()
+        self.fcst = {}
         self.variable = variable
         self.variable_type = variable_type
         self.obs_sources = obs_sources
@@ -208,7 +208,7 @@ class Verif(Output):
     def finalize(self):
         """Write forecasts and observations to file"""
 
-        coords = dict()
+        coords = {}
         coords["time"] = (["time"], [], cf.get_attributes("time"))
         coords["leadtime"] = (
             ["leadtime"],
@@ -374,19 +374,16 @@ class Verif(Output):
         utils.create_directory(self.filename)
         self.ds.to_netcdf(self.filename, mode="w", engine="netcdf4")
 
-    def compute_consensus(self, pred):
+    def compute_consensus(self, pred) -> np.ndarray:
         assert len(pred.shape) == 3, pred.shape
 
         if self.consensus_method == "control":
             return pred[..., 0]
-        elif self.consensus_method == "mean":
+        if self.consensus_method == "mean":
             return np.mean(pred, axis=-1)
-        else:
-            raise NotImplementedError(
-                f"Unknown consensus method {self.consensus_method}"
-            )
+        raise NotImplementedError(f"Unknown consensus method {self.consensus_method}")
 
-    def compute_quantile(self, ar, level, fair=True):
+    def compute_quantile(self, ar, level, fair=True) -> np.ndarray:
         """Extracts a quantile from an array
 
         Args:
@@ -397,7 +394,7 @@ class Verif(Output):
         Returns:
             (N-1)-D numpy array with quantiles
         """
-        assert level >= 0 and level <= 1, f"level={level} must be between 0 and 1"
+        assert 0 <= level <= 1, f"level={level} must be between 0 and 1"
 
         if fair:
             # What quantile level do we assign the lowest member?
@@ -452,10 +449,10 @@ class Verif(Output):
     def get_points(predict_metadata, obs_sources, max_distance=None):
         """Returns point objects for input and output, filtering out output points that are too
         far outside the input"""
-        obs_lats = list()
-        obs_lons = list()
-        obs_altitudes = list()
-        obs_ids = list()
+        obs_lats = []
+        obs_lons = []
+        obs_altitudes = []
+        obs_ids = []
         for obs_source in obs_sources:
             obs_lats += [loc.lat for loc in obs_source.locations]
             obs_lons += [loc.lon for loc in obs_source.locations]

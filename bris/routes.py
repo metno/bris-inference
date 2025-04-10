@@ -14,7 +14,7 @@ def get(
     leadtimes: list,
     num_members: int,
     data_module: DataModule,
-    checkpoint_object: Checkpoint,
+    checkpoints: dict[str, Checkpoint],
     workdir: str,
 ):
     """Returns outputs for each decoder and domain
@@ -25,6 +25,7 @@ def get(
         routing_config: Dictionary from config file
         leadtimes: Which leadtimes that the model will produce
         data_module: Data module
+        checkpoints: Dictionary with checkpoints
     Returns:
         list of dicts:
             decoder_index (int)
@@ -36,8 +37,11 @@ def get(
             decoder_index -> variable_indices
 
     """
-    ret = list()
-    required_variables = get_required_variables(routing_config, checkpoint_object)
+
+    ret = []
+    required_variables = get_required_variables_all_checkpoints(
+        routing_config, checkpoints
+    )
 
     count = 0
     for config in routing_config:
@@ -52,7 +56,7 @@ def get(
             start_gridpoint = np.sum(curr_grids[0:domain_index])
             end_gridpoint = start_gridpoint + curr_grids[domain_index]
 
-        outputs = list()
+        outputs = []
         for oc in config["outputs"]:
             lats = data_module.latitudes[decoder_index][start_gridpoint:end_gridpoint]
             lons = data_module.longitudes[decoder_index][start_gridpoint:end_gridpoint]
@@ -84,15 +88,35 @@ def get(
         # We don't need to pass out domain_index, since this is only used to get start/end
         # gridpoints and is not used elsewhere in the code
         ret += [
-            dict(
-                decoder_index=decoder_index,
-                start_gridpoint=start_gridpoint,
-                end_gridpoint=end_gridpoint,
-                outputs=outputs,
-            )
+            {
+                "decoder_index": decoder_index,
+                "start_gridpoint": start_gridpoint,
+                "end_gridpoint": end_gridpoint,
+                "outputs": outputs,
+            }
         ]
 
     return ret
+
+
+def get_required_variables_all_checkpoints(
+    routing_config: dict, checkpoints: dict[str, Checkpoint]
+) -> dict[int, list[str]]:
+    """Returns a list of required variables for each decoder from all checkpoints. Will return the union if one checkpoint has more outputs than the others"""
+
+    required_variables_per_model = {
+        model: get_required_variables(routing_config, checkpoint)
+        for model, checkpoint in checkpoints.items()
+    }
+    required_variables_full = defaultdict(set)
+    for _, _required_variables in required_variables_per_model.items():
+        for key, variable_list in _required_variables.items():
+            required_variables_full[key].update(variable_list)
+
+    required_variables = {
+        key: list(values) for key, values in required_variables_full.items()
+    }
+    return required_variables
 
 
 def get_required_variables(

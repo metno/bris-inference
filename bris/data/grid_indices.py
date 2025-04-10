@@ -60,10 +60,9 @@ class FullGrid(BaseGridIndices):
     def compute_grid_size(self, graph: HeteroData) -> int:
         if hasattr(graph[self.nodes_name], "num_nodes"):
             return graph[self.nodes_name].num_nodes
-        elif "coords" in graph[self.nodes_name]:
+        if "coords" in graph[self.nodes_name]:
             return graph[self.nodes_name]["coords"].shape[0]
-        else:
-            raise ValueError("Could not compute grid size in graph")
+        raise ValueError("Could not compute grid size in graph")
 
     def get_shard_indices(self, reader_group_rank: int) -> ArrayIndex:
         return self.split_seq_in_shards(reader_group_rank)

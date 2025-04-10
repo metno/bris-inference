@@ -1,4 +1,5 @@
 from functools import cached_property
+from typing import Optional
 
 import numpy as np
 import xarray as xr
@@ -28,7 +29,7 @@ class Verif(Source):
     @cached_property
     def locations(self):
         num_locations = len(self.file["location"])
-        _locations = list()
+        _locations = []
         for i in range(num_locations):
             location = Location(
                 self.file["lat"].values[i],
@@ -63,22 +64,20 @@ class Verif(Source):
         return observations
 
     @cached_property
-    def _all_times(self):
+    def _all_times(self) -> np.ndarray:
         if self.has_leadtime:
             a, b = np.meshgrid(
                 self.file["leadtime"].values * 3600, self.file["time"].values
             )
             return (a + b)[:]  # (time, leadtime)
-        else:
-            return self.file["time"].values[:, None]
+        return self.file["time"].values[:, None]
 
     @cached_property
     def _times(self):
         return np.sort(np.unique(self._all_times))
 
     @cached_property
-    def units(self):
+    def units(self) -> Optional[str]:
         if hasattr(self.file, "units"):
             return self.file.units
-        else:
-            return None
+        return None
