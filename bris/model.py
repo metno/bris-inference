@@ -21,7 +21,11 @@ LOGGER = logging.getLogger(__name__)
 
 class BasePredictor(pl.LightningModule):
     def __init__(
-        self, *args: Any, checkpoint: Checkpoint, hardware_config: dict, **kwargs: Any
+        self,
+        *args: Any,
+        checkpoints: dict[str, Checkpoint],
+        hardware_config: dict,
+        **kwargs: Any,
     ):
         """
         Base predictor class, overwrite all the class methods
@@ -40,7 +44,7 @@ class BasePredictor(pl.LightningModule):
         self.ens_comm_group_rank = 0
         self.ens_comm_num_groups = 1
 
-        if check_anemoi_training(checkpoint.metadata):
+        if check_anemoi_training(checkpoints["forecaster"].metadata):
             self.legacy = False
         else:
             self.legacy = True
@@ -131,10 +135,10 @@ class BasePredictor(pl.LightningModule):
         self.reader_group_size = reader_group_size
 
     @abstractmethod
-    def get_static_forcings(
+    def set_static_forcings(
         self,
         datareader: Iterable,
-    ):
+    ) -> None:
         pass
 
     @abstractmethod
@@ -159,17 +163,18 @@ class BrisPredictor(BasePredictor):
     def __init__(
         self,
         *args,
-        checkpoint: Checkpoint,
+        checkpoints: dict[str, Checkpoint],
         datamodule: DataModule,
         forecast_length: int,
         required_variables: dict,
         release_cache: bool = False,
         **kwargs,
     ) -> None:
-        super().__init__(*args, checkpoint=checkpoint, **kwargs)
+        super().__init__(*args, checkpoints=checkpoints, **kwargs)
 
+        checkpoint = checkpoints["forecaster"]
         self.model = checkpoint.model
-        self.data_indices = self.model.data_indices
+        self.data_indices = checkpoint.data_indices[0]
         self.metadata = checkpoint.metadata
 
         self.timestep = timedelta64_from_timestep(self.metadata.config.data.timestep)
@@ -373,15 +378,16 @@ class MultiEncDecPredictor(BasePredictor):
     def __init__(
         self,
         *args,
-        checkpoint: Checkpoint,
+        checkpoints: dict[str, Checkpoint],
         datamodule: DataModule,
         forecast_length: int,
         required_variables: dict,
         release_cache: bool = False,
         **kwargs,
     ) -> None:
-        super().__init__(*args, checkpoint=checkpoint, **kwargs)
+        super().__init__(*args, checkpoints=checkpoints, **kwargs)
 
+        checkpoint = checkpoints["forecaster"]
         self.model = checkpoint.model
         self.metadata = checkpoint.metadata
 
@@ -389,7 +395,7 @@ class MultiEncDecPredictor(BasePredictor):
         self.forecast_length = forecast_length
         self.latitudes = datamodule.data_reader.latitudes
         self.longitudes = datamodule.data_reader.longitudes
-        self.data_indices = self.model.data_indices
+        self.data_indices = checkpoint.data_indices
 
         self.indices = ()
         self.variables = ()
@@ -615,8 +621,8 @@ def get_variable_indices(
     decoder_index: int,
 ) -> tuple[dict, dict]:
     # Set up indices for the variables we want to write to file
-    variable_indices_input = list()
-    variable_indices_output = list()
+    variable_indices_input = []
+    variable_indices_output = []
     for name in required_variables:
         variable_indices_input.append(internal_data.input.name_to_index[name])
         variable_indices_output.append(internal_model.output.name_to_index[name])

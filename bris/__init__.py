@@ -1,4 +1,4 @@
-__version__ = "0.1.1"
+__version__ = "0.1.3"
 
 
 def main():
@@ -7,4 +7,7 @@ def main():
     bris.__main__.main()
 
 
-from . import callbacks, conventions, outputs, sources, utils
+def inspect():
+    import bris.inspect
+
+    bris.inspect.inspect()

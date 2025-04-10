@@ -26,6 +26,8 @@ class DataModule(pl.LightningDataModule):
         self,
         config: DotDict,
         checkpoint_object: Checkpoint,
+        timestep: int,
+        frequency: int,
     ) -> None:
         """
         DataModule instance and DataSets.
@@ -44,8 +46,8 @@ class DataModule(pl.LightningDataModule):
         self.config = config
         self.graph = checkpoint_object.graphs
         self.checkpoint_object = checkpoint_object
-        self.timestep = config.timestep
-        self.frequency = config.frequency
+        self.timestep = timestep
+        self.frequency = frequency
 
     def predict_dataloader(self) -> DataLoader:
         """

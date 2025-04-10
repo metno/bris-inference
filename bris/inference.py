@@ -8,7 +8,6 @@ from anemoi.utils.config import DotDict
 
 from bris.ddp_strategy import DDPGroupStrategy
 
-from .checkpoint import Checkpoint
 from .data.datamodule import DataModule
 
 LOGGER = logging.getLogger(__name__)
@@ -21,13 +20,11 @@ class Inference:
         model: pl.LightningModule,
         callbacks: Any,
         datamodule: DataModule,
-        checkpoint: Checkpoint,
         precision: Optional[str] = None,
         device: Optional[str] = None,
     ) -> None:
         self.config = config
         self.model = model
-        self.checkpoint = checkpoint
         self.callbacks = callbacks
         self.datamodule = datamodule
         self.precision = precision
@@ -41,12 +38,12 @@ class Inference:
             if torch.cuda.is_available() and torch.backends.cuda.is_built():
                 LOGGER.info("Specified device not set. Found GPU")
                 return "cuda"
-            else:
-                LOGGER.info("Specified device not set. Could not find gpu, using CPU")
-                return "cpu"
-        else:
-            LOGGER.info(f"Using specified device: {self._device}")
-            return self._device
+
+            LOGGER.info("Specified device not set. Could not find gpu, using CPU")
+            return "cpu"
+
+        LOGGER.info("Using specified device: %s", self._device)
+        return self._device
 
     @cached_property
     def strategy(self):

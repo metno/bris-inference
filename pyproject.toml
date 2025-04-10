@@ -30,7 +30,7 @@ classifiers = [
     "Programming Language :: Python :: Implementation :: PyPy",
 ]
 dependencies = [
-    "anemoi-datasets>=0.5.13",  # This includes the reorder functionality
+    "anemoi-datasets>=0.5.16", # https://github.com/metno/bris-inference/issues/94
     "gridpp~=0.7.0",
     "hydra-core~=1.3.0",
     "numpy~=1.26.0",
@@ -44,15 +44,13 @@ dependencies = [
     "tqdm~=4.67.1",
     "verif~=1.3.0",
     "zarr<=2.17", # https://github.com/metno/bris-inference/issues/64
-    "anemoi-models",
-    "anemoi-training>=0.1.0",
     "pip~=25.0.0",
 ]
 
 optional-dependencies.tests = [
-    "tox",
-    "pytest",
-    "types-PyYAML",
+    "tox", # For running tests
+    "pytest", # For testing in IDE
+    "types-PyYAML", # For mypy in IDE
 ]
 
 dynamic = ["version"]
@@ -71,11 +69,13 @@ bris = ["schema/*.json"]
 
 [project.scripts]
 bris = "bris:main"
+bris-inspect = "bris.inspect:main"
 
 [tool.ruff]
 exclude = [
     "bris/sources/frost.py",
     "bris/sources/azurestorage.py",
+    "bris/data/legacy"
 ]
 
 
