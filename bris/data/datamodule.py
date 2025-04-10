@@ -42,7 +42,7 @@ class DataModule(pl.LightningDataModule):
         )
 
         self.config = config
-        self.graph = checkpoint_object.graphs
+        self.graph = checkpoint_object.graph
         self.checkpoint_object = checkpoint_object
         self.timestep = config.timestep
         self.frequency = config.frequency
@@ -160,7 +160,7 @@ class DataModule(pl.LightningDataModule):
     def grid_indices(self) -> type[BaseGridIndices]:
         # TODO: This currently only supports fullgrid for multi-encoder/decoder
         reader_group_size = 1  # Generalize this later
-        graph_cfg = self.checkpoint_object.config.graphs
+        graph_cfg = self.checkpoint_object.config.graph
 
         # Multi_encoder/decoder
         if "input_nodes" in graph_cfg:
