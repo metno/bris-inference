@@ -89,8 +89,8 @@ class BrisPredictor(BasePredictor):
         self.latitudes = datamodule.data_reader.latitudes
         self.longitudes = datamodule.data_reader.longitudes
 
-        # Backwards compatibility with older anemoi-models versions.
-        # For example legendary-gnome.
+        # Backwards compatibility with older anemoi-models versions,
+        # for example legendary-gnome.
         if hasattr(self.data_indices, "internal_model") and hasattr(
             self.data_indices, "internal_data"
         ):
@@ -114,9 +114,9 @@ class BrisPredictor(BasePredictor):
 
     def set_static_forcings(self, data_reader: Iterable, data_config: dict) -> None:
         """
-        Set static forcings for the model. Done by reading from the data reader
-        and reshape into a tensor. Tensor is populated with prognostic and
-        static forcing variables based on predefined indices.
+        Set static forcings for the model. Done by reading from the data reader,
+        reshape, store as a tensor. Tensor is populated with prognostic and
+        static forcing variables based on predefined indices. Then normalized.
 
         The static forcings are the variables that are not prognostic and not
         dynamic forcings, e.g., cos_latitude, sin_latitude, cos_longitude,
@@ -229,7 +229,6 @@ class BrisPredictor(BasePredictor):
         Returns:
             dict: Dictionary containing the predicted output, time stamps, group rank, and ensemble member.
         """
-
         multistep = self.metadata.config.training.multistep_input
 
         batch = self.allgather_batch(batch)
@@ -317,7 +316,10 @@ class BrisPredictor(BasePredictor):
         }
 
     def allgather_batch(self, batch: torch.Tensor) -> torch.Tensor:
-        return batch  # Not implemented properly
+        """
+        Allgather the batch-shards across the reader group.
+        """
+        return batch  # Not implemented properly, https://github.com/metno/bris-inference/issues/123
 
 
 def get_variable_indices(
