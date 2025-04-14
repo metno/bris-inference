@@ -221,7 +221,7 @@ def test_metadata():
     )
 
     assert checkpoint.metadata.version == "1.0", "version is not 1.0"
-    assert checkpoint.metadata.run_id == "775d1ad8-4457-4268-a430-3df91cc55603", (
+    assert checkpoint.metadata.run_id == "ed76cbe5-2644-4549-9f9d-b88d9e7939e2", (
         "run_id seems wrong"
     )
     assert isinstance(checkpoint.metadata.config, DotDict), "config is not DotDict"
