@@ -22,6 +22,23 @@ LOGGER = logging.getLogger(__name__)
 class BasePredictor(pl.LightningModule):
     """
     An abstract class for implementing custom predictors.
+
+    Methods
+    -------
+
+    __init__
+
+    set_model_comm_group
+
+    set_reader_groups
+
+    set_static_forcings (abstract)
+
+    forward (abstract)
+
+    advance_input_predict (abstract)
+
+    predict_step (abstract)
     """
 
     def __init__(
@@ -66,7 +83,6 @@ class BasePredictor(pl.LightningModule):
                 * hardware_config["num_nodes"]
                 / hardware_config["num_gpus_per_model"],
             )
-
 
     def set_model_comm_group(
         self,
