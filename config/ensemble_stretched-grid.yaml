@@ -7,9 +7,13 @@ start_date: 2022-06-01T00:00:00
 end_date: 2022-06-02T00:00:00
   #end_date: 2023-05-31T18:00:00
 
-checkpoint_path: /path/to/checkpoint
+checkpoints:
+  forecaster:
+    checkpoint_path: /path/to/checkpoint
+    leadtimes: 20
+    static_forcings_dataset: null
+    switch_graph: null
 
-leadtimes: 20
 timestep: 6h
 frequency: 6h
 
