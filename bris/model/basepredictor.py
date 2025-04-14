@@ -20,6 +20,10 @@ LOGGER = logging.getLogger(__name__)
 
 
 class BasePredictor(pl.LightningModule):
+    """
+    An abstract class for implementing custom predictors.
+    """
+
     def __init__(
         self,
         *args: Any,
@@ -28,23 +32,26 @@ class BasePredictor(pl.LightningModule):
         **kwargs: Any,
     ):
         """
-        Base predictor class, overwrite all the class methods
+        Init model_comm* variables for distributed training.
 
+        args:
+            checkpoints {"forecaster": checkpoint_object}
+            hardware_config {"num_gpus_per_model": int, "num_gpus_per_node": int, "num_nodes": int}
         """
 
         super().__init__(*args, **kwargs)
-        # Lazy init
-        self.model_comm_group = None
-        self.model_comm_group_id = 0
-        self.model_comm_group_rank = 0
-        self.model_comm_num_groups = 1
 
         if check_anemoi_training(checkpoints["forecaster"].metadata):
             self.legacy = False
+
+            self.model_comm_group = None
+            self.model_comm_group_id = 0
+            self.model_comm_group_rank = 0
+            self.model_comm_num_groups = 1
+
         else:
             self.legacy = True
 
-        if self.legacy:
             self.model_comm_group = None
             self.model_comm_group_id = (
                 int(os.environ.get("SLURM_PROCID", "0"))
@@ -59,12 +66,7 @@ class BasePredictor(pl.LightningModule):
                 * hardware_config["num_nodes"]
                 / hardware_config["num_gpus_per_model"],
             )
-        else:
-            # Lazy init
-            self.model_comm_group = None
-            self.model_comm_group_id = 0
-            self.model_comm_group_rank = 0
-            self.model_comm_num_groups = 1
+
 
     def set_model_comm_group(
         self,
