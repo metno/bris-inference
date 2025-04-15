@@ -17,6 +17,7 @@ from ..forcings import anemoi_dynamic_forcings, get_dynamic_forcings
 from ..utils import (
     check_anemoi_training,
     timedelta64_from_timestep,
+    get_model_static_forcings,
 )
 from .basepredictor import BasePredictor
 
@@ -30,13 +31,15 @@ class BrisPredictor(BasePredictor):
     Methods
     -------
 
-    set_static_forcings
+    __init__
 
-    forward
+    set_static_forcings: Set static forcings for the model.
 
-    advance_input_predict
+    forward: Forward pass through the model.
 
-    predict_step
+    advance_input_predict: Advance the input tensor for the next prediction step.
+
+    predict_step: Predicts the next time step using the model.
 
     allgather_batch
     """
@@ -125,7 +128,6 @@ class BrisPredictor(BasePredictor):
             data_reader (Iterable): Data reader containing the dataset.
             data_config (dict): Configuration dictionary containing forcing information.
         """
-        selection = data_config["forcing"]
         data = torch.from_numpy(data_reader[0].squeeze(axis=1).swapaxes(0, 1))
         data_input = torch.zeros(
             data.shape[:-1] + (len(self.variables["all"]),),
@@ -139,40 +141,9 @@ class BrisPredictor(BasePredictor):
             ..., self.indices["static_forcings_dataset"]
         ]
 
-        data_normalized = self.model.pre_processors(data_input, in_place=True)
-
-        self.static_forcings = {}
-        if "cos_latitude" in selection:
-            self.static_forcings["cos_latitude"] = torch.from_numpy(
-                np.cos(data_reader.latitudes * np.pi / 180.0)
-            ).float()
-
-        if "sin_latitude" in selection:
-            self.static_forcings["sin_latitude"] = torch.from_numpy(
-                np.sin(data_reader.latitudes * np.pi / 180.0)
-            ).float()
-
-        if "cos_longitude" in selection:
-            self.static_forcings["cos_longitude"] = torch.from_numpy(
-                np.cos(data_reader.longitudes * np.pi / 180.0)
-            ).float()
-
-        if "sin_longitude" in selection:
-            self.static_forcings["sin_longitude"] = torch.from_numpy(
-                np.sin(data_reader.longitudes * np.pi / 180.0)
-            ).float()
-
-        if "lsm" in selection:
-            self.static_forcings["lsm"] = data_normalized[
-                ..., self.internal_data.input.name_to_index["lsm"]
-            ].float()
-
-        if "z" in selection:
-            self.static_forcings["z"] = data_normalized[
-                ..., self.internal_data.input.name_to_index["z"]
-            ].float()
-
-        del data_normalized
+        self.static_forcings = get_model_static_forcings(
+            selection=data_config["forcing"], data_reader=data_reader, data_normalized=self.model.pre_processors(data_input, in_place=True), internal_data=self.internal_data
+        )
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
         """
