@@ -33,7 +33,7 @@ class Frost(Source):
                 -0.0065 for temperature)
         """
         self.filename = filename
-        self.fcst = dict()
+        self.fcst = {}
         self.points = None
         self.frost_variable_name = frost_variable_name
         self._frost_client_id = frost_client_id
@@ -44,7 +44,7 @@ class Frost(Source):
 
         metadata = get_station_metadata(self.frost_client_id, wmo=True, country="Norge")
 
-        self.station_ids = [id for id in metadata]
+        self.station_ids = list(metadata)
         obs_lats = [metadata[id]["lat"] for id in self.station_ids]
         obs_lons = [metadata[id]["lon"] for id in self.station_ids]
         obs_elevs = [metadata[id]["elev"] for id in self.station_ids]
@@ -52,7 +52,7 @@ class Frost(Source):
         self.obs_ids = [int(id.replace("SN", "")) for id in metadata]
         self.points = gridpp.Points(obs_lats, obs_lons, obs_elevs)
 
-        coords = dict()
+        coords = {}
         coords["time"] = (
             ["time"],
             [],

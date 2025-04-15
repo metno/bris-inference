@@ -2,7 +2,6 @@ import json
 import logging
 import numbers
 import os
-import re
 import time
 import uuid
 from argparse import ArgumentParser
@@ -11,12 +10,12 @@ import jsonschema
 import numpy as np
 import yaml
 from anemoi.utils.config import DotDict
-from omegaconf import OmegaConf
+from omegaconf import DictConfig, ListConfig, OmegaConf
 
 LOGGER = logging.getLogger(__name__)
 
 
-def expand_time_tokens(filename: str, unixtime: int):
+def expand_time_tokens(filename: str, unixtime: int) -> str:
     """Expand time tokens in a filename and return absolute path."""
     if not isinstance(unixtime, numbers.Number):
         raise ValueError(f"Unixtime but be numeric not {unixtime}")
@@ -70,7 +69,7 @@ def check_anemoi_training(metadata: DotDict) -> bool:
 #         raise RuntimeError("metadata.provenance_training does not module_versions")
 
 
-def create_config(parser: ArgumentParser) -> OmegaConf:
+def create_config(parser: ArgumentParser) -> DictConfig | ListConfig:
     args, _ = parser.parse_known_args()
 
     validate(args.config, raise_on_error=True)
@@ -137,11 +136,11 @@ def unixtime_to_datetime(ut: int) -> np.datetime64:
 def timedelta64_from_timestep(timestep):
     if isinstance(timestep, str) and timestep[-1] in ("h", "m", "s"):
         return np.timedelta64(timestep[0:-1], timestep[-1])
-    else:
-        print(
-            "WARNING: could not decode model timestep from checkpoint, trying to assume hours"
-        )
-        return np.timedelta64(timestep, "h")
+
+    print(
+        "WARNING: could not decode model timestep from checkpoint, trying to assume hours"
+    )
+    return np.timedelta64(timestep, "h")
 
 
 def validate(filename: str, raise_on_error: bool = False) -> None:

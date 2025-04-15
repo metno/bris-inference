@@ -57,7 +57,7 @@ class Netcdf(Output):
         if variables is None:
             self.extract_variables = predict_metadata.variables
         else:
-            self.extract_variables = [i for i in variables]
+            self.extract_variables = list(variables)
 
         self.intermediate = None
         if self.pm.num_members > 1:
@@ -73,7 +73,7 @@ class Netcdf(Output):
         self.lonrange = lonrange
         self.mask_file = mask_file
         self.global_attributes = (
-            global_attributes if global_attributes is not None else dict()
+            global_attributes if global_attributes is not None else {}
         )
 
         if domain_name is not None:
@@ -91,36 +91,36 @@ class Netcdf(Output):
                 mask = self.ds_mask[mask_field].values
             self.mask = mask == 1.0
 
-    def _add_forecast(self, times: list, ensemble_member: int, pred: np.array):
+    def _add_forecast(self, times: list, ensemble_member: int, pred: np.array) -> None:
         if self.pm.num_members > 1:
             # Cache data with intermediate
             self.intermediate.add_forecast(times, ensemble_member, pred)
             return
-        else:
-            assert ensemble_member == 0
+        assert ensemble_member == 0
 
-            forecast_reference_time = times[0].astype("datetime64[s]").astype("int")
+        forecast_reference_time = times[0].astype("datetime64[s]").astype("int")
 
-            filename = self.get_filename(forecast_reference_time)
+        filename = self.get_filename(forecast_reference_time)
 
-            # Add ensemble dimension to the last
-            self.write(filename, times, pred[..., None])
+        # Add ensemble dimension to the last
+        self.write(filename, times, pred[..., None])
 
-    def get_filename(self, forecast_reference_time):
+    def get_filename(self, forecast_reference_time: int) -> str:
+        """Get the filename for this forecast reference time"""
         return utils.expand_time_tokens(self.filename_pattern, forecast_reference_time)
 
     @property
-    def _is_masked(self):
+    def _is_masked(self) -> bool:
         """Was a mask_from_dataset applied during training?"""
         return self.mask_file is not None
 
     @property
-    def _is_gridded(self):
+    def _is_gridded(self) -> bool:
         """Is the output gridded?"""
         return len(self.pm.field_shape) == 2 or self.interp_res is not None
 
     @property
-    def _interpolate(self):
+    def _interpolate(self) -> bool:
         """Should interpolation to a regular lat/lon grid be performed?"""
         return self.interp_res is not None
 
@@ -131,7 +131,7 @@ class Netcdf(Output):
             pred: 4D numpy array with dimensions (leadtimes, points, variables, members)
         """
 
-        coords = dict()
+        coords = {}
 
         # Function to easily convert from cf names to conventions
         def c(x):
@@ -216,7 +216,7 @@ class Netcdf(Output):
 
         dims_to_add = self.variable_list.dimensions
 
-        attrs = dict()
+        attrs = {}
         # Add dimensions
         for dimname, (level_type, levels) in dims_to_add.items():
             # Don't need to convert dimnames, since these are already to local convention
@@ -235,9 +235,9 @@ class Netcdf(Output):
         # Set up grid definitions
         if self._is_gridded:
             if self._interpolate:
-                proj_attrs = dict()
+                proj_attrs = {}
                 proj_attrs["grid_mapping_name"] = "latitude_longitude"
-                proj_attrs["earth_radius"] = 6371000.0
+                proj_attrs["earth_radius"] = "6371000.0"
                 self.ds["projection"] = ([], 1, proj_attrs)
             else:
                 lats = self.pm.grid_lats.astype(np.double)
@@ -254,7 +254,7 @@ class Netcdf(Output):
                 if self.pm.altitudes is not None:
                     altitudes = self.pm.grid_altitudes.astype(np.double)
                     self.ds[c("surface_altitude")] = (spatial_dims, altitudes)
-                proj_attrs = dict()
+                proj_attrs = {}
                 if self.proj4_str is not None:
                     proj_attrs = projections.get_proj_attributes(self.proj4_str)
                     # proj_attrs["grid_mapping_name"] = "lambert_conformal_conic"
@@ -292,7 +292,7 @@ class Netcdf(Output):
                     altitudes_rec[self.mask] = self.pm.altitudes
                     self.ds[c("surface_altitude")] = (spatial_dims, altitudes_rec)
 
-                proj_attrs = dict()
+                proj_attrs = {}
                 if self.proj4_str is not None:
                     proj_attrs = projections.get_proj_attributes(self.proj4_str)
                 self.ds[c("projection")] = ([], 0, proj_attrs)
@@ -467,7 +467,7 @@ class VariableList:
         return self._dimensions
 
     def load_dimensions(self):
-        cfname_to_levels = dict()
+        cfname_to_levels = {}
         for _v, variable in enumerate(self.anemoi_names):
             metadata = cf.get_metadata(variable)
             cfname = metadata["cfname"]
@@ -479,23 +479,23 @@ class VariableList:
                 continue
 
             if cfname not in cfname_to_levels:
-                cfname_to_levels[cfname] = dict()
+                cfname_to_levels[cfname] = {}
             if leveltype not in cfname_to_levels[cfname]:
-                cfname_to_levels[cfname][leveltype] = list()
+                cfname_to_levels[cfname][leveltype] = []
             cfname_to_levels[cfname][leveltype] += [level]
         # Sort levels
         for cfname, v in cfname_to_levels.items():
             for leveltype, vv in v.items():
                 if leveltype == "height" and len(vv) > 1:
-                    raise Exception(
+                    raise ValueError(
                         f"A variable {cfname} with height leveltype should only have one level"
                     )
                 v[leveltype] = sorted(vv)
         # air_temperature -> pressure -> [1000, 925, 800, 700]
 
         # Determine unique dimensions to add
-        dims_to_add = dict()  # height1 -> [height, [2]]
-        ncname_to_level_dim = dict()
+        dims_to_add = {}  # height1 -> [height, [2]]
+        ncname_to_level_dim = {}
         for cfname, v in cfname_to_levels.items():
             for leveltype, levels in v.items():
                 ncname = self.conventions.get_ncname(cfname, leveltype, levels[0])

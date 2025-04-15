@@ -40,7 +40,7 @@ class AnemoiDataset(Source):
                 "Warning: Could not find field 'z' in dataset, setting altitude to 0 everywhere."
             )
             _altitudes = np.zeros_like(_latitudes)
-        _locations = list()
+        _locations = []
         for i in range(num_locations):
             location = Location(_latitudes[i], _longitudes[i], _altitudes[i], i)
             _locations += [location]

@@ -23,9 +23,8 @@ class Observations:
         indices = np.where(self.times == unixtime)[0]
         if len(indices) == 0:
             return None
-        else:
-            index = indices[0]
-            return self.data[variable][index, ...]
+        index = indices[0]
+        return self.data[variable][index, ...]
 
     def __str__(self):
         string = "Observations:\n"
@@ -36,11 +35,11 @@ class Observations:
 
 
 class Location:
-    def __init__(self, lat, lon, elev=None, id=None):
+    def __init__(self, lat, lon, elev=None, location_id=None):
         self.lat = lat
         self.lon = lon
         self.elev = elev
-        self.id = id
+        self.id = location_id
 
         if self.lon < -180:
             self.lon += 360
