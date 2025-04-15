@@ -41,6 +41,7 @@ class MultiEncDecPredictor(BasePredictor):
 
     predict_step: Predicts the next time step using the model.
     """
+
     def __init__(
         self,
         *args,

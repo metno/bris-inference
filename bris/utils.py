@@ -5,8 +5,8 @@ import os
 import time
 import uuid
 from argparse import ArgumentParser
-
 from collections.abc import Iterable
+
 import jsonschema
 import numpy as np
 import torch
@@ -277,7 +277,10 @@ def get_all_leadtimes(
 
     return np.concatenate([high_res, low_res])
 
-def get_model_static_forcings(selection: list, data_reader, data_normalized, internal_data: DataIndex) -> dict:
+
+def get_model_static_forcings(
+    selection: list, data_reader, data_normalized, internal_data: DataIndex
+) -> dict:
     """Get static forcings from the model."""
     static_forcings = {}
 

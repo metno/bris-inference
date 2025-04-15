@@ -16,8 +16,8 @@ from ..data.datamodule import DataModule
 from ..forcings import anemoi_dynamic_forcings, get_dynamic_forcings
 from ..utils import (
     check_anemoi_training,
-    timedelta64_from_timestep,
     get_model_static_forcings,
+    timedelta64_from_timestep,
 )
 from .basepredictor import BasePredictor
 
@@ -142,7 +142,10 @@ class BrisPredictor(BasePredictor):
         ]
 
         self.static_forcings = get_model_static_forcings(
-            selection=data_config["forcing"], data_reader=data_reader, data_normalized=self.model.pre_processors(data_input, in_place=True), internal_data=self.internal_data
+            selection=data_config["forcing"],
+            data_reader=data_reader,
+            data_normalized=self.model.pre_processors(data_input, in_place=True),
+            internal_data=self.internal_data,
         )
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
