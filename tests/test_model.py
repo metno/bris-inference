@@ -6,9 +6,9 @@ from hydra.utils import instantiate
 from omegaconf import OmegaConf
 
 import bris.checkpoint
-import bris.model
 import bris.routes
 from bris.data.datamodule import DataModule
+from bris.model.brispredictor import BrisPredictor
 
 
 def test_bris_predictor():
@@ -61,7 +61,10 @@ def test_bris_predictor():
             "num_gpus_per_model": 1,
             "num_nodes": 1,
         },
-        "model": {"_target_": "bris.model.BrisPredictor", "_convert_": "all"},
+        "model": {
+            "_target_": "bris.model.brispredictor.BrisPredictor",
+            "_convert_": "all",
+        },
         "routing": [
             {
                 "decoder_index": 0,
@@ -114,7 +117,7 @@ def test_bris_predictor():
         release_cache=config.release_cache,
     )
 
-    _bp = bris.model.BrisPredictor(
+    _bp = bris.model.brispredictor.BrisPredictor(
         checkpoints={"forecaster": checkpoint},
         datamodule=datamodule,
         forecast_length=1,
