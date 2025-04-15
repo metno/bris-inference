@@ -25,6 +25,22 @@ LOGGER = logging.getLogger(__name__)
 
 
 class MultiEncDecPredictor(BasePredictor):
+    """
+    Multi-encoder-decoder predictor, using more than one model.
+
+    Methods
+    -------
+
+    __init__
+
+    set_static_forcings: Sets the static forcings for the model.
+
+    forward: Forward pass through the model.
+
+    advance_input_predict: Advances the input tensor for the next prediction step.
+
+    predict_step: Predicts the next time step using the model.
+    """
     def __init__(
         self,
         *args,
@@ -35,6 +51,32 @@ class MultiEncDecPredictor(BasePredictor):
         release_cache: bool = False,
         **kwargs,
     ) -> None:
+        """
+        Initialize the MultiEncDecPredictor.
+
+        Args:
+            checkpoints
+                Example: {"forecaster": checkpoint_object, }
+
+            datamodule
+                Data loader containing the dataset, from one or more datasets. Loaded in config as for example:
+
+                    dataset: /home/larsfp/nobackup/bris_random_data.zarr
+                    dataloader:
+                        datamodule:
+                            _target_: bris.data.dataset.NativeGridDataset
+
+            forecast_length
+                Length of the forecast in timesteps.
+
+            required_variables
+                Dictionary of datasets with list of required variables for each dataset. Example:
+                    {0: ['2d', '2t']}
+
+            release_cache
+                Release cache (torch.cuda.empty_cache()) after each prediction step. This is useful for large models,
+                but may slow down the prediction.
+        """
         super().__init__(*args, checkpoints=checkpoints, **kwargs)
 
         checkpoint = checkpoints["forecaster"]
@@ -65,7 +107,7 @@ class MultiEncDecPredictor(BasePredictor):
         )
         self.model.eval()
 
-    def set_static_forcings(self, data_reader: Iterable, data_config: dict):
+    def set_static_forcings(self, data_reader: Iterable, data_config: dict) -> None:
         data = data_reader[0]
         num_dsets = len(data)
         data_input = []
