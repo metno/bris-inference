@@ -74,7 +74,8 @@ class BrisPredictor(BasePredictor):
                     {0: ['2d', '2t']}
 
             release_cache
-                Release cache (torch.cuda.empty_cache()) after each prediction step. This is useful for large models, but may slow down the prediction.
+                Release cache (torch.cuda.empty_cache()) after each prediction step. This is useful for large models,
+                but may slow down the prediction.
         """
 
         super().__init__(*args, checkpoints=checkpoints, **kwargs)
@@ -114,13 +115,11 @@ class BrisPredictor(BasePredictor):
 
     def set_static_forcings(self, data_reader: Iterable, data_config: dict) -> None:
         """
-        Set static forcings for the model. Done by reading from the data reader,
-        reshape, store as a tensor. Tensor is populated with prognostic and
-        static forcing variables based on predefined indices. Then normalized.
+        Set static forcings for the model. Done by reading from the data reader, reshape, store as a tensor. Tensor is
+        populated with prognostic and static forcing variables based on predefined indices. Then normalized.
 
-        The static forcings are the variables that are not prognostic and not
-        dynamic forcings, e.g., cos_latitude, sin_latitude, cos_longitude,
-        sin_longitude, lsm, z
+        The static forcings are the variables that are not prognostic and not dynamic forcings, e.g., cos_latitude,
+        sin_latitude, cos_longitude, sin_longitude, lsm, z
 
         Args:
             data_reader (Iterable): Data reader containing the dataset.
@@ -329,6 +328,20 @@ def get_variable_indices(
     internal_model: ModelIndex,
     decoder_index: int,
 ) -> tuple[dict, dict]:
+    """
+    Helper function for BrisPredictor, get indices for variables in input data and model. This is used to map the
+    variables in the input data to the variables in the model.
+    Args:
+        required_variables (list): List of required variables.
+        datamodule_variables (list): List of variables in the input data.
+        internal_data (DataIndex): Data index object, from checkpoint.data_indices
+        internal_model (ModelIndex): Model index object, from checkpoint.data_indices.model
+        decoder_index (int): Index of decoder, always zero for brispredictor.
+    Returns:
+        tuple[dict, dict]:
+            - indices: A dictionary containing the indices for the variables in the input data and the model.
+            - variables: A dictionary containing the variables in the input data and the model.
+    """
     # Set up indices for the variables we want to write to file
     variable_indices_input = []
     variable_indices_output = []
@@ -336,7 +349,8 @@ def get_variable_indices(
         variable_indices_input.append(internal_data.input.name_to_index[name])
         variable_indices_output.append(internal_model.output.name_to_index[name])
 
-    # Set up indices that can map from the variable order in the input data to the input variable order expected by the model
+    # Set up indices that can map from the variable order in the input data to the input variable order expected by the
+    # model
     full_ordered_variable_list = [
         var
         for var, _ in sorted(
