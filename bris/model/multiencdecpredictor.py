@@ -79,8 +79,7 @@ class MultiEncDecPredictor(BasePredictor):
                     {0: ['2d', '2t']}
 
             release_cache
-                Release cache (torch.cuda.empty_cache()) after each prediction step. This is useful for large models,
-                but may slow down the prediction.
+                Not used in MultiEncDecPredictor.
         """
         super().__init__(*args, checkpoints=checkpoints, **kwargs)
 
