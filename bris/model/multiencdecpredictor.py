@@ -166,6 +166,13 @@ class MultiEncDecPredictor(BasePredictor):
                     ..., self.data_indices[dset].internal_data.input.name_to_index["z"]
                 ].float()
 
+            # TODO: this will replace lines above.
+            self.static_forcings[dset] = get_model_static_forcings(selection=data_config[dset]["forcing"],
+                data_reader=data_reader,
+                data_normalized=self.model.pre_processors(data_input, in_place=True),
+                internal_data=self.internal_data,
+            )
+
     def forward(self, x: torch.Tensor) -> list[torch.Tensor]:
         return self.model(x, self.model_comm_group)
 

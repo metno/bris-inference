@@ -1,10 +1,11 @@
 import numpy as np
 import torch
 from anemoi.models.data_indices.index import DataIndex, ModelIndex
+from anemoi.datasets.data.dataset import Dataset
 
 
 def get_model_static_forcings(
-    selection: list, data_reader, data_normalized, internal_data: DataIndex
+    selection: list, data_reader: Dataset, data_normalized, internal_data: DataIndex, dataset_no: int = 0
 ) -> dict:
     """Get static forcings from the model."""
     static_forcings = {}
