@@ -11,12 +11,15 @@ import torch
 from anemoi.models.data_indices.index import DataIndex, ModelIndex
 from torch.distributed.distributed_c10d import ProcessGroup
 
+from .model_utils import get_model_static_forcings
 from ..checkpoint import Checkpoint
 from ..data.datamodule import DataModule
-from ..forcings import anemoi_dynamic_forcings, get_dynamic_forcings
+from ..forcings import (
+    anemoi_dynamic_forcings,
+    get_dynamic_forcings,
+)
 from ..utils import (
     check_anemoi_training,
-    get_model_static_forcings,
     timedelta64_from_timestep,
 )
 from .basepredictor import BasePredictor

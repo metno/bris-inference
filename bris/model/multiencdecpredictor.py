@@ -14,12 +14,16 @@ from torch.distributed.distributed_c10d import ProcessGroup
 from .basepredictor import BasePredictor
 from .checkpoint import Checkpoint
 from .data.datamodule import DataModule
-from .forcings import anemoi_dynamic_forcings, get_dynamic_forcings
-from .utils import (
+from .forcings import (
+    anemoi_dynamic_forcings,
+    get_dynamic_forcings,
+)
+from ..utils import (
     check_anemoi_training,
     get_variable_indices,
     timedelta64_from_timestep,
 )
+from .model_utils import get_model_static_forcings
 
 LOGGER = logging.getLogger(__name__)
 
