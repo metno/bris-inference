@@ -117,6 +117,9 @@ def anemoi_dynamic_forcings():
 
 def get_dynamic_forcings(time, lats, lons, selection):
     forcings = {}
+    if selection is None:
+        return forcings
+
     if "cos_julian_day" in selection:
         forcings["cos_julian_day"] = cos_julian_day(time)
     if "sin_julian_day" in selection:
