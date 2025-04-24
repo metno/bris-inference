@@ -8,20 +8,14 @@ checkpoints:
     checkpoint_path: ./inference-multi.ckpt
     leadtimes: 2
 
-dataset_data: 
-  cutout:
-    - dataset: PATH_TO_LAM_DATASET
-    - dataset: ./bris_random_data.zarr
-  min_distance_km: 0
-  adjust: all
-
-dataset_obs:
-  dataset: PATH_TO_OBS_DATASET
-
 dataset:
   zip:
-    - dataset: ${dataset_data}
-    - dataset: ${dataset_obs}
+  - cutout:
+    - dataset: ./bris_random_data.zarr # LAM_DATASET
+    - dataset: ./bris_random_data.zarr # GLOBAL_DATASET
+    min_distance_km: 0
+    adjust: all
+  - dataset: ./bris_random_data.zarr
   adjust: ["start", "end"]
 
 frequency: 6h
