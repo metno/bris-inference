@@ -1,10 +1,10 @@
 start_date: 2022-06-01T00:00:00 
-end_date: 2023-05-31T18:00:00   
+end_date: 2023-06-31T18:00:00   
 timestep: 6h
 run_name: mutlidomain
 
-checkpoint_path: /pfs/lustrep4/scratch/project_465000527/buurmans/DE_330_WP14/Anemoi/multi-domain-training/output/checkpoint/0725a899ea34497f9d64067b20b7d9ac/inference-anemoi-by_epoch-epoch_002-step_001152.ckpt
-leadtimes: 12 # Number of leadtimes in each forecast 
+checkpoint_path: /pfs/lustrep4/scratch/project_465000527/buurmans/DE_330_WP14/Anemoi/multi-domain-training/output/checkpoint/0725a899ea34497f9d64067b20b7d9ac/inference-last.ckpt
+leadtimes: 40 # Number of leadtimes in each forecast 
 frequency: 6h 
 
 global:         

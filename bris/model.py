@@ -212,7 +212,11 @@ class BrisPredictor(BasePredictor):
         del data_normalized
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
-        return self.model(x, self.graph_label, self.model_comm_group)
+        print("graph label", self.graph_label)
+        if self.graph_label == "None":
+            return self.model(x, self.model_comm_group)
+        else:
+            return self.model(x, self.graph_label, self.model_comm_group)
 
     def advance_input_predict(
         self, x: torch.Tensor, y_pred: torch.Tensor, time: np.datetime64
@@ -345,6 +349,8 @@ class MultiEncDecPredictor(BasePredictor):
 
         self.model = checkpoint.model
         self.metadata = checkpoint.metadata
+        print("MODEL", self.model)
+        print("MODEL METADATA", self.metadata)
 
         self.timestep = timedelta64_from_timestep(self.metadata.config.data.timestep)
         self.forecast_length = forecast_length

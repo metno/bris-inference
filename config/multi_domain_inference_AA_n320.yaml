@@ -1,19 +1,19 @@
-start_date: 2023-06-01T00:00:00 
-end_date: 2024-05-31T18:00:00   
+start_date: 2022-06-01T00:00:00 
+end_date: 2023-05-31T18:00:00   
 timestep: 6h
 run_name: mutlidomain
 
 
 
-checkpoint_path: /pfs/lustrep4/scratch/project_465000527/buurmans/DE_330_WP14/Anemoi/multi-domain-training/output/checkpoint/119c39d45ecf4d68a82891bb6ded2859/inference-anemoi-by_time-epoch_009-step_012198.ckpt
+checkpoint_path: /pfs/lustrep4/scratch/project_465000527/buurmans/DE_330_WP14/Anemoi/multi-domain-training/output/checkpoint/0725a899ea34497f9d64067b20b7d9ac/inference-last.ckpt
 
 leadtimes: 12 # Number of leadtimes in each forecast 
 frequency: 6h 
 
 global:         
-  dataset: ${hardware.paths.data}/aifs-od-an-oper-0001-mars-n320-2023-2024-6h-v2.zarr
-  start: 2023-06-01
-  end: 2024-05-31
+  dataset: ${hardware.paths.data}/aifs-od-an-oper-0001-mars-n320-2019-2023-6h-v6.zarr
+  start: 2022-06-01
+  end: 2023-05-31
 #new
 dataset:
   cutout:
@@ -21,11 +21,11 @@ dataset:
     - dataset: ${global}
   adjust: all
   statistics: ${hardware.paths.data}/aifs-ea-an-oper-0001-mars-n320-1979-2022-6h-v6.zarr
-  min_distance_km: 0
+  # min_distance_km: 0
 
 # graph: /pfs/lustrep4/scratch/project_465000527/buurmans/DE_330_WP14/Anemoi/multi-domain-training/output/graphs/AA.pt
 # graph: /pfs/lustrep4/scratch/project_465000527/buurmans/DE_330_WP14/Anemoi/multi-domain-training/OUTPUT_OLD_3_5graphs/AA.pt
-workdir: /pfs/lustrep4/scratch/project_465000527/multi_domain_training/inference/output/temp #Used to store temporary files for verif output
+workdir: /pfs/lustrep4/scratch/project_465000527/multi-domain/inference/output/temp #Used to store temporary files for verif output
 
 dataloader:
   datamodule:
@@ -55,18 +55,18 @@ model:
   _target_: bris.model.BrisPredictor
   _convert_: all
 
-output: /pfs/lustrep4/scratch/project_465000527/multi_domain_training/inference/output/multidomain_AA_n320_lrsteps_150000 #Not a required field, used in output path in routing
+output: /pfs/lustrep4/scratch/project_465000527/multi-domain/inference/output/multidomain_AA #Not a required field, used in output path in routing
 
 routing:
   - decoder_index: 0
     domain_index: 0
     outputs:
       # # Forecasts
-      # - netcdf:
-      #     filename_pattern: ${output}/pred_%Y%m%dT%HZ.nc
-      #     variables: [2t, msl]
-      #     extra_variables: [ws] #Compute wind speed from 10u and 10v
-      # # Verification against observatins (stored in a verif netcdf file)
+      - netcdf:
+          filename_pattern: ${output}/pred_%Y%m%dT%HZ.nc
+          variables: [2t, msl]
+          extra_variables: [ws] #Compute wind speed from 10u and 10v
+      # Verification against observatins (stored in a verif netcdf file)
       # - verif:
       #     filename: ${output}/verif/t2m/VERIF_FILENAME.nc 
       #     variable: 2t

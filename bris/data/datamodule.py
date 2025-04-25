@@ -42,7 +42,13 @@ class DataModule(pl.LightningDataModule):
         )
 
         self.config = config
-        self.graph = checkpoint_object.graph[self.config.hardware.graph_label]
+        print("Graph before", checkpoint_object.graph)
+        print("config settings", self.config.hardware.graph_label)
+        if isinstance(checkpoint_object.graph, dict):
+            self.graph = checkpoint_object.graph[self.config.hardware.graph_label]
+        else:
+            self.graph = checkpoint_object.graph
+        print("Graph", self.graph)
         self.checkpoint_object = checkpoint_object
         self.timestep = config.timestep
         self.frequency = config.frequency

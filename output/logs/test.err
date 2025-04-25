@@ -1,0 +1,14 @@
+
+Lmod is automatically replacing "craype-x86-rome" with "craype-x86-trento".
+
+-------------------------------------------------------------------------------
+There are messages associated with the following module(s):
+-------------------------------------------------------------------------------
+
+LUMI/23.09:
+Though before the summer-of-2024 system update we expected to be capable to
+support this LUMI stack longer, the choice for ROCm 6.0 rather than 5.7 may
+cause problems that we cannot fix and may require updating to 24.03.
+
+-------------------------------------------------------------------------------
+

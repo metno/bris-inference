@@ -1,0 +1,55 @@
+
+Lmod is automatically replacing "craype-x86-rome" with "craype-x86-trento".
+
+/pfs/lustrep4/scratch/project_465000527/buurmans/DE_330_WP14/Anemoi/anemoi-transfer/.anemoi_transfer/lib/python3.11/site-packages/lightning_fabric/connector.py:571: `precision=bf16` is supported for historical reasons but its usage is discouraged. Please set your precision to bf16-mixed instead!
+Using bfloat16 Automatic Mixed Precision (AMP)
+You are using the plain ModelCheckpoint callback. Consider using LitModelCheckpoint which with seamless uploading to Model registry.
+GPU available: False, used: False
+TPU available: False, using: 0 TPU cores
+HPU available: False, using: 0 HPUs
+Initializing distributed: GLOBAL_RANK: 6, MEMBER: 7/8
+Initializing distributed: GLOBAL_RANK: 0, MEMBER: 1/8
+Initializing distributed: GLOBAL_RANK: 1, MEMBER: 2/8
+Initializing distributed: GLOBAL_RANK: 5, MEMBER: 6/8
+Initializing distributed: GLOBAL_RANK: 4, MEMBER: 5/8
+Initializing distributed: GLOBAL_RANK: 2, MEMBER: 3/8
+Initializing distributed: GLOBAL_RANK: 7, MEMBER: 8/8
+Initializing distributed: GLOBAL_RANK: 3, MEMBER: 4/8
+----------------------------------------------------------------------------------------------------
+distributed_backend=gloo
+All distributed processes registered. Starting with 8 processes
+----------------------------------------------------------------------------------------------------
+
+[rank: 2] Seed set to 1234
+[rank: 6] Seed set to 1234
+[rank: 4] Seed set to 1234
+[rank: 0] Seed set to 1234
+[rank: 3] Seed set to 1234
+[rank: 7] Seed set to 1234
+[rank: 1] Seed set to 1234
+[rank: 5] Seed set to 1234
+SLURM auto-requeueing enabled. Setting signal handlers.
+SLURM auto-requeueing enabled. Setting signal handlers.
+SLURM auto-requeueing enabled. Setting signal handlers.
+SLURM auto-requeueing enabled. Setting signal handlers.
+SLURM auto-requeueing enabled. Setting signal handlers.
+SLURM auto-requeueing enabled. Setting signal handlers.
+SLURM auto-requeueing enabled. Setting signal handlers.
+SLURM auto-requeueing enabled. Setting signal handlers.
+/pfs/lustrep4/scratch/project_465000527/buurmans/DE_330_WP14/Anemoi/anemoi-transfer/.anemoi_transfer/lib/python3.11/site-packages/pytorch_lightning/loops/prediction_loop.py:307: Couldn't infer the batch indices fetched from your dataloader: `DataLoader`
+/pfs/lustrep4/scratch/project_465000527/buurmans/DE_330_WP14/Anemoi/anemoi-transfer/.anemoi_transfer/lib/python3.11/site-packages/torch/amp/autocast_mode.py:266: UserWarning: User provided device_type of 'cuda', but CUDA is not available. Disabling
+  warnings.warn(
+/pfs/lustrep4/scratch/project_465000527/buurmans/DE_330_WP14/Anemoi/anemoi-transfer/.anemoi_transfer/lib/python3.11/site-packages/torch/amp/autocast_mode.py:266: UserWarning: User provided device_type of 'cuda', but CUDA is not available. Disabling
+  warnings.warn(
+/pfs/lustrep4/scratch/project_465000527/buurmans/DE_330_WP14/Anemoi/anemoi-transfer/.anemoi_transfer/lib/python3.11/site-packages/torch/amp/autocast_mode.py:266: UserWarning: User provided device_type of 'cuda', but CUDA is not available. Disabling
+  warnings.warn(
+/pfs/lustrep4/scratch/project_465000527/buurmans/DE_330_WP14/Anemoi/anemoi-transfer/.anemoi_transfer/lib/python3.11/site-packages/torch/amp/autocast_mode.py:266: UserWarning: User provided device_type of 'cuda', but CUDA is not available. Disabling
+  warnings.warn(
+/pfs/lustrep4/scratch/project_465000527/buurmans/DE_330_WP14/Anemoi/anemoi-transfer/.anemoi_transfer/lib/python3.11/site-packages/torch/amp/autocast_mode.py:266: UserWarning: User provided device_type of 'cuda', but CUDA is not available. Disabling
+  warnings.warn(
+/pfs/lustrep4/scratch/project_465000527/buurmans/DE_330_WP14/Anemoi/anemoi-transfer/.anemoi_transfer/lib/python3.11/site-packages/torch/amp/autocast_mode.py:266: UserWarning: User provided device_type of 'cuda', but CUDA is not available. Disabling
+  warnings.warn(
+/pfs/lustrep4/scratch/project_465000527/buurmans/DE_330_WP14/Anemoi/anemoi-transfer/.anemoi_transfer/lib/python3.11/site-packages/torch/amp/autocast_mode.py:266: UserWarning: User provided device_type of 'cuda', but CUDA is not available. Disabling
+  warnings.warn(
+/pfs/lustrep4/scratch/project_465000527/buurmans/DE_330_WP14/Anemoi/anemoi-transfer/.anemoi_transfer/lib/python3.11/site-packages/torch/amp/autocast_mode.py:266: UserWarning: User provided device_type of 'cuda', but CUDA is not available. Disabling
+  warnings.warn(

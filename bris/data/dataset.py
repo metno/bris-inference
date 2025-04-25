@@ -47,6 +47,7 @@ class NativeGridDataset(IterableDataset):
             label for the dataset, by default "generic"
         """
         self.label = label
+        self.data = data_reader
 
         self.rollout = rollout
         self.timeincrement = timeincrement

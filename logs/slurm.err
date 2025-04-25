@@ -1,0 +1,13 @@
+
+Lmod is automatically replacing "craype-x86-rome" with "craype-x86-trento".
+
+FATAL:   "bris": executable file not found in $PATH
+FATAL:   "bris": executable file not found in $PATH
+FATAL:   "bris": executable file not found in $PATH
+FATAL:   "bris": executable file not found in $PATH
+FATAL:   "bris": executable file not found in $PATH
+FATAL:   "bris": executable file not found in $PATH
+FATAL:   "bris": executable file not found in $PATH
+FATAL:   "bris": executable file not found in $PATH
+srun: error: nid007965: tasks 0-7: Exited with exit code 255
+srun: Terminating StepId=9949343.0

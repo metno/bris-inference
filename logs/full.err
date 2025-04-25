@@ -1,0 +1,112 @@
+
+Lmod is automatically replacing "craype-x86-rome" with "craype-x86-trento".
+
+/opt/conda/envs/conda_container_env/lib/python3.11/site-packages/torch_geometric/typing.py:63: UserWarning: An issue occurred while importing 'torch-scatter'. Disabling its usage. Stacktrace: /opt/conda/envs/conda_container_env/lib/python3.11/site-packages/torch_scatter/_version_cpu.so: undefined symbol: _ZN5torch3jit17parseSchemaOrNameERKNSt7__cxx1112basic_stringIcSt11char_traitsIcESaIcEEE
+  warnings.warn(f"An issue occurred while importing 'torch-scatter'. "
+/opt/conda/envs/conda_container_env/lib/python3.11/site-packages/torch_geometric/typing.py:63: UserWarning: An issue occurred while importing 'torch-scatter'. Disabling its usage. Stacktrace: /opt/conda/envs/conda_container_env/lib/python3.11/site-packages/torch_scatter/_version_cpu.so: undefined symbol: _ZN5torch3jit17parseSchemaOrNameERKNSt7__cxx1112basic_stringIcSt11char_traitsIcESaIcEEE
+  warnings.warn(f"An issue occurred while importing 'torch-scatter'. "
+/opt/conda/envs/conda_container_env/lib/python3.11/site-packages/torch_geometric/typing.py:63: UserWarning: An issue occurred while importing 'torch-scatter'. Disabling its usage. Stacktrace: /opt/conda/envs/conda_container_env/lib/python3.11/site-packages/torch_scatter/_version_cpu.so: undefined symbol: _ZN5torch3jit17parseSchemaOrNameERKNSt7__cxx1112basic_stringIcSt11char_traitsIcESaIcEEE
+  warnings.warn(f"An issue occurred while importing 'torch-scatter'. "
+/opt/conda/envs/conda_container_env/lib/python3.11/site-packages/torch_geometric/typing.py:63: UserWarning: An issue occurred while importing 'torch-scatter'. Disabling its usage. Stacktrace: /opt/conda/envs/conda_container_env/lib/python3.11/site-packages/torch_scatter/_version_cpu.so: undefined symbol: _ZN5torch3jit17parseSchemaOrNameERKNSt7__cxx1112basic_stringIcSt11char_traitsIcESaIcEEE
+  warnings.warn(f"An issue occurred while importing 'torch-scatter'. "
+/opt/conda/envs/conda_container_env/lib/python3.11/site-packages/torch_geometric/typing.py:63: UserWarning: An issue occurred while importing 'torch-scatter'. Disabling its usage. Stacktrace: /opt/conda/envs/conda_container_env/lib/python3.11/site-packages/torch_scatter/_version_cpu.so: undefined symbol: _ZN5torch3jit17parseSchemaOrNameERKNSt7__cxx1112basic_stringIcSt11char_traitsIcESaIcEEE
+  warnings.warn(f"An issue occurred while importing 'torch-scatter'. "
+/opt/conda/envs/conda_container_env/lib/python3.11/site-packages/torch_geometric/typing.py:63: UserWarning: An issue occurred while importing 'torch-scatter'. Disabling its usage. Stacktrace: /opt/conda/envs/conda_container_env/lib/python3.11/site-packages/torch_scatter/_version_cpu.so: undefined symbol: _ZN5torch3jit17parseSchemaOrNameERKNSt7__cxx1112basic_stringIcSt11char_traitsIcESaIcEEE
+  warnings.warn(f"An issue occurred while importing 'torch-scatter'. "
+/opt/conda/envs/conda_container_env/lib/python3.11/site-packages/torch_geometric/typing.py:63: UserWarning: An issue occurred while importing 'torch-scatter'. Disabling its usage. Stacktrace: /opt/conda/envs/conda_container_env/lib/python3.11/site-packages/torch_scatter/_version_cpu.so: undefined symbol: _ZN5torch3jit17parseSchemaOrNameERKNSt7__cxx1112basic_stringIcSt11char_traitsIcESaIcEEE
+  warnings.warn(f"An issue occurred while importing 'torch-scatter'. "
+/opt/conda/envs/conda_container_env/lib/python3.11/site-packages/torch_geometric/typing.py:63: UserWarning: An issue occurred while importing 'torch-scatter'. Disabling its usage. Stacktrace: /opt/conda/envs/conda_container_env/lib/python3.11/site-packages/torch_scatter/_version_cpu.so: undefined symbol: _ZN5torch3jit17parseSchemaOrNameERKNSt7__cxx1112basic_stringIcSt11char_traitsIcESaIcEEE
+  warnings.warn(f"An issue occurred while importing 'torch-scatter'. "
+Dataset /pfs/lustrep4/scratch/project_465000527/anemoi/datasets/AROME-ARCTIC/arome_arctic-2_5km-2017-2024.zarr has missing dates
+Dataset /pfs/lustrep4/scratch/project_465000527/anemoi/datasets/AROME-ARCTIC/arome_arctic-2_5km-2017-2024.zarr has missing dates
+Dataset /pfs/lustrep4/scratch/project_465000527/anemoi/datasets/AROME-ARCTIC/arome_arctic-2_5km-2017-2024.zarr has missing dates
+Dataset /pfs/lustrep4/scratch/project_465000527/anemoi/datasets/AROME-ARCTIC/arome_arctic-2_5km-2017-2024.zarr has missing dates
+Dataset /pfs/lustrep4/scratch/project_465000527/anemoi/datasets/AROME-ARCTIC/arome_arctic-2_5km-2017-2024.zarr has missing dates
+Dataset /pfs/lustrep4/scratch/project_465000527/anemoi/datasets/AROME-ARCTIC/arome_arctic-2_5km-2017-2024.zarr has missing dates
+Dataset /pfs/lustrep4/scratch/project_465000527/anemoi/datasets/AROME-ARCTIC/arome_arctic-2_5km-2017-2024.zarr has missing dates
+Dataset /pfs/lustrep4/scratch/project_465000527/anemoi/datasets/AROME-ARCTIC/arome_arctic-2_5km-2017-2024.zarr has missing dates
+Dataset /pfs/lustrep4/scratch/project_465000527/anemoi/datasets/AROME-ARCTIC/arome_arctic-2_5km-2017-2024.zarr has missing dates
+Dataset /pfs/lustrep4/scratch/project_465000527/anemoi/datasets/AROME-ARCTIC/arome_arctic-2_5km-2017-2024.zarr has missing dates
+Dataset /pfs/lustrep4/scratch/project_465000527/anemoi/datasets/AROME-ARCTIC/arome_arctic-2_5km-2017-2024.zarr has missing dates
+Dataset /pfs/lustrep4/scratch/project_465000527/anemoi/datasets/AROME-ARCTIC/arome_arctic-2_5km-2017-2024.zarr has missing dates
+Dataset /pfs/lustrep4/scratch/project_465000527/anemoi/datasets/AROME-ARCTIC/arome_arctic-2_5km-2017-2024.zarr has missing dates
+Dataset /pfs/lustrep4/scratch/project_465000527/anemoi/datasets/AROME-ARCTIC/arome_arctic-2_5km-2017-2024.zarr has missing dates
+Dataset /pfs/lustrep4/scratch/project_465000527/anemoi/datasets/AROME-ARCTIC/arome_arctic-2_5km-2017-2024.zarr has missing dates
+Dataset /pfs/lustrep4/scratch/project_465000527/anemoi/datasets/AROME-ARCTIC/arome_arctic-2_5km-2017-2024.zarr has missing dates
+Dataset /pfs/lustrep4/scratch/project_465000527/anemoi/datasets/AROME-ARCTIC/arome_arctic-2_5km-2017-2024.zarr has missing dates
+Dataset /pfs/lustrep4/scratch/project_465000527/anemoi/datasets/AROME-ARCTIC/arome_arctic-2_5km-2017-2024.zarr has missing dates
+Dataset /pfs/lustrep4/scratch/project_465000527/anemoi/datasets/AROME-ARCTIC/arome_arctic-2_5km-2017-2024.zarr has missing dates
+Dataset /pfs/lustrep4/scratch/project_465000527/anemoi/datasets/AROME-ARCTIC/arome_arctic-2_5km-2017-2024.zarr has missing dates
+Dataset /pfs/lustrep4/scratch/project_465000527/anemoi/datasets/AROME-ARCTIC/arome_arctic-2_5km-2017-2024.zarr has missing dates
+Dataset /pfs/lustrep4/scratch/project_465000527/anemoi/datasets/AROME-ARCTIC/arome_arctic-2_5km-2017-2024.zarr has missing dates
+Dataset /pfs/lustrep4/scratch/project_465000527/anemoi/datasets/AROME-ARCTIC/arome_arctic-2_5km-2017-2024.zarr has missing dates
+Dataset /pfs/lustrep4/scratch/project_465000527/anemoi/datasets/AROME-ARCTIC/arome_arctic-2_5km-2017-2024.zarr has missing dates
+Dataset /pfs/lustrep4/scratch/project_465000527/anemoi/datasets/AROME-ARCTIC/arome_arctic-2_5km-2017-2024.zarr has missing dates
+Dataset /pfs/lustrep4/scratch/project_465000527/anemoi/datasets/AROME-ARCTIC/arome_arctic-2_5km-2017-2024.zarr has missing dates
+Dataset /pfs/lustrep4/scratch/project_465000527/anemoi/datasets/AROME-ARCTIC/arome_arctic-2_5km-2017-2024.zarr has missing dates
+Dataset /pfs/lustrep4/scratch/project_465000527/anemoi/datasets/AROME-ARCTIC/arome_arctic-2_5km-2017-2024.zarr has missing dates
+Dataset /pfs/lustrep4/scratch/project_465000527/anemoi/datasets/AROME-ARCTIC/arome_arctic-2_5km-2017-2024.zarr has missing dates
+Dataset /pfs/lustrep4/scratch/project_465000527/anemoi/datasets/AROME-ARCTIC/arome_arctic-2_5km-2017-2024.zarr has missing dates
+Dataset /pfs/lustrep4/scratch/project_465000527/anemoi/datasets/AROME-ARCTIC/arome_arctic-2_5km-2017-2024.zarr has missing dates
+Dataset /pfs/lustrep4/scratch/project_465000527/anemoi/datasets/AROME-ARCTIC/arome_arctic-2_5km-2017-2024.zarr has missing dates
+Dataset /pfs/lustrep4/scratch/project_465000527/anemoi/datasets/AROME-ARCTIC/arome_arctic-2_5km-2017-2024.zarr has missing dates
+Dataset /pfs/lustrep4/scratch/project_465000527/anemoi/datasets/AROME-ARCTIC/arome_arctic-2_5km-2017-2024.zarr has missing dates
+Dataset /pfs/lustrep4/scratch/project_465000527/anemoi/datasets/AROME-ARCTIC/arome_arctic-2_5km-2017-2024.zarr has missing dates
+Dataset /pfs/lustrep4/scratch/project_465000527/anemoi/datasets/AROME-ARCTIC/arome_arctic-2_5km-2017-2024.zarr has missing dates
+Dataset /pfs/lustrep4/scratch/project_465000527/anemoi/datasets/AROME-ARCTIC/arome_arctic-2_5km-2017-2024.zarr has missing dates
+Dataset /pfs/lustrep4/scratch/project_465000527/anemoi/datasets/AROME-ARCTIC/arome_arctic-2_5km-2017-2024.zarr has missing dates
+Dataset /pfs/lustrep4/scratch/project_465000527/anemoi/datasets/AROME-ARCTIC/arome_arctic-2_5km-2017-2024.zarr has missing dates
+Dataset /pfs/lustrep4/scratch/project_465000527/anemoi/datasets/AROME-ARCTIC/arome_arctic-2_5km-2017-2024.zarr has missing dates
+Dataset /pfs/lustrep4/scratch/project_465000527/anemoi/datasets/AROME-ARCTIC/arome_arctic-2_5km-2017-2024.zarr has missing dates
+Dataset /pfs/lustrep4/scratch/project_465000527/anemoi/datasets/AROME-ARCTIC/arome_arctic-2_5km-2017-2024.zarr has missing dates
+Dataset /pfs/lustrep4/scratch/project_465000527/anemoi/datasets/AROME-ARCTIC/arome_arctic-2_5km-2017-2024.zarr has missing dates
+Dataset /pfs/lustrep4/scratch/project_465000527/anemoi/datasets/AROME-ARCTIC/arome_arctic-2_5km-2017-2024.zarr has missing dates
+Dataset /pfs/lustrep4/scratch/project_465000527/anemoi/datasets/AROME-ARCTIC/arome_arctic-2_5km-2017-2024.zarr has missing dates
+Dataset /pfs/lustrep4/scratch/project_465000527/anemoi/datasets/AROME-ARCTIC/arome_arctic-2_5km-2017-2024.zarr has missing dates
+Dataset /pfs/lustrep4/scratch/project_465000527/anemoi/datasets/AROME-ARCTIC/arome_arctic-2_5km-2017-2024.zarr has missing dates
+Dataset /pfs/lustrep4/scratch/project_465000527/anemoi/datasets/AROME-ARCTIC/arome_arctic-2_5km-2017-2024.zarr has missing dates
+/opt/conda/envs/conda_container_env/lib/python3.11/site-packages/lightning_fabric/connector.py:565: `precision=bf16` is supported for historical reasons but its usage is discouraged. Please set your precision to bf16-mixed instead!
+Using bfloat16 Automatic Mixed Precision (AMP)
+GPU available: True (cuda), used: True
+TPU available: False, using: 0 TPU cores
+IPU available: False, using: 0 IPUs
+HPU available: False, using: 0 HPUs
+Initializing distributed: GLOBAL_RANK: 2, MEMBER: 3/8
+Initializing distributed: GLOBAL_RANK: 7, MEMBER: 8/8
+Initializing distributed: GLOBAL_RANK: 0, MEMBER: 1/8
+Initializing distributed: GLOBAL_RANK: 4, MEMBER: 5/8
+Initializing distributed: GLOBAL_RANK: 1, MEMBER: 2/8
+Initializing distributed: GLOBAL_RANK: 6, MEMBER: 7/8
+Initializing distributed: GLOBAL_RANK: 3, MEMBER: 4/8
+Initializing distributed: GLOBAL_RANK: 5, MEMBER: 6/8
+----------------------------------------------------------------------------------------------------
+distributed_backend=nccl
+All distributed processes registered. Starting with 8 processes
+----------------------------------------------------------------------------------------------------
+
+LOCAL_RANK: 0 - CUDA_VISIBLE_DEVICES: [0,1,2,3,4,5,6,7]
+LOCAL_RANK: 1 - CUDA_VISIBLE_DEVICES: [0,1,2,3,4,5,6,7]
+LOCAL_RANK: 2 - CUDA_VISIBLE_DEVICES: [0,1,2,3,4,5,6,7]
+LOCAL_RANK: 3 - CUDA_VISIBLE_DEVICES: [0,1,2,3,4,5,6,7]
+LOCAL_RANK: 4 - CUDA_VISIBLE_DEVICES: [0,1,2,3,4,5,6,7]
+LOCAL_RANK: 5 - CUDA_VISIBLE_DEVICES: [0,1,2,3,4,5,6,7]
+LOCAL_RANK: 6 - CUDA_VISIBLE_DEVICES: [0,1,2,3,4,5,6,7]
+LOCAL_RANK: 7 - CUDA_VISIBLE_DEVICES: [0,1,2,3,4,5,6,7]
+[rank: 3] Seed set to 1234
+[rank: 7] Seed set to 1234
+[rank: 6] Seed set to 1234
+[rank: 1] Seed set to 1234
+[rank: 5] Seed set to 1234
+[rank: 0] Seed set to 1234
+[rank: 4] Seed set to 1234
+[rank: 2] Seed set to 1234
+SLURM auto-requeueing enabled. Setting signal handlers.
+SLURM auto-requeueing enabled. Setting signal handlers.
+SLURM auto-requeueing enabled. Setting signal handlers.
+SLURM auto-requeueing enabled. Setting signal handlers.
+SLURM auto-requeueing enabled. Setting signal handlers.
+SLURM auto-requeueing enabled. Setting signal handlers.
+SLURM auto-requeueing enabled. Setting signal handlers.
+SLURM auto-requeueing enabled. Setting signal handlers.
+/opt/conda/envs/conda_container_env/lib/python3.11/site-packages/pytorch_lightning/trainer/connectors/data_connector.py:441: The 'predict_dataloader' does not have many workers which may be a bottleneck. Consider increasing the value of the `num_workers` argument` to `num_workers=1` in the `DataLoader` to improve performance.
+/opt/conda/envs/conda_container_env/lib/python3.11/site-packages/pytorch_lightning/loops/prediction_loop.py:302: Couldn't infer the batch indices fetched from your dataloader: `DataLoader`

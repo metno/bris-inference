@@ -1,0 +1,10 @@
+output: /pfs/lustrep4/scratch/project_465000527/buurmans/DE_330_WP14/Anemoi/bris-inference/logs/test.out
+error: /pfs/lustrep4/scratch/project_465000527/buurmans/DE_330_WP14/Anemoi/bris-inference/logs/test.err
+nodes: 1
+ntasks-per-node: 8
+account: project_465000527
+partition: dev-g
+gpus-per-node: 8
+time: 00:30:00
+job-name: bris-inference
+cpus-per-task: 7
