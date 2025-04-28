@@ -31,6 +31,7 @@ def main():
     config = create_config(parser)
 
     models = list(config.checkpoints.keys())
+    
     checkpoints = {
         model: Checkpoint(
             config.checkpoints[model].checkpoint_path,
@@ -38,6 +39,7 @@ def main():
         )
         for model in models
     }
+
     set_encoder_decoder_num_chunks(getattr(config, "inference_num_chunks", 1))
 
     # Get timestep from checkpoint. Also store a version in seconds for local use.
@@ -97,14 +99,13 @@ def main():
         timestep=config.checkpoints.forecaster.timestep,
         frequency=config.frequency,
     )
-
     # Get outputs and required_variables of each decoder
     if hasattr(config.checkpoints, "interpolator"):
         leadtimes = get_all_leadtimes(
             config.checkpoints.forecaster.leadtimes,
             config.checkpoints.forecaster.timestep_seconds,
             config.checkpoints.interpolator.leadtimes,
-            config.checkpoints.intepoltor.timestep_seconds,
+            config.checkpoints.interpolator.timestep_seconds,
         )
     else:
         leadtimes = get_all_leadtimes(
@@ -138,7 +139,7 @@ def main():
         checkpoints=checkpoints,
         hardware_config=config.hardware,
         datamodule=datamodule,
-        forecast_length=config.checkpoints.forecaster.leadtimes,
+        checkpoints_config = config.checkpoints,
         required_variables=required_variables,
         release_cache=config.release_cache,
     )

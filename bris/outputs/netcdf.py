@@ -54,10 +54,13 @@ class Netcdf(Output):
         super().__init__(predict_metadata, extra_variables)
 
         self.filename_pattern = filename_pattern
-        if variables is None:
-            self.extract_variables = predict_metadata.variables
-        else:
-            self.extract_variables = [i for i in variables]
+        print("variables", variables)
+        self.extract_variables = predict_metadata.variables
+        #if variables is None:
+        #    self.extract_variables = predict_metadata.variables
+        #else:
+        #    self.extract_variables = [i for i in variables]
+        print("self.extract_variables", self.extract_variables)
 
         self.intermediate = None
         if self.pm.num_members > 1:
@@ -452,6 +455,8 @@ class VariableList:
         anemoi_names: A list of variables names used in Anemoi (e.g. u10)
         conventions: What NetCDF naming convention to use
         """
+        print("anemoi_names", anemoi_names)
+        print("conventions", conventions)
         self.anemoi_names = anemoi_names
         self.conventions = conventions if conventions is not None else Metno()
 
