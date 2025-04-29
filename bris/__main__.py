@@ -54,6 +54,12 @@ def main():
         )
 
     num_members = 1
+    try:
+        num_members = int(
+            config['hardware']['members_in_parallel']
+        )
+    except:
+        LOGGER.debug("Key 'members_in_parallel' was not found in config")
 
     # Get multistep. A default of 2 to ignore multistep in start_date calculation if not set.
     multistep = 2
