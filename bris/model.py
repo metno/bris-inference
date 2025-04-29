@@ -399,9 +399,7 @@ class MultiEncDecPredictor(BasePredictor):
         self.static_forcings = [{} for _ in range(num_dsets)]
         for dset in range(num_dsets):
             if not (selection := data_config[dset]["forcing"]):
-                raise ValueError(
-                    f"Dataset {dset+1} is missing static forcings."
-                )
+                raise ValueError(f"Dataset {dset + 1} is missing static forcings.")
 
             if selection is not None:
                 if "cos_latitude" in selection:
