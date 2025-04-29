@@ -165,7 +165,7 @@ def main():
             for output in decoder_output["outputs"]:
                 output.finalize()
 
-    print("Hello world")
+    print("Model run completed. 🤖")
 
 
 if __name__ == "__main__":
