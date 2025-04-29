@@ -397,7 +397,10 @@ class MultiEncDecPredictor(BasePredictor):
 
         self.static_forcings = [{} for _ in range(num_dsets)]
         for dset in range(num_dsets):
-            selection = data_config[dset]["forcing"]
+            if not (selection := data_config[dset]["forcing"]):
+                raise ValueError(
+                    f"Dataset {dset+1} is missing static forcings."
+                )
             if "cos_latitude" in selection:
                 self.static_forcings[dset]["cos_latitude"] = torch.from_numpy(
                     np.cos(data_reader.latitudes[dset] * np.pi / 180.0)

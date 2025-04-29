@@ -1,7 +1,7 @@
 # Minimal config for running inference on CPU. See https://github.com/metno/bris-inference/wiki/Tests
 
-start_date: 2022-01-01T00:00:00
-end_date: 2022-01-02T00:00:00
+start_date: 2022-07-01T00:00:00
+end_date: 2022-07-01T00:00:00
 
 checkpoints:
   forecaster:
@@ -10,16 +10,16 @@ checkpoints:
 
 dataset:
   zip:
-  - cutout:
     - dataset: ./bris_random_data.zarr # LAM_DATASET
-    - dataset: ./bris_random_data.zarr # GLOBAL_DATASET
-    min_distance_km: 0
-    adjust: all
-  - dataset: ./bris_random_data.zarr
+    - dataset: ./bris_random_data.zarr # obs dataset
+      select: ["tp", "2t"]
   adjust: ["start", "end"]
 
 frequency: 6h
 workdir: /tmp/
+
+# Determine how much the encoder and decoder is chunked
+inference_num_chunks: 1
 
 dataloader:
   datamodule:
@@ -43,7 +43,7 @@ routing:
       # Forecasts
       - netcdf:
           filename_pattern: ./pred_%Y%m%dT%HZ.nc
-          variables: [2t, msl]
+          variables: [2t]
           extra_variables: [ws] #Compute wind speed from 10u and 10v
   # Outputs decoder 1
   - decoder_index: 1
@@ -51,4 +51,4 @@ routing:
     outputs: 
       - netcdf:
           filename_pattern: ./pred_dec1_%Y%m%dT%HZ.nc
-          variables: [10fg]
+          variables: [tp]
