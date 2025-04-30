@@ -363,6 +363,7 @@ class MultiEncDecPredictor(BasePredictor):
             _indices, _variables = get_variable_indices(
                 required_vars_dec,
                 datamodule.data_reader.datasets[dec_index].variables,
+                # datamodule.data_reader.variables,
                 self.data_indices[dec_index].internal_data,
                 self.data_indices[dec_index].internal_model,
                 dec_index,
@@ -375,11 +376,12 @@ class MultiEncDecPredictor(BasePredictor):
         )
         self.model.eval()
 
-    def set_static_forcings(self, data_reader: Iterable, data_config: dict):
+    def set_static_forcings(self, data_reader: Iterable, data_config: dict) -> None:
         data = data_reader[0]
         num_dsets = len(data)
         data_input = []
         for dec_index in range(num_dsets):
+            # _batch = torch.from_numpy(data_reader[dec_index][0].squeeze(axis=1).swapaxes(0, 1))
             _batch = torch.from_numpy(data[dec_index].squeeze(axis=1).swapaxes(0, 1))
             _data_input = torch.zeros(
                 _batch.shape[:-1] + (len(self.variables[dec_index]["all"]),),
