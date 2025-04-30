@@ -147,8 +147,8 @@ def test_multiencdec_predictor():
 
     # Create test config
     config = {
-        "start_date": "2022-01-01T00:00:00",
-        "end_date": "2022-01-02T00:00:00",
+        "start_date": "2022-07-01T00:00:00",
+        "end_date": "2022-07-02T00:00:00",
         "checkpoint_path": os.path.dirname(os.path.abspath(__file__))
         + "/files/multiencdec.ckpt",
         "leadtimes": 2,
