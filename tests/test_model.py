@@ -79,11 +79,7 @@ def test_bris_predictor():
 
     # Get multistep. A default of 2 to ignore multistep in start_date calculation if not set.
     multistep = 2
-    try:
-        multistep = checkpoints["forecaster"].config.training.multistep_input
-    except KeyError:
-        # LOGGER.debug("Multistep not found in checkpoint")
-        pass
+    multistep = checkpoints["forecaster"].config.training.multistep_input
 
     # If no start_date given, calculate as end_date-((multistep-1)*timestep)
     if "start_date" not in config or config.start_date is None:
@@ -131,14 +127,6 @@ def test_bris_predictor():
             21600,
         )
 
-    decoder_outputs = bris.routes.get(
-        config["routing"],
-        leadtimes,
-        num_members,
-        datamodule,
-        checkpoints,
-        config.workdir,
-    )
     required_variables = bris.routes.get_required_variables(
         config["routing"], checkpoints
     )
@@ -226,11 +214,7 @@ def test_multiencdec_predictor():
 
     # Get multistep. A default of 2 to ignore multistep in start_date calculation if not set.
     multistep = 2
-    try:
-        multistep = checkpoints["forecaster"].config.training.multistep_input
-    except KeyError:
-        # LOGGER.debug("Multistep not found in checkpoint")
-        pass
+    multistep = checkpoints["forecaster"].config.training.multistep_input
 
     # If no start_date given, calculate as end_date-((multistep-1)*timestep)
     if "start_date" not in config or config.start_date is None:
@@ -278,14 +262,6 @@ def test_multiencdec_predictor():
             21600,
         )
 
-    decoder_outputs = bris.routes.get(
-        config["routing"],
-        leadtimes,
-        num_members,
-        datamodule,
-        checkpoints,
-        config.workdir,
-    )
     required_variables = bris.routes.get_required_variables(
         config["routing"], checkpoints
     )
