@@ -52,14 +52,6 @@ jobs:
       run: |
         tox -e ruff_checkformat
 
-    - name: Run tox unit tests
-      run: |
-        tox -e py310
-
-    - name: Run tox security check
-      run: |
-        tox -e bandit
-
     - name: Run ruff check
       run: |
         tox -e ruff_check
@@ -68,6 +60,18 @@ jobs:
       run: |
         tox -e trainingdata
 
+    - name: Run tox unit tests
+      run: |
+        tox -e py310
+
+    - name: Run tox security check
+      run: |
+        tox -e bandit
+
     - name: Run inference
       run: |
         tox -e inference_CI
+
+    - name: Run inference with multi encoder/decoder
+      run: |
+        tox -e inference_multi_CI
