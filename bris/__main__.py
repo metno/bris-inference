@@ -14,6 +14,7 @@ from .inference import Inference
 from .utils import (
     create_config,
     get_all_leadtimes,
+    parse_args,
     set_base_seed,
     set_encoder_decoder_num_chunks,
 )
@@ -22,12 +23,9 @@ from .writer import CustomWriter
 LOGGER = logging.getLogger(__name__)
 
 
-def main():
-    parser = ArgumentParser()
-    parser.add_argument("--debug", action="store_true")
-    parser.add_argument("--config", type=str, required=True)
-
-    config = create_config(parser)
+def main(arg_list: list[str] | None = None):
+    args = parse_args(arg_list)
+    config = create_config(args["config"], args)
 
     models = list(config.checkpoints.keys())
     checkpoints = {
