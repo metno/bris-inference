@@ -93,7 +93,7 @@ def parse_args(arg_list: list[str] | None) -> ArgumentParser:
         dest="start_date",
         required=False,
     )
-    parser.add_argument("-ed", type=str, dest="end_date", default=config.end_date)
+    parser.add_argument("-ed", type=str, dest="end_date", required=False)
     parser.add_argument(
         "-wd",
         type=str,
@@ -101,7 +101,7 @@ def parse_args(arg_list: list[str] | None) -> ArgumentParser:
         help="Path to work directory",
         required=False,
     )
-    parser.add_argument("-f", type=str, dest="frequency", default=config.frequency)
+    parser.add_argument("-f", type=str, dest="frequency", required=False)
     parser.add_argument(
         "-l",
         type=int,
@@ -110,7 +110,9 @@ def parse_args(arg_list: list[str] | None) -> ArgumentParser:
 
     # If passed a list, will parse it. If passed None, will parse sys.argv
     args, _ = parser.parse_known_args(arg_list)
-    return args.__dict__
+
+    # Don't return None values, as they will override the config file
+    return {k: v for k, v in args.__dict__.items() if v is not None}
 
 
 def create_config(config_path: str, overrides: dict) -> DictConfig | ListConfig:
