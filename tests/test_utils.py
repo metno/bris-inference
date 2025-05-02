@@ -40,7 +40,7 @@ def test_parse_args():
     except SystemExit:
         pass
     else:
-        assert False, "parse_args did not raise SystemExit for invalid argument"
+        raise AssertionError("parse_args did not raise SystemExit for invalid argument")
 
 
 def test_create_config():
@@ -53,7 +53,9 @@ def test_create_config():
     assert config["start_date"] == "2022-01-01T00:00:00"
 
     # Test the create_config function with an argument override
-    config = bris.utils.create_config("config/tox_test_inference.yaml", {"start_date": "2022-01-01T12:34:56"})
+    config = bris.utils.create_config(
+        "config/tox_test_inference.yaml", {"start_date": "2022-01-01T12:34:56"}
+    )
     assert config is not None
     assert hasattr(config, "start_date")
     assert config["start_date"] == "2022-01-01T12:34:56"
