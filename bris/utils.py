@@ -69,34 +69,14 @@ def check_anemoi_training(metadata: DotDict) -> bool:
 #         raise RuntimeError("metadata.provenance_training does not module_versions")
 
 
-def create_config(parser: ArgumentParser) -> DictConfig | ListConfig:
-    args, _ = parser.parse_known_args()
-
-    validate(args.config, raise_on_error=True)
-
-    config = OmegaConf.load(args.config)
-    LOGGER.debug("config file from %s is loaded", args.config)
-
-    parser.add_argument(
-        "-sd",
-        type=str,
-        dest="start_date",
-        required=False,
-        default=config.start_date if "start_date" in config else None,
-    )
-    parser.add_argument("-ed", type=str, dest="end_date", default=config.end_date)
+def parse_args(arg_list: list[str] | None) -> ArgumentParser:
+    """Parse command line arguments."""
+    parser = ArgumentParser()
+    parser.add_argument("--debug", action="store_true")
+    parser.add_argument("--config", type=str, required=True)
     parser.add_argument(
         "-p", type=str, dest="dataset_path", help="Path to dataset", default=None
     )
-    parser.add_argument(
-        "-wd",
-        type=str,
-        dest="workdir",
-        help="Path to work directory",
-        required=False,
-        default=config.workdir if "workdir" in config else None,
-    )
-
     parser.add_argument(
         "-pc",
         type=str,
@@ -106,24 +86,44 @@ def create_config(parser: ArgumentParser) -> DictConfig | ListConfig:
         default=None,
         const=None,
     )
-    # TODO: Logic that can add dataset or cutout dataset to the dataloader config
 
+    parser.add_argument(
+        "-sd",
+        type=str,
+        dest="start_date",
+        required=False,
+    )
+    parser.add_argument("-ed", type=str, dest="end_date", default=config.end_date)
+    parser.add_argument(
+        "-wd",
+        type=str,
+        dest="workdir",
+        help="Path to work directory",
+        required=False,
+    )
     parser.add_argument("-f", type=str, dest="frequency", default=config.frequency)
     parser.add_argument(
         "-l",
         type=int,
         dest="checkpoints.forecaster.leadtimes",
-        default=config.checkpoints.forecaster.leadtimes,
     )
-    args = parser.parse_args()
 
-    args_dict = vars(args)
-
-    # TODO: change start_date and end_date to numpy datetime, https://github.com/metno/bris-inference/issues/53
-    return OmegaConf.merge(config, OmegaConf.create(args_dict))
+    # If passed a list, will parse it. If passed None, will parse sys.argv
+    args, _ = parser.parse_known_args(arg_list)
+    return args.__dict__
 
 
-def datetime_to_unixtime(dt: np.datetime64) -> np.typing.NDArray[int]:
+def create_config(config_path: str, overrides: dict) -> DictConfig | ListConfig:
+    # Validate config file
+    validate(config_path, raise_on_error=True)
+
+    config = OmegaConf.load(config_path)
+    LOGGER.debug("config file from %s is loaded", config_path)
+
+    return OmegaConf.merge(config, OmegaConf.create(overrides))
+
+
+def datetime_to_unixtime(dt: np.datetime64) -> np.ndarray[int]:
     """Convert a np.datetime64 object or list of objects to unixtime"""
     return np.array(dt).astype("datetime64[s]").astype("int")
 
