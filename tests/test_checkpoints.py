@@ -652,10 +652,3 @@ def test_model_output_name_to_index():
 #     assert "model.encoder.proc.lin_key.weight" in copy_model_params, (
 #         "copy_model_params does not have model.encoder.proc.lin_key.weight"
 #     )
-
-
-if __name__ == "__main__":
-    test_metadata()
-    test_model_output_index_to_name()
-    test_model_output_name_to_index()
-    # test__get_copy_model_params()

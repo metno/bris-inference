@@ -291,7 +291,3 @@ def test_multiencdec_predictor():
         required_variables=required_variables,
         hardware_config=DotDict(config.hardware),
     )
-
-
-if __name__ == "__main__":
-    test_bris_predictor()

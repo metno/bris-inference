@@ -147,13 +147,6 @@ def test_check_module_versions():
     # assert "fsspec==2025.2.0" in bad
 
 
-def test_inspect():
+def manual_test_inspect():
     """This depends on the current venv, so just test it doesn't crash"""
     _status = bris.inspect.inspect(checkpoint_path="tests/files/checkpoint.ckpt")
-
-
-if __name__ == "__main__":
-    test_clean_version_name()
-    test_get_required_variables()
-    test_check_module_versions()
-    # test_inspect()
