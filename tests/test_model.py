@@ -167,11 +167,10 @@ def test_multiencdec_predictor():
             "dataset": {
                 "zip": [
                     {"dataset": dataset_path},
-                    {"dataset": dataset_path,
-                    "select": ["tp", "2t"]},
+                    {"dataset": dataset_path, "select": ["tp", "2t"]},
                 ],
                 "adjust": ["start", "end"],
-            }
+            },
         },
     )
     models = list(config.checkpoints.keys())
