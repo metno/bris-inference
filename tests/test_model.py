@@ -10,7 +10,6 @@ import bris.model
 import bris.routes
 from bris.data.datamodule import DataModule
 
-
 def test_bris_predictor():
     """Set up a default configuration and do a simple test of the BrisPredictor class.
     Test will be skipped if the required dataset is not available."""
@@ -163,7 +162,7 @@ def test_multiencdec_predictor():
             "num_workers": 1,
             "pin_memory": True,
             "datamodule": {
-                "_target_": "bris.data.dataset.NativeGridDataset",
+                "_target_": "bris.data.dataset.ZipDataset",
                 "_convert_": "all",
             },
         },

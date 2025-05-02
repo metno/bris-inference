@@ -363,7 +363,6 @@ class MultiEncDecPredictor(BasePredictor):
             _indices, _variables = get_variable_indices(
                 required_vars_dec,
                 datamodule.data_reader.datasets[dec_index].variables,
-                # datamodule.data_reader.variables,
                 self.data_indices[dec_index].internal_data,
                 self.data_indices[dec_index].internal_model,
                 dec_index,
@@ -381,7 +380,6 @@ class MultiEncDecPredictor(BasePredictor):
         num_dsets = len(data)
         data_input = []
         for dec_index in range(num_dsets):
-            # _batch = torch.from_numpy(data_reader[dec_index][0].squeeze(axis=1).swapaxes(0, 1))
             _batch = torch.from_numpy(data[dec_index].squeeze(axis=1).swapaxes(0, 1))
             _data_input = torch.zeros(
                 _batch.shape[:-1] + (len(self.variables[dec_index]["all"]),),
@@ -401,42 +399,42 @@ class MultiEncDecPredictor(BasePredictor):
         self.static_forcings = [{} for _ in range(num_dsets)]
         for dset in range(num_dsets):
             if not (selection := data_config[dset]["forcing"]):
-                raise ValueError(f"Dataset {dset + 1} is missing static forcings.")
+                LOGGER.warning("Dataset %s of %s is missing static forcings.", dset + 1, num_dsets)
+                continue
 
-            if selection is not None:
-                if "cos_latitude" in selection:
-                    self.static_forcings[dset]["cos_latitude"] = torch.from_numpy(
-                        np.cos(data_reader.latitudes[dset] * np.pi / 180.0)
-                    ).float()
+            if "cos_latitude" in selection:
+                self.static_forcings[dset]["cos_latitude"] = torch.from_numpy(
+                    np.cos(data_reader.latitudes[dset] * np.pi / 180.0)
+                ).float()
 
-                if "sin_latitude" in selection:
-                    self.static_forcings[dset]["sin_latitude"] = torch.from_numpy(
-                        np.sin(data_reader.latitudes[dset] * np.pi / 180.0)
-                    ).float()
+            if "sin_latitude" in selection:
+                self.static_forcings[dset]["sin_latitude"] = torch.from_numpy(
+                    np.sin(data_reader.latitudes[dset] * np.pi / 180.0)
+                ).float()
 
-                if "cos_longitude" in selection:
-                    self.static_forcings[dset]["cos_longitude"] = torch.from_numpy(
-                        np.cos(data_reader.longitudes[dset] * np.pi / 180.0)
-                    ).float()
+            if "cos_longitude" in selection:
+                self.static_forcings[dset]["cos_longitude"] = torch.from_numpy(
+                    np.cos(data_reader.longitudes[dset] * np.pi / 180.0)
+                ).float()
 
-                if "sin_longitude" in selection:
-                    self.static_forcings[dset]["sin_longitude"] = torch.from_numpy(
-                        np.sin(data_reader.longitudes[dset] * np.pi / 180.0)
-                    ).float()
+            if "sin_longitude" in selection:
+                self.static_forcings[dset]["sin_longitude"] = torch.from_numpy(
+                    np.sin(data_reader.longitudes[dset] * np.pi / 180.0)
+                ).float()
 
-                if "lsm" in selection:
-                    self.static_forcings[dset]["lsm"] = data_normalized[dset][
-                        ...,
-                        self.data_indices[dset].internal_data.input.name_to_index[
-                            "lsm"
-                        ],
-                    ].float()
+            if "lsm" in selection:
+                self.static_forcings[dset]["lsm"] = data_normalized[dset][
+                    ...,
+                    self.data_indices[dset].internal_data.input.name_to_index[
+                        "lsm"
+                    ],
+                ].float()
 
-                if "z" in selection:
-                    self.static_forcings[dset]["z"] = data_normalized[dset][
-                        ...,
-                        self.data_indices[dset].internal_data.input.name_to_index["z"],
-                    ].float()
+            if "z" in selection:
+                self.static_forcings[dset]["z"] = data_normalized[dset][
+                    ...,
+                    self.data_indices[dset].internal_data.input.name_to_index["z"],
+                ].float()
 
     def forward(self, x: torch.Tensor) -> list[torch.Tensor]:
         return self.model(x, self.model_comm_group)
