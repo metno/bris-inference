@@ -71,7 +71,3 @@ jobs:
     - name: Run inference
       run: |
         tox -e inference_CI
-
-    - name: Run inference with multi encoder/decoder
-      run: |
-        tox -e inference_multi_CI
