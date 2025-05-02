@@ -12,9 +12,9 @@ from bris.data.datamodule import DataModule
 from .checkpoint import Checkpoint
 from .inference import Inference
 from .utils import (
-    parse_args,
     create_config,
     get_all_leadtimes,
+    parse_args,
     set_base_seed,
     set_encoder_decoder_num_chunks,
 )
