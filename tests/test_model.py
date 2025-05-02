@@ -26,9 +26,8 @@ def test_bris_predictor():
     """Set up configuration and do a simple test run of the BrisPredictor class.
     Test will be skipped if the required dataset is not available."""
     dataset_path = "./bris_random_data.zarr"
-    if os.environ.get("TOX_WORK_DIR"):
-        dataset_path = os.environ.get("TOX_WORK_DIR") + "/bris_random_data.zarr"
-
+    if os.environ.get("TOX_ENV_DIR"):
+        dataset_path = os.environ.get("TOX_ENV_DIR") + "/tmp/bris_random_data.zarr"
     if not os.path.exists(dataset_path):
         pytest.skip(
             "Skipping test_bris_predictor, as the required dataset is not available. Run `tox -e trainingdata`."
@@ -45,6 +44,7 @@ def test_bris_predictor():
             "leadtimes": 2,
             "timestep": "6h",
             "checkpoints": {"forecaster": {"checkpoint_path": checkpoint_path}},
+            "dataset": dataset_path,
         },
     )
 
@@ -74,8 +74,6 @@ def test_bris_predictor():
         config.checkpoints[model].timestep_seconds = frequency_to_seconds(
             config.checkpoints[model].timestep
         )
-
-    num_members = 1
 
     # Get multistep. A default of 2 to ignore multistep in start_date calculation if not set.
     multistep = 2
@@ -112,20 +110,6 @@ def test_bris_predictor():
         timestep="6h",
         frequency=config.frequency,
     )
-
-    # Get outputs and required_variables of each decoder
-    if hasattr(config.checkpoints, "interpolator"):
-        leadtimes = get_all_leadtimes(
-            config.checkpoints.forecaster.leadtimes,
-            21600,
-            config.checkpoints.interpolator.leadtimes,
-            21600,
-        )
-    else:
-        leadtimes = get_all_leadtimes(
-            config.checkpoints.forecaster.leadtimes,
-            21600,
-        )
 
     required_variables = bris.routes.get_required_variables(
         config["routing"], checkpoints
@@ -162,9 +146,8 @@ def test_multiencdec_predictor():
     """Set up a configuration and do a simple test run of the MultiEncDecPredictor class.
     Test will be skipped if the required dataset is not available."""
     dataset_path = "./bris_random_data.zarr"
-    if os.environ.get("TOX_WORK_DIR"):
-        dataset_path = os.environ.get("TOX_WORK_DIR") + "/bris_random_data.zarr"
-
+    if os.environ.get("TOX_ENV_DIR"):
+        dataset_path = os.environ.get("TOX_ENV_DIR") + "/tmp/bris_random_data.zarr"
     if not os.path.exists(dataset_path):
         pytest.skip(
             "Skipping test_multiencdec_predictor, as the required dataset is not available. Run `tox -e trainingdata`."
@@ -181,6 +164,14 @@ def test_multiencdec_predictor():
             "leadtimes": 2,
             "timestep": "6h",
             "checkpoints": {"forecaster": {"checkpoint_path": checkpoint_path}},
+            "dataset": {
+                "zip": [
+                    {"dataset": dataset_path},
+                    {"dataset": dataset_path,
+                    "select": ["tp", "2t"]},
+                ],
+                "adjust": ["start", "end"],
+            }
         },
     )
     models = list(config.checkpoints.keys())
@@ -209,8 +200,6 @@ def test_multiencdec_predictor():
         config.checkpoints[model].timestep_seconds = frequency_to_seconds(
             config.checkpoints[model].timestep
         )
-
-    num_members = 1
 
     # Get multistep. A default of 2 to ignore multistep in start_date calculation if not set.
     multistep = 2
@@ -247,20 +236,6 @@ def test_multiencdec_predictor():
         timestep="6h",
         frequency=config.frequency,
     )
-
-    # Get outputs and required_variables of each decoder
-    if hasattr(config.checkpoints, "interpolator"):
-        leadtimes = get_all_leadtimes(
-            config.checkpoints.forecaster.leadtimes,
-            21600,
-            config.checkpoints.interpolator.leadtimes,
-            21600,
-        )
-    else:
-        leadtimes = get_all_leadtimes(
-            config.checkpoints.forecaster.leadtimes,
-            21600,
-        )
 
     required_variables = bris.routes.get_required_variables(
         config["routing"], checkpoints
