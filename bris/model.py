@@ -399,7 +399,9 @@ class MultiEncDecPredictor(BasePredictor):
         self.static_forcings = [{} for _ in range(num_dsets)]
         for dset in range(num_dsets):
             if not (selection := data_config[dset]["forcing"]):
-                LOGGER.warning("Dataset %s of %s is missing static forcings.", dset + 1, num_dsets)
+                LOGGER.warning(
+                    "Dataset %s of %s is missing static forcings.", dset + 1, num_dsets
+                )
                 continue
 
             if "cos_latitude" in selection:
@@ -425,9 +427,7 @@ class MultiEncDecPredictor(BasePredictor):
             if "lsm" in selection:
                 self.static_forcings[dset]["lsm"] = data_normalized[dset][
                     ...,
-                    self.data_indices[dset].internal_data.input.name_to_index[
-                        "lsm"
-                    ],
+                    self.data_indices[dset].internal_data.input.name_to_index["lsm"],
                 ].float()
 
             if "z" in selection:
