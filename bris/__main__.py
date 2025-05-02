@@ -36,6 +36,9 @@ def main(arg_list: list[str] | None = None):
         for model in models
     }
     set_encoder_decoder_num_chunks(getattr(config, "inference_num_chunks", 1))
+    if "release_cache" not in config or not isinstance(config["release_cache"], bool):
+        config["release_cache"] = False
+
     set_base_seed()
 
     # Get timestep from checkpoint. Also store a version in seconds for local use.

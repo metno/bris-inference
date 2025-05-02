@@ -375,7 +375,7 @@ class MultiEncDecPredictor(BasePredictor):
         )
         self.model.eval()
 
-    def set_static_forcings(self, data_reader: Iterable, data_config: dict):
+    def set_static_forcings(self, data_reader: Iterable, data_config: dict) -> None:
         data = data_reader[0]
         num_dsets = len(data)
         data_input = []
@@ -398,41 +398,43 @@ class MultiEncDecPredictor(BasePredictor):
 
         self.static_forcings = [{} for _ in range(num_dsets)]
         for dset in range(num_dsets):
-            selection = data_config[dset]["forcing"]
-            if selection is not None:
-                if "cos_latitude" in selection:
-                    self.static_forcings[dset]["cos_latitude"] = torch.from_numpy(
-                        np.cos(data_reader.latitudes[dset] * np.pi / 180.0)
-                    ).float()
+            if not (selection := data_config[dset]["forcing"]):
+                LOGGER.warning(
+                    "Dataset %s of %s is missing static forcings.", dset + 1, num_dsets
+                )
+                continue
 
-                if "sin_latitude" in selection:
-                    self.static_forcings[dset]["sin_latitude"] = torch.from_numpy(
-                        np.sin(data_reader.latitudes[dset] * np.pi / 180.0)
-                    ).float()
+            if "cos_latitude" in selection:
+                self.static_forcings[dset]["cos_latitude"] = torch.from_numpy(
+                    np.cos(data_reader.latitudes[dset] * np.pi / 180.0)
+                ).float()
 
-                if "cos_longitude" in selection:
-                    self.static_forcings[dset]["cos_longitude"] = torch.from_numpy(
-                        np.cos(data_reader.longitudes[dset] * np.pi / 180.0)
-                    ).float()
+            if "sin_latitude" in selection:
+                self.static_forcings[dset]["sin_latitude"] = torch.from_numpy(
+                    np.sin(data_reader.latitudes[dset] * np.pi / 180.0)
+                ).float()
 
-                if "sin_longitude" in selection:
-                    self.static_forcings[dset]["sin_longitude"] = torch.from_numpy(
-                        np.sin(data_reader.longitudes[dset] * np.pi / 180.0)
-                    ).float()
+            if "cos_longitude" in selection:
+                self.static_forcings[dset]["cos_longitude"] = torch.from_numpy(
+                    np.cos(data_reader.longitudes[dset] * np.pi / 180.0)
+                ).float()
 
-                if "lsm" in selection:
-                    self.static_forcings[dset]["lsm"] = data_normalized[dset][
-                        ...,
-                        self.data_indices[dset].internal_data.input.name_to_index[
-                            "lsm"
-                        ],
-                    ].float()
+            if "sin_longitude" in selection:
+                self.static_forcings[dset]["sin_longitude"] = torch.from_numpy(
+                    np.sin(data_reader.longitudes[dset] * np.pi / 180.0)
+                ).float()
 
-                if "z" in selection:
-                    self.static_forcings[dset]["z"] = data_normalized[dset][
-                        ...,
-                        self.data_indices[dset].internal_data.input.name_to_index["z"],
-                    ].float()
+            if "lsm" in selection:
+                self.static_forcings[dset]["lsm"] = data_normalized[dset][
+                    ...,
+                    self.data_indices[dset].internal_data.input.name_to_index["lsm"],
+                ].float()
+
+            if "z" in selection:
+                self.static_forcings[dset]["z"] = data_normalized[dset][
+                    ...,
+                    self.data_indices[dset].internal_data.input.name_to_index["z"],
+                ].float()
 
     def forward(self, x: torch.Tensor) -> list[torch.Tensor]:
         return self.model(x, self.model_comm_group)
