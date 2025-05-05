@@ -11,6 +11,10 @@ import torch
 from anemoi.models.data_indices.index import DataIndex, ModelIndex
 from torch.distributed.distributed_c10d import ProcessGroup
 
+from ..utils import (
+    check_anemoi_training,
+    timedelta64_from_timestep,
+)
 from .basepredictor import BasePredictor
 from .checkpoint import Checkpoint
 from .data.datamodule import DataModule
@@ -18,12 +22,7 @@ from .forcings import (
     anemoi_dynamic_forcings,
     get_dynamic_forcings,
 )
-from ..utils import (
-    check_anemoi_training,
-    get_variable_indices,
-    timedelta64_from_timestep,
-)
-from .model_utils import get_model_static_forcings
+from .model_utils import get_model_static_forcings, get_variable_indices
 
 LOGGER = logging.getLogger(__name__)
 
@@ -134,7 +133,12 @@ class MultiEncDecPredictor(BasePredictor):
 
         self.static_forcings = [{} for _ in range(num_dsets)]
         for dset in range(num_dsets):
-            selection = data_config[dset]["forcing"]
+            if not (selection := data_config[dset]["forcing"]):
+                LOGGER.warning(
+                    "Dataset %s of %s is missing static forcings.", dset + 1, num_dsets
+                )
+                continue
+
             if "cos_latitude" in selection:
                 self.static_forcings[dset]["cos_latitude"] = torch.from_numpy(
                     np.cos(data_reader.latitudes[dset] * np.pi / 180.0)
@@ -163,15 +167,9 @@ class MultiEncDecPredictor(BasePredictor):
 
             if "z" in selection:
                 self.static_forcings[dset]["z"] = data_normalized[dset][
-                    ..., self.data_indices[dset].internal_data.input.name_to_index["z"]
+                    ...,
+                    self.data_indices[dset].internal_data.input.name_to_index["z"],
                 ].float()
-
-            # TODO: this will replace lines above.
-            self.static_forcings[dset] = get_model_static_forcings(selection=data_config[dset]["forcing"],
-                data_reader=data_reader,
-                data_normalized=self.model.pre_processors(data_input, in_place=True),
-                internal_data=self.internal_data,
-            )
 
     def forward(self, x: torch.Tensor) -> list[torch.Tensor]:
         return self.model(x, self.model_comm_group)

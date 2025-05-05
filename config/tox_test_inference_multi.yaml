@@ -32,7 +32,7 @@ hardware:
   num_nodes: 1
 
 model:
-  _target_: bris.model.MultiEncDecPredictor
+  _target_: bris.model.multiencdecpredictor.MultiEncDecPredictor
   _convert_: all
 
 routing:
