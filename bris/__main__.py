@@ -14,6 +14,7 @@ from .inference import Inference
 from .utils import (
     create_config,
     get_all_leadtimes,
+    parse_args,
     set_base_seed,
     set_encoder_decoder_num_chunks,
 )
@@ -22,12 +23,9 @@ from .writer import CustomWriter
 LOGGER = logging.getLogger(__name__)
 
 
-def main():
-    parser = ArgumentParser()
-    parser.add_argument("--debug", action="store_true")
-    parser.add_argument("--config", type=str, required=True)
-
-    config = create_config(parser)
+def main(arg_list: list[str] | None = None):
+    args = parse_args(arg_list)
+    config = create_config(args["config"], args)
 
     models = list(config.checkpoints.keys())
     checkpoints = {
@@ -38,6 +36,9 @@ def main():
         for model in models
     }
     set_encoder_decoder_num_chunks(getattr(config, "inference_num_chunks", 1))
+    if "release_cache" not in config or not isinstance(config["release_cache"], bool):
+        config["release_cache"] = False
+
     set_base_seed()
 
     # Get timestep from checkpoint. Also store a version in seconds for local use.
@@ -162,7 +163,7 @@ def main():
             for output in decoder_output["outputs"]:
                 output.finalize()
 
-    print("Hello world")
+    print("Model run completed. 🤖")
 
 
 if __name__ == "__main__":

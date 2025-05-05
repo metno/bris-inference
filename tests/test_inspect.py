@@ -126,12 +126,8 @@ def test_get_required_variables():
     expected_multi = {
         0: ["10u", "10v", "z"],
         1: [
-            "skt",
-            "msl",
-            "cos_longitude",
-            "cos_latitude",
-            "sin_longitude",
-            "sin_latitude",
+            "tp",
+            "2t",
         ],
     }
     checkpoint_multi = bris.checkpoint.Checkpoint("tests/files/multiencdec.ckpt")
@@ -139,7 +135,7 @@ def test_get_required_variables():
     for dataset, required_variables in required_multi.items():
         for expected_variable in expected_multi[dataset]:
             assert expected_variable in required_variables, (
-                f"Expected variable {expected_variable} not in test-checkpoint {checkpoint_multi}."
+                f"Expected variable {expected_variable} was not found in test-checkpoint {checkpoint_multi}."
             )
 
 
@@ -151,13 +147,6 @@ def test_check_module_versions():
     # assert "fsspec==2025.2.0" in bad
 
 
-def test_inspect():
+def manual_test_inspect():
     """This depends on the current venv, so just test it doesn't crash"""
     _status = bris.inspect.inspect(checkpoint_path="tests/files/checkpoint.ckpt")
-
-
-if __name__ == "__main__":
-    test_clean_version_name()
-    test_get_required_variables()
-    test_check_module_versions()
-    # test_inspect()

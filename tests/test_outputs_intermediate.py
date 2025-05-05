@@ -29,7 +29,3 @@ def test_num_members():
         i = Intermediate(predict_metadata=get_test_pm(), workdir=temp_dir)
         # Checking the num_members property
         assert i.num_members == 3
-
-
-if __name__ == "__main__":
-    test_num_members()
