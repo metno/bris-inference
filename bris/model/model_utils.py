@@ -11,40 +11,95 @@ def get_model_static_forcings(
     data_reader: Dataset,
     data_normalized,
     internal_data: DataIndex,
-    dataset_no: int = 0,
+    dataset_no: int | None = None,
 ) -> dict:
-    """Get static forcings from the model."""
+    """Get static forcings from the model.
+
+    Args:
+        selection (list): List of static forcings to get.
+
+        data_reader (Dataset): Data reader object.
+
+        data_normalized: Normalized data.
+
+        internal_data (DataIndex): Data index object, from checkpoint.data_indices
+
+        dataset_no (int | None): Dataset number. If None, data_reader and
+            internal_data contains only one, simple dataset. If not None,
+            dataset_reader and internal_data contains multiple datasets used for
+            a multiencdec model.
+    """
     static_forcings = {}
 
     if "cos_latitude" in selection:
         static_forcings["cos_latitude"] = torch.from_numpy(
-            np.cos(data_reader.latitudes * np.pi / 180.0)
+            np.cos(
+                (
+                    data_reader.latitudes[dataset_no]
+                    if dataset_no is not None
+                    else data_reader.latitudes
+                )
+                * np.pi
+                / 180.0
+            )
         ).float()
 
     if "sin_latitude" in selection:
         static_forcings["sin_latitude"] = torch.from_numpy(
-            np.sin(data_reader.latitudes * np.pi / 180.0)
+            np.sin(
+                (
+                    data_reader.latitudes[dataset_no]
+                    if dataset_no is not None
+                    else data_reader.latitudes
+                )
+                * np.pi
+                / 180.0
+            )
         ).float()
 
     if "cos_longitude" in selection:
         static_forcings["cos_longitude"] = torch.from_numpy(
-            np.cos(data_reader.longitudes * np.pi / 180.0)
+            np.cos(
+                (
+                    data_reader.longitudes[dataset_no]
+                    if dataset_no is not None
+                    else data_reader.longitudes
+                )
+                * np.pi
+                / 180.0
+            )
         ).float()
 
     if "sin_longitude" in selection:
         static_forcings["sin_longitude"] = torch.from_numpy(
-            np.sin(data_reader.longitudes * np.pi / 180.0)
+            np.sin(
+                (
+                    data_reader.longitudes[dataset_no]
+                    if dataset_no is not None
+                    else data_reader.longitudes
+                )
+                * np.pi
+                / 180.0
+            )
         ).float()
 
     if "lsm" in selection:
-        static_forcings["lsm"] = data_normalized[
-            ..., internal_data.input.name_to_index["lsm"]
-        ].float()
+        static_forcings["lsm"] = (
+            data_normalized[dataset_no][
+                ..., internal_data.input.name_to_index["lsm"]
+            ].float()
+            if dataset_no is not None
+            else data_normalized[..., internal_data.input.name_to_index["lsm"]].float()
+        )
 
     if "z" in selection:
-        static_forcings["z"] = data_normalized[
-            ..., internal_data.input.name_to_index["z"]
-        ].float()
+        static_forcings["z"] = (
+            data_normalized[dataset_no][
+                ..., internal_data.input.name_to_index["z"]
+            ].float()
+            if dataset_no is not None
+            else data_normalized[..., internal_data.input.name_to_index["z"]].float()
+        )
 
     return static_forcings
 

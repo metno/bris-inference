@@ -149,6 +149,7 @@ class BrisPredictor(BasePredictor):
             data_reader=data_reader,
             data_normalized=self.model.pre_processors(data_input, in_place=True),
             internal_data=self.internal_data,
+            dataset_no=None,
         )
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
