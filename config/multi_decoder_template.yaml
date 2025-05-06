@@ -41,7 +41,7 @@ hardware:
   num_nodes: 1
 
 model:
-  _target_: bris.model.MultiEncDecPredictor
+  _target_: bris.model.brispredictor.MultiEncDecPredictor
   _convert_: all
 
 output: PATH_TO_OUTPUT #Not a required field, used in output path in routing

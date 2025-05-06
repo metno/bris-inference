@@ -8,11 +8,11 @@ from hydra.utils import instantiate
 from omegaconf import OmegaConf
 
 import bris.checkpoint
-import bris.model
 import bris.routes
 from bris.checkpoint import Checkpoint
 from bris.data.datamodule import DataModule
 from bris.inference import Inference
+from bris.model.brispredictor import BrisPredictor
 from bris.utils import (
     create_config,
     get_all_leadtimes,
@@ -133,7 +133,7 @@ def test_bris_predictor():
         release_cache=config.release_cache,
     )
 
-    _bp = bris.model.BrisPredictor(
+    _bp = bris.model.brispredictor.BrisPredictor(
         checkpoints=checkpoints,
         datamodule=datamodule,
         forecast_length=1,
@@ -258,7 +258,7 @@ def test_multiencdec_predictor():
         release_cache=config.release_cache,
     )
 
-    _bp = bris.model.MultiEncDecPredictor(
+    _bp = bris.model.multiencdecpredictor.MultiEncDecPredictor(
         checkpoints=checkpoints,
         datamodule=datamodule,
         forecast_length=1,
