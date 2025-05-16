@@ -160,7 +160,7 @@ class BrisPredictor(BasePredictor):
         Returns:
             torch.Tensor: Output tensor after processing by the model.
         """
-        return self.model(x, self.model_comm_group)
+        return self.model(x, model_comm_group=self.model_comm_group)
 
     def advance_input_predict(
         self, x: torch.Tensor, y_pred: torch.Tensor, time: np.datetime64

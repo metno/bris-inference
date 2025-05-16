@@ -146,7 +146,7 @@ class MultiEncDecPredictor(BasePredictor):
             )
 
     def forward(self, x: torch.Tensor) -> list[torch.Tensor]:
-        return self.model(x, self.model_comm_group)
+        return self.model(x, model_comm_group=self.model_comm_group)
 
     def advance_input_predict(
         self, x: list[torch.Tensor], y_pred: list[torch.Tensor], time: np.datetime64
