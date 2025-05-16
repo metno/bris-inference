@@ -27,9 +27,12 @@ def get_model_static_forcings(
         dataset_no (int | None): Dataset number. If None, data_reader and
             internal_data contains only one, simple dataset. If not None,
             dataset_reader and internal_data contains multiple datasets used for
-            a multiencdec model.
+            a multiencdec model, and we have to use dataset_no to fetch the
+            correct one, like data_reader.latitudes[dataset_no].
     """
     static_forcings = {}
+    if selection is None:
+        return
 
     if "cos_latitude" in selection:
         static_forcings["cos_latitude"] = torch.from_numpy(

@@ -44,7 +44,7 @@ class BrisPredictor(BasePredictor):
 
     predict_step: Predicts the next time step using the model.
 
-    allgather_batch
+    allgather_batch:
     """
 
     def __init__(
