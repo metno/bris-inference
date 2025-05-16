@@ -216,7 +216,7 @@ class BrisPredictor(BasePredictor):
         del data_normalized
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
-        return self.model(x, self.model_comm_group)
+        return self.model(x, model_comm_group=self.model_comm_group)
 
     def advance_input_predict(
         self, x: torch.Tensor, y_pred: torch.Tensor, time: np.datetime64
@@ -437,7 +437,7 @@ class MultiEncDecPredictor(BasePredictor):
                 ].float()
 
     def forward(self, x: torch.Tensor) -> list[torch.Tensor]:
-        return self.model(x, self.model_comm_group)
+        return self.model(x, model_comm_group=self.model_comm_group)
 
     def advance_input_predict(
         self, x: list[torch.Tensor], y_pred: list[torch.Tensor], time: np.datetime64
