@@ -148,7 +148,6 @@ class Checkpoint:
 
         return:
             HeteroData graph object
-
         """
         return (
             self._model_instance.graph_data
