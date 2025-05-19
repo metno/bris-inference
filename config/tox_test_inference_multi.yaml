@@ -42,7 +42,7 @@ routing:
     outputs:
       # Forecasts
       - netcdf:
-          filename_pattern: ./pred_%Y%m%dT%HZ.nc
+          filename_pattern: ./tox_test_inference.nc
           variables: [2t]
           extra_variables: [ws] #Compute wind speed from 10u and 10v
   # Outputs decoder 1
@@ -50,5 +50,5 @@ routing:
     domain_index: 0
     outputs: 
       - netcdf:
-          filename_pattern: ./pred_dec1_%Y%m%dT%HZ.nc
+          filename_pattern: ./tox_test_inference_dec1.nc
           variables: [tp]
