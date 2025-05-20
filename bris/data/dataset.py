@@ -158,6 +158,18 @@ class NativeGridDataset(IterableDataset):
 
         # Divide this equally across shards (one shard per group!)
         shard_size = len(self.valid_date_indices) // self.model_comm_num_groups
+
+        assert shard_size > 0, (
+            "Dataloader has zero samples per worker! This is likely due to using data parallel > number of samples in the dataset."
+        )
+        if len(self.valid_date_indices) % self.model_comm_num_groups != 0:
+            LOGGER.warning(
+                "Dataloader has %d samples, but %d model communication groups. "
+                "This will lead to %d unprocessed samples.",
+                len(self.valid_date_indices),
+                self.model_comm_num_groups,
+                len(self.valid_date_indices) % self.model_comm_num_groups,
+            )
         shard_start = self.model_comm_group_id * shard_size
         shard_end = (self.model_comm_group_id + 1) * shard_size
 
