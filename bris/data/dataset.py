@@ -168,7 +168,7 @@ class NativeGridDataset(IterableDataset):
             print(
                 f"Warning: Dataloader has {len(self.valid_date_indices)} samples, which is not divisible by {self.model_comm_num_groups} data parallel workers. "
                 f"This will lead to {len(self.valid_date_indices) % self.model_comm_num_groups} unprocessed samples.",
-                f"num_data_parallel = num_nodes * num_gpus_per_node / num_gpus_per_model"
+                f"num_data_parallel = num_nodes * num_gpus_per_node / num_gpus_per_model",
             )
         shard_start = self.model_comm_group_id * shard_size
         shard_end = (self.model_comm_group_id + 1) * shard_size
