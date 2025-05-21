@@ -160,15 +160,15 @@ class NativeGridDataset(IterableDataset):
         shard_size = len(self.valid_date_indices) // self.model_comm_num_groups
 
         assert shard_size > 0, (
-            "Dataloader has zero samples per worker! This is likely due to using data parallel > number of samples in the dataset."
+            f"Number of samples per data parallel worker is {shard_size}. "
+            f"Check your config file and ensure that the number of samples is greater than or equal to than the number of data parallel workers. "
+            f"num_data_parallel = num_nodes * num_gpus_per_node / num_gpus_per_model"
         )
         if len(self.valid_date_indices) % self.model_comm_num_groups != 0:
-            LOGGER.warning(
-                "Dataloader has %d samples, but %d model communication groups. "
-                "This will lead to %d unprocessed samples.",
-                len(self.valid_date_indices),
-                self.model_comm_num_groups,
-                len(self.valid_date_indices) % self.model_comm_num_groups,
+            print(
+                f"Warning: Dataloader has {len(self.valid_date_indices)} samples, which is not divisible by {self.model_comm_num_groups} data parallel workers. "
+                f"This will lead to {len(self.valid_date_indices) % self.model_comm_num_groups} unprocessed samples.",
+                f"num_data_parallel = num_nodes * num_gpus_per_node / num_gpus_per_model"
             )
         shard_start = self.model_comm_group_id * shard_size
         shard_end = (self.model_comm_group_id + 1) * shard_size
