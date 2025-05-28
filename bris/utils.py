@@ -5,12 +5,17 @@ import os
 import time
 import uuid
 from argparse import ArgumentParser
+from collections.abc import Iterable
 
 import jsonschema
 import numpy as np
+import torch
 import yaml
+from anemoi.models.data_indices.index import DataIndex, ModelIndex
 from anemoi.utils.config import DotDict
 from omegaconf import DictConfig, ListConfig, OmegaConf
+
+from .forcings import anemoi_dynamic_forcings, get_dynamic_forcings
 
 LOGGER = logging.getLogger(__name__)
 
