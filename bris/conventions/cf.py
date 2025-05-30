@@ -100,7 +100,7 @@ def get_metadata(anemoi_variable: str) -> dict:
 #     raise ValueError(f"Unknown leveltype: {leveltype}")
 
 
-def get_attributes(cfname):
+def get_attributes(cfname: str) -> dict[str, str]:
     ret = {"standard_name": cfname}
 
     # Coordinate variables
@@ -127,6 +127,9 @@ def get_attributes(cfname):
         ret["description"] = "height above ground"
         ret["long_name"] = "height"
         ret["positive"] = "up"
+    elif cfname in ["thunder_event"]:
+        ret["standard_name"] = "thunderstorm_probability"
+        ret["units"] = "1"
 
     # Data variables
     elif cfname in [
@@ -139,7 +142,7 @@ def get_attributes(cfname):
         ret["units"] = "m/s"
     elif cfname in ["air_temperature", "dew_point_temperature"]:
         ret["units"] = "K"
-    elif cfname == "land_sea_mask":
+    elif cfname in ["land_sea_mask", "area_fraction"]:
         ret["units"] = "1"
     elif cfname in ["geopotential", "surface_geopotential"]:
         ret["units"] = "m^2/s^2"
@@ -151,8 +154,6 @@ def get_attributes(cfname):
         ret["units"] = "kg/kg"
     elif cfname in ["cloud_base_altitude", "visibility_in_air"]:
         ret["units"] = "m"
-    elif "area_fraction" in cfname:
-        ret["units"] = "1"
     elif cfname in [
         "integral_of_surface_downwelling_longwave_flux_in_air_wrt_time",
         "integral_of_surface_downwelling_shortwave_flux_in_air_wrt_time",
