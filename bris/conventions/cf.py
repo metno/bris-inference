@@ -47,6 +47,7 @@ def get_metadata(anemoi_variable: str) -> dict:
             "height",
             0,
         ),
+        "thunder_event": ("thunderstorm_probability", None, None)
     }
 
     if anemoi_variable in variable_mapping:
