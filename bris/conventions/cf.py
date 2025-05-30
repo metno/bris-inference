@@ -139,7 +139,7 @@ def get_attributes(cfname):
         ret["units"] = "m/s"
     elif cfname in ["air_temperature", "dew_point_temperature"]:
         ret["units"] = "K"
-    elif cfname in ["land_sea_mask", "thunderstorm_probability", "area_fraction"]:
+    elif cfname in ["land_sea_mask", "thunder_event", "area_fraction"]:
         ret["units"] = "1"
     elif cfname in ["geopotential", "surface_geopotential"]:
         ret["units"] = "m^2/s^2"
