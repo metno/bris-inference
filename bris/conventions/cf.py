@@ -139,7 +139,7 @@ def get_attributes(cfname):
         ret["units"] = "m/s"
     elif cfname in ["air_temperature", "dew_point_temperature"]:
         ret["units"] = "K"
-    elif cfname == "land_sea_mask":
+    elif cfname in ["land_sea_mask", "thunderstorm_probability", "area_fraction"]:
         ret["units"] = "1"
     elif cfname in ["geopotential", "surface_geopotential"]:
         ret["units"] = "m^2/s^2"
@@ -151,8 +151,6 @@ def get_attributes(cfname):
         ret["units"] = "kg/kg"
     elif cfname in ["cloud_base_altitude", "visibility_in_air"]:
         ret["units"] = "m"
-    elif "area_fraction" in cfname:
-        ret["units"] = "1"
     elif cfname in [
         "integral_of_surface_downwelling_longwave_flux_in_air_wrt_time",
         "integral_of_surface_downwelling_shortwave_flux_in_air_wrt_time",
