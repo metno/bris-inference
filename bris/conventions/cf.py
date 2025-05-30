@@ -47,7 +47,6 @@ def get_metadata(anemoi_variable: str) -> dict:
             "height",
             0,
         ),
-        "thunderstorm_probability": ("thunder_event", None, None),
     }
 
     if anemoi_variable in variable_mapping:
@@ -128,6 +127,9 @@ def get_attributes(cfname: str) -> dict[str, str]:
         ret["description"] = "height above ground"
         ret["long_name"] = "height"
         ret["positive"] = "up"
+    elif cfname in ["thunder_event"]:
+        ret["standard_name"] = "thunderstorm_probability"
+        ret["units"] = "1"
 
     # Data variables
     elif cfname in [
@@ -140,7 +142,7 @@ def get_attributes(cfname: str) -> dict[str, str]:
         ret["units"] = "m/s"
     elif cfname in ["air_temperature", "dew_point_temperature"]:
         ret["units"] = "K"
-    elif cfname in ["land_sea_mask", "thunder_event", "area_fraction"]:
+    elif cfname in ["land_sea_mask", "area_fraction"]:
         ret["units"] = "1"
     elif cfname in ["geopotential", "surface_geopotential"]:
         ret["units"] = "m^2/s^2"
