@@ -101,7 +101,7 @@ def get_metadata(anemoi_variable: str) -> dict:
 #     raise ValueError(f"Unknown leveltype: {leveltype}")
 
 
-def get_attributes(cfname):
+def get_attributes(cfname: str) -> dict[str, str]:
     ret = {"standard_name": cfname}
 
     # Coordinate variables
