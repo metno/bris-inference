@@ -24,7 +24,8 @@ from bris.utils import (
 
 def test_bris_predictor():
     """Set up configuration and do a simple test run of the BrisPredictor class.
-    Test will be skipped if the required dataset is not available."""
+    Test will be skipped if the required dataset is not available. Also touches
+    DataModule. """
     dataset_path = "./bris_random_data.zarr"
     if os.environ.get("TOX_ENV_DIR"):
         dataset_path = os.environ.get("TOX_ENV_DIR") + "/tmp/bris_random_data.zarr"
