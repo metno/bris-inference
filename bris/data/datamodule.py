@@ -14,7 +14,7 @@ from omegaconf import DictConfig, OmegaConf
 from torch.utils.data import DataLoader, IterableDataset
 
 from bris.checkpoint import Checkpoint
-from bris.data.dataset import worker_init_func
+import bris.data
 from bris.data.grid_indices import BaseGridIndices, FullGrid
 from bris.utils import recursive_list_to_tuple
 
