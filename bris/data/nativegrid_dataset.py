@@ -7,7 +7,7 @@ from typing import Callable
 import numpy as np
 import torch
 from einops import rearrange
-from torch.utils.data import IterableDataset, get_worker_info
+from torch.utils.data import IterableDataset
 
 from bris.data.grid_indices import BaseGridIndices
 from bris.utils import get_base_seed, get_usable_indices
