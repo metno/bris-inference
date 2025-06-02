@@ -26,7 +26,7 @@ class NativeGridDataset(IterableDataset):
         multistep: int = 1,
         timeincrement: int = 1,
         label: str = "generic",
-        init_ensemble_size: bool = True
+        init_ensemble_size: bool = True,
     ) -> None:
         """Initialize (part of) the dataset state.
 

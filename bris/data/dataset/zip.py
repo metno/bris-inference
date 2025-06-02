@@ -30,7 +30,7 @@ class ZipDataset(NativeGridDataset):
             multistep,
             timeincrement,
             label,
-            init_ensemble_size=False
+            init_ensemble_size=False,
         )
 
         self.grid_indices = grid_indices
