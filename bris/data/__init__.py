@@ -1,5 +1,5 @@
-from bris.data.nativegriddataset import NativeGridDataset
-from .zip import ZipDataset
+from bris.data.nativegrid_dataset import NativeGridDataset
+from .zip_dataset import ZipDataset
 
 
 import logging
