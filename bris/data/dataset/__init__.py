@@ -4,8 +4,8 @@ from torch.utils.data import get_worker_info
 
 from bris.utils import get_usable_indices
 
-from .nativegrid_dataset import NativeGridDataset
-from .zip_dataset import ZipDataset
+from .nativegrid import NativeGridDataset
+from .zip import ZipDataset
 
 LOGGER = logging.getLogger(__name__)
 

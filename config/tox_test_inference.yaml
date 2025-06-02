@@ -14,7 +14,7 @@ workdir: /tmp/
 
 dataloader:
   datamodule:
-    _target_: bris.data.NativeGridDataset
+    _target_: bris.data.dataset.NativeGridDataset
     _convert_: all
 
 hardware:
