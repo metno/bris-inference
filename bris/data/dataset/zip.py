@@ -1,5 +1,6 @@
 import logging
 from collections.abc import Iterator
+from typing import Callable
 
 import numpy as np
 import torch
@@ -15,41 +16,24 @@ LOGGER = logging.getLogger(__name__)
 class ZipDataset(NativeGridDataset):
     def __init__(
         self,
-        data_reader,
+        data_reader: Callable,
         grid_indices,
-        rollout=1,
-        multistep=1,
-        timeincrement=1,
-        label="generic",
-    ):
-        self.label = label
-        self.data = data_reader
+        rollout: int = 1,
+        multistep: int = 1,
+        timeincrement: int = 1,
+        label: str = "generic",
+    ) -> None:
+        super().__init__(
+            data_reader,
+            grid_indices,
+            rollout,
+            multistep,
+            timeincrement,
+            label,
+            init_ensemble_size=False
+        )
 
-        self.rollout = rollout
-        self.timeincrement = timeincrement
         self.grid_indices = grid_indices
-
-        # lazy init
-        self.n_samples_per_epoch_total: int = 0
-        self.n_samples_per_epoch_per_worker: int = 0
-
-        # lazy init model and reader group info, will be set by the DDPGroupStrategy:
-        self.model_comm_group_rank = 0
-        self.model_comm_num_groups = 1
-        self.model_comm_group_id = 0
-        self.global_rank = 0
-
-        self.reader_group_rank = 0
-        self.reader_group_size = 1
-
-        # additional state vars (lazy init)
-        self.n_samples_per_worker = 0
-        self.chunk_index_range: np.ndarray | None = None
-
-        # Data dimensions
-        self.multi_step = multistep
-        assert self.multi_step > 0, "Multistep value must be greater than zero."
-        self.ensemble_dim: int = 2
         assert all(
             dset_shape[self.ensemble_dim] == self.data.shape[0][self.ensemble_dim]
             for dset_shape in self.data.shape

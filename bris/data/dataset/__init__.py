@@ -4,6 +4,7 @@ from torch.utils.data import get_worker_info
 
 from bris.utils import get_usable_indices
 
+# Make NativeGridDataset and ZipDataset importable from bris.data.dataset:
 from .nativegrid import NativeGridDataset
 from .zip import ZipDataset
 
@@ -24,7 +25,6 @@ def worker_init_func(worker_id: int) -> None:
     ------
     RuntimeError
         If worker_info is None
-
     """
     worker_info = get_worker_info()  # information specific to each worker process
     if worker_info is None:

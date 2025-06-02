@@ -26,6 +26,7 @@ class NativeGridDataset(IterableDataset):
         multistep: int = 1,
         timeincrement: int = 1,
         label: str = "generic",
+        init_ensemble_size: bool = True
     ) -> None:
         """Initialize (part of) the dataset state.
 
@@ -45,6 +46,8 @@ class NativeGridDataset(IterableDataset):
             Shuffle batches, by default True
         label : str, optional
             label for the dataset, by default "generic"
+        init_ensemble_size: bool, default True
+            In sub-classes like ZipDataset this must be set to false.
         """
         self.label = label
         self.data = data_reader
@@ -74,7 +77,10 @@ class NativeGridDataset(IterableDataset):
         self.multi_step = multistep
         assert self.multi_step > 0, "Multistep value must be greater than zero."
         self.ensemble_dim: int = 2
-        self.ensemble_size = self.data.shape[self.ensemble_dim]
+
+        if init_ensemble_size:
+            # You may not want this if sub-classing this class
+            self.ensemble_size = self.data.shape[self.ensemble_dim]
 
     @cached_property
     def valid_date_indices(self) -> np.ndarray:
