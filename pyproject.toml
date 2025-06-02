@@ -46,13 +46,26 @@ dependencies = [
     "numcodecs<0.16.0" # related to zarr version
 ]
 
+optional-dependencies.dev = [
+  "bris[tests]",
+  "pytest",       # For testing in IDE
+  "types-PyYAML", # For mypy in IDE
+]
+
 optional-dependencies.tests = [
     "tox", # For running tests
-    "pytest", # For testing in IDE
-    "types-PyYAML", # For mypy in IDE
 ]
 
 dynamic = ["version"]
+
+urls.Documentation = "https://github.com/metno/bris-inference/wiki"
+urls.Homepage = "https://github.com/metno/bris-inference/"
+urls.Issues = "https://github.com/metno/bris-inference/issues"
+urls.Repository = "https://github.com/metno/bris-inference/"
+
+[project.scripts]
+bris = "bris:main"
+bris-inspect = "bris.inspect:main"
 
 [tool.setuptools]
 include-package-data = true
@@ -66,17 +79,12 @@ version = {attr = "bris.__version__"}
 [tool.setuptools.package-data]
 bris = ["schema/*.json"]
 
-[project.scripts]
-bris = "bris:main"
-bris-inspect = "bris.inspect:main"
-
 [tool.ruff]
 exclude = [
     "bris/sources/frost.py",
     "bris/sources/azurestorage.py",
     "bris/data/legacy"
 ]
-
 
 [tool.ruff.lint]
 fixable = ["I"]
