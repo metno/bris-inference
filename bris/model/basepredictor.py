@@ -51,7 +51,7 @@ class BasePredictor(pl.LightningModule):
         """
         Init model_comm* variables for distributed training.
 
-        args:
+        Args:
             checkpoints {"forecaster": checkpoint_object}
             hardware_config {"num_gpus_per_model": int, "num_gpus_per_node": int, "num_nodes": int}
         """
