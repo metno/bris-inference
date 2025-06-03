@@ -16,7 +16,22 @@ LOGGER = logging.getLogger(__name__)
 
 
 class NativeGridDataset(IterableDataset):
-    """Iterable dataset for AnemoI data on the arbitrary grids."""
+    """Iterable dataset for AnemoI data on the arbitrary grids.
+    Note that ZipDataset inherits from this.
+
+    Methods
+    -------
+
+        __init__
+
+        valid_date_indices
+
+        set_comm_group_info
+
+        per_worker_init
+
+        __iter__
+    """
 
     def __init__(
         self,
@@ -30,24 +45,27 @@ class NativeGridDataset(IterableDataset):
     ) -> None:
         """Initialize (part of) the dataset state.
 
-        Parameters
-        ----------
+        Args:
         data_reader : Callable
             user function that opens and returns the zarr array data
+
         grid_indices : Type[BaseGridIndices]
             indices of the grid to keep. Defaults to None, which keeps all spatial indices.
+
         rollout : int, optional
-            length of rollout window, by default 12
-        timeincrement : int, optional
-            time increment between samples, by default 1
+            length of rollout window, default 1
+
         multistep : int, optional
-            collate (t-1, ... t - multistep) into the input state vector, by default 1
-        shuffle : bool, optional
-            Shuffle batches, by default True
+            collate (t-1, ... t - multistep) into the input state vector, default 1
+
+        timeincrement : int, optional
+            time increment between samples, default 1
+
         label : str, optional
             label for the dataset, by default "generic"
+
         init_ensemble_size: bool, default True
-            In sub-classes like ZipDataset this must be set to false.
+            In sub-classes this must be set to false and done in the sub-class instead. See ZipDataset for example.
         """
         self.label = label
         self.data = data_reader
@@ -56,11 +74,11 @@ class NativeGridDataset(IterableDataset):
         self.timeincrement = timeincrement
         self.grid_indices = grid_indices[0]  # Assume 1 input dataset
 
-        # lazy init
+        # Lazy init
         self.n_samples_per_epoch_total: int = 0
         self.n_samples_per_epoch_per_worker: int = 0
 
-        # lazy init model and reader group info, will be set by the DDPGroupStrategy:
+        # Lazy init model and reader group info, will be set by the DDPGroupStrategy:
         self.model_comm_group_rank = 0
         self.model_comm_num_groups = 1
         self.model_comm_group_id = 0
@@ -69,7 +87,7 @@ class NativeGridDataset(IterableDataset):
         self.reader_group_rank = 0
         self.reader_group_size = 1
 
-        # additional state vars (lazy init)
+        # Additional state vars (lazy init)
         self.n_samples_per_worker = 0
         self.chunk_index_range: np.ndarray | None = None
 
@@ -79,7 +97,6 @@ class NativeGridDataset(IterableDataset):
         self.ensemble_dim: int = 2
 
         if init_ensemble_size:
-            # You may not want this if sub-classing this class
             self.ensemble_size = self.data.shape[self.ensemble_dim]
 
     @cached_property
@@ -172,8 +189,9 @@ class NativeGridDataset(IterableDataset):
         )
         if len(self.valid_date_indices) % self.model_comm_num_groups != 0:
             print(
-                f"Warning: Dataloader has {len(self.valid_date_indices)} samples, which is not divisible by {self.model_comm_num_groups} data parallel workers. "
-                f"This will lead to {len(self.valid_date_indices) % self.model_comm_num_groups} unprocessed samples.",
+                f"Warning: Dataloader has {len(self.valid_date_indices)} samples, which is not divisible by "
+                f"{self.model_comm_num_groups} data parallel workers. This will lead to "
+                f"{len(self.valid_date_indices) % self.model_comm_num_groups} unprocessed samples.",
                 "num_data_parallel = num_nodes * num_gpus_per_node / num_gpus_per_model",
             )
         shard_start = self.model_comm_group_id * shard_size

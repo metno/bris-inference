@@ -2,13 +2,10 @@ import logging
 from collections.abc import Iterator
 from typing import Callable
 
-import numpy as np
 import torch
 from einops import rearrange
-from torch.utils.data import get_worker_info
 
 from bris.data.dataset import NativeGridDataset
-from bris.utils import get_usable_indices
 
 LOGGER = logging.getLogger(__name__)
 
