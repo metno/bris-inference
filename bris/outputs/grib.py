@@ -87,7 +87,6 @@ class Grib(Output):
         forecast_reference_time = times[0].astype(datetime)
 
         with open(filename, "wb") as file_handle:
-            print(f"Write to: {filename}")
             for time_index, numpy_dt in enumerate(times):
                 dt = numpy_dt.astype(datetime)
                 for variable_index in range(pred.shape[2]):
