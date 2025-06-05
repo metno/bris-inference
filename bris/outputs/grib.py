@@ -99,8 +99,8 @@ class Grib(Output):
                             file_handle,
                             forecast_reference_time,
                             dt,
-                            metadata.get("level", 0),
-                            metadata.get("leveltype", "height"),
+                            metadata.get("level", 0) or 0,
+                            metadata.get("leveltype", "height") or "height",
                             ncname,
                             self.pm.field_shape[1],
                             self.pm.field_shape[0],
@@ -144,6 +144,10 @@ class Grib(Output):
             "specific_humidity_pl":                 (0, 0, 1, 0, None),
             "upward_air_velocity_pl":               (0, 0, 2, 9, None),
             "dew_point_temperature_2m":             (0, 0, 0, 6, None),
+            "vertical_velocity_pl":                 (0, 0, 2, 8, None),
+            "tcw":                                  (0, 0, 1, 3, None),
+            "skt":                                  (0, 0, 0, 17, None),
+            "precipitation_amount":                 (0, 0, 1, 8, None),
         }.get(param)
 
 
