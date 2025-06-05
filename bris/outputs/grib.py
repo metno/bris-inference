@@ -24,7 +24,7 @@ class Grib(Output):
         filename_pattern: str,
         variables=None,
         interp_res=None,
-        grib_keys: dict = {}
+        grib_keys: dict = None
     ):
         """
         Args:
@@ -50,7 +50,7 @@ class Grib(Output):
         # CF-standard names are added in the standard_name attributes
         self.conventions = Metno()
         self.interp_res = interp_res
-        self.grib_keys = grib_keys
+        self.grib_keys = grib_keys or {}
 
     def _add_forecast(self, times: list, ensemble_member: int, pred: np.array):
         if self.pm.num_members > 1:
@@ -251,13 +251,13 @@ class VariableList:
     same dimension (e.g. two variables with a different set of pressure levels)
     """
 
-    def __init__(self, anemoi_names: list, conventions=Metno()):
+    def __init__(self, anemoi_names: list, conventions=None):
         """Args:
         anemoi_names: A list of variables names used in Anemoi (e.g. u10)
         conventions: What NetCDF naming convention to use
         """
         self.anemoi_names = anemoi_names
-        self.conventions = conventions
+        self.conventions = conventions if conventions is not None else Metno()
 
         self._dimensions, self._ncname_to_level_dim = self.load_dimensions()
 
@@ -271,9 +271,8 @@ class VariableList:
         return self._dimensions
 
     def load_dimensions(self):
-        cfname_to_levels = dict()
-
-        for v, variable in enumerate(self.anemoi_names):
+        cfname_to_levels = {}
+        for _v, variable in enumerate(self.anemoi_names):
             metadata = cf.get_metadata(variable)
             cfname = metadata["cfname"]
             leveltype = metadata["leveltype"]
@@ -284,23 +283,23 @@ class VariableList:
                 continue
 
             if cfname not in cfname_to_levels:
-                cfname_to_levels[cfname] = dict()
+                cfname_to_levels[cfname] = {}
             if leveltype not in cfname_to_levels[cfname]:
-                cfname_to_levels[cfname][leveltype] = list()
+                cfname_to_levels[cfname][leveltype] = []
             cfname_to_levels[cfname][leveltype] += [level]
         # Sort levels
         for cfname, v in cfname_to_levels.items():
             for leveltype, vv in v.items():
                 if leveltype == "height" and len(vv) > 1:
-                    raise Exception(
+                    raise ValueError(
                         f"A variable {cfname} with height leveltype should only have one level"
                     )
                 v[leveltype] = sorted(vv)
         # air_temperature -> pressure -> [1000, 925, 800, 700]
 
         # Determine unique dimensions to add
-        dims_to_add = dict()  # height1 -> [height, [2]]
-        ncname_to_level_dim = dict()
+        dims_to_add = {}  # height1 -> [height, [2]]
+        ncname_to_level_dim = {}
         for cfname, v in cfname_to_levels.items():
             for leveltype, levels in v.items():
                 ncname = self.conventions.get_ncname(cfname, leveltype, levels[0])
