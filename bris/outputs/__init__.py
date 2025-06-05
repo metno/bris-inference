@@ -1,6 +1,7 @@
 import copy
-import numpy as np
+from typing import Optional
 
+import numpy as np
 
 from bris import sources
 from bris.predict_metadata import PredictMetadata
@@ -15,24 +16,23 @@ def instantiate(name: str, predict_metadata: PredictMetadata, workdir: str, init
     """
     if name == "verif":
         # Parse obs sources
-        obs_sources = list()
+        obs_sources = []
 
         # Convert to dict, since iverriding obs_sources doesn't seem to work with OmegaConf
-        args = dict(**init_args)
-        for s in init_args["obs_sources"]:
-            for name, opts in s.items():
-                obs_sources += [sources.instantiate(name, opts)]
+        args = {**init_args}
+        for source in init_args["obs_sources"]:
+            for source_name, opts in source.items():
+                obs_sources += [sources.instantiate(source_name, opts)]
         args["obs_sources"] = obs_sources
         return Verif(predict_metadata, workdir, **args)
 
-    elif name == "netcdf":
+    if name == "netcdf":
         return Netcdf(predict_metadata, workdir, **init_args)
 
-    elif name == "grib":
+    if name == "grib":
         return Grib(predict_metadata, workdir, **init_args)
 
-    else:
-        raise ValueError(f"Invalid output: {name}")
+    raise ValueError(f"Invalid output: {name}")
 
 
 def get_required_variables(name, init_args):
@@ -40,49 +40,38 @@ def get_required_variables(name, init_args):
     provided
     """
 
-    if name == "netcdf":
+    if name in ("netcdf", "grib"):
         if "variables" in init_args:
             variables = init_args["variables"]
             if "extra_variables" in init_args:
-                for name in init_args["extra_variables"]:
-                    if name == "10si":
+                for var_name in init_args["extra_variables"]:
+                    if var_name == "ws":
                         variables += ["10u", "10v"]
             variables = list(set(variables))
             return variables
-        else:
-            return [None]
+        return [None]
 
-    elif name == "grib":
-        if "variables" in init_args:
-            variables = init_args["variables"]
-            if "extra_variables" in init_args:
-                for name in init_args["extra_variables"]:
-                    if name == "10si":
-                        variables += ["10u", "10v"]
-            variables = list(set(variables))
-            return variables
-        else:
-            return [None]
-
-    elif name == "verif":
-        if init_args["variable"] == "10si":
+    if name == "verif":
+        if init_args["variable"] == "ws":
             return ["10u", "10v"]
-        else:
-            return [init_args["variable"]]
+        return [init_args["variable"]]
 
-    else:
-        raise ValueError(f"Invalid output: {name}")
+    raise ValueError(f"Invalid output: {name}")
 
 
 class Output:
     """This class writes output for a specific part of the domain"""
 
-    def __init__(self, predict_metadata: PredictMetadata, extra_variables=dict()):
+    def __init__(
+        self, predict_metadata: PredictMetadata, extra_variables: Optional[list] = None
+    ):
         """Creates an object of type name with config
 
         Args:
             predict_metadata: Contains metadata about the batch the output will recieve
         """
+        if extra_variables is None:
+            extra_variables = []
 
         predict_metadata = copy.deepcopy(predict_metadata)
         predict_metadata.variables += extra_variables
@@ -90,7 +79,7 @@ class Output:
         self.pm = predict_metadata
         self.extra_variables = extra_variables
 
-    def add_forecast(self, times: list, ensemble_member: int, pred: np.array):
+    def add_forecast(self, times: list, ensemble_member: int, pred: np.ndarray):
         """Registers a forecast from a single ensemble member in the output
 
         Args:
@@ -100,12 +89,12 @@ class Output:
         """
 
         # Append extra variables to prediction
-        extra_pred = list()
+        extra_pred = []
         for name in self.extra_variables:
-            if name == "10si":
+            if name == "ws":
                 Ix = self.pm.variables.index("10u")
                 Iy = self.pm.variables.index("10v")
-                curr = np.sqrt(pred[..., [Ix]]**2 + pred[..., [Iy]]**2)
+                curr = np.sqrt(pred[..., [Ix]] ** 2 + pred[..., [Iy]] ** 2)
                 extra_pred += [curr]
             else:
                 raise ValueError(f"No recipe to compute {name}")
@@ -114,20 +103,22 @@ class Output:
 
         assert pred.shape[0] == self.pm.num_leadtimes
         assert pred.shape[1] == len(self.pm.lats)
-        assert pred.shape[2] == len(self.pm.variables), (pred.shape, len(self.pm.variables))
+        assert pred.shape[2] == len(self.pm.variables), (
+            pred.shape,
+            len(self.pm.variables),
+        )
         assert ensemble_member >= 0
         assert ensemble_member < self.pm.num_members
 
         self._add_forecast(times, ensemble_member, pred)
 
-    def _add_forecast(self, times: list, ensemble_member: int, pred: np.array):
+    def _add_forecast(self, times: list, ensemble_member: int, pred: np.ndarray):
         """Subclasses should implement this"""
         raise NotImplementedError()
 
     def finalize(self):
         """Finalizes the output. This gets called after all add_forecast calls are done. Subclasses
         can override this, if necessary."""
-        pass
 
     def reshape_pred(self, pred):
         """Reshape predictor matrix from points to x,y based on field_shape
@@ -140,7 +131,7 @@ class Output:
         """
         assert self.pm.field_shape is not None
 
-        T, L, V = pred.shape
+        T, _L, V = pred.shape
         shape = [T, self.pm.field_shape[0], self.pm.field_shape[1], V]
         pred = np.reshape(pred, shape)
         return pred
@@ -155,7 +146,7 @@ class Output:
             3D numpy array with dimensions (leadtime, location, variable)
         """
         assert len(pred.shape) == 4
-        T, Y, X, V = pred.shape
+        T, _Y, _X, V = pred.shape
 
         shape = [T, self.pm.field_shape[0] * self.pm.field_shape[1], V]
         pred = np.reshape(pred, shape)

@@ -26,7 +26,9 @@ LOGGER = logging.getLogger(__name__)
 class DDPGroupStrategy(DDPStrategy):
     """Distributed Data Parallel strategy with group communication."""
 
-    def __init__(self, num_gpus_per_model: int, read_group_size: int, **kwargs: dict) -> None:
+    def __init__(
+        self, num_gpus_per_model: int, read_group_size: int, **kwargs: dict
+    ) -> None:
         """Initialize the distributed strategy.
 
         Parameters
@@ -44,7 +46,9 @@ class DDPGroupStrategy(DDPStrategy):
         self.read_group_size = read_group_size
 
     def setup(self, trainer: pl.Trainer) -> None:
-        assert self.accelerator is not None, "Accelerator is not initialized for distributed strategy"
+        assert self.accelerator is not None, (
+            "Accelerator is not initialized for distributed strategy"
+        )
         self.accelerator.setup(trainer)
 
         # determine the model groups that work together:
@@ -62,8 +66,10 @@ class DDPGroupStrategy(DDPStrategy):
             torch.distributed.new_group(x) for x in model_comm_group_ranks
         ]  # every rank has to create all of these
 
-        model_comm_group_id, model_comm_group_rank, model_comm_num_groups = self.get_my_model_comm_group(
-            self.model_comm_group_size,
+        model_comm_group_id, model_comm_group_rank, model_comm_num_groups = (
+            self.get_my_model_comm_group(
+                self.model_comm_group_size,
+            )
         )
         model_comm_group = model_comm_groups[model_comm_group_id]
         self.model.set_model_comm_group(
@@ -83,14 +89,21 @@ class DDPGroupStrategy(DDPStrategy):
 
         reader_group_ranks = np.array(
             [
-                np.split(group_ranks, int(self.model_comm_group_size / self.read_group_size))
+                np.split(
+                    group_ranks, int(self.model_comm_group_size / self.read_group_size)
+                )
                 for group_ranks in model_comm_group_ranks
             ],
         )  # Shape: (num_model_comm_groups, model_comm_grp_size/read_group_size, read_group_size)
-        reader_groups = [[torch.distributed.new_group(x) for x in group_ranks] for group_ranks in reader_group_ranks]
-        reader_group_id, reader_group_rank, reader_group_size, reader_group_root = self.get_my_reader_group(
-            model_comm_group_rank,
-            self.read_group_size,
+        reader_groups = [
+            [torch.distributed.new_group(x) for x in group_ranks]
+            for group_ranks in reader_group_ranks
+        ]
+        reader_group_id, reader_group_rank, reader_group_size, reader_group_root = (
+            self.get_my_reader_group(
+                model_comm_group_rank,
+                self.read_group_size,
+            )
         )
         # get all reader groups of the current model group
         model_reader_groups = reader_groups[model_comm_group_id]
@@ -124,7 +137,9 @@ class DDPGroupStrategy(DDPStrategy):
         trainer_fn = trainer.state.fn
 
         if trainer_fn == TrainerFn.FITTING and self._layer_sync:
-            assert self.model is not None, "Model is not initialized for distributed strategy"
+            assert self.model is not None, (
+                "Model is not initialized for distributed strategy"
+            )
             self.model = self._layer_sync.apply(self.model)
 
         self.setup_precision_plugin()
@@ -143,7 +158,9 @@ class DDPGroupStrategy(DDPStrategy):
                 self._enable_model_averaging()
         else:
             # we need to manually synchronize the module's states since we aren't using the DDP wrapper
-            assert self.model is not None, "Model is not initialized for distributed strategy"
+            assert self.model is not None, (
+                "Model is not initialized for distributed strategy"
+            )
             _sync_module_states(self.model)
 
         # seed ranks
@@ -168,7 +185,9 @@ class DDPGroupStrategy(DDPStrategy):
 
         return model_comm_group_id, model_comm_group_rank, model_comm_num_groups
 
-    def get_my_reader_group(self, model_comm_group_rank: int, read_group_size: int) -> tuple[int, int, int]:
+    def get_my_reader_group(
+        self, model_comm_group_rank: int, read_group_size: int
+    ) -> tuple[int, int, int]:
         """Determine tasks that work together and from a reader group.
 
         Parameters
@@ -190,7 +209,9 @@ class DDPGroupStrategy(DDPStrategy):
 
         return reader_group_id, reader_group_rank, reader_group_size, reader_group_root
 
-    def process_dataloader(self, dataloader: torch.utils.data.DataLoader) -> torch.utils.data.DataLoader:
+    def process_dataloader(
+        self, dataloader: torch.utils.data.DataLoader
+    ) -> torch.utils.data.DataLoader:
         """Pass communication group information to the dataloader for distributed training.
 
         Parameters
@@ -207,10 +228,14 @@ class DDPGroupStrategy(DDPStrategy):
         dataloader = super().process_dataloader(dataloader)
 
         # pass model and reader group information to the dataloaders dataset
-        model_comm_group_id, model_comm_group_rank, model_comm_num_groups = self.get_my_model_comm_group(
-            self.model_comm_group_size,
+        model_comm_group_id, model_comm_group_rank, model_comm_num_groups = (
+            self.get_my_model_comm_group(
+                self.model_comm_group_size,
+            )
         )
-        _, reader_group_rank, _, _ = self.get_my_reader_group(model_comm_group_rank, self.read_group_size)
+        _, reader_group_rank, _, _ = self.get_my_reader_group(
+            model_comm_group_rank, self.read_group_size
+        )
 
         dataloader.dataset.set_comm_group_info(
             self.global_rank,
@@ -227,7 +252,9 @@ class DDPGroupStrategy(DDPStrategy):
         """Seed the random number generators for the rank."""
         base_seed = get_base_seed()
         initial_seed = base_seed * (model_comm_group_id + 1)
-        rnd_seed = pl.seed_everything(initial_seed)  # note: workers are seeded independently in dataloader
+        rnd_seed = pl.seed_everything(
+            initial_seed
+        )  # note: workers are seeded independently in dataloader
         np_rng = np.random.default_rng(rnd_seed)
         sanity_rnd = (torch.rand(1), np_rng.random())
         LOGGER.debug(
@@ -252,4 +279,6 @@ class DDPGroupStrategy(DDPStrategy):
         """
         for name, param in self.model.named_parameters():
             if param.requires_grad is True and "trainable" not in name:
-                param.register_hook(lambda grad: grad * float(self.model_comm_group_size))
+                param.register_hook(
+                    lambda grad: grad * float(self.model_comm_group_size)
+                )

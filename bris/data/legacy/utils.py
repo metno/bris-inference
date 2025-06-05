@@ -63,9 +63,9 @@ def get_base_seed(env_var_list=("AIFS_BASE_SEED", "SLURM_JOB_ID")) -> int:
             base_seed = int(os.environ.get(env_var))
             break
 
-    assert (
-        base_seed is not None
-    ), f"Base seed not found in environment variables {env_var_list}"
+    assert base_seed is not None, (
+        f"Base seed not found in environment variables {env_var_list}"
+    )
 
     if base_seed < 1000:
         base_seed = base_seed * 1000  # make it (hopefully) big enough
@@ -142,9 +142,9 @@ def _legacy_slurm_proc_id(config: DotDict) -> None:
         global_rank % config.hardware.num_gpus_per_model
     )  # rank within one model communication group
     total_gpus = config.hardware.num_gpus_per_node * config.hardware.num_nodes
-    assert (
-        total_gpus
-    ) % config.hardware.num_gpus_per_model == 0, f"GPUs per model {config.hardware.num_gpus_per_model} does not divide total GPUs {total_gpus}"
+    assert (total_gpus) % config.hardware.num_gpus_per_model == 0, (
+        f"GPUs per model {config.hardware.num_gpus_per_model} does not divide total GPUs {total_gpus}"
+    )
     model_comm_num_groups = (
         config.hardware.num_gpus_per_node
         * config.hardware.num_nodes

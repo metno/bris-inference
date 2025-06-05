@@ -1,9 +1,10 @@
-import cfunits
 import gridpp
 import numpy as np
 import scipy.interpolate
-from scipy.spatial import Delaunay
 import xarray as xr
+from scipy.spatial import Delaunay, cKDTree
+
+import bris.units
 from bris import utils
 from bris.conventions import anemoi as anemoi_conventions
 from bris.conventions import cf
@@ -21,10 +22,11 @@ class Verif(Output):
         workdir: str,
         filename: str,
         variable=None,
+        variable_type=None,
         obs_sources=list,
         units=None,
-        thresholds=[],
-        quantile_levels=[],
+        thresholds=None,
+        quantile_levels=None,
         consensus_method="control",
         elev_gradient=None,
         max_distance=None,
@@ -35,29 +37,33 @@ class Verif(Output):
             elev_gradient: Apply this elevation gradient when downscaling from grid to point (e.g.
                 -0.0065 for temperature)
         """
+        if quantile_levels is None:
+            quantile_levels = []
         for level in quantile_levels:
-            assert level >= 0 and level <= 1, f"level={level} must be between 0 and 1"
+            assert 0 <= level <= 1, f"level={level} must be between 0 and 1"
 
-        extra_variables = list()
+        extra_variables = []
         if variable not in predict_metadata.variables:
             extra_variables += [variable]
 
         super().__init__(predict_metadata, extra_variables)
 
         self.filename = filename
-        self.fcst = dict()
+        self.fcst = {}
         self.variable = variable
+        self.variable_type = variable_type
         self.obs_sources = obs_sources
         self.units = units
-        self.thresholds = thresholds
+        self.thresholds = thresholds if thresholds is not None else []
         self.quantile_levels = quantile_levels
         self.consensus_method = consensus_method
         self.elev_gradient = elev_gradient
         self.max_distance = max_distance
 
-        if self.pm.altitudes is None:
-            if elev_gradient is not None:
-                raise ValueError("Cannot do elevation gradient since input field does not have altitude")
+        if self.pm.altitudes is None and elev_gradient is not None:
+            raise ValueError(
+                "Cannot do elevation gradient since input field does not have altitude"
+            )
 
         if self._is_gridded_input:
             if self.pm.altitudes is not None:
@@ -65,7 +71,7 @@ class Verif(Output):
                     self.pm.grid_lats, self.pm.grid_lons, self.pm.grid_altitudes
                 )
             else:
-                self.igrid = gridpp.Grid( self.pm.grid_lats, self.pm.grid_lons)
+                self.igrid = gridpp.Grid(self.pm.grid_lats, self.pm.grid_lons)
 
         self.ipoints_array = np.column_stack((self.pm.lats, self.pm.lons))
         self.ialtitudes = self.pm.altitudes
@@ -76,9 +82,22 @@ class Verif(Output):
         self.opoints_array = np.column_stack(
             (self.opoints.get_lats(), self.opoints.get_lons())
         )
+        _tree = cKDTree(self.ipoints_array)
+        _, _indices = _tree.query(self.opoints_array, distance_upper_bound=1e-4)
+        _valid_matches = _indices < len(self.ipoints_array)
+        _matching_indices = _indices[_valid_matches]
+
+        self.interpolate = True
+        if len(_matching_indices) == len(self.opoints_array):
+            self.verif_indices = _matching_indices
+            self.interpolate = False
 
         self.triangulation = self.ipoints_array
-        if not self._is_gridded_input and self.ipoints_array.shape[0] > 3:
+        if (
+            not self._is_gridded_input
+            and self.ipoints_array.shape[0] > 3
+            and self.interpolate
+        ):
             # This speeds up interpolation from irregular points to observation points
             # but Delaunay needs enough points for this to work
             self.triangulation = Delaunay(self.ipoints_array)
@@ -101,49 +120,53 @@ class Verif(Output):
             times: List of np.datetime64 objects
             pred: 3D array of forecasts with dimensions (time, points, variables)
         """
-        print("### Adding forecast", times[0])
 
         Iv = self.pm.variables.index(self.variable)
-        if self._is_gridded_input:
-            pred = self.reshape_pred(pred)
-            pred = pred[..., Iv]  # Extract single variable
-            interpolated_pred = gridpp.bilinear(self.igrid, self.opoints, pred)
-
-            if self.elev_gradient is not None:
-                interpolated_altitudes = gridpp.bilinear(
-                    self.igrid, self.opoints, self.igrid.get_elevs()
-                )
-                daltitude = self.opoints.get_elevs() - interpolated_altitudes
-                interpolated_pred += self.elev_gradient * daltitude
-            interpolated_pred = interpolated_pred[
-                :, :, None
-            ]  # Add in variable dimension
+        if not self.interpolate:
+            interpolated_pred = pred[:, self.verif_indices, Iv][:, :, np.newaxis]
         else:
-            pred = pred[..., [Iv]]
+            if self._is_gridded_input:
+                pred = self.reshape_pred(pred)
+                pred = pred[..., Iv]  # Extract single variable
+                interpolated_pred = gridpp.bilinear(self.igrid, self.opoints, pred)
 
-            altitude_correction = None
-            if self.elev_gradient is not None:
-                interpolator = scipy.interpolate.LinearNDInterpolator(
-                    self.triangulation, self.ialtitudes
-                )
-                interpolated_altitudes = interpolator(self.opoints_array)
-                altitude_correction = self.opoints.get_elevs() - interpolated_altitudes
-
-            num_leadtimes = pred.shape[0]
-            num_points = self.opoints.size()
-
-            interpolated_pred = np.nan * np.zeros(
-                [num_leadtimes, num_points, 1], np.float32
-            )
-            for lt in range(num_leadtimes):
-                interpolator = scipy.interpolate.LinearNDInterpolator(
-                    self.triangulation, pred[lt, :, 0]
-                )
-                interpolated_pred[lt, :, 0] = interpolator(self.opoints_array)
-                if altitude_correction is not None:
-                    interpolated_pred[lt, :, 0] += (
-                        self.elev_gradient * altitude_correction
+                if self.elev_gradient is not None:
+                    interpolated_altitudes = gridpp.bilinear(
+                        self.igrid, self.opoints, self.igrid.get_elevs()
                     )
+                    daltitude = self.opoints.get_elevs() - interpolated_altitudes
+                    interpolated_pred += self.elev_gradient * daltitude
+                interpolated_pred = interpolated_pred[
+                    :, :, None
+                ]  # Add in variable dimension
+            else:
+                pred = pred[..., [Iv]]
+
+                altitude_correction = None
+                if self.elev_gradient is not None:
+                    interpolator = scipy.interpolate.LinearNDInterpolator(
+                        self.triangulation, self.ialtitudes
+                    )
+                    interpolated_altitudes = interpolator(self.opoints_array)
+                    altitude_correction = (
+                        self.opoints.get_elevs() - interpolated_altitudes
+                    )
+
+                num_leadtimes = pred.shape[0]
+                num_points = self.opoints.size()
+
+                interpolated_pred = np.nan * np.zeros(
+                    [num_leadtimes, num_points, 1], np.float32
+                )
+                for lt in range(num_leadtimes):
+                    interpolator = scipy.interpolate.LinearNDInterpolator(
+                        self.triangulation, pred[lt, :, 0]
+                    )
+                    interpolated_pred[lt, :, 0] = interpolator(self.opoints_array)
+                    if altitude_correction is not None:
+                        interpolated_pred[lt, :, 0] += (
+                            self.elev_gradient * altitude_correction
+                        )
 
             # Much faster, but not a linear interpolator
             # interpolated_pred = gridpp.nearest(self.ipoints, self.opoints, pred[..., 0])
@@ -155,9 +178,9 @@ class Verif(Output):
             # Update the units so they can be written out
             self.units = anemoi_units
         elif anemoi_units is not None and self.units != anemoi_units:
-            to_units = cfunits.Units(self.units)
-            from_units = cfunits.Units(anemoi_units)
-            cfunits.Units.conform(interpolated_pred, from_units, to_units, inplace=True)
+            to_units = self.units
+            from_units = anemoi_units
+            bris.units.convert(interpolated_pred, from_units, to_units, inplace=True)
 
         self.intermediate.add_forecast(times, ensemble_member, interpolated_pred)
 
@@ -176,7 +199,7 @@ class Verif(Output):
     def finalize(self):
         """Write forecasts and observations to file"""
 
-        coords = dict()
+        coords = {}
         coords["time"] = (["time"], [], cf.get_attributes("time"))
         coords["leadtime"] = (
             ["leadtime"],
@@ -203,13 +226,11 @@ class Verif(Output):
             self.opoints.get_elevs(),
             cf.get_attributes("surface_altitude"),
         )
-        """
-        coords["ensemble_member"] = (
-                ["ensemble_member"],
-                self.ensemble_members,
-                cf.get_attributes("ensemble_member"),
-        )
-        """
+        # coords["ensemble_member"] = (
+        #         ["ensemble_member"],
+        #         self.ensemble_members,
+        #         cf.get_attributes("ensemble_member"),
+        # )
         if self.num_members > 1:
             if len(self.thresholds) > 0:
                 coords["threshold"] = (
@@ -221,6 +242,10 @@ class Verif(Output):
                     ["quantile"],
                     self.quantile_levels,
                 )
+        if self.variable_type == "logit":
+            # Add threshold variable
+            coords["threshold"] = (["threshold"], self.thresholds)
+
         self.ds = xr.Dataset(coords=coords)
 
         frts = self.intermediate.get_forecast_reference_times()
@@ -239,45 +264,60 @@ class Verif(Output):
             curr = self.intermediate.get_forecast(frt)[..., 0, :]
             fcst[i, ...] = self.compute_consensus(curr)
 
-        self.ds["fcst"] = (["time", "leadtime", "location"], fcst)
+        if self.variable_type in ["logit", "threshold_probability"]:
+            cdf = np.copy(fcst)
+            # Apply sigmoid activation function to logits
+            if self.variable_type == "logit":
+                cdf = 1 / (1 + np.exp(-cdf))
 
-        # Load threshold forecasts
-        if len(self.thresholds) > 0 and self.num_members > 1:
-            cdf = np.nan * np.zeros(
-                [
-                    len(frts),
-                    self.intermediate.pm.num_leadtimes,
-                    self.intermediate.pm.num_points,
-                    len(self.thresholds),
-                ],
-                np.float32,
-            )
-            for i, frt in enumerate(frts):
-                curr = self.intermediate.get_forecast(frt)[..., 0, :]
-                for t, threshold in enumerate(self.thresholds):
-                    cdf[i, ..., t] = self.compute_threshold_prob(curr, threshold)
+            # Add more axes
+            cdf = np.expand_dims(cdf, axis=-1)
+            cdf = np.tile(cdf, (1, 1, 1, len(self.thresholds)))
+            self.ds["cdf"] = (["time", "leadtime", "location", "threshold"], 1 - cdf)
 
-            self.ds["cdf"] = (["time", "leadtime", "location", "threshold"], cdf)
+        else:
+            self.ds["fcst"] = (["time", "leadtime", "location"], fcst)
 
-        # Load quantile forecasts
-        if len(self.quantile_levels) > 0 and self.num_members > 1:
-            x = np.nan * np.zeros(
-                [
-                    len(frts),
-                    self.intermediate.pm.num_leadtimes,
-                    self.intermediate.pm.num_points,
-                    len(self.quantile_levels),
-                ],
-                np.float32,
-            )
-            for i, frt in enumerate(frts):
-                curr = self.intermediate.get_forecast(frt)[
-                    :, :, 0, :
-                ]  # Remove variable dimension
-                for t, quantile_level in enumerate(self.quantile_levels):
-                    x[i, ..., t] = self.compute_quantile(curr, quantile_level)
+            # Load threshold forecasts
+            if len(self.thresholds) > 0 and self.num_members > 1:
+                cdf = np.nan * np.zeros(
+                    [
+                        len(frts),
+                        self.intermediate.pm.num_leadtimes,
+                        self.intermediate.pm.num_points,
+                        len(self.thresholds),
+                    ],
+                    np.float32,
+                )
+                for i, frt in enumerate(frts):
+                    curr = self.intermediate.get_forecast(frt)[..., 0, :]
+                    for t, threshold in enumerate(self.thresholds):
+                        cdf[i, ..., t] = self.compute_threshold_prob(curr, threshold)
 
-            self.ds["x"] = (["time", "leadtime", "location", "quantile"], x)
+                        self.ds["cdf"] = (
+                            ["time", "leadtime", "location", "threshold"],
+                            cdf,
+                        )
+
+            # Load quantile forecasts
+            if len(self.quantile_levels) > 0 and self.num_members > 1:
+                x = np.nan * np.zeros(
+                    [
+                        len(frts),
+                        self.intermediate.pm.num_leadtimes,
+                        self.intermediate.pm.num_points,
+                        len(self.quantile_levels),
+                    ],
+                    np.float32,
+                )
+                for i, frt in enumerate(frts):
+                    curr = self.intermediate.get_forecast(frt)[
+                        :, :, 0, :
+                    ]  # Remove variable dimension
+                    for t, quantile_level in enumerate(self.quantile_levels):
+                        x[i, ..., t] = self.compute_quantile(curr, quantile_level)
+
+                        self.ds["x"] = (["time", "leadtime", "location", "quantile"], x)
 
         # Find which valid times we need observations for
         frts_ut = utils.datetime_to_unixtime(frts)
@@ -312,18 +352,14 @@ class Verif(Output):
         count = 0
         for obs_source in self.obs_sources:
             curr = obs_source.get(self.variable, start_time, end_time, frequency)
-            from_units = (
-                cfunits.Units(obs_source.units)
-                if obs_source.units is not None
-                else None
-            )
-            to_units = cfunits.Units(self.units) if self.units is not None else None
-            for t, valid_time in enumerate(unique_valid_times):
+            from_units = obs_source.units
+            to_units = self.units
+            for _t, valid_time in enumerate(unique_valid_times):
                 Itimes, Ileadtimes = np.where(valid_times == valid_time)
                 data = curr.get_data(self.variable, valid_time)
                 if data is not None:
                     if None not in [obs_source.units, self.units]:
-                        cfunits.Units.conform(data, from_units, to_units, inplace=True)
+                        bris.units.convert(data, from_units, to_units, inplace=True)
 
                     Iout = range(count, len(obs_source.locations) + count)
                     for i in range(len(Itimes)):
@@ -340,19 +376,16 @@ class Verif(Output):
         utils.create_directory(self.filename)
         self.ds.to_netcdf(self.filename, mode="w", engine="netcdf4")
 
-    def compute_consensus(self, pred):
+    def compute_consensus(self, pred) -> np.ndarray:
         assert len(pred.shape) == 3, pred.shape
 
         if self.consensus_method == "control":
             return pred[..., 0]
-        elif self.consensus_method == "mean":
+        if self.consensus_method == "mean":
             return np.mean(pred, axis=-1)
-        else:
-            raise NotImplementedError(
-                f"Unknown consensus method {self.consensus_method}"
-            )
+        raise NotImplementedError(f"Unknown consensus method {self.consensus_method}")
 
-    def compute_quantile(self, ar, level, fair=True):
+    def compute_quantile(self, ar, level, fair=True) -> np.ndarray:
         """Extracts a quantile from an array
 
         Args:
@@ -363,7 +396,7 @@ class Verif(Output):
         Returns:
             (N-1)-D numpy array with quantiles
         """
-        assert level >= 0 and level <= 1, f"level={level} must be between 0 and 1"
+        assert 0 <= level <= 1, f"level={level} must be between 0 and 1"
 
         if fair:
             # What quantile level do we assign the lowest member?
@@ -404,10 +437,10 @@ class Verif(Output):
     def get_points(predict_metadata, obs_sources, max_distance=None):
         """Returns point objects for input and output, filtering out output points that are too
         far outside the input"""
-        obs_lats = list()
-        obs_lons = list()
-        obs_altitudes = list()
-        obs_ids = list()
+        obs_lats = []
+        obs_lons = []
+        obs_altitudes = []
+        obs_ids = []
         for obs_source in obs_sources:
             obs_lats += [loc.lat for loc in obs_source.locations]
             obs_lons += [loc.lon for loc in obs_source.locations]
@@ -426,10 +459,10 @@ class Verif(Output):
 
         if max_distance is not None:
             dist = gridpp.distance(ipoints, opoints)
-            I = np.where(dist < max_distance)[0]
-            opoints = opoints.subset(I)
+            ipoint = np.where(dist < max_distance)[0]
+            opoints = opoints.subset(ipoint)
 
-            obs_ids = np.array(obs_ids)[I]
+            obs_ids = np.array(obs_ids)[ipoint]
 
         assert opoints.size() == len(obs_ids)
 

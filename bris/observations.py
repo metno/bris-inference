@@ -6,7 +6,7 @@ class Observations:
         """
         data: dict with key variable_name and value: 2D numpy array with dimensions (time, location)
         """
-        for k, v in data.items():
+        for _k, v in data.items():
             assert len(times) == v.shape[0]
             assert len(locations) == v.shape[1]
 
@@ -23,24 +23,23 @@ class Observations:
         indices = np.where(self.times == unixtime)[0]
         if len(indices) == 0:
             return None
-        else:
-            index = indices[0]
-            return self.data[variable][index, ...]
+        index = indices[0]
+        return self.data[variable][index, ...]
 
     def __str__(self):
         string = "Observations:\n"
-        string += "   num locations: %s\n" % len(self.locations)
-        string += "   num times: %s\n" % len(self.times)
-        string += "   num variables: %s" % len(self.variables)
+        string += f"   num locations: {len(self.locations)}\n"
+        string += f"   num times: {len(self.times)}\n"
+        string += f"   num variables: {len(self.variables)}"
         return string
 
 
 class Location:
-    def __init__(self, lat, lon, elev=None, id=None):
+    def __init__(self, lat, lon, elev=None, location_id=None):
         self.lat = lat
         self.lon = lon
         self.elev = elev
-        self.id = id
+        self.id = location_id
 
         if self.lon < -180:
             self.lon += 360

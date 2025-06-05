@@ -2,8 +2,10 @@ import glob
 import os
 
 import numpy as np
+
 from bris import utils
 from bris.outputs import Output
+from bris.predict_metadata import PredictMetadata
 
 
 class Intermediate(Output):
@@ -12,7 +14,7 @@ class Intermediate(Output):
     forecast_reference_time and ensemble_member
     """
 
-    def __init__(self, predict_metadata, workdir):
+    def __init__(self, predict_metadata: PredictMetadata, workdir: str):
         super().__init__(predict_metadata)
         self.pm = predict_metadata
         self.workdir = workdir
@@ -30,7 +32,7 @@ class Intermediate(Output):
     def get_forecast_reference_times(self):
         """Returns all forecast reference times that have been saved"""
         filenames = self.get_filenames()
-        frts = list()
+        frts = []
         for filename in filenames:
             frt_ut, _ = filename.split("/")[-1].split("_")
             frt = utils.unixtime_to_datetime(int(frt_ut))
@@ -70,10 +72,7 @@ class Intermediate(Output):
             assert isinstance(ensemble_member, int)
 
             filename = self.get_filename(forecast_reference_time, ensemble_member)
-            if os.path.exists(filename):
-                pred = np.load(filename)
-            else:
-                pred = None
+            pred = np.load(filename) if os.path.exists(filename) else None
 
         return pred
 
@@ -81,7 +80,6 @@ class Intermediate(Output):
     def num_members(self):
         filenames = self.get_filenames()
 
-        members = list()
         max_member = 0
         for filename in filenames:
             _, member = filename.split("/")[-1].split(".npy")[0].split("_")
@@ -94,6 +92,6 @@ class Intermediate(Output):
 
     def finalize(self):
         # clean up files
-        for filename in self.get_filenames():
+        for _filename in self.get_filenames():
             # delete file
             pass

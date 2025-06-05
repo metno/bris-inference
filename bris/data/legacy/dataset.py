@@ -1,6 +1,6 @@
 """
-    This submodule includes legacy NativeGridDataset used in 
-    aifs-mono.
+This submodule includes legacy NativeGridDataset used in
+aifs-mono.
 
 """
 
@@ -156,8 +156,8 @@ class NativeGridDataset(IterableDataset):
             self.model_comm_group_id * shard_size
         )  # + (self.multi_step - 1) * self.timeincrement
         shard_end = (
-            self.model_comm_group_id + 1
-        ) * shard_size  # min((self.model_comm_group_id + 1) * shard_size, len(self.data) - self.rollout * self.timeincrement)
+            (self.model_comm_group_id + 1) * shard_size
+        )  # min((self.model_comm_group_id + 1) * shard_size, len(self.data) - self.rollout * self.timeincrement)
 
         shard_len = shard_end - shard_start
         self.n_samples_per_worker = shard_len // n_workers
@@ -368,9 +368,9 @@ class EnsNativeGridDataset(NativeGridDataset):
             // self.num_gpus_per_model
         )
 
-        assert (
-            tot_ens <= num_eda_members
-        ), f"Can't generate an ensemble of size {tot_ens} from {num_eda_members} EDA perturbations"
+        assert tot_ens <= num_eda_members, (
+            f"Can't generate an ensemble of size {tot_ens} from {num_eda_members} EDA perturbations"
+        )
 
         eda_member_gen_idx = self.rng.choice(
             range(num_eda_members), size=tot_ens, replace=False
@@ -444,7 +444,6 @@ class EnsNativeGridDataset(NativeGridDataset):
 
             x_pert: Optional[torch.Tensor] = None
             if self.eda_flag:
-
                 x_pert = self.data[start : end_eda : self.timeincrement, ...]
                 x_pert = x_pert[:, :, eda_member_idx, ...]
                 sample = (

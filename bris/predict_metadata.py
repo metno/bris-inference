@@ -1,6 +1,6 @@
 import numpy as np
 
-from bris import utils
+# from bris import utils
 
 
 class PredictMetadata:

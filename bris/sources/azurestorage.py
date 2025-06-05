@@ -30,7 +30,6 @@ class AzureStorage:
     def __init__(
         self, *, args: Optional[Namespace] = None, config: Optional[DictConfig] = None
     ) -> None:
-
         self.args = args
         self.config = config
 
@@ -99,7 +98,9 @@ class AzureStorage:
             return blobs  # [:self.lagged]
 
         except Exception as e:
-            LOGGER.error(f"Error fetching blob information. An exception occured!", exc_info=True)
+            LOGGER.error(
+                "Error fetching blob information. An exception occured!", exc_info=True
+            )
             raise RuntimeError("Error fetching blob information.") from e
 
     @property
@@ -118,7 +119,7 @@ class AzureStorage:
                     download_stream = blob_client.download_blob()
                     currBlob.write(download_stream.readall())
             except Exception as e:
-                LOGGER.error(f"Error in downloading blob to local filesystem.")
+                LOGGER.error("Error in downloading blob to local filesystem.")
                 raise RuntimeError("Error in downloading blob.") from e
 
         with ThreadPoolExecutor(max_workers=4) as executor:

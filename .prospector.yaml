@@ -1,0 +1,14 @@
+pylint:
+  disable:
+    - too-many-arguments
+    - too-many-positional-arguments
+    - too-many-locals
+    - import-outside-toplevel
+    - wrong-import-position
+    - too-many-branches
+  options:
+    use_pylint_default_path_finder: True
+
+pycodestyle:
+  disable:
+    - E704 # Conflict with ruff formatting

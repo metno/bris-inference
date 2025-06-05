@@ -4,7 +4,7 @@
     "title": "Schema for bris inference configuration",
     "description": "This schema provides definitions for the bris-inference configuration files",
     "type": "object",
-    "definitions": {
+    "$defs": {
         "VerifOutput": {
             "description": "Verif-compatible Netcdf output file",
             "type": "object",
@@ -30,10 +30,18 @@
                             "type": "array",
                             "items": {
                                 "oneOf": [
-                                    {"$ref": "#/definitions/VerifSource"},
-                                    {"$ref": "#/definitions/FrostSource"}
+                                    {"$ref": "#/$defs/VerifSource"},
+                                    {"$ref": "#/$defs/FrostSource"},
+                                    {"$ref": "#/$defs/AnemoiDatasetSource"}
                                 ]
                             }
+                        },
+                        "variable_type": {
+                            "description": "What type of variable is the input data?",
+                            "type": "string",
+                            "enum": [
+                                "continuous", "logit", "threshold_probbability", "quantile"
+                            ]
                         }
                     },
                     "required": ["filename", "variable", "obs_sources"]
@@ -70,6 +78,10 @@
                         "domain_name": {
                             "description": "Retrieve projection from this predefined domain name (e.g. meps)",
                             "type": "string"
+                        },
+                        "global_attributes": {
+                            "description": "Dictionary of global attributes to write to each output file",
+                            "type": "object"
                         }
                     },
                     "required": ["filename_pattern"]
@@ -129,6 +141,74 @@
                 }
             } ,
             "required": ["frost"]
+        },
+
+        "AnemoiDatasetSource": {
+            "description": "Zarr dataset that can be read by anemoi-datasets",
+            "type": "object",
+            "properties": {
+                "anemoidataset": {
+                    "type": "object",
+                    "properties": {
+                        "dataset": {
+                            "description": "Anemoi datasets open_dataset recipe, dictionary"
+                        },
+                        "variable": {
+                            "description": "Variable name",
+                            "type": "string"
+                        }
+                    },
+                    "required": ["dataset", "variable"]
+                }
+            },
+            "required": ["anemoidataset"]
+        },
+
+        "Forecaster": {
+            "description": "Forecaster checkpoint configuration dict",
+            "type": "object",
+            "properties": {
+                "checkpoint_path": {
+                    "description": "Full absolute path to checkpoint",
+                    "type": "string"
+                },
+                "leadtimes": {
+                    "description": "How many leadtimes (number of forecaster rollout steps) should be provided in the output? This includes the analysis leadtime.",
+                    "type": "integer",
+                    "minimum": 1
+                },
+                "static_forcings_dataset": {
+                    "description": "Anemoi datasets open_dataset recipe for dataset with static forcings (e.g. z, lsm). Not required if these forcings are in the main dataset"                  
+                },
+                "switch_graph":{
+                    "description": "Optional, full path to graph file (.pt). Used to run inference for a different graph than the one used to train the model.",
+                    "type": ["string", "null"]
+                }
+            },
+            "required": ["checkpoint_path", "leadtimes"]
+        },
+
+        "Interpolator": {
+            "description": "Interpolator checkpoint configuration dict",
+            "type": "object",
+            "properties": {
+                "checkpoint_path": {
+                    "description": "Full absolute path to checkpoint",
+                    "type": "string"
+                },
+                "leadtimes": {
+                    "description": "How many leadtimes (number of forecaster rollout steps) should be interpolated in the output? Must be lower than or equal to forecaster leadtimes.",
+                    "type": "integer"
+                },
+                "static_forcings_dataset": {
+                    "description": "Anemoi datasets open_dataset recipe for dataset with static forcings (e.g. z, lsm). Not required if these forcings are in the main dataset"                  
+                },
+                "switch_graph":{
+                    "description": "Optional, full path to graph file (.pt). Used to run inference for a different graph than the one used to train the model.",
+                    "type": ["string", "null"]
+                }
+            },
+            "required": ["checkpoint_path", "leadtimes", "static_forcings_dataset"]
         }
     },
     "properties": {
@@ -140,18 +220,22 @@
             "description": "Last date to produce a forecast. E.g. 2023-11-24T12:00:00",
             "format": "date-time"
         },
+        "checkpoints": {
+            "description": "Dictionairy with checkpoints for different tasks.",
+            "type": "object",
+            "properties": {
+                "forecaster": {
+                    "$ref": "#/$defs/Forecaster"
+                },
+                "interpolator": {
+                    "$ref": "#/$defs/Interpolator"
+                }
+            },
+            "required": ["forecaster"]
+        },
         "frequency": {
             "description": "How often to make forecast runs? E.g. 6h",
             "type": "string"
-        },
-        "leadtimes": {
-            "description": "What leadtimes should be provided in the output?",
-            "type": "integer",
-            "minimum": 1
-        },
-        "release_cache": {
-            "description": "This option releases unused cached/memory used by torch",
-            "type": "boolean"
         },
         "workdir": {
             "description": "Path to work directory",
@@ -167,8 +251,16 @@
             "items":  {
                 "type": "object",
                 "properties": {
-                    "decoder_index": {"type": "integer", "minimum": 0},
-                    "domain_index": {"type": "integer", "minimum": 0},
+                    "decoder_index": {
+                        "type": "integer",
+                        "description": "Select this decoder. If model only has one decoder, use 0",
+                        "minimum": 0
+                    },
+                    "domain_index": {
+                        "type": "integer",
+                        "description": "If the model has multiple domains, only extract this domain. If empty, the whole grid is used.",
+                        "minimum": 0
+                    },
                     "outputs": {
                         "type": "array",
                         "items": {
@@ -179,9 +271,10 @@
                             ]
                         }
                     }
-                }
+                },
+                "required": ["decoder_index", "outputs"]
             }
         }
     },
-    "required": ["leadtimes", "frequency", "release_cache", "dataset", "workdir"]
+    "required": ["checkpoints", "frequency", "dataset", "workdir"]
 }

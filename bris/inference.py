@@ -1,5 +1,4 @@
 import logging
-
 from functools import cached_property
 from typing import Any, Optional
 
@@ -7,9 +6,9 @@ import pytorch_lightning as pl
 import torch
 from anemoi.utils.config import DotDict
 
-from .checkpoint import Checkpoint
-from .data.datamodule import DataModule
 from bris.ddp_strategy import DDPGroupStrategy
+
+from .data.datamodule import DataModule
 
 LOGGER = logging.getLogger(__name__)
 
@@ -21,14 +20,11 @@ class Inference:
         model: pl.LightningModule,
         callbacks: Any,
         datamodule: DataModule,
-        checkpoint: Checkpoint,
         precision: Optional[str] = None,
         device: Optional[str] = None,
     ) -> None:
-
         self.config = config
         self.model = model
-        self.checkpoint = checkpoint
         self.callbacks = callbacks
         self.datamodule = datamodule
         self.precision = precision
@@ -40,15 +36,15 @@ class Inference:
     def device(self) -> str:
         if self._device is None:
             if torch.cuda.is_available() and torch.backends.cuda.is_built():
-                LOGGER.info(f"Specified device not set. Found GPU")
+                LOGGER.info("Specified device not set. Found GPU")
                 return "cuda"
-            else:
-                LOGGER.info(f"Specified device not set. Could not find gpu, using CPU")
-                return "cpu"
-        else:
-            LOGGER.info(f"Using specified device: {self._device}")
-            return self._device
-    
+
+            LOGGER.info("Specified device not set. Could not find gpu, using CPU")
+            return "cpu"
+
+        LOGGER.info("Using specified device: %s", self._device)
+        return self._device
+
     @cached_property
     def strategy(self):
         return DDPGroupStrategy(
@@ -56,7 +52,6 @@ class Inference:
             read_group_size=1,
             static_graph=False,
         )
-            
 
     @cached_property
     def trainer(self) -> pl.Trainer:

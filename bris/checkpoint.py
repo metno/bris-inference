@@ -1,36 +1,69 @@
 import logging
 import os
+import sys
+from copy import deepcopy
 from functools import cached_property
-from typing import Any, Optional
+from typing import Optional
 
 import torch
 from anemoi.utils.checkpoints import load_metadata
 from anemoi.utils.config import DotDict
 from torch_geometric.data import HeteroData
 
-from bris.utils import check_anemoi_training
-
 LOGGER = logging.getLogger(__name__)
+
+try:
+    from anemoi.models.data_indices.collection import IndexCollection
+except ImportError:
+    LOGGER.error(
+        "\nAnemoi-models package missing. Install a version compatible with the checkpoint. <https://pypi.org/project/anemoi-models/>\n"
+    )
+
+
+class TrainingConfig(DotDict):
+    data: DotDict
+    dataloader: DotDict
+    diagnostics: DotDict
+    hardware: DotDict
+    graph: DotDict
+    model: DotDict
+    training: DotDict
+
+
+class Metadata(DotDict):
+    config: TrainingConfig
+    version: str
+    seed: int
+    run_id: str
+    dataset: DotDict
+    data_indices: DotDict
+    provenance_training: DotDict
+    timestamp: str
+    uuid: str
+    model: DotDict
+    tracker: DotDict
+    training: DotDict
+    supporting_arrays_paths: DotDict
 
 
 class Checkpoint:
-    """This class makes accessible various information stored in Anemoi checkpoints"""
+    """This class makes accessible various information stored in Anemoi checkpoints."""
 
-    AIFS_BASE_SEED = None
-    UPDATE_GRAPH = False
-
-    def __init__(self, path: str):
-        assert os.path.exists(path), f"The given checkpoint does not exist!"
+    def __init__(self, path: str, graph: Optional[str] = None):
+        assert os.path.exists(path), f"The given checkpoint {path} does not exist!"
 
         self.path = path
-        self.set_base_seed 
+        self._model_instance = self._load_model()
+        if graph:
+            LOGGER.info("Updating graph to the one provided in config")
+            self.update_graph(graph)
 
-    @cached_property
-    def metadata(self) -> dict:
+    @property
+    def metadata(self) -> Metadata:
         return self._metadata
 
-    @cached_property
-    def _metadata(self) -> dict:
+    @property
+    def _metadata(self) -> Metadata:
         """
         Metadata of the model. This includes everything as in:
         -> data_indices (data, model (and internal) indices)
@@ -49,45 +82,43 @@ class Checkpoint:
         """
         try:
             return DotDict(load_metadata(self.path))
-        except Exception as e:
+        except ValueError as e:
             LOGGER.warning(
                 "Could not load and peek into the checkpoint metadata. Raising an expection"
             )
             raise e
 
-    @cached_property
-    def config(self) -> dict:
+    @property
+    def config(self) -> TrainingConfig:
         """
         The configuriation used during model
         training.
         """
         return self._metadata.config
 
-    @cached_property
+    @property
     def version(self) -> str:
         """
         Model version
         """
         return self._metadata.version
 
-    @cached_property
+    @property
     def multistep(self) -> int:
         """
         Fetches multistep from metadata
         """
         if hasattr(self._metadata.config.training, "multistep"):
             return self._metadata.config.training.multistep
-        elif hasattr(self._metadata.config.training, "multistep_input"):
+        if hasattr(self._metadata.config.training, "multistep_input"):
             return self._metadata.config.training.multistep_input
-        else:
-            raise RuntimeError("Cannot find multistep")
+        raise RuntimeError("Cannot find multistep")
 
     @property
-    def model(self) -> Any:
+    def model(self) -> torch.nn.Module:
         return self._model_instance
 
-    @cached_property
-    def _model_instance(self) -> Any:
+    def _load_model(self) -> torch.nn.Module:
         """
         Loads a given model instance. This instance
         includes both the model interface and its
@@ -95,7 +126,13 @@ class Checkpoint:
         """
         try:
             inst = torch.load(self.path, map_location="cpu", weights_only=False)
-        except Exception as e:
+        except AttributeError as e:
+            if str(e.args[0]).startswith("Can't get attribute"):
+                raise RuntimeError(
+                    "You most likely have a version of anemoi-models that is "
+                    "not compatible with the checkpoint. Use bris-inspect to "
+                    "check module versions."
+                ) from e
             raise e
         return inst
 
@@ -111,13 +148,38 @@ class Checkpoint:
 
         return:
             HeteroData graph object
-
         """
         return (
             self._model_instance.graph_data
             if hasattr(self._model_instance, "graph_data")
             else None
         )
+
+    # @property
+    # def _get_copy_model_params(self) -> dict:
+    #     """
+    #     Caches the model's state in CPU memory.
+
+    #     This cache includes only the model's weights
+    #     and their corresponding layer names. It does not include the
+    #     optimizer state. Note that this specifically refers to
+    #     model.named_parameters() and not model.state_dict().
+
+    #     A deep copy of the model state is performed
+    #     to ensure the integrity of the cached data,
+    #     even if the user decides to update
+    #     the internal graph of the model later.
+
+    #     Args:
+    #         None
+    #     Return
+    #         torch dict containing the state of the model.
+    #         Keys: name of the layer
+    #         Value: The state for a given layer
+    #     """
+
+    #     _model_params = self._model_instance.named_parameters()
+    #     return deepcopy(dict(_model_params))
 
     def update_graph(self, path: Optional[str] = None) -> HeteroData:
         """
@@ -132,84 +194,64 @@ class Checkpoint:
             HeteroData graph object
         """
 
-        # TODO: add check which checks the keys within the graph
-        # the model weights have names tied to f.ex stretched grid or grid.
-        # if the model is trained with keys named grid and we force new graph with keys
-        # stretched grid, the model instance will complain
-        # (not 100% sure but i think i have experienced this)
+        external_graph = torch.load(path, map_location="cpu", weights_only=False)
+        LOGGER.info("Loaded external graph from path")
 
-        if self.UPDATE_GRAPH:
-            raise RuntimeError(
-                "Graph has already been updated. Mutliple updates is not allowed"
-            )
-        else:
-            if path:
-                assert os.path.exists(
-                    path
-                ), f"Cannot locate graph file. Got path: {path}"
-                external_graph = torch.load(path, map_location="cpu")
-                LOGGER.info("Loaded external graph from path")
-                try:
-                    self._model_instance.graph_data = external_graph
-                    self.UPDATE_GRAPH = True
-                    LOGGER.info(
-                        "Successfully changed internal graph with external graph!"
-                    )
-                    return self._model_instance.graph_data
+        state_dict = deepcopy(self._model_instance.state_dict())
 
-                except Exception as e:
-                    raise e  # RuntimeError("Failed to update the graph.") from e
+        self._model_instance.graph_data = external_graph
+        self._model_instance.config = self.config
+
+        self._model_instance._build_model()
+
+        new_state_dict = self._model_instance.state_dict()
+
+        for key in new_state_dict:
+            if key in state_dict and state_dict[key].shape != new_state_dict[key].shape:
+                # These are parameters like data_latlon, which are different now because of the graph
+                pass
             else:
-                # future implementation
-                # _graph = anemoi.graphs.create() <-- skeleton
-                # self._model_instance.graph_data = _graph <- update graph obj within inst
-                # return _graph <- return graph
-                raise NotImplementedError
+                # Overwrite with the old parameters
+                new_state_dict[key] = state_dict[key]
 
-    @cached_property
-    def set_base_seed(self) -> int:
-        """
-        Fetchs the original base seed used during training.
-        If not
+        LOGGER.info(
+            "Successfully built model with external graph and reassigning model weights!"
+        )
+        self._model_instance.load_state_dict(new_state_dict)
+        return self._model_instance.graph_data
 
+    @property
+    def name_to_index(self) -> tuple[dict[str, int], ...]:
         """
-        os.environ["ANEMOI_BASE_SEED"]="1234"
-        os.environ["AIFS_BASE_SEED"]="1234"
-        LOGGER.info("ANEMOI_BASE_SEED and ANEMOI_BASE_SEED set to 1234")
-    
-    def set_encoder_decoder_num_chunks(self, chunks: int = 1) -> None:
-        assert isinstance(chunks, int), f"Expecting chunks to be int, got: {chunks}, {type(chunks)}"
-        os.environ["ANEMOI_INFERENCE_NUM_CHUNKS"] = str(chunks) 
-        LOGGER.info(f"Encoder and decoder are chunked to {chunks}")
-
-    @cached_property
-    def name_to_index(self) -> dict:
-        """
-        Mapping between name and their corresponding variable index
+        Mapping between name and their corresponding variable index.
+        Returns a tuple. If the model is a multiencoder-decoder model
+        the tuple will contain two dicts, one for each decoder. If not
+        the tuple will contain a single dict.
         """
         _data_indices = self._model_instance.data_indices
         if isinstance(_data_indices, (tuple, list)) and len(_data_indices) >= 2:
             return tuple(
-                [_data_indices[k].name_to_index for k in range(len(_data_indices))]
+                _data_indices[k].name_to_index for k in range(len(_data_indices))
             )
 
         return (_data_indices.name_to_index,)
 
-    @cached_property
-    def index_to_name(self) -> tuple[dict]:
+    @property
+    def index_to_name(self) -> tuple[dict[int, str], ...]:
         """
-        Mapping between index and their corresponding variable name
+        Mapping between index and their corresponding variable name.
+        Returns a tuple. If the model is a multiencoder-decoder model
+        the tuple will contain two dicts, one for each decoder. If not
+        the tuple will contain a single dict.
         """
         _data_indices = self._model_instance.data_indices
         if isinstance(_data_indices, (tuple, list)) and len(_data_indices) >= 2:
             return tuple(
-                [
-                    {
-                        index: var
-                        for var, index in self.name_to_index[deocder_index].items()
-                    }
-                    for deocder_index in range(len(self.name_to_index))
-                ]
+                {
+                    index: var
+                    for (var, index) in self.name_to_index[decoder_index].items()
+                }
+                for decoder_index in range(len(self.name_to_index))
             )
         return ({index: name for name, index in _data_indices.name_to_index.items()},)
 
@@ -225,10 +267,10 @@ class Checkpoint:
             a mapping between indices_from and indices_to
         """
         assert len(indices_from) == len(indices_to)
-        return {i: j for i, j in zip(indices_from, indices_to)}
+        return dict(zip(indices_from, indices_to))
 
-    @cached_property
-    def model_output_index_to_name(self) -> tuple[dict]:
+    @property
+    def model_output_index_to_name(self) -> tuple[dict[int, str], ...]:
         """
         A mapping from model output to data output. This
         dict returns index and name pairs according to model.output.full to
@@ -256,10 +298,8 @@ class Checkpoint:
                 for grid_index in range(len(self._metadata.data_indices))
             }
             return tuple(
-                [
-                    {name: self.index_to_name[k][index] for name, index in v.items()}
-                    for k, v in mapping.items()
-                ]
+                {name: self.index_to_name[k][index] for (name, index) in v.items()}
+                for (k, v) in mapping.items()
             )
 
         mapping = self._make_indices_mapping(
@@ -268,8 +308,8 @@ class Checkpoint:
         )
         return ({k: self._metadata.dataset.variables[v] for k, v in mapping.items()},)
 
-    @cached_property
-    def model_output_name_to_index(self) -> tuple[dict]:
+    @property
+    def model_output_name_to_index(self) -> tuple[dict[str, int], ...]:
         """
         A mapping from model output to data output. This
         dict returns name and index pairs according to model.output.full to
@@ -286,12 +326,23 @@ class Checkpoint:
             and len(self._metadata.data_indices) >= 2
         ):
             return tuple(
-                [
-                    {name: index for index, name in v.items()}
-                    for k, v in enumerate(self.model_output_index_to_name)
-                ]
+                {name: index for (index, name) in v.items()}
+                for (k, v) in enumerate(self.model_output_index_to_name)
             )
 
         return (
-            {name: index for index, name in self.model_output_index_to_name.items()},
+            {name: index for index, name in self.model_output_index_to_name[0].items()},
         )
+
+    @cached_property
+    def data_indices(self) -> tuple[IndexCollection, ...]:
+        """
+        Wrapper for model.data_indices. Returns a tuple of dict and None or two dicts.
+        """
+
+        # If Multiencdec checkpoint
+        if isinstance(self._model_instance.data_indices, (tuple, list)):
+            return tuple(self._model_instance.data_indices)
+
+        # If simple checkpoint
+        return (self._model_instance.data_indices,)

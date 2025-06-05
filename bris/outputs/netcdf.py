@@ -1,13 +1,17 @@
+import datetime
+
 import gridpp
 import numpy as np
 import xarray as xr
-from bris import utils
+
+import bris.units
+from bris import projections, utils
+from bris.conventions import anemoi as anemoi_conventions
 from bris.conventions import cf
 from bris.conventions.metno import Metno
 from bris.outputs import Output
 from bris.outputs.intermediate import Intermediate
 from bris.predict_metadata import PredictMetadata
-from bris import projections
 
 
 class Netcdf(Output):
@@ -33,15 +37,19 @@ class Netcdf(Output):
         interp_res=None,
         latrange=None,
         lonrange=None,
-        extra_variables=list(),
+        extra_variables=None,
         proj4_str=None,
         domain_name=None,
+        mask_file=None,
+        mask_field=None,
+        global_attributes=None,
     ):
         """
         Args:
             filename_pattern: Save predictions to this filename after time tokens are expanded
             interp_res: Interpolate to this resolution [degrees] on a lat/lon grid
             variables: If None, predict all variables
+            global_attributes (dict): Write these global attributes in the output file
         """
         super().__init__(predict_metadata, extra_variables)
 
@@ -49,7 +57,7 @@ class Netcdf(Output):
         if variables is None:
             self.extract_variables = predict_metadata.variables
         else:
-            self.extract_variables = [i for i in variables]
+            self.extract_variables = list(variables)
 
         self.intermediate = None
         if self.pm.num_members > 1:
@@ -63,37 +71,56 @@ class Netcdf(Output):
         self.interp_res = interp_res
         self.latrange = latrange
         self.lonrange = lonrange
+        self.mask_file = mask_file
+        self.global_attributes = (
+            global_attributes if global_attributes is not None else {}
+        )
 
         if domain_name is not None:
             self.proj4_str = projections.get_proj4_str(domain_name)
         else:
             self.proj4_str = proj4_str
 
-    def _add_forecast(self, times: list, ensemble_member: int, pred: np.array):
+        if self._is_masked:
+            # If a mask was used during training:
+            # Compute 1D->2D index to output 2D arrays by using a mask file
+            self.ds_mask = xr.open_dataset(mask_file)
+            if "time" in self.ds_mask.dims:
+                mask = self.ds_mask.isel(time=0)[mask_field].values
+            else:
+                mask = self.ds_mask[mask_field].values
+            self.mask = mask == 1.0
+
+    def _add_forecast(self, times: list, ensemble_member: int, pred: np.array) -> None:
         if self.pm.num_members > 1:
             # Cache data with intermediate
             self.intermediate.add_forecast(times, ensemble_member, pred)
             return
-        else:
-            assert ensemble_member == 0
+        assert ensemble_member == 0
 
-            forecast_reference_time = times[0].astype("datetime64[s]").astype("int")
+        forecast_reference_time = times[0].astype("datetime64[s]").astype("int")
 
-            filename = self.get_filename(forecast_reference_time)
+        filename = self.get_filename(forecast_reference_time)
 
-            # Add ensemble dimension to the last
-            self.write(filename, times, pred[..., None])
+        # Add ensemble dimension to the last
+        self.write(filename, times, pred[..., None])
 
-    def get_filename(self, forecast_reference_time):
+    def get_filename(self, forecast_reference_time: int) -> str:
+        """Get the filename for this forecast reference time"""
         return utils.expand_time_tokens(self.filename_pattern, forecast_reference_time)
 
     @property
-    def _is_gridded(self):
+    def _is_masked(self) -> bool:
+        """Was a mask_from_dataset applied during training?"""
+        return self.mask_file is not None
+
+    @property
+    def _is_gridded(self) -> bool:
         """Is the output gridded?"""
         return len(self.pm.field_shape) == 2 or self.interp_res is not None
 
     @property
-    def _interpolate(self):
+    def _interpolate(self) -> bool:
         """Should interpolation to a regular lat/lon grid be performed?"""
         return self.interp_res is not None
 
@@ -104,7 +131,7 @@ class Netcdf(Output):
             pred: 4D numpy array with dimensions (leadtimes, points, variables, members)
         """
 
-        coords = dict()
+        coords = {}
 
         # Function to easily convert from cf names to conventions
         def c(x):
@@ -145,8 +172,12 @@ class Netcdf(Output):
                     print("Warning: latrange/lonrange not handled in gridded fields")
 
                 if self.proj4_str:
-                    lats = np.reshape(self.pm.lats, self.pm.field_shape).astype(np.double)
-                    lons = np.reshape(self.pm.lons, self.pm.field_shape).astype(np.double)
+                    lats = np.reshape(self.pm.lats, self.pm.field_shape).astype(
+                        np.double
+                    )
+                    lons = np.reshape(self.pm.lons, self.pm.field_shape).astype(
+                        np.double
+                    )
                     x, y = projections.get_xy(lats, lons, self.proj4_str)
                 else:
                     x = np.arange(self.pm.field_shape[1]).astype(np.float32)
@@ -157,16 +188,35 @@ class Netcdf(Output):
             coords[y_dim_name] = y
             spatial_dims = (y_dim_name, x_dim_name)
         else:
-            y = np.arange(len(self.pm.lats)).astype(np.int32)
-            coords["location"] = y
-            spatial_dims = ("location",)
+            if self._is_masked:
+                # Use the template to get the (full) grid
+                if hasattr(self.ds_mask, "X") and hasattr(self.ds_mask, "Y"):
+                    x = self.ds_mask.X.values
+                    y = self.ds_mask.Y.values
+                elif hasattr(self.ds_mask, "x") and hasattr(self.ds_mask, "y"):
+                    x = self.ds_mask.x.values
+                    y = self.ds_mask.y.values
+                else:
+                    raise AttributeError(
+                        "Mask dataset does not contain projected coordinates variables 'x', 'y' or 'X', 'Y'"
+                    )
+
+                x_dim_name = c("projection_x_coordinate")
+                y_dim_name = c("projection_y_coordinate")
+                coords[x_dim_name] = x
+                coords[y_dim_name] = y
+                spatial_dims = (y_dim_name, x_dim_name)
+            else:
+                y = np.arange(len(self.pm.lats)).astype(np.int32)
+                coords["location"] = y
+                spatial_dims = ("location",)
 
         if self.pm.num_members > 1:
             coords[c("realization")] = np.arange(self.pm.num_members).astype(np.int32)
 
         dims_to_add = self.variable_list.dimensions
 
-        attrs = dict()
+        attrs = {}
         # Add dimensions
         for dimname, (level_type, levels) in dims_to_add.items():
             # Don't need to convert dimnames, since these are already to local convention
@@ -185,9 +235,9 @@ class Netcdf(Output):
         # Set up grid definitions
         if self._is_gridded:
             if self._interpolate:
-                proj_attrs = dict()
+                proj_attrs = {}
                 proj_attrs["grid_mapping_name"] = "latitude_longitude"
-                proj_attrs["earth_radius"] = 6371000.0
+                proj_attrs["earth_radius"] = "6371000.0"
                 self.ds["projection"] = ([], 1, proj_attrs)
             else:
                 lats = self.pm.grid_lats.astype(np.double)
@@ -203,11 +253,8 @@ class Netcdf(Output):
 
                 if self.pm.altitudes is not None:
                     altitudes = self.pm.grid_altitudes.astype(np.double)
-                    self.ds[c("surface_altitude")] = (
-                        spatial_dims,
-                        altitudes
-                    )
-                proj_attrs = dict()
+                    self.ds[c("surface_altitude")] = (spatial_dims, altitudes)
+                proj_attrs = {}
                 if self.proj4_str is not None:
                     proj_attrs = projections.get_proj_attributes(self.proj4_str)
                     # proj_attrs["grid_mapping_name"] = "lambert_conformal_conic"
@@ -217,26 +264,57 @@ class Netcdf(Output):
                     # proj_attrs["earth_radius"] = 6371000.0
                 self.ds[c("projection")] = ([], 0, proj_attrs)
         else:
-            self.ds[c("latitude")] = (
-                spatial_dims,
-                self.pm.lats,
-            )
-            self.ds[c("longitude")] = (
-                spatial_dims,
-                self.pm.lons,
-            )
-            if self.pm.altitudes is not None:
-                self.ds[c("surface_altitude")] = (
+            if self._is_masked:
+                if hasattr(self.ds_mask, "lat") and hasattr(self.ds_mask, "lon"):
+                    lat = self.ds_mask.lat.values
+                    lon = self.ds_mask.lon.values
+                elif hasattr(self.ds_mask, "latitude") and hasattr(
+                    self.ds_mask, "longitude"
+                ):
+                    lat = self.ds_mask.latitude.values
+                    lon = self.ds_mask.longitude.values
+                else:
+                    raise ValueError(
+                        "Mask dataset does not contain coordinates variables 'lat', 'lon' or 'latitude', 'longitude'"
+                    )
+
+                self.ds[c("latitude")] = (
                     spatial_dims,
-                    self.pm.altitudes
+                    lat,
                 )
+                self.ds[c("longitude")] = (
+                    spatial_dims,
+                    lon,
+                )
+                if self.pm.altitudes is not None:
+                    altitudes_rec = np.nan * np.zeros([len(y), len(x)], np.float32)
+                    # Reconstruct the 2D array
+                    altitudes_rec[self.mask] = self.pm.altitudes
+                    self.ds[c("surface_altitude")] = (spatial_dims, altitudes_rec)
+
+                proj_attrs = {}
+                if self.proj4_str is not None:
+                    proj_attrs = projections.get_proj_attributes(self.proj4_str)
+                self.ds[c("projection")] = ([], 0, proj_attrs)
+
+            else:
+                self.ds[c("latitude")] = (
+                    spatial_dims,
+                    self.pm.lats,
+                )
+                self.ds[c("longitude")] = (
+                    spatial_dims,
+                    self.pm.lons,
+                )
+                if self.pm.altitudes is not None:
+                    self.ds[c("surface_altitude")] = (spatial_dims, self.pm.altitudes)
 
         for cfname in [
             "forecast_reference_time",
             "time",
             "latitude",
             "longitude",
-            "sufrace_altitude",
+            "surface_altitude",
             "projection_x_coordinate",
             "projection_y_coordinate",
             "realization",
@@ -244,6 +322,10 @@ class Netcdf(Output):
             ncname = c(cfname)
             if ncname in self.ds:
                 self.ds[ncname].attrs = cf.get_attributes(cfname)
+
+                if cfname == "surface_altitude":
+                    self.ds[ncname].attrs["grid_mapping"] = "projection"
+                    self.ds[ncname].attrs["coordinates"] = "latitude longitude"
 
         # Set up all prediction variables
         for variable_index, variable in enumerate(self.pm.variables):
@@ -258,13 +340,13 @@ class Netcdf(Output):
                         dim_name,
                         *spatial_dims,
                     ]
-                    if self._is_gridded:
+                    if self._is_gridded or self._is_masked:
                         shape = [len(times), len(self.ds[dim_name]), len(y), len(x)]
                     else:
                         shape = [len(times), len(self.ds[dim_name]), len(y)]
                 else:
                     dims = [c("time"), *spatial_dims]
-                    if self._is_gridded:
+                    if self._is_gridded or self._is_masked:
                         shape = [len(times), len(y), len(x)]
                     else:
                         shape = [len(times), len(y)]
@@ -276,7 +358,7 @@ class Netcdf(Output):
                 ar = np.nan * np.zeros(shape, np.float32)
                 self.ds[ncname] = (dims, ar)
 
-            if self._is_gridded:
+            if self._is_gridded or self._is_masked:
                 shape = [len(times), len(y), len(x), self.pm.num_members]
             else:
                 shape = [len(times), len(y), self.pm.num_members]
@@ -292,15 +374,26 @@ class Netcdf(Output):
                 )
                 for i in range(self.pm.num_members):
                     ar[:, :, :, i] = gridpp.nearest(ipoints, ogrid, curr[:, :, i])
+            elif self._is_masked:
+                curr = pred[..., variable_index, :]
+                ar = np.nan * np.zeros(
+                    [len(times), len(y), len(x), self.pm.num_members], np.float32
+                )
+                # Reconstruct the 2D array (nans where no data)
+                ar[:, self.mask, :] = curr
             else:
                 ar = np.reshape(pred[..., variable_index, :], shape)
 
-            if self.pm.num_members > 1:
-                # Move ensemble dimension into the middle position
-                ar = np.moveaxis(ar, [-1], [1])
-            else:
-                # Remove ensemble dimension
-                ar = ar[..., 0]
+            ar = np.moveaxis(ar, [-1], [1]) if self.pm.num_members > 1 else ar[..., 0]
+
+            cfname = cf.get_metadata(variable)["cfname"]
+            attrs = cf.get_attributes(cfname)
+
+            # Unit conversion from anemoi to CF
+            from_units = anemoi_conventions.get_units(variable)
+            if "units" in attrs:
+                to_units = attrs["units"]
+                bris.units.convert(ar, from_units, to_units, inplace=True)
 
             if level_index is not None:
                 self.ds[ncname][:, level_index, ...] = ar
@@ -308,11 +401,18 @@ class Netcdf(Output):
                 self.ds[ncname][:] = ar
 
             # Add variable attributes
-            cfname = cf.get_metadata(variable)["cfname"]
-            attrs = cf.get_attributes(cfname)
             attrs["grid_mapping"] = "projection"
             attrs["coordinates"] = "latitude longitude"
             self.ds[ncname].attrs = attrs
+
+        # Add global attributes
+        datestr = datetime.datetime.now(datetime.timezone.utc).strftime(
+            "%Y-%m-%d %H:%M:%S +00:00"
+        )
+        self.ds.attrs["history"] = f"{datestr} Created by bris-inference"
+        self.ds.attrs["Convensions"] = "CF-1.6"
+        for key, value in self.global_attributes.items():
+            self.ds.attrs[key] = value
 
         utils.create_directory(filename)
         self.ds.to_netcdf(filename)
@@ -347,13 +447,13 @@ class VariableList:
     same dimension (e.g. two variables with a different set of pressure levels)
     """
 
-    def __init__(self, anemoi_names: list, conventions=Metno()):
+    def __init__(self, anemoi_names: list, conventions=None):
         """Args:
         anemoi_names: A list of variables names used in Anemoi (e.g. u10)
         conventions: What NetCDF naming convention to use
         """
         self.anemoi_names = anemoi_names
-        self.conventions = conventions
+        self.conventions = conventions if conventions is not None else Metno()
 
         self._dimensions, self._ncname_to_level_dim = self.load_dimensions()
 
@@ -367,8 +467,8 @@ class VariableList:
         return self._dimensions
 
     def load_dimensions(self):
-        cfname_to_levels = dict()
-        for v, variable in enumerate(self.anemoi_names):
+        cfname_to_levels = {}
+        for _v, variable in enumerate(self.anemoi_names):
             metadata = cf.get_metadata(variable)
             cfname = metadata["cfname"]
             leveltype = metadata["leveltype"]
@@ -379,23 +479,23 @@ class VariableList:
                 continue
 
             if cfname not in cfname_to_levels:
-                cfname_to_levels[cfname] = dict()
+                cfname_to_levels[cfname] = {}
             if leveltype not in cfname_to_levels[cfname]:
-                cfname_to_levels[cfname][leveltype] = list()
+                cfname_to_levels[cfname][leveltype] = []
             cfname_to_levels[cfname][leveltype] += [level]
         # Sort levels
         for cfname, v in cfname_to_levels.items():
             for leveltype, vv in v.items():
                 if leveltype == "height" and len(vv) > 1:
-                    raise Exception(
+                    raise ValueError(
                         f"A variable {cfname} with height leveltype should only have one level"
                     )
                 v[leveltype] = sorted(vv)
         # air_temperature -> pressure -> [1000, 925, 800, 700]
 
         # Determine unique dimensions to add
-        dims_to_add = dict()  # height1 -> [height, [2]]
-        ncname_to_level_dim = dict()
+        dims_to_add = {}  # height1 -> [height, [2]]
+        ncname_to_level_dim = {}
         for cfname, v in cfname_to_levels.items():
             for leveltype, levels in v.items():
                 ncname = self.conventions.get_ncname(cfname, leveltype, levels[0])
