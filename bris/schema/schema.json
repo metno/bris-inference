@@ -265,9 +265,9 @@
                         "type": "array",
                         "items": {
                             "oneOf": [
-                                {"$ref": "#/definitions/NetcdfOutput"},
-                                {"$ref": "#/definitions/VerifOutput"},
-                                {"$ref": "#/definitions/GribOutput"}
+                                {"$ref": "#/$defs/NetcdfOutput"},
+                                {"$ref": "#/$defs/VerifOutput"},
+                                {"$ref": "#/$defs/GribOutput"}
                             ]
                         }
                     }
