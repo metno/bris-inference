@@ -1,11 +1,8 @@
-import sys
-import os
-from datetime import datetime, timedelta
+from datetime import datetime
 
 import eccodes as ecc
-import gridpp
 import numpy as np
-import xarray as xr
+
 from bris import utils
 from bris.conventions import cf
 from bris.conventions.metno import Metno
@@ -24,7 +21,7 @@ class Grib(Output):
         filename_pattern: str,
         variables=None,
         interp_res=None,
-        grib_keys: dict = None
+        grib_keys: dict = None,
     ):
         """
         Args:
@@ -57,15 +54,15 @@ class Grib(Output):
             # Cache data with intermediate
             self.intermediate.add_forecast(times, ensemble_member, pred)
             return
-        else:
-            assert ensemble_member == 0
 
-            forecast_reference_time = times[0].astype("datetime64[s]").astype("int")
+        assert ensemble_member == 0
 
-            filename = self.get_filename(forecast_reference_time)
+        forecast_reference_time = times[0].astype("datetime64[s]").astype("int")
 
-            # Add ensemble dimension to the last
-            self.write(filename, times, pred[..., None])
+        filename = self.get_filename(forecast_reference_time)
+
+        # Add ensemble dimension to the last
+        self.write(filename, times, pred[..., None])
 
     def get_filename(self, forecast_reference_time):
         return utils.expand_time_tokens(self.filename_pattern, forecast_reference_time)
@@ -80,7 +77,6 @@ class Grib(Output):
         return self.interp_res is None
 
     def write(self, filename: str, times: list, pred: np.array):
-
         # remove the ensemble dimension for now
         pred = pred.squeeze(axis=-1)
 
@@ -95,23 +91,22 @@ class Grib(Output):
                     metadata = cf.get_metadata(variable)
 
                     self.convert_to_grib(
-                            file_handle,
-                            forecast_reference_time,
-                            dt,
-                            metadata.get("level", 0) or 0,
-                            metadata.get("leveltype", "height") or "height",
-                            ncname,
-                            self.pm.field_shape[1],
-                            self.pm.field_shape[0],
-                            pred[time_index, :, variable_index]
+                        file_handle,
+                        forecast_reference_time,
+                        dt,
+                        metadata.get("level", 0) or 0,
+                        metadata.get("leveltype", "height") or "height",
+                        ncname,
+                        self.pm.field_shape[1],
+                        self.pm.field_shape[0],
+                        pred[time_index, :, variable_index],
                     )
-
 
     def level_type_to_id(self, level_type):
         # Map level type name to code
         # https://codes.ecmwf.int/grib/format/grib2/ctables/4/5/
         return {
-            "pressure": 100,  # Isobaric surface (Pa)
+            "air_pressure": 100,  # Isobaric surface (Pa)
             "height_above_msl": 102,  # Specific altitude above mean sea level (m)
             "height": 103,  # Specified height level above ground (m)
             "height1": 103,
@@ -120,43 +115,43 @@ class Grib(Output):
             "height7": 103,
         }.get(level_type, 103)
 
-
     def param_to_id(self, param):
         # Map parameter name to:
         # (product definition template number, discipline, parameter category, parameter number, type of statistical processing)
         # https://www.nco.ncep.noaa.gov/pmb/docs/grib2/grib2_doc/grib2_table4-0.shtml
         return {
-            "air_temperature_0m":                   (0, 0, 0, 0, None),
-            "air_temperature_2m":                   (0, 0, 0, 0, None),
-            "air_temperature_pl":                   (0, 0, 0, 0, None),
-            "geopotential_pl":                      (0, 0, 3, 4, None),
-            "relative_humidity_2m":                 (0, 0, 1, 192, None),
-            "relative_humidity_pl":                 (0, 0, 1, 192, None),
-            "x_wind_10m":                           (0, 0, 2, 2, None),
-            "x_wind_pl":                            (0, 0, 2, 2, None),
-            "y_wind_10m":                           (0, 0, 2, 3, None),
-            "y_wind_pl":                            (0, 0, 2, 3, None),
-            "atmosphere_boundary_layer_thickness":  (0, 0, 19, 3, None),
-            "wind_speed_of_gust":                   (8, 0, 2, 22, 2),
-            "air_pressure_at_sea_level":            (0, 0, 3, 0, None),
-            "surface_air_pressure":                 (0, 0, 3, 0, None),
-            "specific_humidity_pl":                 (0, 0, 1, 0, None),
-            "upward_air_velocity_pl":               (0, 0, 2, 9, None),
-            "dew_point_temperature_2m":             (0, 0, 0, 6, None),
-            "vertical_velocity_pl":                 (0, 0, 2, 8, None),
-            "tcw":                                  (0, 0, 1, 3, None),
-            "skt":                                  (0, 0, 0, 17, None),
-            "precipitation_amount":                 (0, 0, 1, 8, None),
+            "air_temperature_0m": (0, 0, 0, 0, None),
+            "air_temperature_2m": (0, 0, 0, 0, None),
+            "air_temperature_pl": (0, 0, 0, 0, None),
+            "geopotential_pl": (0, 0, 3, 4, None),
+            "relative_humidity_2m": (0, 0, 1, 192, None),
+            "relative_humidity_pl": (0, 0, 1, 192, None),
+            "x_wind_10m": (0, 0, 2, 2, None),
+            "x_wind_pl": (0, 0, 2, 2, None),
+            "y_wind_10m": (0, 0, 2, 3, None),
+            "y_wind_pl": (0, 0, 2, 3, None),
+            "atmosphere_boundary_layer_thickness": (0, 0, 19, 3, None),
+            "wind_speed_of_gust": (8, 0, 2, 22, 2),
+            "air_pressure_at_sea_level": (0, 0, 3, 0, None),
+            "surface_air_pressure": (0, 0, 3, 0, None),
+            "specific_humidity_pl": (0, 0, 1, 0, None),
+            "upward_air_velocity_pl": (0, 0, 2, 9, None),
+            "dew_point_temperature_2m": (0, 0, 0, 6, None),
+            "vertical_velocity_pl": (0, 0, 2, 8, None),
+            "tcw": (0, 0, 1, 3, None),
+            "skt": (0, 0, 0, 17, None),
+            "precipitation_amount": (0, 0, 1, 8, None),
         }.get(param)
 
-
     def set_geometry(self, grib, nx, ny):
-        DX, DY = 2370000, 2670000 # MEPS domain size in meters
+        DX, DY = 2370000, 2670000  # MEPS domain size in meters
 
         dx = int(DX / (nx - 1))
         dy = int(DY / (ny - 1))
 
-        ecc.codes_set(grib, "gridDefinitionTemplateNumber", 30) # Lambert conformal (Can be secant or tangent, conical or bipolar)
+        ecc.codes_set(
+            grib, "gridDefinitionTemplateNumber", 30
+        )
         ecc.codes_set(grib, "latitudeOfSouthernPole", -90000000)
         ecc.codes_set(grib, "longitudeOfSouthernPole", 0)
         ecc.codes_set(grib, "latitudeOfFirstGridPoint", 50319616)
@@ -169,12 +164,24 @@ class Grib(Output):
         ecc.codes_set(grib, "Ny", ny)
         ecc.codes_set(grib, "Latin1", 63300000)
         ecc.codes_set(grib, "Latin2", 63300000)
-        ecc.codes_set(grib, "shapeOfTheEarth", 6) # Earth assumed spherical with radius = 6,371,229.0 m
+        ecc.codes_set(
+            grib, "shapeOfTheEarth", 6
+        )
 
         return grib
 
-
-    def convert_to_grib(self, fp, origintime, validtime, level_value, level_type, parameter, nx, ny, values):
+    def convert_to_grib(
+        self,
+        fp,
+        origintime,
+        validtime,
+        level_value,
+        level_type,
+        parameter,
+        nx,
+        ny,
+        values,
+    ):
         pdtn, dis, cat, num, tosp = self.param_to_id(parameter)
         leadtime = validtime - origintime
 
@@ -186,16 +193,29 @@ class Grib(Output):
         ecc.codes_set(grib, "discipline", dis)
         ecc.codes_set(grib, "parameterCategory", cat)
         ecc.codes_set(grib, "parameterNumber", num)
-        ecc.codes_set(grib, "significanceOfReferenceTime", 1) # Start of forecast ( https://codes.ecmwf.int/grib/format/grib2/ctables/1/2/ )
-        ecc.codes_set(grib, "typeOfProcessedData", 2) # Analysis and Forecast Products ( https://www.nco.ncep.noaa.gov/pmb/docs/grib2/grib2_doc/grib2_table1-4.shtml )
-        ecc.codes_set(grib, "productionStatusOfProcessedData", 0)  # Operational Products
-        ecc.codes_set(grib, "productDefinitionTemplateNumber", pdtn) # tämä on 0 jos suure on ei-aggregoitu ja 8 jos suure on aggregoitu (esim sade, puuska, en tiedä onko näitä edes bris ouputissa)
-        ecc.codes_set(grib, "scanningMode", 64) 
-        # ecc.codes_set(grib, "NV", 132) # Number of coordinate values after template or number of information according to 3D vertical coordinate GRIB2 message
-        ecc.codes_set(grib, "typeOfGeneratingProcess", 2) # Ensemble forecast == 4 , 2 == Forecast ( https://codes.ecmwf.int/grib/format/grib2/ctables/4/3/ )
+        ecc.codes_set(
+            grib, "significanceOfReferenceTime", 1
+        )
+        ecc.codes_set(
+            grib, "typeOfProcessedData", 2
+        )
+        ecc.codes_set(
+            grib, "productionStatusOfProcessedData", 0
+        )
+        ecc.codes_set(
+            grib, "productDefinitionTemplateNumber", pdtn
+        )
+        ecc.codes_set(grib, "scanningMode", 64)
+        ecc.codes_set(
+            grib, "typeOfGeneratingProcess", 2
+        )
         ecc.codes_set(grib, "indicatorOfUnitOfTimeRange", 1)
-        ecc.codes_set(grib, "typeOfFirstFixedSurface", self.level_type_to_id(level_type))
-        ecc.codes_set(grib, "level", level_value)  # TODO: set from data -> 0 == surface, q_850 == pressure_level(850)
+        ecc.codes_set(
+            grib, "typeOfFirstFixedSurface", self.level_type_to_id(level_type)
+        )
+        ecc.codes_set(
+            grib, "level", level_value
+        )
         ecc.codes_set(grib, "dataDate", int(origintime.strftime("%Y%m%d")))
         ecc.codes_set(grib, "dataTime", int(origintime.strftime("%H%M")))
         ecc.codes_set(grib, "forecastTime", int(leadtime.total_seconds() / 3600))
@@ -203,7 +223,6 @@ class Grib(Output):
         ecc.codes_set(grib, "packingType", "grid_ccsds")
         ecc.codes_set_values(grib, values)
 
-        # Average, accumulation, extreme values or other statistically processed values at a horizontal level or in a horizontal layer in a continuous or non-continuous time interval.
         if pdtn == 8:
             year = int(validtime.strftime("%Y"))
             month = int(validtime.strftime("%m"))
@@ -222,7 +241,6 @@ class Grib(Output):
 
         ecc.codes_write(grib, fp)
         ecc.codes_release(grib)
-
 
     def finalize(self):
         if self.intermediate is not None:
