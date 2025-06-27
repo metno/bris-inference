@@ -90,6 +90,29 @@
             "required": ["netcdf"]
         },
 
+        "GribOutput": {
+            "description": "Grib output file",
+            "type": "object",
+            "properties": {
+                "grib": {
+                    "type": "object",
+                    "properties": {
+                        "filename_pattern": {
+                            "description": "Where to write the output file. Time tokens allowed (e.g. %Y%m%d)",
+                            "type": "string"
+                        },
+                        "variables": {
+                            "description": "What variables to output? Leave empty to write all",
+                            "type": "array",
+                            "items": {"type": "string"}
+                        }
+                    },
+                    "required": ["filename_pattern"]
+                }
+            },
+            "required": ["grib"]
+        },
+
         "VerifSource": {
             "description": "Observations stored in a Netcdf verif file",
             "type": "object",
@@ -243,7 +266,8 @@
                         "items": {
                             "oneOf": [
                                 {"$ref": "#/$defs/NetcdfOutput"},
-                                {"$ref": "#/$defs/VerifOutput"}
+                                {"$ref": "#/$defs/VerifOutput"},
+                                {"$ref": "#/$defs/GribOutput"}
                             ]
                         }
                     }
