@@ -152,7 +152,7 @@ class BrisPredictor(BasePredictor):
             dataset_no=None,
         )
 
-    def forward(self, x: torch.Tensor) -> torch.Tensor:
+    def forward(self, x: torch.Tensor, **kwargs) -> torch.Tensor:
         """
         Perform a forward pass through the model.
         Args:
@@ -160,7 +160,7 @@ class BrisPredictor(BasePredictor):
         Returns:
             torch.Tensor: Output tensor after processing by the model.
         """
-        return self.model(x, model_comm_group=self.model_comm_group)
+        return self.model(x, model_comm_group=self.model_comm_group, **kwargs)
 
     def advance_input_predict(
         self, x: torch.Tensor, y_pred: torch.Tensor, time: np.datetime64
@@ -274,7 +274,7 @@ class BrisPredictor(BasePredictor):
 
         with torch.autocast(device_type="cuda", dtype=torch.bfloat16):
             for fcast_step in range(self.forecast_length - 1):
-                y_pred = self(x)
+                y_pred = self(x, fcstep=fcast_step)
                 time += self.timestep
                 x = self.advance_input_predict(x, y_pred, time)
                 y_preds[:, fcast_step + 1] = self.model.post_processors(

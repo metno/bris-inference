@@ -18,7 +18,7 @@ def instantiate(name: str, predict_metadata: PredictMetadata, workdir: str, init
         # Parse obs sources
         obs_sources = []
 
-        # Convert to dict, since iverriding obs_sources doesn't seem to work with OmegaConf
+        # Convert to dict, since overriding obs_sources doesn't seem to work with OmegaConf
         args = {**init_args}
         for source in init_args["obs_sources"]:
             for source_name, opts in source.items():
@@ -67,6 +67,7 @@ class Output:
         Args:
             predict_metadata: Contains metadata about the batch the output will recieve
         """
+
         if extra_variables is None:
             extra_variables = []
 
@@ -88,20 +89,28 @@ class Output:
         # Append extra variables to prediction
         extra_pred = []
         for name in self.extra_variables:
-            if name == "ws":
-                Ix = self.pm.variables.index("10u")
-                Iy = self.pm.variables.index("10v")
-                curr = np.sqrt(pred[..., [Ix]] ** 2 + pred[..., [Iy]] ** 2)
-                extra_pred += [curr]
-            else:
-                raise ValueError(f"No recipe to compute {name}")
+            if name not in self.pm.variables:
+                self.pm.variables.append(name)
 
-        pred = np.concatenate([pred] + extra_pred, axis=2)
+        # only do this once. For multiple members, intermediate calls this several times
+        if pred.shape[2] != len(self.pm.variables):
+            # Append extra variables to prediction
+            extra_pred = list()
+            for name in self.extra_variables:
+                if name == "ws":
+                    Ix = self.pm.variables.index("10u")
+                    Iy = self.pm.variables.index("10v")
+                    curr = np.sqrt(pred[..., [Ix]] ** 2 + pred[..., [Iy]] ** 2)
+                    extra_pred += [curr]
+                else:
+                    raise ValueError(f"No recipe to compute {name}")
+
+            pred = np.concatenate([pred] + extra_pred, axis=2)
 
         assert pred.shape[0] == self.pm.num_leadtimes
         assert pred.shape[1] == len(self.pm.lats)
         assert pred.shape[2] == len(self.pm.variables), (
-            pred.shape,
+            pred.shape[2],
             len(self.pm.variables),
         )
         assert ensemble_member >= 0
