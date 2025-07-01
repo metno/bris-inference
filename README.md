@@ -36,7 +36,7 @@ See [Dockerfile](https://gitlab.met.no/yrop/bris-cicd/-/blob/main/Dockerfile?ref
 
 ## How to run tests
 
-    pip install ".[tests]"
+    pip install -e '.[dev]'
     tox
 
 When pushing to github, default tests will be run automatically and must succeed.

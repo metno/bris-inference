@@ -1,0 +1,54 @@
+# Minimal config for running inference on CPU. See https://github.com/metno/bris-inference/wiki/Tests
+
+start_date: 2022-07-01T00:00:00
+end_date: 2022-07-02T00:00:00
+
+checkpoints:
+  forecaster:
+    checkpoint_path: ./inference-multi.ckpt
+    leadtimes: 2
+
+dataset:
+  zip:
+    - dataset: ./bris_random_data.zarr # LAM_DATASET
+    - dataset: ./bris_random_data.zarr # obs dataset
+      select: ["tp", "2t"]
+  adjust: ["start", "end"]
+
+frequency: 6h
+workdir: /tmp/
+
+# Determine how much the encoder and decoder is chunked
+inference_num_chunks: 1
+
+dataloader:
+  datamodule:
+    _target_: bris.data.dataset.ZipDataset
+    _convert_: all
+
+hardware:
+  num_gpus_per_node: 1
+  num_gpus_per_model: 1
+  num_nodes: 1
+
+model:
+  _target_: bris.model.multiencdecpredictor.MultiEncDecPredictor
+  _convert_: all
+
+routing:
+  # Outputs LAM part of stretched grid
+  - decoder_index: 0
+    domain_index: 0
+    outputs:
+      # Forecasts
+      - netcdf:
+          filename_pattern: ./tox_test_inference.nc
+          variables: [2t]
+          extra_variables: [ws] #Compute wind speed from 10u and 10v
+  # Outputs decoder 1
+  - decoder_index: 1
+    domain_index: 0
+    outputs: 
+      - netcdf:
+          filename_pattern: ./tox_test_inference_dec1.nc
+          variables: [tp]

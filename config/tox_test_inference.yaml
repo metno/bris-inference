@@ -25,7 +25,7 @@ hardware:
 release_cache: False
 
 model:
-  _target_: bris.model.BrisPredictor
+  _target_: bris.model.brispredictor.BrisPredictor
   _convert_: all
 
 routing:
@@ -34,5 +34,5 @@ routing:
     domain: 0
     outputs:
       - netcdf:
-          filename_pattern: test_pred_%Y%m%dT%HZ.nc
+          filename_pattern: ./tox_test_inference.nc
           variables: [2t, 2d]

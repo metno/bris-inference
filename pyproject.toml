@@ -33,27 +33,39 @@ dependencies = [
     "anemoi-datasets>=0.5.16", # https://github.com/metno/bris-inference/issues/94
     "gridpp~=0.7.0",
     "hydra-core~=1.3.0",
-    "numpy~=1.26.0",
-    "omegaconf~=2.3.0",
+    "numpy~=1.26.0", # https://github.com/metno/bris-inference/issues/129
     "pyproj~=3.7.0",
     "pytorch-lightning>=2.1",
     "scipy~=1.15.0",
-    "torch<2.6.0",
+    "torch>=2.4", # https://github.com/metno/bris-inference/issues/116
     "torch_geometric~=2.4.0",
     "torchinfo~=1.8.0",
     "tqdm~=4.67.1",
     "verif~=1.3.0",
     "zarr<=2.17", # https://github.com/metno/bris-inference/issues/64
-    "pip~=25.0.0",
+    "numcodecs<0.16.0" # related to zarr version
+]
+
+optional-dependencies.dev = [
+  "bris[tests]",
+  "pytest",       # For testing in IDE
+  "types-PyYAML", # For mypy in IDE
 ]
 
 optional-dependencies.tests = [
     "tox", # For running tests
-    "pytest", # For testing in IDE
-    "types-PyYAML", # For mypy in IDE
 ]
 
 dynamic = ["version"]
+
+urls.Documentation = "https://github.com/metno/bris-inference/wiki"
+urls.Homepage = "https://github.com/metno/bris-inference/"
+urls.Issues = "https://github.com/metno/bris-inference/issues"
+urls.Repository = "https://github.com/metno/bris-inference/"
+
+[project.scripts]
+bris = "bris:main"
+bris-inspect = "bris.inspect:main"
 
 [tool.setuptools]
 include-package-data = true
@@ -67,17 +79,12 @@ version = {attr = "bris.__version__"}
 [tool.setuptools.package-data]
 bris = ["schema/*.json"]
 
-[project.scripts]
-bris = "bris:main"
-bris-inspect = "bris.inspect:main"
-
 [tool.ruff]
 exclude = [
     "bris/sources/frost.py",
     "bris/sources/azurestorage.py",
     "bris/data/legacy"
 ]
-
 
 [tool.ruff.lint]
 fixable = ["I"]
