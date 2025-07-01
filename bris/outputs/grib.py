@@ -3,7 +3,7 @@ from datetime import datetime
 import eccodes as ecc
 import numpy as np
 
-from bris import utils
+from bris import projections, utils
 from bris.conventions import cf
 from bris.conventions.metno import Metno
 from bris.outputs import Output
@@ -22,6 +22,8 @@ class Grib(Output):
         variables=None,
         interp_res=None,
         grib_keys: dict = None,
+        proj4_str=None,
+        domain_name=None,
     ):
         """
         Args:
@@ -48,6 +50,11 @@ class Grib(Output):
         self.conventions = Metno()
         self.interp_res = interp_res
         self.grib_keys = grib_keys or {}
+
+        if domain_name is not None:
+            self.proj4_str = projections.get_proj4_str(domain_name)
+        else:
+            self.proj4_str = proj4_str
 
     def _add_forecast(self, times: list, ensemble_member: int, pred: np.array):
         if self.pm.num_members > 1:
@@ -115,6 +122,18 @@ class Grib(Output):
             "height7": 103,
         }.get(level_type, 103)
 
+    def grib_definition_to_template_number(self, definition):
+        return {
+            "latlon": 0,
+            "rotated_ll": 1,
+            "mercator": 10,
+            "polar_stereographic": 20,
+            "lambert_conformal_conic": 30,
+            "gaussian": 40,
+            "rotated_gaussian": 41,
+            "spherical_harmonic": 50,
+        }.get(definition, 30)
+
     def param_to_id(self, param):
         # Map parameter name to:
         # (product definition template number, discipline, parameter category, parameter number, type of statistical processing)
@@ -144,29 +163,42 @@ class Grib(Output):
         }.get(param)
 
     def set_geometry(self, grib, nx, ny):
-        DX, DY = 2370000, 2670000  # MEPS domain size in meters
+        # get Dx/Dy in meters
+        lats = np.reshape(self.pm.lats, self.pm.field_shape).astype(np.double)
+        lons = np.reshape(self.pm.lons, self.pm.field_shape).astype(np.double)
+        x, y = projections.get_xy(lats, lons, self.proj4_str)
+        dx = int(x[1] - x[0])
+        dy = int(y[1] - y[0])
 
-        dx = int(DX / (nx - 1))
-        dy = int(DY / (ny - 1))
+        # set geometry from proj attributes
+        attrs = projections.get_proj_attributes(self.proj4_str)
 
         ecc.codes_set(
-            grib, "gridDefinitionTemplateNumber", 30
+            grib,
+            "gridDefinitionTemplateNumber",
+            self.grib_definition_to_template_number(attrs.get("grid_mapping_name")),
         )
         ecc.codes_set(grib, "latitudeOfSouthernPole", -90000000)
         ecc.codes_set(grib, "longitudeOfSouthernPole", 0)
-        ecc.codes_set(grib, "latitudeOfFirstGridPoint", 50319616)
-        ecc.codes_set(grib, "longitudeOfFirstGridPoint", 278280)
-        ecc.codes_set(grib, "LaD", 63300000)
-        ecc.codes_set(grib, "LoV", 15000000)
+        ecc.codes_set(
+            grib, "latitudeOfFirstGridPoint", int(self.pm.lats[0] * 1_000_000)
+        )
+        ecc.codes_set(
+            grib, "longitudeOfFirstGridPoint", int(self.pm.lons[0] * 1_000_000)
+        )
+        ecc.codes_set(
+            grib, "LaD", attrs.get("latitude_of_projection_origin", 63.3) * 1_000_000
+        )
+        ecc.codes_set(
+            grib, "LoV", attrs.get("longitude_of_central_meridian", 15.0) * 1_000_000
+        )
         ecc.codes_set(grib, "DxInMetres", dx)
         ecc.codes_set(grib, "DyInMetres", dy)
         ecc.codes_set(grib, "Nx", nx)
         ecc.codes_set(grib, "Ny", ny)
         ecc.codes_set(grib, "Latin1", 63300000)
         ecc.codes_set(grib, "Latin2", 63300000)
-        ecc.codes_set(
-            grib, "shapeOfTheEarth", 6
-        )
+        ecc.codes_set(grib, "shapeOfTheEarth", 6)
 
         return grib
 
@@ -193,29 +225,17 @@ class Grib(Output):
         ecc.codes_set(grib, "discipline", dis)
         ecc.codes_set(grib, "parameterCategory", cat)
         ecc.codes_set(grib, "parameterNumber", num)
-        ecc.codes_set(
-            grib, "significanceOfReferenceTime", 1
-        )
-        ecc.codes_set(
-            grib, "typeOfProcessedData", 2
-        )
-        ecc.codes_set(
-            grib, "productionStatusOfProcessedData", 0
-        )
-        ecc.codes_set(
-            grib, "productDefinitionTemplateNumber", pdtn
-        )
+        ecc.codes_set(grib, "significanceOfReferenceTime", 1)
+        ecc.codes_set(grib, "typeOfProcessedData", 2)
+        ecc.codes_set(grib, "productionStatusOfProcessedData", 0)
+        ecc.codes_set(grib, "productDefinitionTemplateNumber", pdtn)
         ecc.codes_set(grib, "scanningMode", 64)
-        ecc.codes_set(
-            grib, "typeOfGeneratingProcess", 2
-        )
+        ecc.codes_set(grib, "typeOfGeneratingProcess", 2)
         ecc.codes_set(grib, "indicatorOfUnitOfTimeRange", 1)
         ecc.codes_set(
             grib, "typeOfFirstFixedSurface", self.level_type_to_id(level_type)
         )
-        ecc.codes_set(
-            grib, "level", level_value
-        )
+        ecc.codes_set(grib, "level", level_value)
         ecc.codes_set(grib, "dataDate", int(origintime.strftime("%Y%m%d")))
         ecc.codes_set(grib, "dataTime", int(origintime.strftime("%H%M")))
         ecc.codes_set(grib, "forecastTime", int(leadtime.total_seconds() / 3600))

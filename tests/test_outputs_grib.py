@@ -3,16 +3,41 @@ import tempfile
 
 import numpy as np
 import xarray as xr
+from pyproj import CRS, Transformer
 
+from bris import projections
 from bris.outputs.grib import Grib
 from bris.predict_metadata import PredictMetadata
+
+
+def get_meps_lats_lons():
+    # Define CRS and transformers
+    lcc_crs = CRS.from_proj4(projections.get_proj4_str("meps"))
+    geo_crs = CRS.from_epsg(4326)
+    to_geo = Transformer.from_crs(lcc_crs, geo_crs, always_xy=True)
+
+    x0 = -1060084.00
+    y0 = -1332517.875
+    dx = 10_000
+    dy = 10_000
+    nx = 238
+    ny = 268
+    x = x0 + np.arange(nx) * dx
+    y = y0 + np.arange(ny) * dy
+
+    # Create meshgrid of projected coordinates
+    x_grid, y_grid = np.meshgrid(x, y)
+
+    x_flat = x_grid.flatten()
+    y_flat = y_grid.flatten()
+
+    return to_geo.transform(x_flat, y_flat)  # flat
 
 
 def test_file_exists():
     variables = ["u_800", "u_600", "2t", "v_500", "10u"]
 
-    lats = np.random.uniform(low=-180, high=180, size=63784)
-    lons = np.random.uniform(low=-180, high=180, size=63784)
+    lons, lats = get_meps_lats_lons()
 
     altitudes = np.array([100, 200])
     leadtimes = np.arange(0, 3600 * 4, 3600)
@@ -32,7 +57,7 @@ def test_file_exists():
         pattern = os.path.join(temp_dir, "test_%Y%m%dT%HZ.grib")
         workdir = os.path.join(temp_dir, "test_gridded")
 
-        output = Grib(pm, workdir, pattern)
+        output = Grib(pm, workdir, pattern, domain_name="meps")
 
         for member in range(num_members):
             output.add_forecast(times, member, pred)
@@ -44,11 +69,7 @@ def test_file_exists():
 
 def test_grib_attrs():
     variables = ["u_800", "u_600", "2t", "v_500", "10u"]
-
-    number_of_points = 63784
-    lats = np.random.uniform(low=-180, high=180, size=number_of_points)
-    lons = np.random.uniform(low=-180, high=180, size=number_of_points)
-
+    lons, lats = get_meps_lats_lons()
     altitudes = np.array([100, 200])
     leadtimes = np.arange(0, 3600 * 4, 3600)
     num_members = 1
@@ -67,7 +88,7 @@ def test_grib_attrs():
         pattern = os.path.join(temp_dir, "test_%Y%m%dT%HZ.grib")
         workdir = os.path.join(temp_dir, "test_gridded")
 
-        output = Grib(pm, workdir, pattern)
+        output = Grib(pm, workdir, pattern, domain_name="meps")
 
         for member in range(num_members):
             output.add_forecast(times, member, pred)
