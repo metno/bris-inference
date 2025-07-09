@@ -114,7 +114,7 @@ def get_required_variables_all_checkpoints(
             required_variables_full[key].update(variable_list)
 
     required_variables = {
-        key: list(values) for key, values in required_variables_full.items()
+        key: sorted(list(values)) for key, values in required_variables_full.items()
     }
     return required_variables
 

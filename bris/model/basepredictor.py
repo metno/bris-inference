@@ -108,10 +108,10 @@ class BasePredictor(pl.LightningModule):
     def set_model_comm_group(
         self,
         model_comm_group: ProcessGroup,
-        model_comm_group_id: int = None,
-        model_comm_group_rank: int = None,
-        model_comm_num_groups: int = None,
-        model_comm_group_size: int = None,
+        model_comm_group_id: int,
+        model_comm_group_rank: int,
+        model_comm_num_groups: int,
+        model_comm_group_size: int,
     ) -> None:
         self.model_comm_group = model_comm_group
         if not self.legacy:
@@ -120,21 +120,22 @@ class BasePredictor(pl.LightningModule):
             self.model_comm_num_groups = model_comm_num_groups
             self.model_comm_group_size = model_comm_group_size
 
-    def set_ensemble_comm_group(
+    def set_ens_comm_group(
         self, 
         ens_comm_group: ProcessGroup,
-        ens_comm_group_id: int = None,
-        ens_comm_group_rank: int = None,
-        ens_comm_num_groups: int = None,
-        ens_comm_group_size: int = None,
+        ens_comm_group_id: int,
+        ens_comm_group_rank: int,
+        ens_comm_num_groups: int,
+        member_id: int,
+        ens_comm_group_size: int,
     ) -> None:
         self.ens_comm_group = ens_comm_group
-        self.ens_comm_group_size = None #dist.get_world_size(group=ens_comm_group)
         if not self.legacy:
             self.ens_comm_group_id = ens_comm_group_id
             self.ens_comm_group_rank = ens_comm_group_rank
             self.ens_comm_num_groups = ens_comm_num_groups
             self.ens_comm_group_size = ens_comm_group_size
+            self.member_id = member_id
 
     def set_reader_groups(
         self,

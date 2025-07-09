@@ -289,7 +289,7 @@ class BrisPredictor(BasePredictor):
             "pred": [y_preds.to(torch.float32).numpy()],
             "times": times,
             "group_rank": self.model_comm_group_rank,
-            "ensemble_member": 0,
+            "ensemble_member": self.member_id,
         }
 
     def allgather_batch(self, batch: torch.Tensor) -> torch.Tensor:

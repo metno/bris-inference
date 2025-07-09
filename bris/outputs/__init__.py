@@ -44,7 +44,7 @@ def get_required_variables(name, init_args):
                 for var_name in init_args["extra_variables"]:
                     if var_name == "ws":
                         variables += ["10u", "10v"]
-            variables = list(set(variables))
+            variables = sorted(list(set(variables)))
             return variables
         return [None]
 
@@ -67,7 +67,6 @@ class Output:
         Args:
             predict_metadata: Contains metadata about the batch the output will recieve
         """
-
         if extra_variables is None:
             extra_variables = []
 
@@ -87,7 +86,6 @@ class Output:
         """
 
         # Append extra variables to prediction
-        extra_pred = []
         for name in self.extra_variables:
             if name not in self.pm.variables:
                 self.pm.variables.append(name)

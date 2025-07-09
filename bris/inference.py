@@ -6,7 +6,7 @@ import pytorch_lightning as pl
 import torch
 from anemoi.utils.config import DotDict
 
-from bris.ddp_strategy import DDPGroupStrategy
+from bris.ddp_strategy_ens import DDPGroupStrategy
 
 from .data.datamodule import DataModule
 
@@ -48,12 +48,12 @@ class Inference:
     @cached_property
     def strategy(self):
         try:
-            members_in_parallel = int(self.config.hardware.members_in_parallel)
+            num_gpus_per_ensemble = int(self.config.hardware.num_gpus_per_model) * int(self.config.hardware.members_in_parallel)
         except AttributeError:
-            members_in_parallel = 1
+            num_gpus_per_ensemble = int(self.config.hardware.num_gpus_per_model)
         return DDPGroupStrategy(
             num_gpus_per_model=self.config.hardware.num_gpus_per_model,
-            members_in_parallel=members_in_parallel,
+            num_gpus_per_ensemble=num_gpus_per_ensemble,
             read_group_size=1,
             static_graph=False,
         )

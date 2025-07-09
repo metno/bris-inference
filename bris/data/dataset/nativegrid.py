@@ -125,6 +125,9 @@ class NativeGridDataset(IterableDataset):
         model_comm_group_id: int,
         model_comm_group_rank: int,
         model_comm_num_groups: int,
+        ens_comm_group_id: int,
+        ens_comm_group_rank: int,
+        ens_comm_num_groups: int,
         reader_group_rank: int,
         reader_group_size: int,
     ) -> None:
@@ -149,6 +152,9 @@ class NativeGridDataset(IterableDataset):
         self.model_comm_group_id = model_comm_group_id
         self.model_comm_group_rank = model_comm_group_rank
         self.model_comm_num_groups = model_comm_num_groups
+        self.ens_comm_group_id = ens_comm_group_id
+        self.ens_comm_group_rank = ens_comm_group_rank
+        self.ens_comm_num_groups = ens_comm_num_groups
         self.reader_group_rank = reader_group_rank
         self.reader_group_size = reader_group_size
 
@@ -180,22 +186,22 @@ class NativeGridDataset(IterableDataset):
         self.worker_id = worker_id
 
         # Divide this equally across shards (one shard per group!)
-        shard_size = len(self.valid_date_indices) // self.model_comm_num_groups
+        shard_size = len(self.valid_date_indices) // self.ens_comm_num_groups
 
         assert shard_size > 0, (
             f"Number of samples per data parallel worker is {shard_size}. "
             f"Check your config file and ensure that the number of samples is greater than or equal to than the number of data parallel workers. "
             f"num_data_parallel = num_nodes * num_gpus_per_node / num_gpus_per_model"
         )
-        if len(self.valid_date_indices) % self.model_comm_num_groups != 0:
+        if len(self.valid_date_indices) % self.ens_comm_num_groups != 0:
             print(
                 f"Warning: Dataloader has {len(self.valid_date_indices)} samples, which is not divisible by "
-                f"{self.model_comm_num_groups} data parallel workers. This will lead to "
-                f"{len(self.valid_date_indices) % self.model_comm_num_groups} unprocessed samples.",
+                f"{self.ens_comm_num_groups} data parallel workers. This will lead to "
+                f"{len(self.valid_date_indices) % self.ens_comm_num_groups} unprocessed samples.",
                 "num_data_parallel = num_nodes * num_gpus_per_node / num_gpus_per_model",
             )
-        shard_start = self.model_comm_group_id * shard_size
-        shard_end = (self.model_comm_group_id + 1) * shard_size
+        shard_start = self.ens_comm_group_id * shard_size
+        shard_end = (self.ens_comm_group_id + 1) * shard_size
 
         shard_len = shard_end - shard_start
         self.n_samples_per_worker = shard_len // n_workers
