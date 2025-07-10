@@ -46,6 +46,7 @@ class BasePredictor(pl.LightningModule):
         *args: Any,
         checkpoints: dict[str, Checkpoint],
         hardware_config: dict,
+        num_members_in_parallel: int,
         **kwargs: Any,
     ):
         """
@@ -57,6 +58,7 @@ class BasePredictor(pl.LightningModule):
         """
 
         super().__init__(*args, **kwargs)
+        self.num_members_in_parallel = num_members_in_parallel
 
         if check_anemoi_training(checkpoints["forecaster"].metadata):
             self.legacy = False

@@ -5,6 +5,7 @@ from datetime import datetime, timedelta
 
 from anemoi.utils.dates import frequency_to_seconds
 from hydra.utils import instantiate
+import torch
 
 import bris.routes
 from bris.data.datamodule import DataModule
@@ -57,10 +58,26 @@ def main(arg_list: list[str] | None = None):
     num_members = 1
     try:
         num_members = int(
-            config['hardware']['members_in_parallel']
+            config['hardware']['num_members']
         )
     except:
-        LOGGER.debug("Key 'members_in_parallel' was not found in config")
+        LOGGER.debug("Key 'num_members' was not found in config")
+
+    num_gpus = config["hardware"]["num_gpus_per_node"] * config["hardware"]["num_nodes"]
+    num_gpus_per_model = config["hardware"]["num_gpus_per_model"]
+    num_gpus_per_ensemble = num_gpus_per_model * num_members
+
+    if num_gpus_per_ensemble > num_gpus:
+        assert num_gpus_per_ensemble % num_gpus == 0, (
+            "number of gpus per ensemble needs to be divisible by num_gpus"
+        )
+        num_members_in_sequence = int(num_gpus_per_ensemble / num_gpus)
+        num_members_in_parallel = int(num_gpus / num_gpus_per_model)
+        num_gpus_per_ensemble = num_gpus
+    else:
+        num_members_in_sequence = 1
+        num_members_in_parallel = num_members
+    
 
     # Get multistep. A default of 2 to ignore multistep in start_date calculation if not set.
     multistep = 2
@@ -103,6 +120,7 @@ def main(arg_list: list[str] | None = None):
         checkpoint_object=checkpoints["forecaster"],
         timestep=config.checkpoints.forecaster.timestep,
         frequency=config.frequency,
+        num_members_in_sequence=num_members_in_sequence,
     )
 
     # Get outputs and required_variables of each decoder
@@ -148,6 +166,7 @@ def main(arg_list: list[str] | None = None):
         forecast_length=config.checkpoints.forecaster.leadtimes,
         required_variables=required_variables,
         release_cache=config.release_cache,
+        num_members_in_parallel=num_members_in_parallel,
     )
 
     callbacks = [writer]
@@ -157,6 +176,7 @@ def main(arg_list: list[str] | None = None):
         model=model,
         callbacks=callbacks,
         datamodule=datamodule,
+        num_gpus_per_ensemble=num_gpus_per_ensemble,
     )
     inference.run()
 

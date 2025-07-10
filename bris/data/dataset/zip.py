@@ -19,6 +19,7 @@ class ZipDataset(NativeGridDataset):
         multistep: int = 1,
         timeincrement: int = 1,
         label: str = "generic",
+        num_members_in_sequence: int = 1,
     ) -> None:
         super().__init__(
             data_reader,
@@ -28,6 +29,7 @@ class ZipDataset(NativeGridDataset):
             timeincrement,
             label,
             init_ensemble_size=False,
+            num_members_in_sequence=num_members_in_sequence,
         )
 
         self.grid_indices = grid_indices

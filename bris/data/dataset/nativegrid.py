@@ -42,6 +42,7 @@ class NativeGridDataset(IterableDataset):
         timeincrement: int = 1,
         label: str = "generic",
         init_ensemble_size: bool = True,
+        num_members_in_sequence: int = 1,
     ) -> None:
         """Initialize (part of) the dataset state.
 
@@ -73,6 +74,7 @@ class NativeGridDataset(IterableDataset):
         self.rollout = rollout
         self.timeincrement = timeincrement
         self.grid_indices = grid_indices[0]  # Assume 1 input dataset
+        self.num_members_in_sequence = num_members_in_sequence
 
         # Lazy init
         self.n_samples_per_epoch_total: int = 0
@@ -208,7 +210,7 @@ class NativeGridDataset(IterableDataset):
 
         low = shard_start + worker_id * self.n_samples_per_worker
         high = min(shard_start + (worker_id + 1) * self.n_samples_per_worker, shard_end)
-        self.chunk_index_range = np.arange(low, high, dtype=np.uint32)
+        self.chunk_index_range = np.tile(np.arange(low, high, dtype=np.uint32), self.num_members_in_sequence) 
 
         base_seed = get_base_seed()
 

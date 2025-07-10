@@ -28,6 +28,7 @@ class DataModule(pl.LightningDataModule):
         checkpoint_object: Checkpoint,
         timestep: int,
         frequency: int,
+        num_members_in_sequence: int = 1,
     ) -> None:
         """
         DataModule instance and DataSets.
@@ -48,6 +49,7 @@ class DataModule(pl.LightningDataModule):
         self.checkpoint_object = checkpoint_object
         self.timestep = timestep
         self.frequency = frequency
+        self.num_members_in_sequence = num_members_in_sequence
 
     def predict_dataloader(self) -> DataLoader:
         """
@@ -97,6 +99,7 @@ class DataModule(pl.LightningDataModule):
             timeincrement=self.timeincrement,
             grid_indices=self.grid_indices,
             label="predict",
+            num_members_in_sequence = self.num_members_in_sequence,
         )
 
         return ds

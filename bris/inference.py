@@ -20,6 +20,7 @@ class Inference:
         model: pl.LightningModule,
         callbacks: Any,
         datamodule: DataModule,
+        num_gpus_per_ensemble,
         precision: Optional[str] = None,
         device: Optional[str] = None,
     ) -> None:
@@ -29,6 +30,7 @@ class Inference:
         self.datamodule = datamodule
         self.precision = precision
         self._device = device
+        self.num_gpus_per_ensemble = num_gpus_per_ensemble
 
         torch.set_float32_matmul_precision("high")
 
@@ -47,13 +49,9 @@ class Inference:
 
     @cached_property
     def strategy(self):
-        try:
-            num_gpus_per_ensemble = int(self.config.hardware.num_gpus_per_model) * int(self.config.hardware.members_in_parallel)
-        except AttributeError:
-            num_gpus_per_ensemble = int(self.config.hardware.num_gpus_per_model)
         return DDPGroupStrategy(
             num_gpus_per_model=self.config.hardware.num_gpus_per_model,
-            num_gpus_per_ensemble=num_gpus_per_ensemble,
+            num_gpus_per_ensemble=self.num_gpus_per_ensemble,
             read_group_size=1,
             static_graph=False,
         )
