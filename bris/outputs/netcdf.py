@@ -397,7 +397,10 @@ class Netcdf(Output):
                 bris.units.convert(ar, from_units, to_units, inplace=True)
 
             if level_index is not None:
-                self.ds[ncname][..., level_index, :] = ar
+                if pm.num_members > 1:
+                    self.ds[ncname][:,:, level_index, ...] = ar
+                else:
+                    self.ds[ncname][:, level_index, ...] = ar
             else:
                 self.ds[ncname][:] = ar
 
