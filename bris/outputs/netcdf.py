@@ -95,6 +95,8 @@ class Netcdf(Output):
     def _add_forecast(self, times: list, ensemble_member: int, pred: np.array) -> None:
         if self.pm.num_members > 1:
             # Cache data with intermediate
+            print("Adding forecast to intermediate storage with total ensemble size",
+                  self.pm.num_members)
             self.intermediate.add_forecast(times, ensemble_member, pred)
             return
         assert ensemble_member == 0
@@ -397,7 +399,7 @@ class Netcdf(Output):
                 bris.units.convert(ar, from_units, to_units, inplace=True)
 
             if level_index is not None:
-                self.ds[ncname][:, :, level_index, ...] = ar
+                self.ds[ncname][..., level_index, :] = ar
             else:
                 self.ds[ncname][:] = ar
 
