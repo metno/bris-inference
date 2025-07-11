@@ -272,7 +272,7 @@ class MultiEncDecPredictor(BasePredictor):
             for fcast_step in range(self.forecast_length - 1):
                 try:
                     y_pred = self(x, fcstep=fcast_step)
-                except TypeError as e: #Backwards compatibility to older models without kwargs
+                except TypeError: #Backwards compatibility to older models without kwargs
                     y_pred = self(x)
                 time += self.timestep
                 x = self.advance_input_predict(x, y_pred, time)
