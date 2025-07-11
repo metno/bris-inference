@@ -282,7 +282,10 @@ class BrisPredictor(BasePredictor):
 
         with torch.autocast(device_type="cuda", dtype=torch.bfloat16):
             for fcast_step in range(self.forecast_length - 1):
-                y_pred = self(x, fcstep=fcast_step)
+                try:
+                    y_pred = self(x, fcstep=fcast_step)
+                except TypeError as e: #Backwards compatibility to older models without kwargs
+                    y_pred = self(x)
                 time += self.timestep
                 x = self.advance_input_predict(x, y_pred, time)
                 y_preds[:, fcast_step + 1] = self.model.post_processors(

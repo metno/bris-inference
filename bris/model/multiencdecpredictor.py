@@ -270,7 +270,10 @@ class MultiEncDecPredictor(BasePredictor):
 
         with torch.amp.autocast(device_type="cuda", dtype=torch.bfloat16):
             for fcast_step in range(self.forecast_length - 1):
-                y_pred = self(x, fcstep=fcast_step)
+                try:
+                    y_pred = self(x, fcstep=fcast_step)
+                except TypeError as e: #Backwards compatibility to older models without kwargs
+                    y_pred = self(x)
                 time += self.timestep
                 x = self.advance_input_predict(x, y_pred, time)
                 y_pp = self.model.post_processors(y_pred, in_place=False)
