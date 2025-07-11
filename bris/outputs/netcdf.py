@@ -2,7 +2,6 @@ import datetime
 
 import gridpp
 import numpy as np
-import pandas as pd
 import xarray as xr
 
 import bris.units
@@ -435,9 +434,10 @@ class Netcdf(Output):
 
                 time = forecast_reference_time.astype("datetime64[s]").astype("int")
                 filename = self.get_filename(time)
-                lead_times = pd.date_range(
-                    start=forecast_reference_time, periods=pred.shape[0], freq="6h"
-                )
+                lead_times = [
+                    forecast_reference_time + lt
+                    for lt in self.intermediate.pm.leadtimes
+                ]
                 self.write(filename, lead_times, pred)
 
     def get_lower(self, array):
