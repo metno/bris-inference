@@ -1,5 +1,6 @@
 import glob
 import os
+from typing import Optional
 
 import numpy as np
 
@@ -14,8 +15,13 @@ class Intermediate(Output):
     forecast_reference_time and ensemble_member
     """
 
-    def __init__(self, predict_metadata: PredictMetadata, workdir: str):
-        super().__init__(predict_metadata)
+    def __init__(
+        self,
+        predict_metadata: PredictMetadata,
+        workdir: str,
+        extra_variables: Optional[list] = None,
+    ) -> None:
+        super().__init__(predict_metadata, extra_variables)
         self.pm = predict_metadata
         self.workdir = workdir
 
@@ -84,7 +90,6 @@ class Intermediate(Output):
         for filename in filenames:
             _, member = filename.split("/")[-1].split(".npy")[0].split("_")
             max_member = max(int(member), max_member)
-
         return max_member + 1
 
     def get_filenames(self):

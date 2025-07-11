@@ -122,6 +122,7 @@ def test_bris_predictor():
         {"override hydra/hydra_logging": "none"},  # disable config parsing logs
         "_self_",
     ]
+    num_members_in_parallel = 1
 
     # Forecaster must know about what leadtimes to output
     _model = instantiate(
@@ -132,6 +133,7 @@ def test_bris_predictor():
         forecast_length=config.leadtimes,
         required_variables=required_variables,
         release_cache=config.release_cache,
+        num_members_in_parallel=num_members_in_parallel,
     )
 
     _bp = bris.model.brispredictor.BrisPredictor(
@@ -140,6 +142,7 @@ def test_bris_predictor():
         forecast_length=1,
         required_variables=required_variables,
         hardware_config=DotDict(config.hardware),
+        num_members_in_parallel=num_members_in_parallel,
     )
 
 
@@ -247,6 +250,7 @@ def test_multiencdec_predictor():
         {"override hydra/hydra_logging": "none"},  # disable config parsing logs
         "_self_",
     ]
+    num_members_in_parallel = 1
 
     # Forecaster must know about what leadtimes to output
     _model = instantiate(
@@ -257,6 +261,7 @@ def test_multiencdec_predictor():
         forecast_length=config.leadtimes,
         required_variables=required_variables,
         release_cache=config.release_cache,
+        num_members_in_parallel=num_members_in_parallel,
     )
 
     _bp = bris.model.multiencdecpredictor.MultiEncDecPredictor(
@@ -265,4 +270,5 @@ def test_multiencdec_predictor():
         forecast_length=1,
         required_variables=required_variables,
         hardware_config=DotDict(config.hardware),
+        num_members_in_parallel=num_members_in_parallel,
     )
