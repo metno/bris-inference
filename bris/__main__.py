@@ -3,7 +3,6 @@ import os
 from argparse import ArgumentParser
 from datetime import datetime, timedelta
 
-import torch
 from anemoi.utils.dates import frequency_to_seconds
 from hydra.utils import instantiate
 
