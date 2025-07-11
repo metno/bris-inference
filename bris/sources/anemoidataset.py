@@ -65,7 +65,9 @@ class AnemoiDataset(Source):
                         f"Date {self.dataset.dates[int(i[0])]} missing from verif dataset"
                     )
                 else:
-                    data[t, :] = self.dataset[int(i[0]), self.variable_index, 0, ::self.every_loc]
+                    data[t, :] = self.dataset[
+                        int(i[0]), self.variable_index, 0, :: self.every_loc
+                    ]
 
         observations = Observations(self.locations, requested_times, {variable: data})
         return observations

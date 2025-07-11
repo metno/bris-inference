@@ -99,7 +99,7 @@ class DataModule(pl.LightningDataModule):
             timeincrement=self.timeincrement,
             grid_indices=self.grid_indices,
             label="predict",
-            num_members_in_sequence = self.num_members_in_sequence,
+            num_members_in_sequence=self.num_members_in_sequence,
         )
 
         return ds

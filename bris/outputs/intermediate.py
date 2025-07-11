@@ -16,11 +16,11 @@ class Intermediate(Output):
     """
 
     def __init__(
-            self, 
-            predict_metadata: PredictMetadata, 
-            workdir: str, 
-            extra_variables: Optional[list] = None,
-        ) -> None:
+        self,
+        predict_metadata: PredictMetadata,
+        workdir: str,
+        extra_variables: Optional[list] = None,
+    ) -> None:
         super().__init__(predict_metadata, extra_variables)
         self.pm = predict_metadata
         self.workdir = workdir

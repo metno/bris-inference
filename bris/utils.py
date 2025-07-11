@@ -19,6 +19,7 @@ from .forcings import anemoi_dynamic_forcings, get_dynamic_forcings
 
 LOGGER = logging.getLogger(__name__)
 
+
 def expand_time_tokens(filename: str, unixtime: int) -> str:
     """Expand time tokens in a filename and return absolute path."""
     if not isinstance(unixtime, numbers.Number):

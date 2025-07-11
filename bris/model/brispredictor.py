@@ -153,12 +153,12 @@ class BrisPredictor(BasePredictor):
             internal_data=self.internal_data,
             dataset_no=None,
         )
+
     def update_batch_info(self, time):
         if time not in self.batch_info.keys():
             self.batch_info[time] = 1
         else:
             self.batch_info[time] += 1
-
 
     def forward(self, x: torch.Tensor, **kwargs) -> torch.Tensor:
         """
@@ -294,12 +294,13 @@ class BrisPredictor(BasePredictor):
                     del y_pred
                     torch.cuda.empty_cache()
         self.update_batch_info(time)
-        # Save info about which batches has been processed before, update ensemble member based on this. 
+        # Save info about which batches has been processed before, update ensemble member based on this.
         return {
             "pred": [y_preds.to(torch.float32).numpy()],
             "times": times,
             "group_rank": self.model_comm_group_rank,
-            "ensemble_member": self.member_id + self.num_members_in_parallel * (self.batch_info[time] - 1),
+            "ensemble_member": self.member_id
+            + self.num_members_in_parallel * (self.batch_info[time] - 1),
         }
 
     def allgather_batch(self, batch: torch.Tensor) -> torch.Tensor:

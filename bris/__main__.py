@@ -3,9 +3,9 @@ import os
 from argparse import ArgumentParser
 from datetime import datetime, timedelta
 
+import torch
 from anemoi.utils.dates import frequency_to_seconds
 from hydra.utils import instantiate
-import torch
 
 import bris.routes
 from bris.data.datamodule import DataModule
@@ -55,13 +55,7 @@ def main(arg_list: list[str] | None = None):
             config.checkpoints[model].timestep
         )
 
-    num_members = 1
-    try:
-        num_members = int(
-            config['hardware']['num_members']
-        )
-    except:
-        LOGGER.debug("Key 'num_members' was not found in config")
+    num_members = config["hardware"].get("num_members", 1)
 
     # Distribute ensemble members across GPUs, run in sequence if not enough GPUs
     num_gpus = config["hardware"]["num_gpus_per_node"] * config["hardware"]["num_nodes"]
@@ -79,7 +73,6 @@ def main(arg_list: list[str] | None = None):
     else:
         num_members_in_sequence = 1
         num_members_in_parallel = num_members
-    
 
     # Get multistep. A default of 2 to ignore multistep in start_date calculation if not set.
     multistep = 2

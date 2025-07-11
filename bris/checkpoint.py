@@ -97,7 +97,7 @@ class Checkpoint:
         # this is a legacy fallback: legacy checkpoints contain 'graphs' instead of 'graph'
         try:
             self._metadata.config.graph = self._metadata.config.graphs
-        except:
+        except AttributeError:
             pass
         return self._metadata.config
 

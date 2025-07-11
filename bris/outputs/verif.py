@@ -27,7 +27,7 @@ class Verif(Output):
         units: str = None,
         thresholds: list = None,
         quantile_levels: list = None,
-        consensus_method:str = "control",
+        consensus_method: str = "control",
         elev_gradient: float = None,
         max_distance: float = None,
     ):
@@ -197,7 +197,7 @@ class Verif(Output):
 
     @property
     def num_members(self):
-        #return self.intermediate.num_members
+        # return self.intermediate.num_members
         return self.pm.num_members
 
     @staticmethod
@@ -291,8 +291,8 @@ class Verif(Output):
 
             if self.num_members > 1:
                 self.ds["ensemble"] = (
-                        ["time", "leadtime", "location", "ensemble_member"], 
-                        ens
+                    ["time", "leadtime", "location", "ensemble_member"],
+                    ens,
                 )
                 self.ds["ens-mean"] = (["time", "leadtime", "location"], ens_mean)
             # Load threshold forecasts
@@ -434,11 +434,15 @@ class Verif(Output):
     def compute_crps(self, preds, targets, fair=True):
         """Continuous Ranked PRobability Score (CRPS)."""
 
-        coef = -1.0 / (self.num_members * (self.num_members - 1)) if fair else -1.0 / (self.num_members**2)
+        coef = (
+            -1.0 / (self.num_members * (self.num_members - 1))
+            if fair
+            else -1.0 / (self.num_members**2)
+        )
 
         mae = np.mean(np.abs(targets[..., None] - preds), axis=-1)
 
-        #var = np.abs(preds[..., None] - preds[..., None, :])
+        # var = np.abs(preds[..., None] - preds[..., None, :])
         var = np.zeros(preds.shape[:-1])
         for i in range(self.num_members):  # loop version to reduce memory usage
             var += np.sum(np.abs(preds[..., i, None] - preds[..., i + 1 :]), axis=-1)

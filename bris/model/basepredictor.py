@@ -56,7 +56,7 @@ class BasePredictor(pl.LightningModule):
             checkpoints {"forecaster": checkpoint_object}
             hardware_config {"num_gpus_per_model": int, "num_gpus_per_node": int, "num_nodes": int}
             num_members_in_parallel: int
-                Number of ensemble members in parallel. Used to track ensemble_id of each model when running 
+                Number of ensemble members in parallel. Used to track ensemble_id of each model when running
                 ensemble members in sequence.
         """
 
@@ -96,18 +96,14 @@ class BasePredictor(pl.LightningModule):
 
             self.ens_comm_group = None
             try:
-                self.ens_comm_num_groups = int(
-                    hardware_config["members_in_parallel"]
-                )
+                self.ens_comm_num_groups = int(hardware_config["members_in_parallel"])
             except KeyError:
                 self.ens_comm_num_groups = 1
             self.ens_comm_group_id = (
-                int(os.environ.get("SLURM_PROCID", "0")) 
-                // self.ens_comm_num_groups
+                int(os.environ.get("SLURM_PROCID", "0")) // self.ens_comm_num_groups
             )
             self.ens_comm_group_rank = (
-                int(os.environ.get("SLURM_PROCID", "0"))
-                % self.ens_comm_num_groups
+                int(os.environ.get("SLURM_PROCID", "0")) % self.ens_comm_num_groups
             )
 
     def set_model_comm_group(
@@ -126,7 +122,7 @@ class BasePredictor(pl.LightningModule):
             self.model_comm_group_size = model_comm_group_size
 
     def set_ens_comm_group(
-        self, 
+        self,
         ens_comm_group: ProcessGroup,
         ens_comm_group_id: int,
         ens_comm_group_rank: int,

@@ -27,7 +27,11 @@ class DDPGroupStrategy(DDPStrategy):
     """Distributed Data Parallel strategy with group communication."""
 
     def __init__(
-        self, num_gpus_per_model: int, num_gpus_per_ensemble: int, read_group_size: int, **kwargs: dict
+        self,
+        num_gpus_per_model: int,
+        num_gpus_per_ensemble: int,
+        read_group_size: int,
+        **kwargs: dict,
     ) -> None:
         """Initialize the distributed strategy.
 
@@ -143,12 +147,12 @@ class DDPGroupStrategy(DDPStrategy):
             np.arange(self.world_size, dtype=int),
             int(self.world_size / self.ens_comm_group_size),
         )
-        ens_comm_groups = [
-            torch.distributed.new_group(x) for x in ens_comm_group_ranks
-        ]
-        
-        ens_comm_group_id, ens_comm_group_rank, ens_comm_num_groups = self.get_my_model_comm_group(
-            self.ens_comm_group_size,
+        ens_comm_groups = [torch.distributed.new_group(x) for x in ens_comm_group_ranks]
+
+        ens_comm_group_id, ens_comm_group_rank, ens_comm_num_groups = (
+            self.get_my_model_comm_group(
+                self.ens_comm_group_size,
+            )
         )
         member_id = ens_comm_group_rank // self.model_comm_group_size
 
