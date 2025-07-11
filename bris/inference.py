@@ -6,7 +6,7 @@ import pytorch_lightning as pl
 import torch
 from anemoi.utils.config import DotDict
 
-from bris.ddp_strategy_ens import DDPGroupStrategy
+from bris.ddp_strategy import DDPGroupStrategy
 
 from .data.datamodule import DataModule
 
