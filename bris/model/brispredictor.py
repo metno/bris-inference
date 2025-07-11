@@ -155,7 +155,7 @@ class BrisPredictor(BasePredictor):
         )
 
     def update_batch_info(self, time):
-        if time not in self.batch_info.keys():
+        if time not in self.batch_info:
             self.batch_info[time] = 1
         else:
             self.batch_info[time] += 1

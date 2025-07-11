@@ -180,24 +180,15 @@ class DataModule(pl.LightningDataModule):
                     self.config.dataloader.grid_indices,
                     reader_group_size=reader_group_size,
                 )
-                grid_indices.setup(self.graph)
                 LOGGER.info("Using grid indices from dataloader config")
             else:
-                try:
-                    # anemoi-core
-                    grid_indices = FullGrid(
-                        nodes_name="data", reader_group_size=reader_group_size
-                    )
-                    grid_indices.setup(self.graph)
-                except:
-                    # legacy
-                    grid_indices = FullGrid(
-                        nodes_name="grid", reader_group_size=reader_group_size
-                    )
-                    grid_indices.setup(self.graph)
+                grid_indices = FullGrid(
+                    nodes_name="data", reader_group_size=reader_group_size
+                )
                 LOGGER.info(
                     "grid_indices not found in dataloader config, defaulting to FullGrid"
                 )
+            grid_indices.setup(self.graph)
             grid_indices = [grid_indices]
 
         return grid_indices
