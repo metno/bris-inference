@@ -57,8 +57,7 @@ hardware:
   num_gpus_per_node: ${oc.decode:${oc.env:SLURM_GPUS_PER_NODE}}
   num_gpus_per_model: 8
   num_nodes: ${oc.decode:${oc.env:SLURM_NNODES}}
-  members_per_model: 1
-  members_in_parallel: ${oc.decode:${oc.env:SLURM_NNODES}}
+  num_members: 2 # Number of ensemble members
 
 model:
   _target_: bris.model.BrisPredictor
