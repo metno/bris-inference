@@ -55,6 +55,9 @@ class BasePredictor(pl.LightningModule):
         Args:
             checkpoints {"forecaster": checkpoint_object}
             hardware_config {"num_gpus_per_model": int, "num_gpus_per_node": int, "num_nodes": int}
+            num_members_in_parallel: int
+                Number of ensemble members in parallel. Used to track ensemble_id of each model when running 
+                ensemble members in sequence.
         """
 
         super().__init__(*args, **kwargs)

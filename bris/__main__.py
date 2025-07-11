@@ -63,13 +63,15 @@ def main(arg_list: list[str] | None = None):
     except:
         LOGGER.debug("Key 'num_members' was not found in config")
 
+    # Distribute ensemble members across GPUs, run in sequence if not enough GPUs
     num_gpus = config["hardware"]["num_gpus_per_node"] * config["hardware"]["num_nodes"]
     num_gpus_per_model = config["hardware"]["num_gpus_per_model"]
     num_gpus_per_ensemble = num_gpus_per_model * num_members
 
     if num_gpus_per_ensemble > num_gpus:
         assert num_gpus_per_ensemble % num_gpus == 0, (
-            "number of gpus per ensemble needs to be divisible by num_gpus"
+            f"Number of gpus per ensemble ({num_gpus_per_ensemble}) needs to be divisible by num_gpus ({num_gpus}). "
+            f"num_gpus_per_ensemble = num_gpus_per_model * num_members"
         )
         num_members_in_sequence = int(num_gpus_per_ensemble / num_gpus)
         num_members_in_parallel = int(num_gpus / num_gpus_per_model)

@@ -67,6 +67,10 @@ class NativeGridDataset(IterableDataset):
 
         init_ensemble_size: bool, default True
             In sub-classes this must be set to false and done in the sub-class instead. See ZipDataset for example.
+        
+        num_members_in_sequence : int, default 1
+            Number of ensemble members in the sequence. This is used to repeat the indices
+            for each member in the sequence.
         """
         self.label = label
         self.data = data_reader

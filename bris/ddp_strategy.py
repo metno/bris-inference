@@ -35,6 +35,8 @@ class DDPGroupStrategy(DDPStrategy):
         ----------
         num_gpus_per_model : int
             Number of GPUs per model to shard over.
+        num_gpus_per_ensemble : int
+            Number of GPUs per ensemble to shard over.
         read_group_size : int
             Number of GPUs per reader group.
         **kwargs : dict
