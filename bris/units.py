@@ -127,7 +127,7 @@ def convert(array, iunits: str, ounits: str = "", inplace: bool = False):
     original_ounits = ounits
     iunits = find_common_name(iunits)
     ounits = find_common_name(ounits)
-    if original_ounits is "":
+    if original_ounits == "":
         original_ounits = ounits
 
     if inplace and not isinstance(array, np.ndarray):
@@ -147,7 +147,9 @@ def convert(array, iunits: str, ounits: str = "", inplace: bool = False):
 
     if isinstance(array, np.ndarray):
         if not issubclass(array.dtype.type, np.floating):
-            raise ValueError("Input array ({type(array)}) is not a floating point numpy array")
+            raise ValueError(
+                "Input array ({type(array)}) is not a floating point numpy array"
+            )
     elif (
         isinstance(array, list)
         and isinstance(array, list)
