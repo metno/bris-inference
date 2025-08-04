@@ -93,7 +93,7 @@ class Output:
         # only do this once. For multiple members, intermediate calls this several times
         if pred.shape[2] != len(self.pm.variables):
             # Append extra variables to prediction
-            extra_pred = list()
+            extra_pred = []
             for name in self.extra_variables:
                 if name == "ws":
                     Ix = self.pm.variables.index("10u")
