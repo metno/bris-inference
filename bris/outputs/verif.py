@@ -197,7 +197,6 @@ class Verif(Output):
 
     @property
     def num_members(self) -> int:
-        # return self.intermediate.num_members
         return self.pm.num_members
 
     @staticmethod
