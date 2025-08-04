@@ -37,7 +37,7 @@ hardware:
 release_cache: False
 
 model:
-  _target_: bris.model.brispredictor.BrisPredictor
+  _target_: bris.model.BrisPredictor
   _convert_: all
 
 output: PATH_TO_OUTPUT #Not a required field, used in output path in routing
