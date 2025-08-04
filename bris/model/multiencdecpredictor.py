@@ -285,7 +285,7 @@ class MultiEncDecPredictor(BasePredictor):
                 times.append(time)
 
         return {
-            "pred": y_preds,
+            "pred": [y_pred.to(dtype=torch.float32).numpy() for y_pred in y_preds],
             "times": times,
             "group_rank": self.model_comm_group_rank,
             "ensemble_member": 0,
