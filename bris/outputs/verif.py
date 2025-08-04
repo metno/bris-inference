@@ -30,7 +30,7 @@ class Verif(Output):
         consensus_method: str = "control",
         elev_gradient: float = None,
         max_distance: float = None,
-    ):
+    ) -> None:
         """
         Args:
             units: Units to put in Verif file. Should be the same as the observations
@@ -116,7 +116,7 @@ class Verif(Output):
         )
         self.intermediate = Intermediate(intermediate_pm, workdir)
 
-    def _add_forecast(self, times: list, ensemble_member: int, pred: np.array):
+    def _add_forecast(self, times: list, ensemble_member: int, pred: np.array) -> None:
         """Add forecasts to this object. Will be written when .write() is called
 
         Args:
@@ -188,24 +188,24 @@ class Verif(Output):
         self.intermediate.add_forecast(times, ensemble_member, interpolated_pred)
 
     @property
-    def _is_gridded_input(self):
+    def _is_gridded_input(self) -> bool:
         return self.pm.is_gridded
 
     @property
-    def _num_locations(self):
+    def _num_locations(self) -> int:
         return self.opoints.size()
 
     @property
-    def num_members(self):
+    def num_members(self) -> int:
         # return self.intermediate.num_members
         return self.pm.num_members
 
     @staticmethod
-    def create_nan_array(shape, dtype=np.float32):
+    def create_nan_array(shape, dtype=np.float32) -> np.ndarray:
         """Create numpy array of NaNs to be overwritten"""
         return np.full(shape, np.nan, dtype)
 
-    def finalize(self):
+    def finalize(self) -> None:
         """Write forecasts and observations to file"""
 
         coords = {}
@@ -410,7 +410,7 @@ class Verif(Output):
         q = np.percentile(ar, percentile, axis=-1)
         return q
 
-    def compute_threshold_prob(self, ar, threshold, fair=True):
+    def compute_threshold_prob(self, ar, threshold, fair=True) -> np.ndarray:
         """Compute probability less than a threshold for an ensemble
         Args:
             ar: N-D numpy array, where last dimensions is ensmelbe
@@ -431,7 +431,7 @@ class Verif(Output):
             p[p < 0] = 0
         return p
 
-    def compute_crps(self, preds, targets, fair=True):
+    def compute_crps(self, preds, targets, fair=True) -> np.ndarray:
         """Continuous Ranked PRobability Score (CRPS)."""
 
         coef = (
@@ -450,7 +450,7 @@ class Verif(Output):
         return mae + var
 
     @staticmethod
-    def get_points(predict_metadata, obs_sources, max_distance=None):
+    def get_points(predict_metadata, obs_sources, max_distance=None) -> tuple[gridpp.Points, gridpp.Points, np.ndarray | list]:
         """Returns point objects for input and output, filtering out output points that are too
         far outside the input"""
         obs_lats = []
