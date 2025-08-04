@@ -10,9 +10,9 @@ from bris.utils import datetime_to_unixtime
 
 
 class AnemoiDataset(Source):
-    """Loads truth from an anemoi datasets zarr dataset.
+    """Loads data from an anemoi datasets zarr dataset.
 
-    Creates a file that can be read by verif
+    Used to create a verif file that can be used to evaluate forecasts against analysis.
     """
 
     def __init__(self, dataset_dict: dict, variable: str, every_loc: int = 1):
