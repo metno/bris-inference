@@ -450,7 +450,9 @@ class Verif(Output):
         return mae + var
 
     @staticmethod
-    def get_points(predict_metadata, obs_sources, max_distance=None) -> tuple[gridpp.Points, gridpp.Points, np.ndarray | list]:
+    def get_points(
+        predict_metadata, obs_sources, max_distance=None
+    ) -> tuple[gridpp.Points, gridpp.Points, np.ndarray | list]:
         """Returns point objects for input and output, filtering out output points that are too
         far outside the input"""
         obs_lats = []
