@@ -30,6 +30,9 @@ class Verif(Output):
         consensus_method: str = "control",
         elev_gradient: float = None,
         max_distance: float = None,
+        fair_threshold: bool = True,
+        fair_quantile: bool = True,
+        fair_crps: bool = True,
     ) -> None:
         """
         Args:
@@ -39,6 +42,10 @@ class Verif(Output):
             variable_type: 'logit' or 'threshold_probability'
             consensus_method: Whether to use the control member ('control') or ensemble mean
             ('mean') as the forecast prediction
+            max_distance: Maximum distance between input and output points
+            fair_quantile: Whether or not quantile is adjusted for sampling error
+            fair_threshold: Whether or not threshold is adjusted for sampling error
+            fair_crps: Whether or not to adjust crps for ensemble size
         """
         if quantile_levels is None:
             quantile_levels = []
@@ -62,6 +69,9 @@ class Verif(Output):
         self.consensus_method = consensus_method
         self.elev_gradient = elev_gradient
         self.max_distance = max_distance
+        self.fair_quantile = fair_quantile
+        self.fair_threshold = fair_threshold
+        self.fair_crps = fair_crps
 
         if self.pm.altitudes is None and elev_gradient is not None:
             raise ValueError(
@@ -300,7 +310,7 @@ class Verif(Output):
                 for i, frt in enumerate(frts):
                     curr = self.intermediate.get_forecast(frt)[..., 0, :]
                     for t, threshold in enumerate(self.thresholds):
-                        cdf[i, ..., t] = self.compute_threshold_prob(curr, threshold)
+                        cdf[i, ..., t] = self.compute_threshold_prob(curr, threshold, self.fair_threshold)
 
                         self.ds["cdf"] = (
                             ["time", "leadtime", "location", "threshold"],
@@ -315,7 +325,7 @@ class Verif(Output):
                         :, :, 0, :
                     ]  # Remove variable dimension
                     for t, quantile_level in enumerate(self.quantile_levels):
-                        x[i, ..., t] = self.compute_quantile(curr, quantile_level)
+                        x[i, ..., t] = self.compute_quantile(curr, quantile_level, self.fair_quantile)
 
                         self.ds["x"] = (["time", "leadtime", "location", "quantile"], x)
 
@@ -363,7 +373,7 @@ class Verif(Output):
         self.ds["obs"] = (["time", "leadtime", "location"], obs)
 
         if self.num_members > 1:
-            crps = self.compute_crps(ens, obs)
+            crps = self.compute_crps(ens, obs, self.fair_crps)
             self.ds["crps"] = (["time", "leadtime", "location"], crps)
 
         self.ds.attrs["units"] = self.units
@@ -412,7 +422,7 @@ class Verif(Output):
     def compute_threshold_prob(self, ar, threshold, fair=True) -> np.ndarray:
         """Compute probability less than a threshold for an ensemble
         Args:
-            ar: N-D numpy array, where last dimensions is ensmelbe
+            ar: N-D numpy array, where last dimensions is ensemble
             threshold: Threshold to compute fraction of members that are less than this
             fair: Adjust for sampling error
 
@@ -431,7 +441,20 @@ class Verif(Output):
         return p
 
     def compute_crps(self, preds, targets, fair=True) -> np.ndarray:
-        """Continuous Ranked PRobability Score (CRPS)."""
+        """Continuous Ranked Probability Score (CRPS).
+        
+        Args:
+            preds: numpy.ndarray
+                Predictions, shape (time, leadtime, location, ens_size)
+            targets: numpy.ndarray
+                Targets, shape (time, leadtime, location)
+            fair: bool
+                Defaults to true
+
+        Returns:
+            crps: numpy.ndarray
+                Shape (time, leadtime, location)
+        """
 
         coef = (
             -1.0 / (self.num_members * (self.num_members - 1))
