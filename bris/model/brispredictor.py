@@ -119,6 +119,8 @@ class BrisPredictor(BasePredictor):
         self.model.eval()
         self.release_cache = release_cache
 
+        self.batch_info = {}
+
     def set_static_forcings(self, data_reader: Iterable, data_config: dict) -> None:
         """
         Set static forcings for the model. Done by reading from the data reader, reshape, store as a tensor. Tensor is
@@ -152,7 +154,13 @@ class BrisPredictor(BasePredictor):
             dataset_no=None,
         )
 
-    def forward(self, x: torch.Tensor) -> torch.Tensor:
+    def update_batch_info(self, time):
+        if time not in self.batch_info:
+            self.batch_info[time] = 1
+        else:
+            self.batch_info[time] += 1
+
+    def forward(self, x: torch.Tensor, **kwargs) -> torch.Tensor:
         """
         Perform a forward pass through the model.
         Args:
@@ -160,7 +168,7 @@ class BrisPredictor(BasePredictor):
         Returns:
             torch.Tensor: Output tensor after processing by the model.
         """
-        return self.model(x, model_comm_group=self.model_comm_group)
+        return self.model(x, model_comm_group=self.model_comm_group, **kwargs)
 
     def advance_input_predict(
         self, x: torch.Tensor, y_pred: torch.Tensor, time: np.datetime64
@@ -273,11 +281,15 @@ class BrisPredictor(BasePredictor):
         x = data_input[..., self.internal_data.input.full]
 
         with torch.autocast(device_type="cuda", dtype=torch.bfloat16):
-            for fcast_step in range(self.forecast_length - 1):
-                y_pred = self(x)
+            for forecast_step in range(self.forecast_length - 1):
+                # Backwards compatibility to older models without kwargs
+                try:
+                    y_pred = self(x, fcstep=forecast_step)
+                except TypeError:
+                    y_pred = self(x)
                 time += self.timestep
                 x = self.advance_input_predict(x, y_pred, time)
-                y_preds[:, fcast_step + 1] = self.model.post_processors(
+                y_preds[:, forecast_step + 1] = self.model.post_processors(
                     y_pred, in_place=True
                 )[:, 0, :, self.indices["variables_output"]].cpu()
 
@@ -285,11 +297,14 @@ class BrisPredictor(BasePredictor):
                 if self.release_cache:
                     del y_pred
                     torch.cuda.empty_cache()
+        self.update_batch_info(time)
+        # Save info about which batches has been processed before, update ensemble member based on this.
         return {
             "pred": [y_preds.to(torch.float32).numpy()],
             "times": times,
             "group_rank": self.model_comm_group_rank,
-            "ensemble_member": 0,
+            "ensemble_member": self.member_id
+            + self.num_members_in_parallel * (self.batch_info[time] - 1),
         }
 
     def allgather_batch(self, batch: torch.Tensor) -> torch.Tensor:

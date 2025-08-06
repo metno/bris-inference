@@ -145,8 +145,8 @@ class MultiEncDecPredictor(BasePredictor):
                 dataset_no=dset,
             )
 
-    def forward(self, x: torch.Tensor) -> list[torch.Tensor]:
-        return self.model(x, model_comm_group=self.model_comm_group)
+    def forward(self, x: torch.Tensor, **kwargs) -> list[torch.Tensor]:
+        return self.model(x, model_comm_group=self.model_comm_group, **kwargs)
 
     def advance_input_predict(
         self, x: list[torch.Tensor], y_pred: list[torch.Tensor], time: np.datetime64
@@ -269,19 +269,23 @@ class MultiEncDecPredictor(BasePredictor):
         ]
 
         with torch.amp.autocast(device_type="cuda", dtype=torch.bfloat16):
-            for fcast_step in range(self.forecast_length - 1):
-                y_pred = self(x)
+            for forecast_step in range(self.forecast_length - 1):
+                # Backwards compatibility to older models without kwargs
+                try:
+                    y_pred = self(x, fcstep=forecast_step)
+                except TypeError:
+                    y_pred = self(x)
                 time += self.timestep
                 x = self.advance_input_predict(x, y_pred, time)
                 y_pp = self.model.post_processors(y_pred, in_place=False)
                 for i in range(num_dsets):
-                    y_preds[i][:, fcast_step + 1, ...] = y_pp[i][
+                    y_preds[i][:, forecast_step + 1, ...] = y_pp[i][
                         :, 0, ..., self.indices[i]["variables_output"]
                     ].cpu()
                 times.append(time)
 
         return {
-            "pred": y_preds,
+            "pred": [y_pred.to(dtype=torch.float32).numpy() for y_pred in y_preds],
             "times": times,
             "group_rank": self.model_comm_group_rank,
             "ensemble_member": 0,

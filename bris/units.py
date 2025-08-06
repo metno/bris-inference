@@ -76,7 +76,7 @@ def get_conversion_map() -> dict[tuple[str, str], tuple[float, float]]:
     return linear_convert
 
 
-def find_common_name(units: str) -> str:
+def find_common_name(units: str | None) -> str:
     """Finds a more common name for a strange unit, e.g. celsius instead of C or degC
 
     Args:
@@ -108,7 +108,7 @@ def find_common_name(units: str) -> str:
     return units
 
 
-def convert(array, iunits: str, ounits: str = None, inplace: bool = False):
+def convert(array, iunits: str, ounits: str | None = None, inplace: bool = False):
     """Converts data from one unit to another
 
     Args:
@@ -132,7 +132,7 @@ def convert(array, iunits: str, ounits: str = None, inplace: bool = False):
 
     if inplace and not isinstance(array, np.ndarray):
         raise ValueError(
-            "Input array is not a numpy array, cannot edit values in place"
+            f"Input array is not a numpy array ({type(array)}), cannot edit values in place"
         )
 
     if iunits == ounits:
@@ -147,7 +147,9 @@ def convert(array, iunits: str, ounits: str = None, inplace: bool = False):
 
     if isinstance(array, np.ndarray):
         if not issubclass(array.dtype.type, np.floating):
-            raise ValueError("Input array is not a floating point numpy array")
+            raise ValueError(
+                "Input array ({type(array)}) is not a floating point numpy array"
+            )
     elif (
         isinstance(array, list)
         and isinstance(array, list)
@@ -158,7 +160,7 @@ def convert(array, iunits: str, ounits: str = None, inplace: bool = False):
         )
     else:
         if not isinstance(array, numbers.Number):
-            raise ValueError("Input is not np.array, list, or number")
+            raise ValueError(f"Input is not np.array, list, or number: {type(array)}")
 
     linear_convert = get_conversion_map()
 

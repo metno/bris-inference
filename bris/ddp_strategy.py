@@ -27,7 +27,11 @@ class DDPGroupStrategy(DDPStrategy):
     """Distributed Data Parallel strategy with group communication."""
 
     def __init__(
-        self, num_gpus_per_model: int, read_group_size: int, **kwargs: dict
+        self,
+        num_gpus_per_model: int,
+        num_gpus_per_ensemble: int,
+        read_group_size: int,
+        **kwargs: dict,
     ) -> None:
         """Initialize the distributed strategy.
 
@@ -35,6 +39,8 @@ class DDPGroupStrategy(DDPStrategy):
         ----------
         num_gpus_per_model : int
             Number of GPUs per model to shard over.
+        num_gpus_per_ensemble : int
+            Number of GPUs per ensemble to shard over.
         read_group_size : int
             Number of GPUs per reader group.
         **kwargs : dict
@@ -43,6 +49,7 @@ class DDPGroupStrategy(DDPStrategy):
         """
         super().__init__(**kwargs)
         self.model_comm_group_size = num_gpus_per_model
+        self.ens_comm_group_size = num_gpus_per_ensemble
         self.read_group_size = read_group_size
 
     def setup(self, trainer: pl.Trainer) -> None:
@@ -125,6 +132,38 @@ class DDPGroupStrategy(DDPStrategy):
             reader_group_ranks[model_comm_group_id, reader_group_id],
             reader_group_rank,
             reader_group_root,
+        )
+
+        assert self.world_size % self.ens_comm_group_size == 0, (
+            f"Total number of GPUs ({self.world_size}) must be divisible by the number of GPUs "
+            f"per ensemble ({self.ens_comm_group_size})."
+        )
+        assert self.ens_comm_group_size % self.model_comm_group_size == 0, (
+            f"Number of GPUs per ensemble ({self.ens_comm_group_size}) must be divisible by the number of GPUs "
+            f"per model ({self.model_comm_group_size})."
+        )
+
+        ens_comm_group_ranks = np.split(
+            np.arange(self.world_size, dtype=int),
+            int(self.world_size / self.ens_comm_group_size),
+        )
+        ens_comm_groups = [torch.distributed.new_group(x) for x in ens_comm_group_ranks]
+
+        ens_comm_group_id, ens_comm_group_rank, ens_comm_num_groups = (
+            self.get_my_model_comm_group(
+                self.ens_comm_group_size,
+            )
+        )
+        member_id = ens_comm_group_rank // self.model_comm_group_size
+
+        ens_comm_group = ens_comm_groups[ens_comm_group_id]
+        self.model.set_ens_comm_group(
+            ens_comm_group,
+            ens_comm_group_id,
+            ens_comm_group_rank,
+            ens_comm_num_groups,
+            member_id,
+            self.ens_comm_group_size,
         )
 
         # register hooks for correct gradient reduction
@@ -236,12 +275,20 @@ class DDPGroupStrategy(DDPStrategy):
         _, reader_group_rank, _, _ = self.get_my_reader_group(
             model_comm_group_rank, self.read_group_size
         )
+        ens_comm_group_id, ens_comm_group_rank, ens_comm_num_groups = (
+            self.get_my_model_comm_group(
+                self.ens_comm_group_size,
+            )
+        )
 
         dataloader.dataset.set_comm_group_info(
             self.global_rank,
             model_comm_group_id,
             model_comm_group_rank,
             model_comm_num_groups,
+            ens_comm_group_id,
+            ens_comm_group_rank,
+            ens_comm_num_groups,
             reader_group_rank,
             self.read_group_size,
         )

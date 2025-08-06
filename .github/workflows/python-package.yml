@@ -71,3 +71,7 @@ jobs:
     - name: Run inference
       run: |
         tox -e inference_CI
+
+    - name: Run inference_multi_CI
+      run: |
+        tox -e inference_multi_CI

@@ -23,7 +23,7 @@ LOGGER = logging.getLogger(__name__)
 def expand_time_tokens(filename: str, unixtime: int) -> str:
     """Expand time tokens in a filename and return absolute path."""
     if not isinstance(unixtime, numbers.Number):
-        raise ValueError(f"Unixtime but be numeric not {unixtime}")
+        raise ValueError(f"Unixtime must be numeric not {unixtime}")
 
     return os.path.abspath(time.strftime(filename, time.gmtime(unixtime)))
 

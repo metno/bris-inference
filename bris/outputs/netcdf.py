@@ -61,7 +61,7 @@ class Netcdf(Output):
 
         self.intermediate = None
         if self.pm.num_members > 1:
-            self.intermediate = Intermediate(predict_metadata, workdir)
+            self.intermediate = Intermediate(predict_metadata, workdir, extra_variables)
 
         self.variable_list = VariableList(self.extract_variables)
 
@@ -352,8 +352,8 @@ class Netcdf(Output):
                         shape = [len(times), len(y)]
 
                 if self.pm.num_members > 1:
-                    dims.insert(len(shape) - 2, c("ensemble_member"))
-                    shape.insert(len(shape) - 2, self.pm.num_members)
+                    dims.insert(1, c("ensemble_member"))
+                    shape.insert(1, self.pm.num_members)
 
                 ar = np.nan * np.zeros(shape, np.float32)
                 self.ds[ncname] = (dims, ar)
@@ -396,7 +396,10 @@ class Netcdf(Output):
                 bris.units.convert(ar, from_units, to_units, inplace=True)
 
             if level_index is not None:
-                self.ds[ncname][:, level_index, ...] = ar
+                if self.pm.num_members > 1:
+                    self.ds[ncname][:, :, level_index, ...] = ar
+                else:
+                    self.ds[ncname][:, level_index, ...] = ar
             else:
                 self.ds[ncname][:] = ar
 
@@ -420,7 +423,7 @@ class Netcdf(Output):
     def finalize(self):
         if self.intermediate is not None:
             # Load data from the intermediate and write to disk
-            forecast_reference_times = self.intermediate.get_time_sets()
+            forecast_reference_times = self.intermediate.get_forecast_reference_times()
             for forecast_reference_time in forecast_reference_times:
                 # Arange all ensemble members
                 pred = np.zeros(self.pm.shape + [self.pm.num_members], np.float32)
@@ -429,8 +432,13 @@ class Netcdf(Output):
                     if curr is not None:
                         pred[..., m] = curr
 
-                filename = self.get_filename(forecast_reference_time)
-                self.write(filename, forecast_reference_time, pred)
+                time = forecast_reference_time.astype("datetime64[s]").astype("int")
+                filename = self.get_filename(time)
+                lead_times = [
+                    forecast_reference_time + lt
+                    for lt in self.intermediate.pm.leadtimes
+                ]
+                self.write(filename, lead_times, pred)
 
     def get_lower(self, array):
         m = np.min(array)

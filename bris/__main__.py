@@ -54,7 +54,24 @@ def main(arg_list: list[str] | None = None):
             config.checkpoints[model].timestep
         )
 
-    num_members = 1
+    num_members = config["hardware"].get("num_members", 1)
+
+    # Distribute ensemble members across GPUs, run in sequence if not enough GPUs
+    num_gpus = config["hardware"]["num_gpus_per_node"] * config["hardware"]["num_nodes"]
+    num_gpus_per_model = config["hardware"].get("num_gpus_per_model", 1)
+    num_gpus_per_ensemble = num_gpus_per_model * num_members
+
+    if num_gpus_per_ensemble > num_gpus:
+        assert num_gpus_per_ensemble % num_gpus == 0, (
+            f"Number of gpus per ensemble ({num_gpus_per_ensemble}) needs to be divisible by num_gpus ({num_gpus}). "
+            f"num_gpus_per_ensemble = num_gpus_per_model * num_members"
+        )
+        num_members_in_sequence = int(num_gpus_per_ensemble / num_gpus)
+        num_members_in_parallel = int(num_gpus / num_gpus_per_model)
+        num_gpus_per_ensemble = num_gpus
+    else:
+        num_members_in_sequence = 1
+        num_members_in_parallel = num_members
 
     # Get multistep. A default of 2 to ignore multistep in start_date calculation if not set.
     multistep = 2
@@ -97,6 +114,7 @@ def main(arg_list: list[str] | None = None):
         checkpoint_object=checkpoints["forecaster"],
         timestep=config.checkpoints.forecaster.timestep,
         frequency=config.frequency,
+        num_members_in_sequence=num_members_in_sequence,
     )
 
     # Get outputs and required_variables of each decoder
@@ -142,6 +160,7 @@ def main(arg_list: list[str] | None = None):
         forecast_length=config.checkpoints.forecaster.leadtimes,
         required_variables=required_variables,
         release_cache=config.release_cache,
+        num_members_in_parallel=num_members_in_parallel,
     )
 
     callbacks = [writer]
@@ -151,6 +170,7 @@ def main(arg_list: list[str] | None = None):
         model=model,
         callbacks=callbacks,
         datamodule=datamodule,
+        num_gpus_per_ensemble=num_gpus_per_ensemble,
     )
     inference.run()
 
@@ -163,7 +183,7 @@ def main(arg_list: list[str] | None = None):
             for output in decoder_output["outputs"]:
                 output.finalize()
 
-    print("Model run completed. 🤖")
+        print("Model run completed. 🤖")
 
 
 if __name__ == "__main__":
