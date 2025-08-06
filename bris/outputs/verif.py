@@ -310,7 +310,9 @@ class Verif(Output):
                 for i, frt in enumerate(frts):
                     curr = self.intermediate.get_forecast(frt)[..., 0, :]
                     for t, threshold in enumerate(self.thresholds):
-                        cdf[i, ..., t] = self.compute_threshold_prob(curr, threshold, self.fair_threshold)
+                        cdf[i, ..., t] = self.compute_threshold_prob(
+                            curr, threshold, self.fair_threshold
+                        )
 
                         self.ds["cdf"] = (
                             ["time", "leadtime", "location", "threshold"],
@@ -325,7 +327,9 @@ class Verif(Output):
                         :, :, 0, :
                     ]  # Remove variable dimension
                     for t, quantile_level in enumerate(self.quantile_levels):
-                        x[i, ..., t] = self.compute_quantile(curr, quantile_level, self.fair_quantile)
+                        x[i, ..., t] = self.compute_quantile(
+                            curr, quantile_level, self.fair_quantile
+                        )
 
                         self.ds["x"] = (["time", "leadtime", "location", "quantile"], x)
 
@@ -442,7 +446,7 @@ class Verif(Output):
 
     def compute_crps(self, preds, targets, fair=True) -> np.ndarray:
         """Continuous Ranked Probability Score (CRPS).
-        
+
         Args:
             preds: numpy.ndarray
                 Predictions, shape (time, leadtime, location, ens_size)
