@@ -20,10 +20,12 @@ class Intermediate(Output):
         predict_metadata: PredictMetadata,
         workdir: str,
         extra_variables: Optional[list] = None,
+        remove_intermediate: bool = True,
     ) -> None:
         super().__init__(predict_metadata, extra_variables)
         self.pm = predict_metadata
         self.workdir = workdir
+        self.remove_intermediate = remove_intermediate
 
     def _add_forecast(self, times, ensemble_member, pred):
         filename = self.get_filename(times[0], ensemble_member)
@@ -97,6 +99,16 @@ class Intermediate(Output):
 
     def finalize(self):
         # clean up files
-        for _filename in self.get_filenames():
-            # delete file
-            pass
+        if self.remove_intermediate:
+            for _filename in self.get_filenames():
+                try:
+                    os.remove(_filename)
+                except OSError as e:
+                    print(f"Error during cleanup of {_filename}: {e}")
+            
+            # Remove the workdir if empty
+            try:
+                os.rmdir(self.workdir)
+            except OSError as e:
+                print(f"Error removing workdir {self.workdir}: {e}")
+            
