@@ -125,7 +125,9 @@ class Verif(Output):
             predict_metadata.leadtimes,
             predict_metadata.num_members,
         )
-        self.intermediate = Intermediate(intermediate_pm, workdir, remove_intermediate=remove_intermediate)
+        self.intermediate = Intermediate(
+            intermediate_pm, workdir, remove_intermediate=remove_intermediate
+        )
 
     def _add_forecast(self, times: list, ensemble_member: int, pred: np.array) -> None:
         """Add forecasts to this object. Will be written when .write() is called

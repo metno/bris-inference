@@ -105,10 +105,9 @@ class Intermediate(Output):
                     os.remove(_filename)
                 except OSError as e:
                     print(f"Error during cleanup of {_filename}: {e}")
-            
+
             # Remove the workdir if empty
             try:
                 os.rmdir(self.workdir)
             except OSError as e:
                 print(f"Error removing workdir {self.workdir}: {e}")
-            
