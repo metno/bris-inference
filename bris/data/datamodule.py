@@ -190,7 +190,6 @@ class DataModule(pl.LightningDataModule):
                 )
             grid_indices.setup(self.graph)
             grid_indices = [grid_indices]
-
         return grid_indices
 
     @cached_property
