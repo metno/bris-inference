@@ -27,9 +27,9 @@ from .model_utils import get_model_static_forcings, get_variable_indices
 LOGGER = logging.getLogger(__name__)
 
 
-class BrisPredictor(BasePredictor):
+class BrisLamPredictor(BasePredictor):
     """
-    Custom Bris predictor.
+    Custom Bris LAM predictor.
 
     Methods
     -------
@@ -38,9 +38,12 @@ class BrisPredictor(BasePredictor):
 
     set_static_forcings: Set static forcings for the model.
 
+    TODO: Implement other forecast forcings and boundary forcings.
+
     forward: Forward pass through the model.
 
     advance_input_predict: Advance the input tensor for the next prediction step.
+    TODO: adapt to support forecast forcings ++
 
     predict_step: Predicts the next time step using the model.
 
@@ -95,6 +98,7 @@ class BrisPredictor(BasePredictor):
         self.forecast_length = forecast_length
         self.latitudes = datamodule.data_reader.latitudes
         self.longitudes = datamodule.data_reader.longitudes
+        # TODO: read other forcings from file
 
         # Backwards compatibility with older anemoi-models versions,
         # for example legendary-gnome.
@@ -115,6 +119,7 @@ class BrisPredictor(BasePredictor):
             decoder_index=0,
         )
         self.set_static_forcings(datamodule.data_reader, self.metadata.config.data)
+        # TODO: Implement forecast forcings (from file) and boundary forcings.
 
         self.model.eval()
         self.release_cache = release_cache
@@ -194,6 +199,8 @@ class BrisPredictor(BasePredictor):
             time, self.latitudes, self.longitudes, self.variables["dynamic_forcings"]
         )
         forcings.update(self.static_forcings)
+
+        # TODO: also handel forecast forcings and boundary forcings.
 
         for forcing, value in forcings.items():
             if isinstance(value, np.ndarray):
