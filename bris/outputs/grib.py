@@ -97,6 +97,14 @@ class Grib(Output):
                     ncname = self.variable_list.get_ncname_from_anemoi_name(variable)
                     metadata = cf.get_metadata(variable)
 
+                    # only one location dimension
+                    if len(self.pm.field_shape) == 1:
+                        ny = self.pm.field_shape[0]
+                        nx = 0
+                    else:
+                        ny = self.pm.field_shape[0]
+                        nx = self.pm.field_shape[1]
+
                     self.convert_to_grib(
                         file_handle,
                         forecast_reference_time,
@@ -104,8 +112,8 @@ class Grib(Output):
                         metadata.get("level", 0) or 0,
                         metadata.get("leveltype", "height") or "height",
                         ncname,
-                        self.pm.field_shape[1],
-                        self.pm.field_shape[0],
+                        nx,
+                        ny,
                         pred[time_index, :, variable_index],
                     )
 
@@ -160,18 +168,32 @@ class Grib(Output):
             "tcw": (0, 0, 1, 3, None),
             "skt": (0, 0, 0, 17, None),
             "precipitation_amount": (0, 0, 1, 8, None),
+            "cp": (0, 0, 1, 10, None),
         }.get(param)
 
     def set_geometry(self, grib, nx, ny):
         # get Dx/Dy in meters
-        lats = np.reshape(self.pm.lats, self.pm.field_shape).astype(np.double)
-        lons = np.reshape(self.pm.lons, self.pm.field_shape).astype(np.double)
-        x, y = projections.get_xy(lats, lons, self.proj4_str)
-        dx = int(x[1] - x[0])
-        dy = int(y[1] - y[0])
+        if self.proj4_str:
+            lats = np.reshape(self.pm.lats, self.pm.field_shape).astype(np.double)
+            lons = np.reshape(self.pm.lons, self.pm.field_shape).astype(np.double)
+            x, y = projections.get_xy(lats, lons, self.proj4_str)
+            dx = int(x[1] - x[0])
+            dy = int(y[1] - y[0])
+        else:
+            if len(self.pm.field_shape) == 1:
+                y = np.arange(self.pm.field_shape[0]).astype(np.float32)
+                dx = 0
+                dy = int(y[1] - y[0])
+            else:
+                x = np.arange(self.pm.field_shape[1]).astype(np.float32)
+                y = np.arange(self.pm.field_shape[0]).astype(np.float32)
+                dx = int(x[1] - x[0])
+                dy = int(y[1] - y[0])
 
         # set geometry from proj attributes
-        attrs = projections.get_proj_attributes(self.proj4_str)
+        attrs = {}
+        if self.proj4_str:
+            attrs = projections.get_proj_attributes(self.proj4_str)
 
         ecc.codes_set(
             grib,

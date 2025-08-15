@@ -37,3 +37,6 @@ routing:
       - netcdf:
           filename_pattern: ./tox_test_inference.nc
           variables: [2t, 2d]
+      - grib:
+          filename_pattern: ./tox_test_inference.grib
+          variables: [2t, 2d]

@@ -172,7 +172,7 @@ class Output:
         return pred
 
 
+from .grib import Grib
 from .intermediate import Intermediate
 from .netcdf import Netcdf
-from .grib import Grib
 from .verif import Verif
