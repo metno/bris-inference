@@ -24,6 +24,11 @@ class Metno:
             "air_pressure_at_sea_level",
             "wind_speed_of_gust",
             "land_sea_mask",
+            "fog_type_cloud_area_fraction",
+            "high_type_cloud_area_fraction",
+            "low_type_cloud_area_fraction",
+            "medium_type_cloud_area_fraction",
+            "cloud_area_fraction",
         ]:
             # Prevent _0m from being added at the end of variable name
             ncname = f"{cfname}"
