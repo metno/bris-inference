@@ -159,7 +159,9 @@ def get_attributes(cfname: str) -> dict[str, str]:
         "integral_of_surface_downwelling_shortwave_flux_in_air_wrt_time",
     ]:
         ret["units"] = "J/m^2"
-
+    elif "cloud_area_fraction" in cfname:
+            ret["units"] = "1"
+            ret["standard_name"] = cfname
     else:  # Handle unknown `cfname` by returning an empty dictionary
         return {}
 
