@@ -42,7 +42,7 @@ jobs:
           cache-name: cache-tox-data
         with:
           path: .tox
-          key: ${{ runner.os }}-build-${{ env.cache-name }}-${{ hashFiles('pyproject.toml', 'tox.ini') }}
+          key: ${{ runner.os }}-build-${{ env.cache-name }}-${{ hashFiles('pyproject.toml', 'tox.ini', '.tox/**/CACHEDIR.TAG') }}
           restore-keys: |
             ${{ runner.os }}-build-${{ env.cache-name }}-
             ${{ runner.os }}-build-
