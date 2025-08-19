@@ -100,7 +100,7 @@ class Grib(Output):
                     # only one location dimension
                     if len(self.pm.field_shape) == 1:
                         ny = self.pm.field_shape[0]
-                        nx = 0
+                        nx = 1
                     else:
                         ny = self.pm.field_shape[0]
                         nx = self.pm.field_shape[1]
@@ -173,22 +173,14 @@ class Grib(Output):
 
     def set_geometry(self, grib, nx, ny):
         # get Dx/Dy in meters
+        dx = None
+        dy = None
         if self.proj4_str:
             lats = np.reshape(self.pm.lats, self.pm.field_shape).astype(np.double)
             lons = np.reshape(self.pm.lons, self.pm.field_shape).astype(np.double)
             x, y = projections.get_xy(lats, lons, self.proj4_str)
             dx = int(x[1] - x[0])
             dy = int(y[1] - y[0])
-        else:
-            if len(self.pm.field_shape) == 1:
-                y = np.arange(self.pm.field_shape[0]).astype(np.float32)
-                dx = 0
-                dy = int(y[1] - y[0])
-            else:
-                x = np.arange(self.pm.field_shape[1]).astype(np.float32)
-                y = np.arange(self.pm.field_shape[0]).astype(np.float32)
-                dx = int(x[1] - x[0])
-                dy = int(y[1] - y[0])
 
         # set geometry from proj attributes
         attrs = {}
@@ -214,8 +206,9 @@ class Grib(Output):
         ecc.codes_set(
             grib, "LoV", attrs.get("longitude_of_central_meridian", 15.0) * 1_000_000
         )
-        ecc.codes_set(grib, "DxInMetres", dx)
-        ecc.codes_set(grib, "DyInMetres", dy)
+        if dx and dy:
+            ecc.codes_set(grib, "DxInMetres", dx)
+            ecc.codes_set(grib, "DyInMetres", dy)
         ecc.codes_set(grib, "Nx", nx)
         ecc.codes_set(grib, "Ny", ny)
         ecc.codes_set(grib, "Latin1", 63300000)
