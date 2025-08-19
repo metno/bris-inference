@@ -29,7 +29,6 @@ jobs:
           sudo rmz --force \
             /usr/local/lib/android \
             /opt/ghc \
-            /opt/hostedtoolcache/CodeQL \
             "${HOME}/.rustup" \
             "${HOME}/.cargo" \
             "${HOME}/.dotnet" \
@@ -39,7 +38,8 @@ jobs:
             /opt/az \
             /opt/pipx* \
             /opt/google \
-            /opt/mssql-tools
+            /opt/hostedtoolcache/CodeQL \
+            /opt/mssql-tools || true
           df -h
           sudo docker builder prune -a
           df -h
