@@ -43,8 +43,8 @@ jobs:
 
       - uses: actions/checkout@v4
 
-      # https://github.com/actions/cache?tab=readme-ov-file
-      - name: Restore tox dir cache and saves after run
+      # https://github.com/actions/cache
+      - name: Restore tox dir cache and save after run
         id: restore-tox
         uses: actions/cache@v4
         env:
@@ -88,20 +88,21 @@ jobs:
         run: |
           tox -e bandit
 
-      - name: Run inference
+      - name: Run inference_CI
         run: |
           tox -e inference_CI
       # Keeping this makes our cache ~7G, causing it to be evicted often. Rather caching pip, so this goes OK fast.
       - name: Don't cache inference_CI tox dir
         run: rmz --force .tox/inference_CI
 
-      - name: Run inference_multi_CI
-        run: |
-          tox -e inference_multi_CI
-      # Keeping this makes our cache ~7G, causing it to be evicted often. Rather caching pip, so this goes OK fast.
-      - name: Don't cache inference_multi_CI tox dir
-        run: rmz --force .tox/inference_multi_CI
+      # Takes too much time and space
+      # - name: Run inference_multi_CI
+      #   run: |
+      #     tox -e inference_multi_CI
+      # # Keeping this makes our cache ~7G, causing it to be evicted often. Rather caching pip, so this goes OK fast.
+      # - name: Don't cache inference_multi_CI tox dir
+      #   run: rmz --force .tox/inference_multi_CI
 
       # Show disk usage
       - run: df -h
-      - run: du -hsc .tox ~/.cache/pip
+      - run: du -hsc .tox/* ~/.cache/pip
