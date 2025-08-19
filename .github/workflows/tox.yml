@@ -91,9 +91,6 @@ jobs:
       - name: Run inference_CI
         run: |
           tox -e inference_CI
-      # Keeping this makes our cache ~7G, causing it to be evicted often. Rather caching pip, so this goes OK fast.
-      - name: Don't cache inference_CI tox dir
-        run: rmz --force .tox/inference_CI
 
       # Takes too much time and space
       # - name: Run inference_multi_CI
