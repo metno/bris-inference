@@ -142,7 +142,9 @@ def get_attributes(cfname: str) -> dict[str, str]:
         ret["units"] = "m/s"
     elif cfname in ["air_temperature", "dew_point_temperature"]:
         ret["units"] = "K"
-    elif cfname in ["land_sea_mask", "area_fraction"]:
+    elif cfname in ["land_sea_mask", "area_fraction", "fog_type_cloud_area_fraction",
+                    "high_type_cloud_area_fraction", "low_type_cloud_area_fraction",
+                    "medium_type_cloud_area_fraction", "cloud_area_fraction"]:
         ret["units"] = "1"
     elif cfname in ["geopotential", "surface_geopotential"]:
         ret["units"] = "m^2/s^2"
@@ -159,9 +161,6 @@ def get_attributes(cfname: str) -> dict[str, str]:
         "integral_of_surface_downwelling_shortwave_flux_in_air_wrt_time",
     ]:
         ret["units"] = "J/m^2"
-    elif "cloud_area_fraction" in cfname:
-        ret["units"] = "1"
-        ret["standard_name"] = cfname
     else:  # Handle unknown `cfname` by returning an empty dictionary
         return {}
 
