@@ -26,6 +26,20 @@ jobs:
           chmod +x rmz
           sudo mv rmz /usr/bin/rmz
           rmz --version
+
+          du -hsc /usr/local/lib/android \
+            /opt/ghc \
+            "${HOME}/.rustup" \
+            "${HOME}/.cargo" \
+            "${HOME}/.dotnet" \
+            /opt/containerd \
+            /opt/hostedtoolcache \
+            /opt/microsoft \
+            /opt/az \
+            /opt/pipx* \
+            /opt/google \
+            /opt/mssql-tools
+
           sudo rmz --force \
             /usr/local/lib/android \
             /opt/ghc \
