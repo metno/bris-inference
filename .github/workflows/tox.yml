@@ -21,8 +21,8 @@ jobs:
       - name: "node-cleanup"
         run: |
           df -h
-          DOWNLOAD_URL="https://github.com/SUPERCILEX/fuc/releases/download/3.0.1/$ARCH-unknown-linux-gnu-rmz"
-          curl -L -o rmz "$DOWNLOAD_URL"
+          DOWNLOAD_URL="https://github.com/SUPERCILEX/fuc/releases/download/3.1.1/x86_64-unknown-linux-gnu-rmz"
+          curl --location --output rmz "$DOWNLOAD_URL"
           chmod +x rmz
           sudo mv rmz /usr/bin/rmz
           rmz --version
