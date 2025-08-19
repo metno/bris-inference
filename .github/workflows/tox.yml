@@ -75,3 +75,4 @@ jobs:
 
       # To warn us when we get close to disk capacity again
       - run: df -h
+      - run: du -hsc .tox ~/.cache/pip
