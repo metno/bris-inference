@@ -18,7 +18,7 @@ jobs:
 
     steps:
       # Clean out runner data we don't use, should free up ~15 GB
-      - name: "node-cleanup"
+      - name: "Make space on runner by removing tools we don't need using rmz, a fast version of rm."
         run: |
           df -h
           DOWNLOAD_URL="https://github.com/SUPERCILEX/fuc/releases/download/3.1.1/x86_64-unknown-linux-gnu-rmz"
@@ -38,10 +38,7 @@ jobs:
             /opt/az \
             /opt/pipx* \
             /opt/google \
-            /opt/hostedtoolcache/CodeQL \
             /opt/mssql-tools || true
-          df -h
-          sudo docker builder prune -a
           df -h
 
       - uses: actions/checkout@v4
@@ -94,12 +91,16 @@ jobs:
       - name: Run inference
         run: |
           tox -e inference_CI
+      # Keeping this makes our cache ~7G, causing it to be evicted often. Rather caching pip, so this goes OK fast.
+      - name: Don't cache inference_CI tox dir
+        run: rmz --force .tox/inference_CI
 
       - name: Run inference_multi_CI
         run: |
           tox -e inference_multi_CI
+      # Keeping this makes our cache ~7G, causing it to be evicted often. Rather caching pip, so this goes OK fast.
       - name: Don't cache inference_multi_CI tox dir
-        run: rm -rf .tox/inference_multi_CI
+        run: rmz --force .tox/inference_multi_CI
 
       # Show disk usage
       - run: df -h
