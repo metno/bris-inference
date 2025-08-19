@@ -22,16 +22,14 @@ jobs:
         run: |
           df -h
           DOWNLOAD_URL="https://github.com/SUPERCILEX/fuc/releases/download/3.1.1/x86_64-unknown-linux-gnu-rmz"
-          curl --location --output rmz "$DOWNLOAD_URL"
+          time curl --location --output rmz "$DOWNLOAD_URL"
           chmod +x rmz
           sudo mv rmz /usr/bin/rmz
           rmz --version
 
-          sudo rmz --force \
-            /usr/local/lib/android \
-            || true
-          # Can be deleted for another 5G:
-          # /opt/hostedtoolcache
+          sudo time rmz --force \
+            /usr/share/swift || true
+          # Can be deleted: https://dev.to/mathio/squeezing-disk-space-from-github-actions-runners-an-engineers-guide-3pjg
           df -h
 
       - uses: actions/checkout@v4
