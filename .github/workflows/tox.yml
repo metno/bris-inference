@@ -28,14 +28,14 @@ jobs:
       - uses: actions/checkout@v4
 
       # https://github.com/actions/cache?tab=readme-ov-file
-      - name: Restore tox dir cache
+      - name: Restore tox dir cache and saves after run
         id: restore-tox
         uses: actions/cache@v4
         env:
           cache-name: cache-tox-data
         with:
           path: .tox
-          key: ${{ runner.os }}-build-${{ env.cache-name }}-${{ hashFiles('pyproject.toml') }}
+          key: ${{ runner.os }}-build-${{ env.cache-name }}-${{ hashFiles('pyproject.toml', 'tox.ini') }}
           restore-keys: |
             ${{ runner.os }}-build-${{ env.cache-name }}-
             ${{ runner.os }}-build-
@@ -75,23 +75,12 @@ jobs:
       - name: Run inference
         run: |
           tox -e inference_CI
-      - name: Don't cache inference_CI tox dir
-        run: rm -rf .tox/inference_CI
 
       - name: Run inference_multi_CI
         run: |
           tox -e inference_multi_CI
       - name: Don't cache inference_multi_CI tox dir
         run: rm -rf .tox/inference_multi_CI
-
-      - name: Save tox dir cache
-        id: save-tox
-        uses: actions/cache/save@v4
-        env:
-          cache-name: cache-tox-data
-        with:
-          path: .tox
-          key: ${{ runner.os }}-build-${{ env.cache-name }}-${{ hashFiles('pyproject.toml') }}
 
       # Show disk usage
       - run: df -h
