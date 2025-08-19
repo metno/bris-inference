@@ -1,5 +1,4 @@
-# This workflow will install Python dependencies, run tests and lint with a variety of Python versions
-# For more information see: https://docs.github.com/en/actions/automating-builds-and-tests/building-and-testing-python
+# This workflow will install Python dependencies, run tests using tox
 name: Simple Tox Tests
 
 on:
@@ -47,6 +46,7 @@ jobs:
         continue-on-error: true
         run: ls -lha .tox/
 
+      # https://docs.github.com/en/actions/automating-builds-and-tests/building-and-testing-python
       - name: Set up Python ${{ matrix.python-version }}
         uses: actions/setup-python@v5
         with:
@@ -57,22 +57,38 @@ jobs:
         run: |
           python -m pip install tox
 
-      - name: Run ruff format check
+      - name: Run ruff format check (<50M)
         run: |
           tox -e ruff_checkformat
 
-      - name: Run ruff check
+      - name: Run ruff check (<50M)
         run: |
           tox -e ruff_check
 
-      - name: Run tox unit tests
+      - name: Fetch dataset (175M)
+        run: |
+          tox -e trainingdata
+
+      - name: Run tox unit tests (6G)
         run: |
           tox -e py310
 
-      - name: Run tox security check
+      - name: Run tox security check (<50M)
         run: |
           tox -e bandit
 
-      # To warn us when we get close to disk capacity again
+      - name: Run inference
+        run: |
+          tox -e inference_CI
+      - name: Don't cache inference_CI tox dir
+        run: rm -rf .tox/inference_CI
+
+      - name: Run inference_multi_CI
+        run: |
+          tox -e inference_multi_CI
+      - name: Don't cache inference_multi_CI tox dir
+        run: rm -rf .tox/inference_multi_CI
+
+      # Show disk usage
       - run: df -h
       - run: du -hsc .tox ~/.cache/pip
