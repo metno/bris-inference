@@ -26,7 +26,20 @@ jobs:
           chmod +x rmz
           sudo mv rmz /usr/bin/rmz
           rmz --version
-          sudo rmz /usr/share/dotnet /usr/local/lib/android /opt/ghc /opt/hostedtoolcache/CodeQL
+          sudo rmz --force \
+            /usr/local/lib/android \
+            /opt/ghc \
+            /opt/hostedtoolcache/CodeQL \
+            "${HOME}/.rustup" \
+            "${HOME}/.cargo" \
+            "${HOME}/.dotnet" \
+            /opt/containerd \
+            /opt/hostedtoolcache \
+            /opt/microsoft \
+            /opt/az \
+            /opt/pipx* \
+            /opt/google \
+            /opt/mssql-tools
           df -h
           sudo docker builder prune -a
           df -h
