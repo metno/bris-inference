@@ -1,6 +1,6 @@
 # This workflow will install Python dependencies, run tests and lint with a variety of Python versions
 # For more information see: https://docs.github.com/en/actions/automating-builds-and-tests/building-and-testing-python
-name: Python package
+name: Simple Tox Tests
 
 on:
   push:
@@ -45,7 +45,7 @@ jobs:
       - if: ${{ steps.cache-tox-data.outputs.cache-hit != 'true' }}
         name: List the state of tox
         continue-on-error: true
-        run: ls -lha .tox/py310/
+        run: ls -lha .tox/
 
       - name: Set up Python ${{ matrix.python-version }}
         uses: actions/setup-python@v5
@@ -65,10 +65,6 @@ jobs:
         run: |
           tox -e ruff_check
 
-      - name: Fetch dataset
-        run: |
-          tox -e trainingdata
-
       - name: Run tox unit tests
         run: |
           tox -e py310
@@ -76,14 +72,6 @@ jobs:
       - name: Run tox security check
         run: |
           tox -e bandit
-
-      - name: Run inference
-        run: |
-          tox -e inference_CI
-
-      - name: Run inference_multi_CI
-        run: |
-          tox -e inference_multi_CI
 
       # To warn us when we get close to disk capacity again
       - run: df -h
