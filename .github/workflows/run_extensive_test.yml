@@ -1,11 +1,7 @@
 # This workflow will install Python dependencies, run tests using tox
-name: Simple Tox Tests
+name: Extensive Tox Tests
 
-on:
-  push:
-    branches: [ "main" ]
-  pull_request:
-    branches: [ "main" ]
+on: workflow_dispatch
 
 jobs:
   build:
@@ -62,25 +58,17 @@ jobs:
         run: |
           python -m pip install tox
 
-      - name: Run ruff format check (<50M)
-        run: |
-          tox -e ruff_checkformat
-
-      - name: Run ruff check (<50M)
-        run: |
-          tox -e ruff_check
-
       - name: Fetch dataset (175M)
         run: |
           tox -e trainingdata
 
-      - name: Run tox unit tests (6G)
+      - name: Run inference_CI
         run: |
-          tox -e py310
+          tox -e inference_CI
 
-      - name: Run tox security check (<50M)
+      - name: Run inference_multi_CI
         run: |
-          tox -e bandit
+          tox -e inference_multi_CI
 
       # Show disk usage
       - run: df -h
