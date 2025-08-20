@@ -17,21 +17,6 @@ jobs:
         python-version: ["3.10"]
 
     steps:
-      # Clean out runner data we don't use, should free up ~15 GB
-      - name: "Make space on runner by removing tools we don't need using rmz, a fast version of rm."
-        run: |
-          df -h
-          DOWNLOAD_URL="https://github.com/SUPERCILEX/fuc/releases/download/3.1.1/x86_64-unknown-linux-gnu-rmz"
-          time curl --location --output rmz "$DOWNLOAD_URL"
-          chmod +x rmz
-          sudo mv rmz /usr/bin/rmz
-          rmz --version
-
-          sudo time rmz --force \
-            /usr/share/swift || true
-          # Can be deleted: https://dev.to/mathio/squeezing-disk-space-from-github-actions-runners-an-engineers-guide-3pjg
-          df -h
-
       - uses: actions/checkout@v4
 
       # https://github.com/actions/cache
