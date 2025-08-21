@@ -61,12 +61,11 @@ def get_required_variables(name, init_args):
             variables = init_args["variables"]
             if "extra_variables" in init_args:
                 for name in init_args["extra_variables"]:
-                    if name == "10si":
+                    if name == "ws":
                         variables += ["10u", "10v"]
-            variables = list(set(variables))
+            variables = sorted(list(set(variables)))
             return variables
-        else:
-            return [None]
+        return [None]
 
     raise ValueError(f"Invalid output: {name}")
 

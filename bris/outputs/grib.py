@@ -24,6 +24,7 @@ class Grib(Output):
         grib_keys: dict = None,
         proj4_str=None,
         domain_name=None,
+        extra_variables=None
     ):
         """
         Args:
@@ -274,6 +275,7 @@ class Grib(Output):
             # hard code to 6h
             lengthOfTimeRange = 6
             ecc.codes_set(grib, "forecastTime", int(leadtime.total_seconds() / 3600) - lengthOfTimeRange)
+            ecc.codes_set(grib, "lengthOfTimeRange", lengthOfTimeRange)
 
         for key, val in self.grib_keys.items():
             ecc.codes_set(grib, key, val)
