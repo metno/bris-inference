@@ -264,12 +264,16 @@ class Grib(Output):
             day = int(validtime.strftime("%d"))
             hour = int(validtime.strftime("%H"))
 
-            ecc.codes_set(grib, "lengthOfTimeRange", 1)
             ecc.codes_set(grib, "typeOfStatisticalProcessing", tosp)
             ecc.codes_set(grib, "yearOfEndOfOverallTimeInterval", year)
             ecc.codes_set(grib, "monthOfEndOfOverallTimeInterval", month)
             ecc.codes_set(grib, "dayOfEndOfOverallTimeInterval", day)
             ecc.codes_set(grib, "hourOfEndOfOverallTimeInterval", hour)
+
+            # forecastTime is start of time interval
+            # hard code to 6h
+            lengthOfTimeRange = 6
+            ecc.codes_set(grib, "forecastTime", int(leadtime.total_seconds() / 3600) - lengthOfTimeRange)
 
         for key, val in self.grib_keys.items():
             ecc.codes_set(grib, key, val)
