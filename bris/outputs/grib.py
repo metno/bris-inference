@@ -111,7 +111,7 @@ class Grib(Output):
                         forecast_reference_time,
                         dt,
                         metadata.get("level", 0) or 0,
-                        metadata.get("leveltype", "height") or "height",
+                        metadata.get("leveltype", "height") or "surface",
                         ncname,
                         nx,
                         ny,
@@ -122,6 +122,7 @@ class Grib(Output):
         # Map level type name to code
         # https://codes.ecmwf.int/grib/format/grib2/ctables/4/5/
         return {
+            "surface": 1,
             "air_pressure": 100,  # Isobaric surface (Pa)
             "height_above_msl": 102,  # Specific altitude above mean sea level (m)
             "height": 103,  # Specified height level above ground (m)
