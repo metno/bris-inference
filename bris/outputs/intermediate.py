@@ -96,6 +96,8 @@ class Intermediate(Output):
         return glob.glob(f"{self.workdir}/*_*.npy")
 
     def cleanup(self):
+        """Removes up all intermediate files and removes the workdir. Called in finalize of the main output."""
+
         for _filename in self.get_filenames():
             try:
                 os.remove(_filename)
