@@ -387,7 +387,7 @@ class Verif(Output):
         self.ds.attrs["standard_name"] = cf.get_metadata(self.variable)["cfname"]
 
         utils.create_directory(self.filename)
-        self.ds.to_netcdf(self.filename, mode="w", engine="netcdf4")
+        self.ds.to_netcdf(self.filename, mode="w", engine="netcdf4", unlimited_dims="time")
 
         if self.remove_intermediate:
             self.intermediate.cleanup()
