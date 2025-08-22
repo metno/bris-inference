@@ -423,7 +423,7 @@ class Netcdf(Output):
             self.ds.attrs[key] = value
 
         utils.create_directory(filename)
-        self.ds.to_netcdf(filename)
+        self.ds.to_netcdf(filename, mode="w", engine="netcdf4", unlimited_dims=["time"])
 
     def finalize(self):
         if self.intermediate is not None:
