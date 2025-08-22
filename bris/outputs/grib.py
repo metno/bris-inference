@@ -25,6 +25,7 @@ class Grib(Output):
         proj4_str=None,
         domain_name=None,
         extra_variables=None,
+        remove_intermediate: bool = True,
     ):
         """
         Args:
@@ -43,6 +44,7 @@ class Grib(Output):
         self.intermediate = None
         if self.pm.num_members > 1:
             self.intermediate = Intermediate(predict_metadata, workdir)
+        self.remove_intermediate = remove_intermediate
 
         self.variable_list = VariableList(self.extract_variables)
 
