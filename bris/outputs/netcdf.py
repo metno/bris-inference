@@ -66,9 +66,8 @@ class Netcdf(Output):
                 predict_metadata,
                 workdir,
                 extra_variables,
-                remove_intermediate=remove_intermediate,
             )
-
+        self.remove_intermediate = remove_intermediate
         self.variable_list = VariableList(self.extract_variables)
 
         # Conventions specify the names of variables in the output
@@ -445,8 +444,9 @@ class Netcdf(Output):
                     for lt in self.intermediate.pm.leadtimes
                 ]
                 self.write(filename, lead_times, pred)
-            # Clean up intermediate files
-            self.intermediate.finalize()
+
+            if self.remove_intermediate:
+                self.intermediate.cleanup()
 
     def get_lower(self, array):
         m = np.min(array)

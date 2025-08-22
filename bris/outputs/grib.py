@@ -303,6 +303,9 @@ class Grib(Output):
                 filename = self.get_filename(forecast_reference_time)
                 self.write(filename, forecast_reference_time, pred)
 
+            if self.remove_intermediate:
+                self.intermediate.cleanup()
+
     def get_lower(self, array):
         m = np.min(array)
         return np.floor(m / self.interp_res) * self.interp_res
