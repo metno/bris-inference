@@ -43,6 +43,7 @@ class Netcdf(Output):
         mask_file=None,
         mask_field=None,
         global_attributes=None,
+        remove_intermediate=True,
     ):
         """
         Args:
@@ -61,8 +62,12 @@ class Netcdf(Output):
 
         self.intermediate = None
         if self.pm.num_members > 1:
-            self.intermediate = Intermediate(predict_metadata, workdir, extra_variables)
-
+            self.intermediate = Intermediate(
+                predict_metadata,
+                workdir,
+                extra_variables,
+            )
+        self.remove_intermediate = remove_intermediate
         self.variable_list = VariableList(self.extract_variables)
 
         # Conventions specify the names of variables in the output
@@ -439,6 +444,9 @@ class Netcdf(Output):
                     for lt in self.intermediate.pm.leadtimes
                 ]
                 self.write(filename, lead_times, pred)
+
+            if self.remove_intermediate:
+                self.intermediate.cleanup()
 
     def get_lower(self, array):
         m = np.min(array)

@@ -33,6 +33,7 @@ class Verif(Output):
         fair_threshold: bool = True,
         fair_quantile: bool = True,
         fair_crps: bool = True,
+        remove_intermediate: bool = True,
     ) -> None:
         """
         Args:
@@ -125,6 +126,7 @@ class Verif(Output):
             predict_metadata.num_members,
         )
         self.intermediate = Intermediate(intermediate_pm, workdir)
+        self.remove_intermediate = remove_intermediate
 
     def _add_forecast(self, times: list, ensemble_member: int, pred: np.array) -> None:
         """Add forecasts to this object. Will be written when .write() is called
@@ -386,6 +388,9 @@ class Verif(Output):
 
         utils.create_directory(self.filename)
         self.ds.to_netcdf(self.filename, mode="w", engine="netcdf4")
+
+        if self.remove_intermediate:
+            self.intermediate.cleanup()
 
     def compute_consensus(self, pred) -> np.ndarray:
         assert len(pred.shape) == 3, pred.shape
