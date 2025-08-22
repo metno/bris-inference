@@ -29,7 +29,7 @@ class Verif(Source):
 
     @cached_property
     def locations(self):
-        num_locations = len(self.file["location"])
+        num_locations = len(self.file[self.location_dim_name])
         _locations = []
         for i in range(num_locations):
             location = Location(
@@ -40,6 +40,14 @@ class Verif(Source):
             )
             _locations += [location]
         return _locations
+
+    @cached_property
+    def location_dim_name(self):
+        possible_names = ["location", "station"]
+        for possible_name in possible_names:
+            if possible_name in self.file:
+                return possible_name
+        raise Exception("Invalid file. Cannot determine location dimension.")
 
     def get(self, variable, start_time, end_time, frequency):
         assert frequency > 0
