@@ -333,9 +333,11 @@ class Netcdf(Output):
                     self.ds[ncname].attrs["coordinates"] = "latitude longitude"
 
         # Set up all prediction variables
+        nc_encoding = dict()
         for variable_index, variable in enumerate(self.pm.variables):
             level_index = self.variable_list.get_level_index(variable)
             ncname = self.variable_list.get_ncname_from_anemoi_name(variable)
+            nc_encoding[ncname] = {"zlib": True}
 
             if ncname not in self.ds:
                 dim_name = self.variable_list.get_level_dimname(ncname)
@@ -423,7 +425,13 @@ class Netcdf(Output):
             self.ds.attrs[key] = value
 
         utils.create_directory(filename)
-        self.ds.to_netcdf(filename, mode="w", engine="netcdf4", unlimited_dims=["time"])
+        self.ds.to_netcdf(
+            filename,
+            mode="w",
+            engine="netcdf4",
+            unlimited_dims=["time"],
+            encoding=nc_encoding,
+        )
 
     def finalize(self):
         if self.intermediate is not None:

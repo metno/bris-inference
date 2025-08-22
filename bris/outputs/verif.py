@@ -387,7 +387,25 @@ class Verif(Output):
         self.ds.attrs["standard_name"] = cf.get_metadata(self.variable)["cfname"]
 
         utils.create_directory(self.filename)
-        self.ds.to_netcdf(self.filename, mode="w", engine="netcdf4", unlimited_dims="time")
+
+        data_variables = [
+            "obs",
+            "fcst",
+            "ensemble",
+            "ens-mean",
+            "cdf",
+            "x",
+            "crps",
+            "pit",
+        ]
+        nc_encoding = {v: {"zlib": True} for v in data_variables if v in self.ds}
+        self.ds.to_netcdf(
+            self.filename,
+            mode="w",
+            engine="netcdf4",
+            unlimited_dims=["time"],
+            encoding=nc_encoding,
+        )
 
         if self.remove_intermediate:
             self.intermediate.cleanup()
