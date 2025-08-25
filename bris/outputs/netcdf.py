@@ -73,6 +73,8 @@ class Netcdf(Output):
             )
         self.remove_intermediate = remove_intermediate
         self.variable_list = VariableList(self.extract_variables)
+        print("Netcdf init: self.pm.variables", self.pm.variables)
+        print("Netcdf init: intermadiate.pm.variables", self.intermediate.pm.variables)
 
         # Conventions specify the names of variables in the output
         # CF-standard names are added in the standard_name attributes
