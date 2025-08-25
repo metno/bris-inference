@@ -33,13 +33,15 @@ class Grib(Output):
             interp_res: Interpolate to this resolution [degrees] on a lat/lon grid
             variables: If None, predict all variables
         """
-        super().__init__(predict_metadata)
+        super().__init__(predict_metadata, extra_variables)
 
         self.filename_pattern = filename_pattern
         if variables is None:
             self.extract_variables = predict_metadata.variables
         else:
-            self.extract_variables = variables
+            if extra_variables is None:
+                extra_variables = []
+            self.extract_variables = variables + extra_variables
 
         self.intermediate = None
         if self.pm.num_members > 1:
@@ -95,8 +97,8 @@ class Grib(Output):
         with open(filename, "wb") as file_handle:
             for time_index, numpy_dt in enumerate(times):
                 dt = numpy_dt.astype(datetime)
-                for variable_index in range(pred.shape[2]):
-                    variable = self.pm.variables[variable_index]
+                for variable in self.extract_variables:
+                    variable_index = self.pm.variables.index(variable)
                     ncname = self.variable_list.get_ncname_from_anemoi_name(variable)
                     metadata = cf.get_metadata(variable)
 
@@ -161,6 +163,7 @@ class Grib(Output):
             "x_wind_pl": (0, 0, 2, 2, None),
             "y_wind_10m": (0, 0, 2, 3, None),
             "y_wind_pl": (0, 0, 2, 3, None),
+            "wind_speed_10m": (0, 0, 2, 1, None),
             "atmosphere_boundary_layer_thickness": (0, 0, 19, 3, None),
             "wind_speed_of_gust": (8, 0, 2, 22, 2),
             "air_pressure_at_sea_level": (0, 0, 3, 0, None),

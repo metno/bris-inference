@@ -60,7 +60,9 @@ class Netcdf(Output):
         if variables is None:
             self.extract_variables = predict_metadata.variables
         else:
-            self.extract_variables = list(variables)
+            if extra_variables is None:
+                extra_variables = []
+            self.extract_variables = variables + extra_variables
 
         self.intermediate = None
         if self.pm.num_members > 1:
@@ -337,7 +339,8 @@ class Netcdf(Output):
 
         # Set up all prediction variables
         nc_encoding = dict()
-        for variable_index, variable in enumerate(self.pm.variables):
+        for variable in self.extract_variables:
+            variable_index = self.pm.variables.index(variable)
             level_index = self.variable_list.get_level_index(variable)
             ncname = self.variable_list.get_ncname_from_anemoi_name(variable)
             if self.compression:
