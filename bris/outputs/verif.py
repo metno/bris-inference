@@ -216,7 +216,7 @@ class Verif(Output):
         """Create numpy array of NaNs to be overwritten"""
         return np.full(shape, np.nan, dtype)
 
-    def finalize(self) -> None:
+    def _finalize(self) -> None:
         """Write forecasts and observations to file"""
 
         coords = {}

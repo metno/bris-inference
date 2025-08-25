@@ -2,6 +2,7 @@ import copy
 from typing import Optional
 
 import numpy as np
+import time
 
 from bris import sources
 from bris.predict_metadata import PredictMetadata
@@ -89,6 +90,7 @@ class Output:
 
         self.pm = predict_metadata
         self.extra_variables = extra_variables
+        self.total_time = 0
 
     def add_forecast(self, times: list, ensemble_member: int, pred: np.ndarray):
         """Registers a forecast from a single ensemble member in the output
@@ -128,7 +130,10 @@ class Output:
         assert ensemble_member >= 0
         assert ensemble_member < self.pm.num_members
 
+        start_time = time.time()
         self._add_forecast(times, ensemble_member, pred)
+        end_time = time.time()
+        total_time += (end_time - start_time)
 
     def _add_forecast(self, times: list, ensemble_member: int, pred: np.ndarray):
         """Subclasses should implement this"""
@@ -137,6 +142,12 @@ class Output:
     def finalize(self):
         """Finalizes the output. This gets called after all add_forecast calls are done. Subclasses
         can override this, if necessary."""
+        start_time = time.time()
+
+        self._finalize()
+
+        end_time = time.time()
+        total_time += (end_time - start_time)
 
     def reshape_pred(self, pred):
         """Reshape predictor matrix from points to x,y based on field_shape

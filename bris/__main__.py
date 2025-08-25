@@ -182,6 +182,7 @@ def main(arg_list: list[str] | None = None):
         for decoder_output in decoder_outputs:
             for output in decoder_output["outputs"]:
                 output.finalize()
+                print("Total time:", output.total_time)
 
         print("Model run completed. 🤖")
 

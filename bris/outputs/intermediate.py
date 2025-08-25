@@ -109,5 +109,5 @@ class Intermediate(Output):
         except OSError as e:
             print(f"Error removing workdir {self.workdir}: {e}")
 
-    def finalize(self):
+    def _finalize(self):
         pass

@@ -425,7 +425,7 @@ class Netcdf(Output):
         utils.create_directory(filename)
         self.ds.to_netcdf(filename)
 
-    def finalize(self):
+    def _finalize(self):
         if self.intermediate is not None:
             # Load data from the intermediate and write to disk
             forecast_reference_times = self.intermediate.get_forecast_reference_times()
