@@ -15,6 +15,7 @@ class Metno:
         "air_pressure": "pressure",
         "surface_altitude": "altitude",
         "tcw": "atmosphere_mass_content_of_water",
+        "skt": "surface_temperature",
     }
 
     def get_ncname(self, cfname: str, leveltype: str, level: int):
