@@ -44,6 +44,7 @@ class Netcdf(Output):
         mask_field=None,
         global_attributes=None,
         remove_intermediate=True,
+        compression=False,
     ):
         """
         Args:
@@ -51,6 +52,7 @@ class Netcdf(Output):
             interp_res: Interpolate to this resolution [degrees] on a lat/lon grid
             variables: If None, predict all variables
             global_attributes (dict): Write these global attributes in the output file
+            compression (bool): If true, write compressed output files
         """
         super().__init__(predict_metadata, extra_variables)
 
@@ -77,6 +79,7 @@ class Netcdf(Output):
         self.latrange = latrange
         self.lonrange = lonrange
         self.mask_file = mask_file
+        self.compression = compression
         self.global_attributes = (
             global_attributes if global_attributes is not None else {}
         )
@@ -337,7 +340,8 @@ class Netcdf(Output):
         for variable_index, variable in enumerate(self.pm.variables):
             level_index = self.variable_list.get_level_index(variable)
             ncname = self.variable_list.get_ncname_from_anemoi_name(variable)
-            nc_encoding[ncname] = {"zlib": True}
+            if self.compression:
+                nc_encoding[ncname] = {"zlib": True}
 
             if ncname not in self.ds:
                 dim_name = self.variable_list.get_level_dimname(ncname)

@@ -34,6 +34,7 @@ class Verif(Output):
         fair_quantile: bool = True,
         fair_crps: bool = True,
         remove_intermediate: bool = True,
+        compression: bool = False,
     ) -> None:
         """
         Args:
@@ -47,6 +48,7 @@ class Verif(Output):
             fair_quantile: Whether or not quantile is adjusted for sampling error
             fair_threshold: Whether or not threshold is adjusted for sampling error
             fair_crps: Whether or not to adjust crps for ensemble size
+            compression: If True, write compressed output files
         """
         if quantile_levels is None:
             quantile_levels = []
@@ -127,6 +129,7 @@ class Verif(Output):
         )
         self.intermediate = Intermediate(intermediate_pm, workdir)
         self.remove_intermediate = remove_intermediate
+        self.compression = compression
 
     def _add_forecast(self, times: list, ensemble_member: int, pred: np.array) -> None:
         """Add forecasts to this object. Will be written when .write() is called
@@ -398,7 +401,11 @@ class Verif(Output):
             "crps",
             "pit",
         ]
-        nc_encoding = {v: {"zlib": True} for v in data_variables if v in self.ds}
+        if self.compression:
+            nc_encoding = {v: {"zlib": True} for v in data_variables if v in self.ds}
+        else:
+            nc_encoding = dict()
+
         self.ds.to_netcdf(
             self.filename,
             mode="w",
