@@ -47,6 +47,8 @@ def get_metadata(anemoi_variable: str) -> dict:
             "height",
             0,
         ),
+        "tcw": ("atmosphere_mass_content_of_water", "height", 0),
+        "skt": ("surface_temperature", "height", 0),
     }
 
     if anemoi_variable in variable_mapping:
@@ -130,6 +132,10 @@ def get_attributes(cfname: str) -> dict[str, str]:
     elif cfname in ["thunder_event"]:
         ret["standard_name"] = "thunderstorm_probability"
         ret["units"] = "1"
+    elif cfname == "atmosphere_mass_content_of_water":
+        ret["long_name"] = "Total column water contents (TCW)"
+    elif cfname == "surface_temperature":
+        ret["long_name"] = "Surface (skin) temperature (SKT)"
 
     # Data variables
     elif cfname in [
@@ -140,13 +146,17 @@ def get_attributes(cfname: str) -> dict[str, str]:
         "vertical_velocity",
     ]:
         ret["units"] = "m/s"
-    elif cfname in ["air_temperature", "dew_point_temperature"]:
+    elif cfname in ["air_temperature", "dew_point_temperature", "surface_temperature"]:
         ret["units"] = "K"
     elif cfname in ["land_sea_mask", "area_fraction"]:
         ret["units"] = "1"
     elif cfname in ["geopotential", "surface_geopotential"]:
         ret["units"] = "m^2/s^2"
-    elif cfname in ["precipitation_amount", "precipitation_amount_acc"]:
+    elif cfname in [
+        "precipitation_amount",
+        "precipitation_amount_acc",
+        "atmosphere_mass_content_of_water",
+    ]:
         ret["units"] = "kg/m^2"
     elif cfname in ["air_pressure_at_sea_level", "surface_air_pressure"]:
         ret["units"] = "Pa"

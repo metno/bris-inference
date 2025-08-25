@@ -14,6 +14,7 @@ class Metno:
         "realization": "ensemble_member",
         "air_pressure": "pressure",
         "surface_altitude": "altitude",
+        "tcw": "atmosphere_mass_content_of_water",
     }
 
     def get_ncname(self, cfname: str, leveltype: str, level: int):
@@ -29,6 +30,8 @@ class Metno:
             "low_type_cloud_area_fraction",
             "medium_type_cloud_area_fraction",
             "cloud_area_fraction",
+            "atmosphere_mass_content_of_water",
+            "surface_temperature",
         ]:
             # Prevent _0m from being added at the end of variable name
             ncname = f"{cfname}"
