@@ -11,7 +11,7 @@ def instantiate(name: str, init_args: dict):
     if name == "frost":
         return sources.frost.Frost(init_args["frost_variable_name"])
     if name == "verif":
-        return sources.verif.Verif(init_args["filename"])
+        return sources.verif.Verif(**init_args)
     if name == "anemoidataset":
         if "every_loc" not in init_args:
             init_args["every_loc"] = 1
