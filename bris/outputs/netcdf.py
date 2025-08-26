@@ -499,39 +499,65 @@ class VariableList:
             if leveltype not in cfname_to_levels[cfname]:
                 cfname_to_levels[cfname][leveltype] = []
             cfname_to_levels[cfname][leveltype] += [level]
+
         # Sort levels
-        for cfname, v in cfname_to_levels.items():
+        for _, v in cfname_to_levels.items():
             for leveltype, vv in v.items():
-                if leveltype == "height" and len(vv) > 1:
-                    raise ValueError(
-                        f"A variable {cfname} with height leveltype should only have one level"
-                    )
                 v[leveltype] = sorted(vv)
-        # air_temperature -> pressure -> [1000, 925, 800, 700]
+
+        # air_temperature -> pressure -> [700, 800, 925, 1000]
+        # air_temperature -> height -> [0, 2]
 
         # Determine unique dimensions to add
         dims_to_add = {}  # height1 -> [height, [2]]
         ncname_to_level_dim = {}
         for cfname, v in cfname_to_levels.items():
             for leveltype, levels in v.items():
-                ncname = self.conventions.get_ncname(cfname, leveltype, levels[0])
-                dimname = self.conventions.get_name(leveltype)
+                if self.conventions.is_single_level(cfname, leveltype):
+                    """Here we need to split air_temperature on height levels into separate
+                    variables (air_temperature at 0m and 2m) since they cannot share a common height
+                    dimension.
+                    """
+                    for level in levels:
+                        ncname = self.conventions.get_ncname(cfname, leveltype, level)
+                        dimname = self.conventions.get_name(leveltype)
 
-                if (leveltype, levels) in dims_to_add.values():
-                    # Reuse an existing dimension
-                    i = list(dims_to_add.values()).index((leveltype, levels))
-                    dimname = list(dims_to_add.keys())[i]
+                        if (leveltype, [level]) in dims_to_add.values():
+                            # Reuse an existing dimension
+                            i = list(dims_to_add.values()).index((leveltype, [level]))
+                            dimname = list(dims_to_add.keys())[i]
+                        else:
+                            count = 0
+                            for curr_leveltype, _ in dims_to_add.values():
+                                if curr_leveltype == leveltype:
+                                    count += 1
+                            if count == 0:
+                                pass  # height
+                            else:
+                                dimname = f"{dimname}{count}"  # height1
+                        dims_to_add[dimname] = (leveltype, [level])
+                        ncname_to_level_dim[ncname] = dimname
+
                 else:
-                    count = 0
-                    for curr_leveltype, _ in dims_to_add.values():
-                        if curr_leveltype == leveltype:
-                            count += 1
-                    if count == 0:
-                        pass  # height
+                    ncname = self.conventions.get_ncname(cfname, leveltype, levels[0])
+                    dimname = self.conventions.get_name(leveltype)
+
+                    if (leveltype, levels) in dims_to_add.values():
+                        # Reuse an existing dimension
+                        i = list(dims_to_add.values()).index((leveltype, levels))
+                        dimname = list(dims_to_add.keys())[i]
                     else:
-                        dimname = f"{dimname}{count}"  # height1
-                dims_to_add[dimname] = (leveltype, levels)
-                ncname_to_level_dim[ncname] = dimname
+                        # Find a new dimension name to hold this leveltype
+                        count = 0
+                        for curr_leveltype, _ in dims_to_add.values():
+                            if curr_leveltype == leveltype:
+                                count += 1
+                        if count == 0:
+                            pass  # height
+                        else:
+                            dimname = f"{dimname}{count}"  # height1
+                    dims_to_add[dimname] = (leveltype, levels)
+                    ncname_to_level_dim[ncname] = dimname
         return dims_to_add, ncname_to_level_dim
 
     def get_level_dimname(self, ncname):
