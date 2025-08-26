@@ -15,7 +15,6 @@ class Metno:
         "air_pressure": "pressure",
         "surface_altitude": "altitude",
         "tcw": "atmosphere_mass_content_of_water",
-        "skt": "surface_temperature",
     }
 
     def get_ncname(self, cfname: str, leveltype: str, level: int):
@@ -32,7 +31,6 @@ class Metno:
             "medium_type_cloud_area_fraction",
             "cloud_area_fraction",
             "atmosphere_mass_content_of_water",
-            "surface_temperature",
         ]:
             # Prevent _0m from being added at the end of variable name
             ncname = f"{cfname}"
@@ -52,6 +50,24 @@ class Metno:
             raise NotImplementedError()
 
         return ncname
+
+    def is_single_level(self, cfname: str, leveltype: str) -> str:
+        """Returns true if there should only be a single level in the level dimension for this
+        variable.
+
+        Args:
+            cfname: e.g. air_temperature
+            leveltype: e.g. height
+
+        E.g. air_temperature_2m and air_temperature_0m should not share a height dimension, and
+        therefore these should return True
+        """
+        return cfname in [
+            "air_temperature",
+            "x_wind",
+            "y_wind",
+            "wind_speed",
+        ] and leveltype in ["height"]
 
     def get_name(self, cfname: str):
         """Get MetNorway's dimension name from cf standard name"""
