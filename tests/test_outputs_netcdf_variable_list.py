@@ -1,5 +1,5 @@
-from bris.outputs import netcdf
 from bris.conventions.metno import Metno
+from bris.outputs import netcdf
 
 
 def test_empty():
