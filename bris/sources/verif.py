@@ -31,10 +31,18 @@ class Verif(Source):
     def locations(self):
         num_locations = len(self.file["location"])
         _locations = []
+        if "latitude" in self.file:
+            lats = self.file["latitude"].values
+        else:
+            lats = self.file["lat"].values
+        if "longitude" in self.file:
+            lons = self.file["longitude"].values
+        else:
+            lons = self.file["lon"].values
         for i in range(num_locations):
             location = Location(
-                self.file["lat"].values[i],
-                self.file["lon"].values[i],
+                lats[i],
+                lons[i],
                 self.file["altitude"].values[i],
                 self.file["location"].values[i],
             )
