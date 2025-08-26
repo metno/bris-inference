@@ -18,9 +18,10 @@ class Verif(Source):
     dimension.
     """
 
-    def __init__(self, filename: str):
+    def __init__(self, filename: str, obs_variable: str = "obs"):
         # Don't convert the unixtime to datetime objects
         self.file = xr.open_dataset(filename, decode_times=False)
+        self.obs_variable = obs_variable
 
         self.has_leadtime = (
             "leadtime" in self.file.variables and "leadtime" in self.file.dims
@@ -47,7 +48,7 @@ class Verif(Source):
         requested_times = np.arange(start_time, end_time + 1, frequency)
         num_requested_times = len(requested_times)
 
-        raw_obs = self.file["obs"].values
+        raw_obs = self.file[self.obs_variable].values
 
         data = np.nan * np.zeros([num_requested_times, len(self.locations)], np.float32)
         for t, requested_time in enumerate(requested_times):
