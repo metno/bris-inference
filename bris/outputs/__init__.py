@@ -85,7 +85,9 @@ class Output:
             extra_variables = []
 
         predict_metadata = copy.deepcopy(predict_metadata)
-        predict_metadata.variables += extra_variables
+        for name in extra_variables:
+            if name not in predict_metadata.variables:
+                predict_metadata.variables += [name]
 
         self.pm = predict_metadata
         self.extra_variables = extra_variables
