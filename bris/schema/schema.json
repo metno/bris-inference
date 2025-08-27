@@ -121,6 +121,47 @@
             },
             "required": ["grib"]
         },
+        "PowerSpectrumOutput": {
+            "description": "Power spectrum output file",
+            "type": "object",
+            "properties": {
+                "powerspectrum": {
+                    "type": "object",
+                    "properties": {
+                        "filename": {
+                            "description": "Where to write the output file.",
+                            "type": "string"
+                        },
+                        "variable": {
+                            "description": "What variable to compute power spectrum for? (e.g. 2t, 10u, 10v)",
+                            "type": "string"
+                        },
+                        "n_bins": {
+                            "description": "Number of bins in the power spectrum",
+                            "type": "integer",
+                            "minimum": 1
+                        },
+                        "k_min": {
+                            "description": "Minimum wavenumber to include (1/km)",
+                            "type": "number",
+                            "minimum": 0
+                        },
+                        "k_max": {
+                            "description": "Maximum wavenumber to include (1/km)",
+                            "type": "number",
+                            "minimum": 0
+                        },
+                        "interp_res": {
+                            "description": "Interpolate the power spectrum to this resolution (1/km). If not set, use original binning.",
+                            "type": "number",
+                            "minimum": 0
+                        }
+                    },
+                    "required": ["filename", "variable"]
+                }
+            },
+            "required": ["powerspectrum"]
+        },
 
         "VerifSource": {
             "description": "Observations stored in a Netcdf verif file",
@@ -280,7 +321,8 @@
                             "oneOf": [
                                 {"$ref": "#/$defs/NetcdfOutput"},
                                 {"$ref": "#/$defs/VerifOutput"},
-                                {"$ref": "#/$defs/GribOutput"}
+                                {"$ref": "#/$defs/GribOutput"},
+                                {"$ref": "#/$defs/PowerSpectrumOutput"}
                             ]
                         }
                     }
