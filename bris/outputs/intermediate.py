@@ -22,7 +22,6 @@ class Intermediate(Output):
         extra_variables: Optional[list] = None,
     ) -> None:
         super().__init__(predict_metadata, extra_variables)
-        self.pm = predict_metadata
         self.workdir = workdir
 
     def _add_forecast(self, times, ensemble_member, pred):
@@ -100,3 +99,35 @@ class Intermediate(Output):
         for _filename in self.get_filenames():
             # delete file
             pass
+
+class IntermediateSpatial(Intermediate):
+    """Intermediate output for spatial metrics, inheriting from Intermediate."""
+
+    def __init__(
+        self,
+        predict_metadata: PredictMetadata,
+        workdir: str,
+        metric_shape: tuple,
+        extra_variables: Optional[list] = None,
+    ) -> None:
+        super().__init__(predict_metadata, workdir, extra_variables)
+        self.metric_shape = metric_shape
+
+    def get_forecast(self, forecast_reference_time, ensemble_member=None):
+
+        if ensemble_member is None:
+            shape = (self.pm.num_leadtimes,) + self.metric_shape + (self.pm.num_members,)
+            pred = np.nan * np.zeros(shape)
+            for e in range(self.pm.num_members):
+                filename = self.get_filename(forecast_reference_time, e)
+                if os.path.exists(filename):
+                    pred[..., e] = np.load(filename)
+        else:
+            assert isinstance(ensemble_member, int)
+
+            filename = self.get_filename(forecast_reference_time, ensemble_member)
+            pred = np.load(filename) if os.path.exists(filename) else None
+
+        return pred
+
+    
