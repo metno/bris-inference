@@ -1,6 +1,5 @@
 import logging
 import os
-from argparse import ArgumentParser
 from datetime import datetime, timedelta
 
 from anemoi.utils.dates import frequency_to_seconds
