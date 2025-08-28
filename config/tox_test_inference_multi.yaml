@@ -33,7 +33,7 @@ hardware:
   num_members: 1
 
 model:
-  _target_: bris.model.multiencdecpredictor.MultiEncDecPredictor
+  _target_: bris.model.MultiEncDecPredictor
   _convert_: all
 
 routing:
@@ -49,7 +49,7 @@ routing:
   # Outputs decoder 1
   - decoder_index: 1
     domain_index: 0
-    outputs: 
+    outputs:
       - netcdf:
           filename_pattern: ./tox_test_inference_dec1.nc
           variables: [tp]
