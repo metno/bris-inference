@@ -9,6 +9,7 @@ def get_proj4_str(name: str) -> str:
         "arome_arctic": "+proj=lcc +lat_0=77.5 +lon_0=-25 +lat_1=77.5 +lat_2=77.5 +x_0=0 +y_0=0 +R=6371000 +units=m +no_defs +type=crs",
         "norkyst_v3": "+proj=stere +lat_0=90 +lat_ts=60 +lon_0=70 +x_0=3369600 +y_0=1844800 +a=6378137 +b=6356752.3142 +units=m +no_defs +type=crs",
         "nordic_analysis": "+proj=lcc +lat_0=63.0 +lon_0=15 +lat_1=63.0 +lat_2=63.0 +x_0=0 +y_0=0 +R=6371000 +units=m +no_defs +type=crs",
+        "equidistant_cylindrical": "+proj=eqc +lat_ts=0 +lon_0=0 +datum=WGS84",
     }[name]
 
 
@@ -26,6 +27,17 @@ def get_xy(lats, lons, proj_str):
 
     return x, y
 
+def get_xy_1D(lats, lons, proj_str):
+    """Get x and y projected coordinates for 1D lat and lon arrays"""
+    
+    proj_from = pyproj.Proj("proj+=longlat")
+    proj_to = pyproj.Proj(proj_str)
+
+    transformer = pyproj.transformer.Transformer.from_proj(proj_from, proj_to)
+
+    x, y = transformer.transform(lons, lats)
+
+    return x, y
 
 def get_proj_attributes(proj_str):
     crs = pyproj.CRS.from_proj4(proj_str)
