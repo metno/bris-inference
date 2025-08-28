@@ -8,7 +8,7 @@ class VariableList:
     same dimension (e.g. two variables with a different set of pressure levels)
     """
 
-    def __init__(self, anemoi_names: list, conventions=None):
+    def __init__(self, anemoi_names: list, conventions = None):
         """Args:
         anemoi_names: A list of variables names used in Anemoi (e.g. u10)
         conventions: What NetCDF naming convention to use
