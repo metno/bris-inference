@@ -68,7 +68,7 @@ class PredictMetadata:
         return np.reshape(self.lons, self.field_shape)
 
     @property
-    def grid_altitudes(self) -> NDArray|None:
+    def grid_altitudes(self) -> NDArray | None:
         assert self.is_gridded
 
         if self.altitudes is None:

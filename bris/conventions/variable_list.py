@@ -8,7 +8,7 @@ class VariableList:
     same dimension (e.g. two variables with a different set of pressure levels)
     """
 
-    def __init__(self, anemoi_names: list, conventions = None):
+    def __init__(self, anemoi_names: list, conventions=None):
         """Args:
         anemoi_names: A list of variables names used in Anemoi (e.g. u10)
         conventions: What NetCDF naming convention to use
@@ -79,13 +79,13 @@ class VariableList:
                 ncname_to_level_dim[ncname] = dimname
         return dims_to_add, ncname_to_level_dim
 
-    def get_level_dimname(self, ncname) -> dict[str, str]|None:
+    def get_level_dimname(self, ncname) -> dict[str, str] | None:
         """Get the name of the level dimension for given NetCDF variable"""
         if ncname not in self._ncname_to_level_dim:
             return None
         return self._ncname_to_level_dim[ncname]
 
-    def get_level_index(self, anemoi_name) -> int|None:
+    def get_level_index(self, anemoi_name) -> int | None:
         """Get the index into the level dimension that this anemoi variable belongs to"""
         # Determine what ncname and index each variable belongs to
         metadata = cf.get_metadata(anemoi_name)
