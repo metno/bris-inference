@@ -1,6 +1,5 @@
 import numpy as np
-
-# from bris import utils
+from numpy.typing import NDArray
 
 
 class PredictMetadata:
@@ -33,19 +32,19 @@ class PredictMetadata:
         self.field_shape = field_shape
 
     @property
-    def num_points(self):
+    def num_points(self) -> int:
         return len(self.lats)
 
     @property
-    def num_variables(self):
+    def num_variables(self) -> int:
         return len(self.variables)
 
     @property
-    def num_leadtimes(self):
+    def num_leadtimes(self) -> int:
         return len(self.leadtimes)
 
     @property
-    def shape(self):
+    def shape(self) -> list[int]:
         """The shape that you can expect predict_step to provide. Note that ensemble is done in
         data parallel, so not included in this shape.
         """
@@ -57,19 +56,19 @@ class PredictMetadata:
         return self.field_shape is not None and len(self.field_shape) == 2
 
     @property
-    def grid_lats(self):
+    def grid_lats(self) -> NDArray:
         assert self.is_gridded
 
         return np.reshape(self.lats, self.field_shape)
 
     @property
-    def grid_lons(self):
+    def grid_lons(self) -> NDArray:
         assert self.is_gridded
 
         return np.reshape(self.lons, self.field_shape)
 
     @property
-    def grid_altitudes(self):
+    def grid_altitudes(self) -> NDArray|None:
         assert self.is_gridded
 
         if self.altitudes is None:
