@@ -135,6 +135,11 @@
                         "variable": {
                             "description": "What anemoi variable to compute power spectrum for? Can include variables that can be diagnosed from other variables (e.g. 10si from 10u and 10v)",
                             "type": "string"
+                        },
+                        "delta_degrees": {
+                            "description": "Grid spacing (in degrees) to use when regridding to regular grid. If not provided, the minimum grid spacing in the lat-direction is used.",
+                            "type": "number",
+                            "minimum": 0
                         }
                     },
                     "required": ["filename", "variable"]
