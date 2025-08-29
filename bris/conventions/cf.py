@@ -14,9 +14,7 @@ def get_metadata(anemoi_variable: str) -> dict:
     """
     variable_mapping = {
         "2t": ("air_temperature", "height", 2),
-        # This is problematic for met.no conventions, since this would put skt into the same
-        # variable as 2m temperature, which we don't want.
-        # "skt": ("air_temperature", "height", 0),
+        "skt": ("air_temperature", "height", 0),
         "2d": ("dew_point_temperature", "height", 2),
         "10u": ("x_wind", "height", 10),
         "10v": ("y_wind", "height", 10),
@@ -47,6 +45,7 @@ def get_metadata(anemoi_variable: str) -> dict:
             "height",
             0,
         ),
+        "tcw": ("atmosphere_mass_content_of_water", "height", 0),
     }
 
     if anemoi_variable in variable_mapping:

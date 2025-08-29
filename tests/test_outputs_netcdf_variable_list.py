@@ -1,3 +1,4 @@
+from bris.conventions.metno import Metno
 from bris.outputs import netcdf
 
 
@@ -47,5 +48,24 @@ def test_4():
     assert vl.get_level_index("cos_julian_day") is None
 
 
+def test_single_level_height():
+    vl = netcdf.VariableList(["2t", "skt", "u_600", "u_800"], Metno())
+    # Check that air_temperature 0m/2m have separate dimensions
+    dim2 = vl.get_level_dimname("air_temperature_0m")
+    assert vl.dimensions[dim2] == ("height", [0])
+
+    dim0 = vl.get_level_dimname("air_temperature_2m")
+    assert vl.dimensions[dim0] == ("height", [2])
+
+    assert dim0 != dim2
+
+    dim = vl.get_level_dimname("air_temperature_2m")
+    assert vl.dimensions[dim] == ("height", [2])
+
+    dim = vl.get_level_dimname("x_wind_pl")
+    assert vl.dimensions[dim] == ("air_pressure", [600, 800])
+
+
 if __name__ == "__main__":
     test_3()
+    test_single_level_height()

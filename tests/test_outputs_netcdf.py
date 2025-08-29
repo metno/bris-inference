@@ -9,7 +9,7 @@ from bris.predict_metadata import PredictMetadata
 
 
 def test_1():
-    variables = ["u_800", "u_600", "2t", "v_500", "10u", "tp"]
+    variables = ["u_800", "u_600", "2t", "v_500", "10u", "tp", "skt"]
     lats = np.array([1, 2])
     lons = np.array([2, 4])
     altitudes = np.array([100, 200])
@@ -43,11 +43,24 @@ def test_1():
             for k, v in attrs.items():
                 assert file.attrs[k] == v
 
-            for variable in ["altitude", "air_temperature_2m", "x_wind_pl"]:
-                assert variable in file.variables
+            for variable in [
+                "altitude",
+                "air_temperature_2m",
+                "air_temperature_0m",
+                "x_wind_pl",
+            ]:
+                assert variable in file.variables, variable
                 var = file.variables[variable]
                 assert "units" in var.attrs
                 assert "grid_mapping" in var.attrs
+
+            height_dim = file.variables["air_temperature_2m"].dims[1]
+            levels = file.variables[height_dim].values
+            assert levels == [2]
+
+            height_dim = file.variables["air_temperature_0m"].dims[1]
+            levels = file.variables[height_dim].values
+            assert levels == [0]
 
     # Test interpolation
     with tempfile.TemporaryDirectory() as temp_dir:
