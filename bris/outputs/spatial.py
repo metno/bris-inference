@@ -72,7 +72,6 @@ class Spatial(Output):
         ensemble_member: int, 
         pred: np.ndarray
     ) -> None:
-        #Called by Output.add_forecast
         """Registers a forecast from a single ensemble member in the output"""
         
         metric = self.calculate_metric(pred)
@@ -116,9 +115,9 @@ class Spatial(Output):
         utils.create_directory(self.filename)
         self.ds.to_netcdf(self.filename, mode="w", engine="netcdf4")
 
-    def get_projected_coords(self, proj4_str) -> tuple:
-        x, y = projections.get_xy_1D(self.pm.lats, self.pm.lons, proj4_str)
-        return x, y
+    @cached_property
+    def get_latlons(self) -> tuple:
+        return self.pm.lats, self.pm.lons
 
 
 class SHPowerSpectrum(Spatial):
@@ -130,39 +129,41 @@ class SHPowerSpectrum(Spatial):
         workdir: str,
         filename: str,
         variable: str,
-    ):
+        delta_degrees: float = None, 
+    ):  
+        self.delta_degrees = delta_degrees
         super().__init__(predict_metadata, workdir, filename, variable)
         assert not self.pm.is_gridded, "SHPowerSpectrum is meant to be used for global ungridded data"
+
 
     def get_metric_name(self) -> str:
         return f"sh_power_spectrum_{self.variable}"
 
     def get_metric_shape(self) -> tuple:
-        x_regular, y_regular = self.get_regular_projected_coords
-        nl = ( len(x_regular) + 1 ) / 2
-        return (nl,)
+        lats_reg_grid, _ = self.get_grid_reg_latlons
+        return (lats_reg_grid.shape[0],)
 
     def get_extra_dimensions(self) -> dict:
         nl = self.metric_shape[0]
         return {"wavenumber": np.arange(1, nl + 1)}
-
+    
     @cached_property
-    def get_regular_projected_coords(self) -> tuple:
-        """Get regular x and y coordinates in equidistant cylindrical projection
+    def get_grid_reg_latlons(self) -> tuple:
+        lats = self.pm.lats
+        lons = self.pm.lons
         
-        Grid spacing is determined by the minimum spacing in the original coordinates
-        """
-        proj4_str = projections.get_proj4_str("equidistant_cylindrical")
-        x, y = self.get_projected_coords(proj4_str)
+        if self.delta_degrees is not None:
+            delta = self.delta_degrees
+        else:
+            lat_min = abs(np.diff(lats))
+            delta = np.min(abs(lat_min[lat_min != 0]))
 
-        delta_y = np.min(np.diff(y))
-        min_delta_y = np.min(np.abs(delta_y[delta_y != 0]))
-
-        n_y = int(np.floor(abs(y.max() - y.min()) / min_delta_y))
-        n_x = (n_y - 1) * 2 + 1 
-        y_regular = np.linspace(y.min(), y.max(), n_y)
-        x_regular = np.linspace(x.min(), x.max(), n_x)
-        return x_regular, y_regular
+        n_lats = int(np.floor((lats.max() - lats.min()) / delta))
+        n_lons = (n_lats - 1) * 2 + 1
+        lats_regular = np.linspace(lats.min(), lats.max(), n_lats)
+        lons_regular = np.linspace(lons.min(), lons.max(), n_lons)
+        lons_reg_grid, lats_reg_grid = np.meshgrid(lons_regular, lats_regular)
+        return lats_reg_grid, lons_reg_grid
 
     def calculate_metric(self, pred: np.ndarray) -> np.ndarray:
         """Calculate the wavenumber spherical harmonic power spectrum of the variable"""
@@ -171,17 +172,13 @@ class SHPowerSpectrum(Spatial):
         leadtimes = self.pm.num_leadtimes
         metric = np.full((leadtimes,) + self.metric_shape, np.nan, dtype=np.float32)
 
-        proj4_str = projections.get_proj4_str("equidistant_cylindrical") #TODO: fix so this isn't called both in get_regular_projected_coords and here
-        x, y = self.get_projected_coords(proj4_str) 
-        x_reg, y_reg = self.get_regular_projected_coords
-        xx_reg, yy_reg = np.meshgrid(x_reg, y_reg)
-
+        lats, lons = self.get_latlons
+        lons_reg_grid, lats_reg_grid = self.get_grid_reg_latlons
         for lt in range(leadtimes):
             field = pred[lt, :, var_index]
             
-            #Consider using linear / cubic - requires some tuning of the regular grid since we get NaNs at the border. 
             field_reg = griddata(
-                (x, y), field, (xx_reg, yy_reg), method="nearest", fill_value=np.nan
+                (lons, lats), field, (lons_reg_grid, lats_reg_grid), method="nearest", fill_value=np.nan
             )
             nanmask = np.isnan(field_reg)
             if nanmask.any():
@@ -189,7 +186,7 @@ class SHPowerSpectrum(Spatial):
                 field_reg[nanmask] = 0.0
             
             # Compute spherical harmonic coefficients and power spectrum
-            lmax = len(x_reg) - 1
+            lmax = lats_reg_grid.shape[0] - 1
             zero_w = SHGLQ(lmax)
             coeffs_field = SHExpandGLQ(field_reg, w=zero_w[1], zero=zero_w[0])
             coeff_amp = coeffs_field[0,:,:] ** 2 + coeffs_field[1,:,:] ** 2
@@ -198,6 +195,7 @@ class SHPowerSpectrum(Spatial):
             metric[lt, :] = power_spectrum
 
         return metric
+
                 
 
 
