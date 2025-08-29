@@ -1,6 +1,5 @@
 import logging
 import os
-import sys
 from copy import deepcopy
 from functools import cached_property
 from typing import Optional

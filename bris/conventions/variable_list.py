@@ -19,7 +19,7 @@ class VariableList:
         self._dimensions, self._ncname_to_level_dim = self.load_dimensions()
 
     @property
-    def dimensions(self):
+    def dimensions(self) -> dict:
         """A diction of dimension names needed to represent the variable list
 
         The key is the dimension name, the value is a tuple of (leveltype, levels)
@@ -105,13 +105,13 @@ class VariableList:
                     ncname_to_level_dim[ncname] = dimname
         return dims_to_add, ncname_to_level_dim
 
-    def get_level_dimname(self, ncname):
+    def get_level_dimname(self, ncname) -> dict[str, str] | None:
         """Get the name of the level dimension for given NetCDF variable"""
         if ncname not in self._ncname_to_level_dim:
             return None
         return self._ncname_to_level_dim[ncname]
 
-    def get_level_index(self, anemoi_name):
+    def get_level_index(self, anemoi_name) -> int | None:
         """Get the index into the level dimension that this anemoi variable belongs to"""
         # Determine what ncname and index each variable belongs to
         metadata = cf.get_metadata(anemoi_name)
@@ -129,7 +129,7 @@ class VariableList:
         index = self.dimensions[dimname][1].index(level)
         return index
 
-    def get_ncname_from_anemoi_name(self, anemoi_name):
+    def get_ncname_from_anemoi_name(self, anemoi_name) -> str:
         """Get the NetCDF variable name corresponding to this anemoi variable name"""
         # Determine what ncname and index each variable belongs to
         metadata = cf.get_metadata(anemoi_name)
