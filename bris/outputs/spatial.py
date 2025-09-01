@@ -148,7 +148,7 @@ class SHPowerSpectrum(Spatial):
 
     def get_extra_dimensions(self) -> dict:
         nl = self.metric_shape[0]
-        return {"wavenumber": np.arange(1, nl + 1)}
+        return {"l": np.arange(1, nl + 1)}
     
     @cached_property
     def get_grid_reg_latlons(self) -> tuple:
@@ -264,7 +264,7 @@ class PowerSpectrum(Spatial):
     
     def get_extra_dimensions(self) -> dict:
         _, k_bin, _ = self.get_bins
-        return {"wavenumber": k_bin}
+        return {"k": k_bin}
 
     def calculate_metric(self, pred: np.ndarray) -> np.ndarray:
 
