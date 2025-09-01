@@ -160,6 +160,13 @@ def get_attributes(cfname: str) -> dict[str, str]:
     ]:
         ret["units"] = "J/m^2"
 
+    # Fourier wavenumbers
+    elif cfname in ["k"]:
+        ret["units"] = "rad/m"
+        ret["long_name"] = "wavenumber"
+    elif cfname in ["l"]:
+        ret["units"] = "1"
+        ret["long_name"] = "spherical wavenumber"
     else:  # Handle unknown `cfname` by returning an empty dictionary
         return {}
 
