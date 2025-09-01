@@ -1,5 +1,6 @@
 import logging
 import os
+import time
 from datetime import datetime, timedelta
 
 from anemoi.utils.dates import frequency_to_seconds
@@ -19,7 +20,7 @@ from .utils import (
 )
 from .writer import CustomWriter
 
-LOGGER = logging.getLogger(__name__)
+from .utils import LOGGER
 
 
 def main(arg_list: list[str] | None = None):
@@ -77,7 +78,7 @@ def main(arg_list: list[str] | None = None):
     try:
         multistep = checkpoints["forecaster"].config.training.multistep_input
     except KeyError:
-        LOGGER.debug("Multistep not found in checkpoint")
+        LOGGER.error("Multistep not found in checkpoint")
 
     # If no start_date given, calculate as end_date-((multistep-1)*timestep)
     if "start_date" not in config or config.start_date is None:
@@ -88,7 +89,7 @@ def main(arg_list: list[str] | None = None):
             ),
             "%Y-%m-%dT%H:%M:%S",
         )
-        LOGGER.info(
+        LOGGER.error(
             "No start_date given, setting %s based on start_date and timestep.",
             config.start_date,
         )
@@ -182,7 +183,7 @@ def main(arg_list: list[str] | None = None):
             for output in decoder_output["outputs"]:
                 output.finalize()
 
-        print("Model run completed. 🤖")
+        LOGGER.info("Model run completed. 🤖")
 
 
 if __name__ == "__main__":
