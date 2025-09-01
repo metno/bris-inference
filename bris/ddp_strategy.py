@@ -9,6 +9,7 @@
 
 
 import logging
+from re import DEBUG
 
 import numpy as np
 import pytorch_lightning as pl
@@ -21,6 +22,7 @@ from pytorch_lightning.trainer.states import TrainerFn
 from bris.utils import get_base_seed
 
 LOGGER = logging.getLogger(__name__)
+LOGGER.setLevel(DEBUG)
 
 
 class DDPGroupStrategy(DDPStrategy):
