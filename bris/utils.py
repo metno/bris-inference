@@ -2,6 +2,7 @@ import json
 import logging
 import numbers
 import os
+import sys
 import time
 import uuid
 from argparse import ArgumentParser
@@ -17,7 +18,15 @@ from omegaconf import DictConfig, ListConfig, OmegaConf
 
 from .forcings import anemoi_dynamic_forcings, get_dynamic_forcings
 
-LOGGER = logging.getLogger(__name__)
+LOGGER = logging.getLogger("bris")
+console_handler = logging.StreamHandler(sys.stdout)
+console_handler.setLevel(logging.DEBUG)
+LOGGER.setLevel(logging.DEBUG)
+# Create a formatter for the logs
+formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
+console_handler.setFormatter(formatter)
+# Add the handler to the LOGGER
+LOGGER.addHandler(console_handler)
 
 
 def expand_time_tokens(filename: str, unixtime: int) -> str:
