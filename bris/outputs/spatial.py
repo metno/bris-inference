@@ -196,6 +196,131 @@ class SHPowerSpectrum(Spatial):
 
         return metric
 
+
+class PowerSpectrum(Spatial):
+    """Calculates the isotropic power spectrum of a variables for regular projected grids"""
+
+    def __init__(
+        self, 
+        predict_metadata: PredictMetadata,
+        workdir: str,
+        filename: str,
+        variable: str,
+        resolution: float = None,
+        proj4_str: str = None,
+        domain_name: str = None,
+        n_bins: int = None,
+    ):
+        self.resolution = resolution
+        self.n_bins = n_bins
+        if domain_name is not None:
+            self.proj4_str = projections.get_proj4_str(domain_name)
+        else:
+            self.proj4_str = proj4_str
+        assert self.proj4_str is not None, "Either domain_name or proj4_str must be provided"
+        super().__init__(predict_metadata, workdir, filename, variable)
+        assert self.pm.is_gridded, "PowerSpectrum is meant to be used for gridded data"
+
+
+    def get_metric_name(self) -> str:
+        return f"power_spectrum_{self.variable}"
+    
+    def get_metric_shape(self) -> tuple:
+        k_bin = self.get_bins()
+        return (k_bin.shape[0],)
+    
+    def get_bins(self):
+        # Estimate number of bins based on resolution and domain size
+        nx, ny = self.pm.field_shape
+        lats, lons = self.get_latlons
+        x, y = projections.get_xy(
+                lats.reshape(nx, ny), 
+                lons.reshape(nx, ny), 
+                self.proj4_str
+        )
+        dx = np.mean(np.diff(x))
+        dy = np.mean(np.diff(y))
+        assert np.allclose(np.diff(x), dx, atol=1.0), "Non-uniform grid spacing in x direction"
+        assert np.allclose(np.diff(y), dy, atol=1.0), "Non-uniform grid spacing in y direction"
+
+        kx_max = np.max(np.fft.fftshift(np.fft.fftfreq(nx, d=dx)) * 2 * np.pi)
+        ky_max = np.max(np.fft.fftshift(np.fft.fftfreq(ny, d=dy)) * 2 * np.pi)
+        k_max = np.sqrt(kx_max**2 + ky_max**2)
+        if self.n_bins is not None:
+            n_bins = self.n_bins
+        else:
+            dk_min = 2*np.pi / np.max([dx, dy])
+            n_bins = int(np.floor(k_max / dk_min))
+
+        bins = np.linspace(0, k_max, n_bins + 1)
+        k_bin = 0.5 * (bins[1:] + bins[:-1])
+        return k_bin
+
+    def get_extra_dimensions(self) -> dict:
+        k_bin = self.get_bins()
+        return {"wavenumber": k_bin}
+
+    def calculate_metric(self, pred: np.ndarray) -> np.ndarray:
+
+        var_index = self.pm.variables.index(self.variable)
+        leadtimes = self.pm.num_leadtimes
+        metric = np.full((leadtimes,) + self.metric_shape, np.nan, dtype=np.float32)
+
+        nx, ny = self.pm.field_shape
+        x, y = projections.get_xy(
+            self.pm.lats.reshape(nx, xy), 
+            self.pm.lons.reshape(nx, ny), 
+            self.proj4_str
+        )
+
+        dx = np.mean(np.diff(x))
+        dy = np.mean(np.diff(y))
+        assert np.allclose(np.diff(x), dx, atol=1.0), "Non-uniform grid spacing in x direction"
+        assert np.allclose(np.diff(y), dy, atol=1.0), "Non-uniform grid spacing in y direction"
+
+        for lt in range(leadtimes):
+            field = pred[lt, :, var_index].reshape(nx, ny)
+
+            F = np.fft.fft2(field)
+            F = np.fft.fftshift(F)
+            P2D = np.abs(F)**2 / (nx * ny)
+            # Move this functionality to self.get_bins()
+            kx = np.fft.fftshift(np.fft.fftfreq(nx, d=dx)) * 2 * np.pi
+            ky = np.fft.fftshift(np.fft.fftfreq(ny, d=dy)) * 2 * np.pi
+            kx_grid, ky_grid = np.meshgrid(kx, ky, indexing="ij")
+            k = np.sqrt(kx_grid**2 + ky_grid**2).flatten()
+            P1D = P2D.flatten()
+
+            kx_max = np.max(kx)
+            ky_max = np.max(ky)
+            k_max = np.sqrt(kx_max**2 + ky_max**2)
+
+            if self.n_bins == None:
+                dk_min = 2*np.pi / np.max([dx, dy])
+                n_bins = int(np.floor(k_max / dk_min))
+            else:
+                n_bins = self.n_bins
+
+            bins = np.linspace(0, k_max, n_bins + 1)
+            digitized = np.digitize(k, bins)
+            
+            E_k = np.array([P_flat[digitized==i].mean() if np.any(digitized==i) else 0
+                    for i in range(1, n_bins+1)])
+            k_bin = 0.5 * (bins[1:] + bins[:-1])
+            metric[lt, :] = E_k
+
+        return metric
+            
+
+
+
+
+
+
+
+
+        
+
                 
 
 
