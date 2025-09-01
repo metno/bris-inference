@@ -21,12 +21,13 @@ from pytorch_lightning.trainer.states import TrainerFn
 
 from bris.utils import get_base_seed
 
-LOGGER = logging.getLogger(__name__)
-LOGGER.setLevel(DEBUG)
+from .utils import LOGGER
 
 
 class DDPGroupStrategy(DDPStrategy):
     """Distributed Data Parallel strategy with group communication."""
+    # Define type of model, set in DDPStrategy somewhere
+    model: pl.LightningModule
 
     def __init__(
         self,
@@ -90,6 +91,8 @@ class DDPGroupStrategy(DDPStrategy):
         )
 
         # set up reader groups by further splitting model_comm_group_ranks with read_group_size:
+
+        LOGGER.debug("world_size %d, model_comm_group_size %d, read_group_size %d", self.world_size, self.model_comm_group_size, self.read_group_size)
 
         assert self.model_comm_group_size % self.read_group_size == 0, (
             f"Number of GPUs per model ({self.model_comm_group_size}) must be divisible by read_group_size "
@@ -228,7 +231,7 @@ class DDPGroupStrategy(DDPStrategy):
 
     def get_my_reader_group(
         self, model_comm_group_rank: int, read_group_size: int
-    ) -> tuple[int, int, int]:
+    ) -> tuple[int, int, int, int]:
         """Determine tasks that work together and from a reader group.
 
         Parameters
@@ -306,18 +309,18 @@ class DDPGroupStrategy(DDPStrategy):
         )  # note: workers are seeded independently in dataloader
         np_rng = np.random.default_rng(rnd_seed)
         sanity_rnd = (torch.rand(1), np_rng.random())
-        LOGGER.debug(
-            (
-                "Strategy: Rank %d, model comm group id %d, base seed %d, seeded with %d, "
-                "running with random seed: %d, sanity rnd: %s"
-            ),
-            self.global_rank,
-            model_comm_group_id,
-            base_seed,
-            initial_seed,
-            rnd_seed,
-            sanity_rnd,
-        )
+        # LOGGER.debug(
+        #     (
+        #         "Strategy: Rank %d, model comm group id %d, base seed %d, seeded with %d, "
+        #         "running with random seed: %d, sanity rnd: %s"
+        #     ),
+        #     self.global_rank,
+        #     model_comm_group_id,
+        #     base_seed,
+        #     initial_seed,
+        #     rnd_seed,
+        #     sanity_rnd,
+        # )
 
     def register_parameter_hooks(self) -> None:
         """Register parameter hooks for gradient reduction.
