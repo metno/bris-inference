@@ -24,8 +24,7 @@ from ..utils import (
 from .basepredictor import BasePredictor
 from .model_utils import get_model_static_forcings, get_variable_indices
 
-LOGGER = logging.getLogger(__name__)
-
+from ..utils import LOGGER
 
 class BrisPredictor(BasePredictor):
     """
@@ -168,6 +167,8 @@ class BrisPredictor(BasePredictor):
         Returns:
             torch.Tensor: Output tensor after processing by the model.
         """
+        if self.ens_comm_group_size and self.ens_comm_group_size > 1:
+            LOGGER.debug(f"Bris/Model/Brispredictor forward. model_comm_group_id {self.model_comm_group_id}")
         return self.model(x, model_comm_group=self.model_comm_group, **kwargs)
 
     def advance_input_predict(
@@ -299,6 +300,7 @@ class BrisPredictor(BasePredictor):
                     torch.cuda.empty_cache()
         self.update_batch_info(time)
         # Save info about which batches has been processed before, update ensemble member based on this.
+        LOGGER.debug(f"Bris/model/BrisPredictor predict_step times {times}, group_rank {self.model_comm_group_rank}, ensemble_member {self.member_id}")
         return {
             "pred": [y_preds.to(torch.float32).numpy()],
             "times": times,
