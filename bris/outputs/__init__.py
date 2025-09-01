@@ -35,6 +35,9 @@ def instantiate(name: str, predict_metadata: PredictMetadata, workdir: str, init
     if name == "sh_powerspectrum":
         return SHPowerSpectrum(predict_metadata, workdir, **init_args)
 
+    if name == "powerspectrum":
+        return PowerSpectrum(predict_metadata, workdir, **init_args)
+
     raise ValueError(f"Invalid output: {name}")
 
 
@@ -74,6 +77,11 @@ def get_required_variables(name, init_args):
             variables = sorted(list(set(variables)))
             return variables
         return [None]
+        
+    if name == "powerspectrum":
+        if init_args["variable"] == "ws":
+            return ["10u", "10v"]
+        return [init_args["variable"]]
 
     raise ValueError(f"Invalid output: {name}")
 
@@ -186,5 +194,6 @@ from .intermediate import Intermediate
 from .netcdf import Netcdf
 from .verif import Verif
 from .spatial import SHPowerSpectrum
+from .spatial import PowerSpectrum
 
 

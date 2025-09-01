@@ -27,18 +27,6 @@ def get_xy(lats, lons, proj_str):
 
     return x, y
 
-def get_xy_1D(lats, lons, proj_str):
-    """Get x and y projected coordinates for 1D lat and lon arrays"""
-    
-    proj_from = pyproj.Proj("proj+=longlat")
-    proj_to = pyproj.Proj(proj_str)
-
-    transformer = pyproj.transformer.Transformer.from_proj(proj_from, proj_to)
-
-    x, y = transformer.transform(lons, lats)
-
-    return x, y
-
 def get_proj_attributes(proj_str):
     crs = pyproj.CRS.from_proj4(proj_str)
     attrs = crs.to_cf()
