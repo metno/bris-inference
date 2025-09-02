@@ -132,6 +132,10 @@
                         "filename": {
                             "description": "Where the file is located",
                             "type": "string"
+                        },
+                        "obs_variable": {
+                            "description": "Variable name to read observations from (default obs)",
+                            "type": "string"
                         }
                     },
                     "required": ["filename"]
