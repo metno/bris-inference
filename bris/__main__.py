@@ -12,6 +12,7 @@ from bris.data.datamodule import DataModule
 from .checkpoint import Checkpoint
 from .inference import Inference
 from .utils import (
+    LOGGER,
     create_config,
     get_all_leadtimes,
     parse_args,
@@ -19,8 +20,6 @@ from .utils import (
     set_encoder_decoder_num_chunks,
 )
 from .writer import CustomWriter
-
-from .utils import LOGGER
 
 
 def main(arg_list: list[str] | None = None):

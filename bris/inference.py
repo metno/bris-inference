@@ -9,7 +9,6 @@ from anemoi.utils.config import DotDict
 from bris.ddp_strategy import DDPGroupStrategy
 
 from .data.datamodule import DataModule
-
 from .utils import LOGGER
 
 

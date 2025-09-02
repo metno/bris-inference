@@ -26,6 +26,7 @@ from .utils import LOGGER
 
 class DDPGroupStrategy(DDPStrategy):
     """Distributed Data Parallel strategy with group communication."""
+
     # Define type of model, set in DDPStrategy somewhere
     model: pl.LightningModule
 
@@ -92,7 +93,12 @@ class DDPGroupStrategy(DDPStrategy):
 
         # set up reader groups by further splitting model_comm_group_ranks with read_group_size:
 
-        LOGGER.debug("world_size %d, model_comm_group_size %d, read_group_size %d", self.world_size, self.model_comm_group_size, self.read_group_size)
+        LOGGER.debug(
+            "world_size %d, model_comm_group_size %d, read_group_size %d",
+            self.world_size,
+            self.model_comm_group_size,
+            self.read_group_size,
+        )
 
         assert self.model_comm_group_size % self.read_group_size == 0, (
             f"Number of GPUs per model ({self.model_comm_group_size}) must be divisible by read_group_size "
