@@ -1,4 +1,5 @@
 import logging
+import time
 from functools import cached_property
 from typing import Any, Optional
 
@@ -73,7 +74,9 @@ class Inference:
         return trainer
 
     def run(self):
+        t0 = time.perf_counter()
         LOGGER.debug("Bris/Inference/run Predicting")
         self.trainer.predict(
             self.model, datamodule=self.datamodule, return_predictions=False
         )
+        LOGGER.debug("Bris/Inference/run took %s", time.perf_counter()-t0)
