@@ -80,7 +80,10 @@ class Spatial(Output):
     def finalize(self) -> None:
         """Writes output to file"""
         coords = {}
-        coords["time"] = (["time"], [], cf.get_attributes("time"))
+
+        frts = self.intermediate.get_forecast_reference_times()
+        times_unix = utils.datetime_to_unixtime(frts).astype(np.double)
+        coords["time"] = (["time"], times_unix, cf.get_attributes("time"))
         coords["leadtime"] = (
             ["leadtime"],
             self.intermediate.pm.leadtimes.astype(np.float32) / 3600,
@@ -95,12 +98,9 @@ class Spatial(Output):
             )
 
         self.ds = xr.Dataset(coords=coords)
-        frts = self.intermediate.get_forecast_reference_times()
-        self.ds["time"] = utils.datetime_to_unixtime(frts).astype(np.double)
 
         data_shape = (len(frts),) + (self.intermediate.pm.num_leadtimes,) + self.metric_shape + (self.pm.num_members,)
         dims = ["time", "leadtime"] + list(self.get_extra_dimensions().keys())
-
 
         data = np.full(data_shape, np.nan, dtype=np.float32)
 
@@ -144,11 +144,11 @@ class SHPowerSpectrum(Spatial):
 
     def get_metric_shape(self) -> tuple:
         lats_reg_grid, _ = self.get_grid_reg_latlons
-        return (lats_reg_grid.shape[0],)
+        return (lats_reg_grid.shape[0] - 1,)
 
     def get_extra_dimensions(self) -> dict:
-        nl = self.metric_shape[0]
-        return {"l": np.arange(1, nl + 1)}
+        l_max = self.metric_shape[0]
+        return {"l": np.arange(1, l_max + 1)}
     
     @cached_property
     def get_grid_reg_latlons(self) -> tuple:
@@ -167,6 +167,7 @@ class SHPowerSpectrum(Spatial):
         lons_regular = np.linspace(lons.min(), lons.max(), n_lons)
         lons_reg_grid, lats_reg_grid = np.meshgrid(lons_regular, lats_regular)
         return lats_reg_grid, lons_reg_grid
+     
 
     def calculate_metric(self, pred: np.ndarray) -> np.ndarray:
         """Calculate the wavenumber spherical harmonic power spectrum of the variable"""
@@ -177,6 +178,7 @@ class SHPowerSpectrum(Spatial):
 
         lats, lons = self.get_latlons
         lons_reg_grid, lats_reg_grid = self.get_grid_reg_latlons
+
         for lt in range(leadtimes):
             field = pred[lt, :, var_index]
             
@@ -193,9 +195,9 @@ class SHPowerSpectrum(Spatial):
             zero_w = SHGLQ(lmax)
             coeffs_field = SHExpandGLQ(field_reg, w=zero_w[1], zero=zero_w[0])
             coeff_amp = coeffs_field[0,:,:] ** 2 + coeffs_field[1,:,:] ** 2
-            power_spectrum = np.sum(coeff_amp, axis=0)
+            power_spectrum = np.sum(coeff_amp, axis=1)
 
-            metric[lt, :] = power_spectrum
+            metric[lt, :] = power_spectrum[1:]
 
         return metric
 
