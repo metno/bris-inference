@@ -115,6 +115,12 @@ class Spatial(Output):
 
         self.ds[self.metric_name] = (dims, data)
 
+        datestr = datetime.datetime.now(datetime.timezone.utc).strftime(
+            "%Y-%m-%d %H:%M:%S +00:00"
+        )
+        self.ds.attrs["history"] = f"{datestr} Created by bris-inference"
+        self.ds.attrs["Convensions"] = "CF-1.6"
+
         utils.create_directory(self.filename)
         self.ds.to_netcdf(self.filename, mode="w", engine="netcdf4")
 
