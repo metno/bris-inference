@@ -293,15 +293,15 @@ class DDPGroupStrategy(DDPStrategy):
         )
 
         dataloader.dataset.set_comm_group_info(
-            self.global_rank,
-            model_comm_group_id,
-            model_comm_group_rank,
-            model_comm_num_groups,
-            ens_comm_group_id,
-            ens_comm_group_rank,
-            ens_comm_num_groups,
-            reader_group_rank,
-            self.read_group_size,
+            global_rank=self.global_rank,
+            model_comm_group_id=model_comm_group_id,
+            model_comm_group_rank=model_comm_group_rank,
+            model_comm_num_groups=model_comm_num_groups,
+            ens_comm_group_id=ens_comm_group_id,
+            ens_comm_group_rank=ens_comm_group_rank,
+            ens_comm_num_groups=ens_comm_num_groups,
+            reader_group_rank=reader_group_rank,
+            reader_group_size=self.read_group_size,
         )
 
         return dataloader
@@ -315,18 +315,18 @@ class DDPGroupStrategy(DDPStrategy):
         )  # note: workers are seeded independently in dataloader
         np_rng = np.random.default_rng(rnd_seed)
         sanity_rnd = (torch.rand(1), np_rng.random())
-        # LOGGER.debug(
-        #     (
-        #         "Strategy: Rank %d, model comm group id %d, base seed %d, seeded with %d, "
-        #         "running with random seed: %d, sanity rnd: %s"
-        #     ),
-        #     self.global_rank,
-        #     model_comm_group_id,
-        #     base_seed,
-        #     initial_seed,
-        #     rnd_seed,
-        #     sanity_rnd,
-        # )
+        LOGGER.debug(
+            (
+                "Strategy: Rank %d, model comm group id %d, base seed %d, seeded with %d, "
+                "running with random seed: %d, sanity rnd: %s"
+            ),
+            self.global_rank,
+            model_comm_group_id,
+            base_seed,
+            initial_seed,
+            rnd_seed,
+            sanity_rnd,
+        )
 
     def register_parameter_hooks(self) -> None:
         """Register parameter hooks for gradient reduction.

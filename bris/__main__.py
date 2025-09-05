@@ -180,7 +180,10 @@ def main(arg_list: list[str] | None = None):
     if is_main_thread:
         for decoder_output in decoder_outputs:
             for output in decoder_output["outputs"]:
+                print("{datetime.datetime.now(datetime.timezone.utc).strftime('%Y-%m-%d %H:%M:%S +00:00')} finalizing output")
+                t0 = time.perf_counter()
                 output.finalize()
+                print("{datetime.datetime.now(datetime.timezone.utc).strftime('%Y-%m-%d %H:%M:%S +00:00')} finalizing output {output} in ", time.perf_counter()-t0)
 
         LOGGER.info("Model run completed. 🤖")
 
