@@ -47,7 +47,7 @@ class Inference:
         LOGGER.info("Using specified device: %s", self._device)
         return self._device
 
-    # @cached_property
+    @cached_property
     def strategy(self):
         return DDPGroupStrategy(
             num_gpus_per_model=self.config.hardware.num_gpus_per_model,
