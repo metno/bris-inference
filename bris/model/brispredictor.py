@@ -173,7 +173,7 @@ class BrisPredictor(BasePredictor):
             try:
                 cuda_id = torch.cuda.current_device()
             except RuntimeError:
-                pass # no GPUs
+                pass  # no GPUs
             LOGGER.debug(
                 "Bris/Model/Brispredictor forward. Rank %d model_comm_group_id: %d model_comm_group_rank: %d "
                 "reader_group_id: %d reader_group_rank: %d Cuda device %s",

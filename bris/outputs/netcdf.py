@@ -1,4 +1,5 @@
 import datetime
+import time as pytime
 
 import gridpp
 import numpy as np
@@ -442,6 +443,7 @@ class Netcdf(Output):
         )
 
     def finalize(self):
+        t0 = pytime.perf_counter()
         if self.intermediate is not None:
             # Load data from the intermediate and write to disk
             forecast_reference_times = self.intermediate.get_forecast_reference_times()
@@ -463,6 +465,7 @@ class Netcdf(Output):
 
             if self.remove_intermediate:
                 self.intermediate.cleanup()
+        print("netcdf.finalize in ", pytime.perf_counter() - t0)
 
     def get_lower(self, array):
         m = np.min(array)

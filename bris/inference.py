@@ -79,4 +79,4 @@ class Inference:
         self.trainer.predict(
             self.model, datamodule=self.datamodule, return_predictions=False
         )
-        LOGGER.debug("Bris/Inference/run took %s", time.perf_counter()-t0)
+        LOGGER.debug("Bris/Inference/run took %s", time.perf_counter() - t0)

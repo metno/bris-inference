@@ -1,5 +1,6 @@
 import glob
 import os
+import time
 from typing import Optional
 
 import numpy as np
@@ -25,10 +26,12 @@ class Intermediate(Output):
         self.workdir = workdir
 
     def _add_forecast(self, times, ensemble_member, pred):
+        t0 = time.perf_counter()
         filename = self.get_filename(times[0], ensemble_member)
         utils.create_directory(filename)
 
         np.save(filename, pred)
+        print("_add_forecast in ", time.perf_counter() - t0)
 
     def get_filename(self, forecast_reference_time, ensemble_member):
         frt_ut = utils.datetime_to_unixtime(forecast_reference_time)
@@ -61,6 +64,7 @@ class Intermediate(Output):
                       4D otherwise (leadtime, points, variables, members)
         """
 
+        t0 = time.perf_counter()
         if ensemble_member is None:
             shape = [
                 self.pm.num_leadtimes,
@@ -78,7 +82,7 @@ class Intermediate(Output):
 
             filename = self.get_filename(forecast_reference_time, ensemble_member)
             pred = np.load(filename) if os.path.exists(filename) else None
-
+        print("get_forecast in ", time.perf_counter() - t0)
         return pred
 
     @property
@@ -97,6 +101,7 @@ class Intermediate(Output):
     def cleanup(self):
         """Removes up all intermediate files and removes the workdir. Called in finalize of the main output."""
 
+        t0 = time.perf_counter()
         for _filename in self.get_filenames():
             try:
                 os.remove(_filename)
@@ -107,6 +112,7 @@ class Intermediate(Output):
             os.rmdir(self.workdir)
         except OSError as e:
             print(f"Error removing workdir {self.workdir}: {e}")
+        print("cleanup in ", time.perf_counter() - t0)
 
     def finalize(self):
         pass
