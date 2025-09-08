@@ -434,7 +434,7 @@ class Netcdf(Output):
             self.ds.attrs[key] = value
 
         utils.create_directory(filename)
-        self.ds.to_netcdf(
+        self.ds.load().to_netcdf(
             filename,
             mode="w",
             engine="netcdf4",
