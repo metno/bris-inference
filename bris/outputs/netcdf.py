@@ -444,16 +444,29 @@ class Netcdf(Output):
 
     def finalize(self):
         t0 = pytime.perf_counter()
+
+        import cProfile
+        import io
+        import pstats
+        from pstats import SortKey
+
+        pr = cProfile.Profile()
+        pr.enable()
+
         if self.intermediate is not None:
             # Load data from the intermediate and write to disk
             forecast_reference_times = self.intermediate.get_forecast_reference_times()
             for forecast_reference_time in forecast_reference_times:
                 # Arange all ensemble members
+                t1 = pytime.perf_counter()
                 pred = np.zeros(self.pm.shape + [self.pm.num_members], np.float32)
                 for m in range(self.pm.num_members):
                     curr = self.intermediate.get_forecast(forecast_reference_time, m)
                     if curr is not None:
                         pred[..., m] = curr
+                print(
+                    "netcdf Arange all ensemble members in ", pytime.perf_counter() - t1
+                )
 
                 time = forecast_reference_time.astype("datetime64[s]").astype("int")
                 filename = self.get_filename(time)
@@ -461,11 +474,22 @@ class Netcdf(Output):
                     forecast_reference_time + lt
                     for lt in self.intermediate.pm.leadtimes
                 ]
+                t2 = pytime.perf_counter()
                 self.write(filename, lead_times, pred)
+                print("netcdf write in ", pytime.perf_counter() - t2)
 
+            t3 = pytime.perf_counter()
             if self.remove_intermediate:
                 self.intermediate.cleanup()
+            print("netcdf intermediate.cleanup in ", pytime.perf_counter() - t3)
         print("netcdf.finalize in ", pytime.perf_counter() - t0)
+
+        pr.disable()
+        s = io.StringIO()
+        sortby = SortKey.CUMULATIVE
+        ps = pstats.Stats(pr, stream=s).sort_stats(sortby)
+        ps.print_stats()
+        print(s.getvalue())
 
     def get_lower(self, array):
         m = np.min(array)
