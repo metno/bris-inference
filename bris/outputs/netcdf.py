@@ -42,11 +42,11 @@ class Netcdf(Output):
         extra_variables=None,
         proj4_str=None,
         domain_name=None,
-        mask_file=None,
+        mask_file: str="",
         mask_field=None,
         global_attributes=None,
         remove_intermediate=True,
-        compression=True,
+        compression=False,
     ):
         """
         Args:
@@ -67,7 +67,7 @@ class Netcdf(Output):
             self.extract_variables = variables + extra_variables
 
         self.intermediate = None
-        if self.pm.num_members > 1:
+        if self.intermediate is not None:
             self.intermediate = Intermediate(
                 predict_metadata,
                 workdir,
@@ -103,8 +103,8 @@ class Netcdf(Output):
                 mask = self.ds_mask[mask_field].values
             self.mask = mask == 1.0
 
-    def _add_forecast(self, times: list, ensemble_member: int, pred: np.array) -> None:
-        if self.pm.num_members > 1:
+    def _add_forecast(self, times: list, ensemble_member: int, pred: np.ndarray) -> None:
+        if self.intermediate is not None:
             # Cache data with intermediate
             self.intermediate.add_forecast(times, ensemble_member, pred)
             return
@@ -136,7 +136,7 @@ class Netcdf(Output):
         """Should interpolation to a regular lat/lon grid be performed?"""
         return self.interp_res is not None
 
-    def write(self, filename: str, times: list, pred: np.array):
+    def write(self, filename: str, times: list, pred: np.ndarray):
         """Write prediction to NetCDF
         Args:
             times: List of np.datetime64 objects that this forecast is for
@@ -223,7 +223,7 @@ class Netcdf(Output):
                 coords["location"] = y
                 spatial_dims = ("location",)
 
-        if self.pm.num_members > 1:
+        if self.intermediate is not None:
             coords[c("realization")] = np.arange(self.pm.num_members).astype(np.int32)
 
         dims_to_add = self.variable_list.dimensions
@@ -367,7 +367,7 @@ class Netcdf(Output):
                     else:
                         shape = [len(times), len(y)]
 
-                if self.pm.num_members > 1:
+                if self.intermediate is not None:
                     dims.insert(1, c("ensemble_member"))
                     shape.insert(1, self.pm.num_members)
 
@@ -400,7 +400,7 @@ class Netcdf(Output):
             else:
                 ar = np.reshape(pred[..., variable_index, :], shape)
 
-            ar = np.moveaxis(ar, [-1], [1]) if self.pm.num_members > 1 else ar[..., 0]
+            ar = np.moveaxis(ar, [-1], [1]) if self.intermediate is not None else ar[..., 0]
 
             cfname = cf.get_metadata(variable)["cfname"]
             attrs = cf.get_attributes(cfname)
@@ -412,7 +412,7 @@ class Netcdf(Output):
                 bris.units.convert(ar, from_units, to_units, inplace=True)
 
             if level_index is not None:
-                if self.pm.num_members > 1:
+                if self.intermediate is not None:
                     self.ds[ncname][:, :, level_index, ...] = ar
                 else:
                     self.ds[ncname][:, level_index, ...] = ar
