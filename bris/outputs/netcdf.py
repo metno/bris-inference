@@ -46,7 +46,7 @@ class Netcdf(Output):
         mask_field=None,
         global_attributes=None,
         remove_intermediate=True,
-        compression=False,
+        compression=True,
     ):
         """
         Args:
@@ -434,7 +434,7 @@ class Netcdf(Output):
             self.ds.attrs[key] = value
 
         utils.create_directory(filename)
-        self.ds.load().to_netcdf(
+        self.ds.to_netcdf(
             filename,
             mode="w",
             engine="netcdf4",
