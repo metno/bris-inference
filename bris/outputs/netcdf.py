@@ -146,6 +146,8 @@ class Netcdf(Output):
         """
 
         coords = {}
+        self.nc_encoding = dict()
+        x: np.ndarray | None = None
 
         # Function to easily convert from cf names to conventions
         def c(x):
@@ -366,20 +368,33 @@ class Netcdf(Output):
                     self.ds[ncname].attrs["grid_mapping"] = "projection"
                     self.ds[ncname].attrs["coordinates"] = "latitude longitude"
 
-        # Set up all prediction variables
-        nc_encoding = dict()
+        self._setup_prediction_vars(spatial_dims, times, x, y, pred)
+        self._set_attrs()
+        self._write_files(filename)
+        print("netcdf.write Done in", pytime.perf_counter() - t0)
+
+    def _setup_prediction_vars(
+        self,
+        spatial_dims: tuple,
+        times: list,
+        x: np.ndarray | None,
+        y: np.ndarray,
+        pred: np.ndarray,
+    ):
+        """Set up all prediction variables"""
+        t0 = pytime.perf_counter()
         for variable in self.extract_variables:
             variable_index = self.pm.variables.index(variable)
             level_index = self.variable_list.get_level_index(variable)
             ncname = self.variable_list.get_ncname_from_anemoi_name(variable)
             if self.compression:
-                nc_encoding[ncname] = {"zlib": True}
+                self.nc_encoding[ncname] = {"zlib": True}
 
             if ncname not in self.ds:
                 dim_name = self.variable_list.get_level_dimname(ncname)
                 if dim_name is not None:
                     dims = [
-                        c("time"),
+                        self.conventions.get_name("time"),
                         dim_name,
                         *spatial_dims,
                     ]
@@ -388,14 +403,14 @@ class Netcdf(Output):
                     else:
                         shape = [len(times), len(self.ds[dim_name]), len(y)]
                 else:
-                    dims = [c("time"), *spatial_dims]
+                    dims = [self.conventions.get_name("time"), *spatial_dims]
                     if self._is_gridded or self._is_masked:
                         shape = [len(times), len(y), len(x)]
                     else:
                         shape = [len(times), len(y)]
 
                 if self.intermediate is not None:
-                    dims.insert(1, c("ensemble_member"))
+                    dims.insert(1, self.conventions.get_name("ensemble_member"))
                     shape.insert(1, self.pm.num_members)
 
                 ar = np.nan * np.zeros(shape, np.float32)
@@ -454,18 +469,10 @@ class Netcdf(Output):
             attrs["grid_mapping"] = "projection"
             attrs["coordinates"] = "latitude longitude"
             self.ds[ncname].attrs = attrs
-
-        print(
-            "netcdf.write Set up all prediction variables in",
-            pytime.perf_counter() - t0,
-        )
-
-        self._set_attrs()
-        self._write_files(filename, nc_encoding)
-        print("netcdf.write Done in", pytime.perf_counter() - t0)
+            print("netcdf._setup_prediction_vars done in", pytime.perf_counter() - t0)
 
     def _set_attrs(self) -> None:
-        '''Add global attributes'''
+        """Add global attributes"""
         datestr = datetime.datetime.now(datetime.timezone.utc).strftime(
             "%Y-%m-%d %H:%M:%S +00:00"
         )
@@ -474,17 +481,19 @@ class Netcdf(Output):
         for key, value in self.global_attributes.items():
             self.ds.attrs[key] = value
 
-
-    def _write_files(self, filename: str, nc_encoding: dict) -> None:
+    def _write_files(self, filename: str) -> None:
+        """Write netcdf to disk"""
+        t0 = pytime.perf_counter()
         utils.create_directory(filename)
+
         self.ds.to_netcdf(
             filename,
             mode="w",
             engine="netcdf4",
             unlimited_dims=["time"],
-            encoding=nc_encoding,
+            encoding=self.nc_encoding,
         )
-
+        print("netcdf._write_files Done in", pytime.perf_counter() - t0)
 
     def finalize(self):
         t0 = pytime.perf_counter()
