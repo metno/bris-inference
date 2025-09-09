@@ -473,7 +473,7 @@ class Netcdf(Output):
         self.ds.to_netcdf(
             filename,
             mode="w",
-            engine="netcdf4",
+            engine="h5netcdf",
             unlimited_dims=["time"],
             encoding=nc_encoding,
         )
