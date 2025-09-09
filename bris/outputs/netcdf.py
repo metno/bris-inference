@@ -263,39 +263,10 @@ class Netcdf(Output):
         # Set up grid definitions
         if self._is_gridded:
             if self._interpolate:
-                proj_attrs = {}
-                proj_attrs["grid_mapping_name"] = "latitude_longitude"
-                proj_attrs["earth_radius"] = "6371000.0"
-                self.ds["projection"] = ([], 1, proj_attrs)
-                print(
-                    "netcdf.write self._is_gridded, self._interpolate",
-                    pytime.perf_counter() - t0,
-                )
+                self._gridded_interpolate()
             else:
-                lats = self.pm.grid_lats.astype(np.double)
-                lons = self.pm.grid_lons.astype(np.double)
-                self.ds[c("latitude")] = (
-                    spatial_dims,
-                    lats,
-                )
-                self.ds[c("longitude")] = (
-                    spatial_dims,
-                    lons,
-                )
+                self._gridded_not_interpolated(spatial_dims)
 
-                if self.pm.altitudes is not None:
-                    altitudes = self.pm.grid_altitudes.astype(np.double)
-                    self.ds[c("surface_altitude")] = (spatial_dims, altitudes)
-                proj_attrs = {}
-                if self.proj4_str is not None:
-                    proj_attrs = projections.get_proj_attributes(self.proj4_str)
-                    # proj_attrs["grid_mapping_name"] = "lambert_conformal_conic"
-                    # proj_attrs["standard_parallel"] = (63.3, 63.3)
-                    # proj_attrs["longitude_of_central_meridian"] = 15.0
-                    # proj_attrs["latitude_of_projection_origin"] = 63.3
-                    # proj_attrs["earth_radius"] = 6371000.0
-                self.ds[c("projection")] = ([], 0, proj_attrs)
-                print("netcdf.write self._is_gridded, else", pytime.perf_counter() - t0)
         else:
             if self._is_masked:
                 if hasattr(self.ds_mask, "lat") and hasattr(self.ds_mask, "lon"):
@@ -356,6 +327,40 @@ class Netcdf(Output):
         self._write_files(filename)
         print("netcdf.write Done in", pytime.perf_counter() - t0)
 
+    def _gridded_not_interpolated(self, spatial_dims: tuple) -> None:
+        lats = self.pm.grid_lats.astype(np.double)
+        lons = self.pm.grid_lons.astype(np.double)
+        self.ds[self.conventions.get_name("latitude")] = (
+            spatial_dims,
+            lats,
+        )
+        self.ds[self.conventions.get_name("longitude")] = (
+            spatial_dims,
+            lons,
+        )
+
+        if self.pm.altitudes is not None:
+            altitudes = self.pm.grid_altitudes.astype(np.double)
+            self.ds[self.conventions.get_name("surface_altitude")] = (
+                spatial_dims,
+                altitudes,
+            )
+        proj_attrs = {}
+        if self.proj4_str is not None:
+            proj_attrs = projections.get_proj_attributes(self.proj4_str)
+            # proj_attrs["grid_mapping_name"] = "lambert_conformal_conic"
+            # proj_attrs["standard_parallel"] = (63.3, 63.3)
+            # proj_attrs["longitude_of_central_meridian"] = 15.0
+            # proj_attrs["latitude_of_projection_origin"] = 63.3
+            # proj_attrs["earth_radius"] = 6371000.0
+        self.ds[self.conventions.get_name("projection")] = ([], 0, proj_attrs)
+
+    def _gridded_interpolate(self):
+        """If is gridded and interpolation should be done"""
+        proj_attrs = {}
+        proj_attrs["grid_mapping_name"] = "latitude_longitude"
+        proj_attrs["earth_radius"] = "6371000.0"
+        self.ds["projection"] = ([], 1, proj_attrs)
 
     def _set_projection_info(self) -> None:
         for cfname in [
@@ -375,7 +380,6 @@ class Netcdf(Output):
                 if cfname == "surface_altitude":
                     self.ds[ncname].attrs["grid_mapping"] = "projection"
                     self.ds[ncname].attrs["coordinates"] = "latitude longitude"
-
 
     def _setup_prediction_vars(
         self,
