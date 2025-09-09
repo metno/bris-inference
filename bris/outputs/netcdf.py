@@ -503,14 +503,10 @@ class Netcdf(Output):
                     forecast_reference_time + lt
                     for lt in self.intermediate.pm.leadtimes
                 ]
-                t2 = pytime.perf_counter()
                 self.write(filename, lead_times, pred)
-                print("netcdf write in ", pytime.perf_counter() - t2)
 
-            t3 = pytime.perf_counter()
             if self.remove_intermediate:
                 self.intermediate.cleanup()
-            print("netcdf intermediate.cleanup in ", pytime.perf_counter() - t3)
         print("netcdf.finalize in ", pytime.perf_counter() - t0)
 
     def get_lower(self, array):
