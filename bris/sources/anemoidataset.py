@@ -1,4 +1,5 @@
 from functools import cached_property
+import re
 
 import numpy as np
 from anemoi.datasets import open_dataset
@@ -19,13 +20,26 @@ class AnemoiDataset(Source):
         """
         Args:
             dataset_dict: open_dataset recipe, dictionary.
-            variable: variable to fetch from dataset
+            variable: variable to fetch from dataset. Can also specify how to 
+                      derive from other variables using standard Pythonic math
+                      expressions and specifying variables in brackets (e.g. [10u])
             every: include every this number of locations in the verif file
         """
 
         self.dataset = open_dataset(dataset_dict)
+
         self.variable = variable
-        self.variable_index = self.dataset.name_to_index[variable]
+        self.derive = False
+        if "[" in variable:
+            self.derive = True
+            variables = re.findall(r'\[([^\[\]]+)\]', variable)
+            self.derive_template = re.sub(r'\[[^\[\]]+\]', 'np.array({})', variable)
+            self.variable_index = []
+            for v in variables:
+                v_idx = self.dataset.name_to_index[v]
+                self.variable_index.append(v_idx)
+        else:
+            self.variable_index = self.dataset.name_to_index[variable]
         self.every_loc = every_loc
 
     @cached_property
@@ -60,14 +74,21 @@ class AnemoiDataset(Source):
         for t, requested_time in enumerate(requested_times):
             i = np.where(self._all_times == requested_time)[0]
             if len(i) > 0:
-                if int(i[0]) in self.dataset.missing:
+                j = int(i[0])
+                if j in self.dataset.missing:
                     print(
                         f"Date {self.dataset.dates[int(i[0])]} missing from verif dataset"
                     )
                 else:
-                    data[t, :] = self.dataset[
-                        int(i[0]), self.variable_index, 0, :: self.every_loc
-                    ]
+                    if self.derive:
+                        all_data = []
+                        for v_idx in self.variable_index:
+                            all_data.append(self.dataset[j, v_idx, 0, :: self.every_loc].tolist())
+                        data[t, :] = eval(self.derive_template.format(*all_data))
+                    else:
+                        data[t, :] = self.dataset[
+                            j, self.variable_index, 0, :: self.every_loc
+                        ]
 
         observations = Observations(self.locations, requested_times, {variable: data})
         return observations
