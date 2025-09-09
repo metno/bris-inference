@@ -67,7 +67,7 @@ class Netcdf(Output):
             self.extract_variables = variables + extra_variables
 
         self.intermediate = None
-        if self.intermediate is not None:
+        if self.pm.num_members > 1:
             self.intermediate = Intermediate(
                 predict_metadata,
                 workdir,
