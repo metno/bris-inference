@@ -222,8 +222,11 @@ class Verif(Output):
     def finalize(self) -> None:
         """Write forecasts and observations to file"""
 
+        frts = self.intermediate.get_forecast_reference_times()
+        frts_unix = utils.datetime_to_unixtime(frts).astype(np.double)
+
         coords = {}
-        coords["time"] = (["time"], [], cf.get_attributes("time"))
+        coords["time"] = (["time"], frts_unix, cf.get_attributes("time"))
         coords["leadtime"] = (
             ["leadtime"],
             self.intermediate.pm.leadtimes.astype(np.float32) / 3600,
@@ -269,9 +272,6 @@ class Verif(Output):
             coords["threshold"] = (["threshold"], self.thresholds)
 
         self.ds = xr.Dataset(coords=coords)
-
-        frts = self.intermediate.get_forecast_reference_times()
-        self.ds["time"] = utils.datetime_to_unixtime(frts).astype(np.double)
 
         # Load forecasts
         fcst_shape = (
