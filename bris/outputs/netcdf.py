@@ -269,57 +269,9 @@ class Netcdf(Output):
 
         else:
             if self._is_masked:
-                if hasattr(self.ds_mask, "lat") and hasattr(self.ds_mask, "lon"):
-                    lat = self.ds_mask.lat.values
-                    lon = self.ds_mask.lon.values
-                elif hasattr(self.ds_mask, "latitude") and hasattr(
-                    self.ds_mask, "longitude"
-                ):
-                    lat = self.ds_mask.latitude.values
-                    lon = self.ds_mask.longitude.values
-                else:
-                    raise ValueError(
-                        "Mask dataset does not contain coordinates variables 'lat', 'lon' or 'latitude', 'longitude'"
-                    )
-
-                self.ds[c("latitude")] = (
-                    spatial_dims,
-                    lat,
-                )
-                self.ds[c("longitude")] = (
-                    spatial_dims,
-                    lon,
-                )
-                if self.pm.altitudes is not None:
-                    altitudes_rec = np.nan * np.zeros([len(y), len(x)], np.float32)
-                    # Reconstruct the 2D array
-                    altitudes_rec[self.mask] = self.pm.altitudes
-                    self.ds[c("surface_altitude")] = (spatial_dims, altitudes_rec)
-
-                proj_attrs = {}
-                if self.proj4_str is not None:
-                    proj_attrs = projections.get_proj_attributes(self.proj4_str)
-                self.ds[c("projection")] = ([], 0, proj_attrs)
-                print(
-                    "netcdf.write !self._is_gridded, self._is_masked",
-                    pytime.perf_counter() - t0,
-                )
-
+                self._not_gridded_masked(spatial_dims)
             else:
-                self.ds[c("latitude")] = (
-                    spatial_dims,
-                    self.pm.lats,
-                )
-                self.ds[c("longitude")] = (
-                    spatial_dims,
-                    self.pm.lons,
-                )
-                if self.pm.altitudes is not None:
-                    self.ds[c("surface_altitude")] = (spatial_dims, self.pm.altitudes)
-                print(
-                    "netcdf.write !self._is_gridded, !self._is_masked",
-                    pytime.perf_counter() - t0,
-                )
+                self._not_gridded_not_masked(spatial_dims)
 
         self._set_projection_info()
         self._setup_prediction_vars(spatial_dims, times, x, y, pred)
@@ -327,7 +279,67 @@ class Netcdf(Output):
         self._write_files(filename)
         print("netcdf.write Done in", pytime.perf_counter() - t0)
 
+    def _not_gridded_masked(self, spatial_dims: tuple):
+        t0 = pytime.perf_counter()
+        if hasattr(self.ds_mask, "lat") and hasattr(self.ds_mask, "lon"):
+            lat = self.ds_mask.lat.values
+            lon = self.ds_mask.lon.values
+        elif hasattr(self.ds_mask, "latitude") and hasattr(self.ds_mask, "longitude"):
+            lat = self.ds_mask.latitude.values
+            lon = self.ds_mask.longitude.values
+        else:
+            raise ValueError(
+                "Mask dataset does not contain coordinates variables 'lat', 'lon' or 'latitude', 'longitude'"
+            )
+
+        self.ds[self.conventions.get_name("latitude")] = (
+            spatial_dims,
+            lat,
+        )
+        self.ds[self.conventions.get_name("longitude")] = (
+            spatial_dims,
+            lon,
+        )
+        if self.pm.altitudes is not None:
+            altitudes_rec = np.nan * np.zeros([len(y), len(x)], np.float32)
+            # Reconstruct the 2D array
+            altitudes_rec[self.mask] = self.pm.altitudes
+            self.ds[self.conventions.get_name("surface_altitude")] = (
+                spatial_dims,
+                altitudes_rec,
+            )
+
+        proj_attrs = {}
+        if self.proj4_str is not None:
+            proj_attrs = projections.get_proj_attributes(self.proj4_str)
+        self.ds[self.conventions.get_name("projection")] = ([], 0, proj_attrs)
+        print(
+            "netcdf._not_gridded_masked in ",
+            pytime.perf_counter() - t0,
+        )
+
+    def _not_gridded_not_masked(self, spatial_dims: tuple):
+        t0 = pytime.perf_counter()
+        self.ds[self.conventions.get_name("latitude")] = (
+            spatial_dims,
+            self.pm.lats,
+        )
+        self.ds[self.conventions.get_name("longitude")] = (
+            spatial_dims,
+            self.pm.lons,
+        )
+        if self.pm.altitudes is not None:
+            self.ds[self.conventions.get_name("surface_altitude")] = (
+                spatial_dims,
+                self.pm.altitudes,
+            )
+        print(
+            "netcdf._not_gridded_not_masked in",
+            pytime.perf_counter() - t0,
+        )
+
     def _gridded_not_interpolated(self, spatial_dims: tuple) -> None:
+        t0 = pytime.perf_counter()
         lats = self.pm.grid_lats.astype(np.double)
         lons = self.pm.grid_lons.astype(np.double)
         self.ds[self.conventions.get_name("latitude")] = (
@@ -354,6 +366,10 @@ class Netcdf(Output):
             # proj_attrs["latitude_of_projection_origin"] = 63.3
             # proj_attrs["earth_radius"] = 6371000.0
         self.ds[self.conventions.get_name("projection")] = ([], 0, proj_attrs)
+        print(
+            "netcdf._gridded_not_interpolated in ",
+            pytime.perf_counter() - t0,
+        )
 
     def _gridded_interpolate(self):
         """If is gridded and interpolation should be done"""
