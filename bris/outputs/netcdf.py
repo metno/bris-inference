@@ -350,6 +350,14 @@ class Netcdf(Output):
                     pytime.perf_counter() - t0,
                 )
 
+        self._set_projection_info()
+        self._setup_prediction_vars(spatial_dims, times, x, y, pred)
+        self._set_attrs()
+        self._write_files(filename)
+        print("netcdf.write Done in", pytime.perf_counter() - t0)
+
+
+    def _set_projection_info(self) -> None:
         for cfname in [
             "forecast_reference_time",
             "time",
@@ -360,7 +368,7 @@ class Netcdf(Output):
             "projection_y_coordinate",
             "realization",
         ]:
-            ncname = c(cfname)
+            ncname = self.conventions.get_name(cfname)
             if ncname in self.ds:
                 self.ds[ncname].attrs = cf.get_attributes(cfname)
 
@@ -368,10 +376,6 @@ class Netcdf(Output):
                     self.ds[ncname].attrs["grid_mapping"] = "projection"
                     self.ds[ncname].attrs["coordinates"] = "latitude longitude"
 
-        self._setup_prediction_vars(spatial_dims, times, x, y, pred)
-        self._set_attrs()
-        self._write_files(filename)
-        print("netcdf.write Done in", pytime.perf_counter() - t0)
 
     def _setup_prediction_vars(
         self,
