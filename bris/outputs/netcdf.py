@@ -106,7 +106,7 @@ class Netcdf(Output):
     def _add_forecast(
         self, times: list, ensemble_member: int, pred: np.ndarray
     ) -> None:
-        if self.pm.num_members > 1:
+        if self.intermediate is not None:
             # Cache data with intermediate
             self.intermediate.add_forecast(times, ensemble_member, pred)
             return
@@ -460,7 +460,12 @@ class Netcdf(Output):
             pytime.perf_counter() - t0,
         )
 
-        # Add global attributes
+        self._set_attrs()
+        self._write_files(filename, nc_encoding)
+        print("netcdf.write Done in", pytime.perf_counter() - t0)
+
+    def _set_attrs(self) -> None:
+        '''Add global attributes'''
         datestr = datetime.datetime.now(datetime.timezone.utc).strftime(
             "%Y-%m-%d %H:%M:%S +00:00"
         )
@@ -469,6 +474,8 @@ class Netcdf(Output):
         for key, value in self.global_attributes.items():
             self.ds.attrs[key] = value
 
+
+    def _write_files(self, filename: str, nc_encoding: dict) -> None:
         utils.create_directory(filename)
         self.ds.to_netcdf(
             filename,
@@ -477,7 +484,7 @@ class Netcdf(Output):
             unlimited_dims=["time"],
             encoding=nc_encoding,
         )
-        print("netcdf.write Done in", pytime.perf_counter() - t0)
+
 
     def finalize(self):
         t0 = pytime.perf_counter()
