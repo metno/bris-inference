@@ -1,7 +1,7 @@
 from . import cf
 
 
-def get_units(name):
+def get_units(name: str) -> str | None:
     """Returns the units used in Anemoi Datasets"""
 
     # Assume anemoi datasets use CF units

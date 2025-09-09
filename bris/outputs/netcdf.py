@@ -41,7 +41,7 @@ class Netcdf(Output):
         extra_variables=None,
         proj4_str=None,
         domain_name=None,
-        mask_file=None,
+        mask_file: str = "",
         mask_field=None,
         global_attributes=None,
         remove_intermediate=True,
@@ -102,7 +102,9 @@ class Netcdf(Output):
                 mask = self.ds_mask[mask_field].values
             self.mask = mask == 1.0
 
-    def _add_forecast(self, times: list, ensemble_member: int, pred: np.array) -> None:
+    def _add_forecast(
+        self, times: list, ensemble_member: int, pred: np.ndarray
+    ) -> None:
         if self.pm.num_members > 1:
             # Cache data with intermediate
             self.intermediate.add_forecast(times, ensemble_member, pred)
@@ -123,7 +125,7 @@ class Netcdf(Output):
     @property
     def _is_masked(self) -> bool:
         """Was a mask_from_dataset applied during training?"""
-        return self.mask_file is not None
+        return self.mask_file != ""
 
     @property
     def _is_gridded(self) -> bool:
@@ -135,7 +137,7 @@ class Netcdf(Output):
         """Should interpolation to a regular lat/lon grid be performed?"""
         return self.interp_res is not None
 
-    def write(self, filename: str, times: list, pred: np.array):
+    def write(self, filename: str, times: list, pred: np.ndarray):
         """Write prediction to NetCDF
         Args:
             times: List of np.datetime64 objects that this forecast is for
