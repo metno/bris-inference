@@ -126,6 +126,17 @@ class BrisLamPredictor(BasePredictor):
 
         self.batch_info = {}
 
+
+    def set_forcings_from_file(self, data_reader: Iterable, data_config: dict) -> None:
+        # data_reader: datamodule.data_reader
+        # data_config = self.metadata.config.data
+
+        # First similar to set_static_forcings
+
+        return
+    
+    # TODO: test that data_config["forcing"] works as input in get_model_static_forcings
+
     def set_static_forcings(self, data_reader: Iterable, data_config: dict) -> None:
         """
         Set static forcings for the model. Done by reading from the data reader, reshape, store as a tensor. Tensor is
