@@ -31,7 +31,9 @@ class Intermediate(Output):
         utils.create_directory(filename)
 
         np.save(filename, pred)
-        print("_add_forecast in ", time.perf_counter() - t0)
+        print(
+            f"Intermediate._add_forecast for {filename} in {time.perf_counter() - t0:.1f}s"
+        )
 
     def get_filename(self, forecast_reference_time, ensemble_member):
         frt_ut = utils.datetime_to_unixtime(forecast_reference_time)
@@ -77,12 +79,17 @@ class Intermediate(Output):
                 filename = self.get_filename(forecast_reference_time, e)
                 if os.path.exists(filename):
                     pred[..., e] = np.load(filename)
+                print(
+                    f"Intermediate.get_forecast for {filename} in {time.perf_counter() - t0:.1f}s"
+                )
         else:
             assert isinstance(ensemble_member, int)
 
             filename = self.get_filename(forecast_reference_time, ensemble_member)
             pred = np.load(filename) if os.path.exists(filename) else None
-        print("get_forecast in ", time.perf_counter() - t0)
+            print(
+                f"Intermediate.get_forecast for {filename} in {time.perf_counter() - t0:.1f}s"
+            )
         return pred
 
     @property
@@ -112,7 +119,7 @@ class Intermediate(Output):
             os.rmdir(self.workdir)
         except OSError as e:
             print(f"Error removing workdir {self.workdir}: {e}")
-        print("cleanup in ", time.perf_counter() - t0)
+        print(f"Intermediate.cleanup in {time.perf_counter() - t0:.1f}s")
 
     def finalize(self):
         pass

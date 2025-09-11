@@ -183,8 +183,8 @@ def main(arg_list: list[str] | None = None):
                 t0 = time.perf_counter()
                 output.finalize()
                 print(
-                    f"finalizing decoder {decoder_output} output {output} in ",
-                    time.perf_counter() - t0,
+                    f"finalizing decoder {decoder_output} output {output.filename_pattern} in %d.1s"
+                    % (time.perf_counter() - t0)
                 )
 
         LOGGER.info("Model run completed. 🤖")

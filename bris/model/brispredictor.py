@@ -167,23 +167,6 @@ class BrisPredictor(BasePredictor):
         Returns:
             torch.Tensor: Output tensor after processing by the model.
         """
-        if self.ens_comm_group_size and self.ens_comm_group_size > 1:
-            # LOGGER.debug(f"Bris/Model/Brispredictor forward. global_rank {self.global_rank}, model_comm_group_id {self.model_comm_group_id}")
-            cuda_id = -1
-            try:
-                cuda_id = torch.cuda.current_device()
-            except RuntimeError:
-                pass  # no GPUs
-            LOGGER.debug(
-                "Bris/Model/Brispredictor forward. Rank %d model_comm_group_id: %d model_comm_group_rank: %d "
-                "reader_group_id: %d reader_group_rank: %d Cuda device %s",
-                self.global_rank,
-                self.model_comm_group_id,
-                self.model_comm_group_rank,
-                self.reader_group_id,
-                self.reader_group_rank,
-                cuda_id,
-            )
         return self.model(x, model_comm_group=self.model_comm_group, **kwargs)
 
     def advance_input_predict(
@@ -315,9 +298,6 @@ class BrisPredictor(BasePredictor):
                     torch.cuda.empty_cache()
         self.update_batch_info(time)
         # Save info about which batches has been processed before, update ensemble member based on this.
-        LOGGER.debug(
-            f"Bris/model/BrisPredictor predict_step times {times}, group_rank {self.model_comm_group_rank}, ensemble_member {self.member_id}"
-        )
         return {
             "pred": [y_preds.to(torch.float32).numpy()],
             "times": times,
