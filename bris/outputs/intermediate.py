@@ -98,7 +98,6 @@ class Intermediate(Output):
         """Removes up all intermediate files and removes the workdir. Called in finalize of the main output."""
 
         for _filename in self.get_filenames():
-<<<<<<< HEAD
             try:
                 os.remove(_filename)
             except OSError as e:
@@ -111,9 +110,8 @@ class Intermediate(Output):
 
     def finalize(self):
         pass
-=======
-            # delete file
-            pass
+
+
 
 class IntermediateSpatial(Intermediate):
     """Intermediate output for spatial metrics, inheriting from Intermediate."""
@@ -129,9 +127,10 @@ class IntermediateSpatial(Intermediate):
         self.metric_shape = metric_shape
 
     def get_forecast(self, forecast_reference_time, ensemble_member=None):
-
         if ensemble_member is None:
-            shape = (self.pm.num_leadtimes,) + self.metric_shape + (self.pm.num_members,)
+            shape = (
+                (self.pm.num_leadtimes,) + self.metric_shape + (self.pm.num_members,)
+            )
             pred = np.nan * np.zeros(shape)
             for e in range(self.pm.num_members):
                 filename = self.get_filename(forecast_reference_time, e)
@@ -144,6 +143,3 @@ class IntermediateSpatial(Intermediate):
             pred = np.load(filename) if os.path.exists(filename) else None
 
         return pred
-
-    
->>>>>>> 1fe56a3 (WIP spatial metrics, need to look more into power spectrum implementation)

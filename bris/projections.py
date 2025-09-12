@@ -27,6 +27,7 @@ def get_xy(lats, lons, proj_str):
 
     return x, y
 
+
 def get_proj_attributes(proj_str):
     crs = pyproj.CRS.from_proj4(proj_str)
     attrs = crs.to_cf()
