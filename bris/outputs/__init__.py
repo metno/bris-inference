@@ -7,6 +7,8 @@ import numpy as np
 from bris import sources
 from bris.predict_metadata import PredictMetadata
 
+from ..utils import LOGGER
+
 
 def instantiate(name: str, predict_metadata: PredictMetadata, workdir: str, init_args):
     """Creates an object of type name with config
@@ -121,7 +123,9 @@ class Output:
                     raise ValueError(f"No recipe to compute {name}")
 
             pred = np.concatenate([pred] + extra_pred, axis=2)
-        print(f"outputs.add_forecast Calculate ws in {time.perf_counter() - t0:.1f}s")
+        LOGGER.debug(
+            f"outputs.add_forecast Calculate ws in {time.perf_counter() - t0:.1f}s"
+        )
 
         assert pred.shape[0] == self.pm.num_leadtimes
         assert pred.shape[1] == len(self.pm.lats)
@@ -134,7 +138,7 @@ class Output:
 
         t1 = time.perf_counter()
         self._add_forecast(times, ensemble_member, pred)
-        print(
+        LOGGER.debug(
             f"outputs.add_forecast called _add_forecast in {time.perf_counter() - t1:.1f}s"
         )
 

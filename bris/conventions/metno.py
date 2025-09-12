@@ -7,6 +7,11 @@ Additionally, the names of some dimension-variables do not use CF-names
 """
 
 
+from re import LOCALE
+
+from bris.utils import LOGGER
+
+
 class Metno:
     cf_to_metno = {
         "projection_y_coordinate": "y",
@@ -46,12 +51,12 @@ class Metno:
             # This is likely a forcing variable
             return cfname
         else:
-            print(cfname, leveltype, level)
+            LOGGER.error(cfname, leveltype, level)
             raise NotImplementedError()
 
         return ncname
 
-    def is_single_level(self, cfname: str, leveltype: str) -> str:
+    def is_single_level(self, cfname: str, leveltype: str) -> bool:
         """Returns true if there should only be a single level in the level dimension for this
         variable.
 
@@ -69,13 +74,13 @@ class Metno:
             "wind_speed",
         ] and leveltype in ["height"]
 
-    def get_name(self, cfname: str):
+    def get_name(self, cfname: str) -> str:
         """Get MetNorway's dimension name from cf standard name"""
         if cfname in self.cf_to_metno:
             return self.cf_to_metno[cfname]
         return cfname
 
-    def get_cfname(self, ncname):
+    def get_cfname(self, ncname) -> str:
         """Get the CF-standard name from a given MetNo name"""
         for k, v in self.cf_to_metno.items():
             if v == ncname:

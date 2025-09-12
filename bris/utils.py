@@ -134,7 +134,16 @@ def create_config(config_path: str, overrides: dict) -> DictConfig | ListConfig:
     validate(config_path, raise_on_error=True)
 
     config = OmegaConf.load(config_path)
-    LOGGER.debug("config file from %s is loaded", config_path)
+    if "loglevel" in config:
+        if "debug" in config.loglevel.lower() or "verbose" in config.loglevel.lower():
+            LOGGER.level = logging.DEBUG
+        elif "error" in config.loglevel.lower():
+            LOGGER.level = logging.ERROR
+        elif "warn" in config.loglevel.lower():
+            LOGGER.level = logging.WARNING
+        else:
+            LOGGER.level = logging.INFO
+    LOGGER.debug(f"config file from {config_path} loaded with log level {config.loglevel}")
 
     return OmegaConf.merge(config, OmegaConf.create(overrides))
 

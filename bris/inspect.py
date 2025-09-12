@@ -3,6 +3,8 @@ import json
 import sys
 from argparse import ArgumentParser
 
+from bris.data.dataset.nativegrid import LOGGER
+
 from .checkpoint import Checkpoint
 from .forcings import anemoi_dynamic_forcings
 
@@ -59,7 +61,7 @@ def check_module_versions(
             )
             if clean_version != clean_version_name(m.__version__)[0]:
                 if debug:
-                    print(
+                    LOGGER.warning(
                         f"  Warning: Installed version of {module} is <{m.__version__}>, while "
                         f"checkpoint was created with <{checkpoint.metadata.provenance_training.module_versions[module]}>."
                     )
