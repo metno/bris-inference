@@ -145,10 +145,10 @@
                     "required": ["filename", "variable"]
                 }
             },
-            "required": ["sh_powerspectrum"]
+            "required": ["powerspectrum_global"]
         },
 
-        "PowerSpectrum": {
+        "DCTPowerSpectrum": {
             "description": "2D Power Spectrum output file",
             "type": "object",
             "properties": {
@@ -180,7 +180,7 @@
                     "required": ["filename", "variable"]
                 }
             },
-            "required": ["powerspectrum"]
+            "required": ["powerspectrum_gridded"]
         },
 
         "VerifSource": {
@@ -343,7 +343,7 @@
                                 {"$ref": "#/$defs/VerifOutput"},
                                 {"$ref": "#/$defs/GribOutput"},
                                 {"$ref": "#/$defs/SHPowerSpectrumOutput"},
-                                {"$ref": "#/$defs/PowerSpectrum"}
+                                {"$ref": "#/$defs/DCTPowerSpectrum"}
                             ]
                         }
                     }

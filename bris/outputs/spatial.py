@@ -210,7 +210,7 @@ class SHPowerSpectrum(Spatial):
         return metric
 
 
-class PowerSpectrum(Spatial):
+class DCTPowerSpectrum(Spatial):
     """Calculates the isotropic power spectrum of a variables for regular projected grids using the Discrete Cosine Transform"""
 
     def __init__(
