@@ -163,7 +163,7 @@ def setup_logging(config: DotDict) -> None:
     )
 
 
-def datetime_to_unixtime(dt: np.datetime64) -> np.ndarray[int]:
+def datetime_to_unixtime(dt: np.datetime64) -> np.ndarray:
     """Convert a np.datetime64 object or list of objects to unixtime"""
     return np.array(dt).astype("datetime64[s]").astype("int")
 

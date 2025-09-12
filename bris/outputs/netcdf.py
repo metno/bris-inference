@@ -145,7 +145,7 @@ class Netcdf(Output):
         """Should interpolation to a regular lat/lon grid be performed?"""
         return self.interp_res is not None
 
-    def write(self, filename: str, times: list, pred: np.ndarray):
+    def write(self, filename: str, times: np.datetime64, pred: np.ndarray):
         """Write prediction to NetCDF
         Args:
             times: List of np.datetime64 objects that this forecast is for
@@ -166,6 +166,9 @@ class Netcdf(Output):
         times_ut = utils.datetime_to_unixtime(times)
         frt_ut = times_ut[0]
         coords[c("time")] = np.array(times_ut).astype(np.double)
+
+        x: np.ndarray | None = None
+        y: np.ndarray | None = None
 
         if self._is_gridded:
             if self._interpolate:
@@ -287,7 +290,7 @@ class Netcdf(Output):
 
         else:
             if self._is_masked:
-                self._not_gridded_masked(spatial_dims)
+                self._not_gridded_masked(spatial_dims, x, y)
             else:
                 self._not_gridded_not_masked(spatial_dims)
 
@@ -296,7 +299,7 @@ class Netcdf(Output):
         self._set_attrs()
         self._write_files(filename)
 
-    def _not_gridded_masked(self, spatial_dims: tuple):
+    def _not_gridded_masked(self, spatial_dims: tuple, y, x):
         t0 = pytime.perf_counter()
         if hasattr(self.ds_mask, "lat") and hasattr(self.ds_mask, "lon"):
             lat = self.ds_mask.lat.values
