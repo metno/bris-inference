@@ -1,8 +1,11 @@
+import datetime
+
 from abc import abstractmethod
 from functools import cached_property
 import numpy as np
 import xarray as xr
 from scipy.interpolate import griddata
+from scipy.fft import dctn
 from pyshtools.expand import SHGLQ, SHExpandGLQ
 
 from bris.outputs import Output
@@ -18,8 +21,6 @@ class Spatial(Output):
     Power spectrum (wavelet spectrum)
     Sharpness https://github.com/ai2es/sharpness/blob/main/src/sharpness/metrics.py
     """
-    # Input: Full prediction of one ensemble member
-    # Output: Spatial average metric as a function of time, leadtime, and ens member?
 
     def __init__(
         self, 
@@ -130,7 +131,7 @@ class Spatial(Output):
 
 
 class SHPowerSpectrum(Spatial):
-    """Calculates the spherical harmonic power spectrum of a variable"""
+    """Calculates the isotropic power spectrum of a variables for global grids using the Spherical Harmonics fourier transform"""
 
     def __init__(
         self, 
@@ -158,6 +159,7 @@ class SHPowerSpectrum(Spatial):
     
     @cached_property
     def get_grid_reg_latlons(self) -> tuple:
+        "Create a regular lat-lon grid based on the data resolution or input resolution if delta_degrees is given"
         lats = self.pm.lats
         lons = self.pm.lons
         
@@ -172,7 +174,7 @@ class SHPowerSpectrum(Spatial):
         lats_regular = np.linspace(lats.min(), lats.max(), n_lats)
         lons_regular = np.linspace(lons.min(), lons.max(), n_lons)
         lons_reg_grid, lats_reg_grid = np.meshgrid(lons_regular, lats_regular)
-        return lats_reg_grid, lons_reg_grid
+        return lons_reg_grid, lats_reg_grid
      
 
     def calculate_metric(self, pred: np.ndarray) -> np.ndarray:
@@ -203,16 +205,16 @@ class SHPowerSpectrum(Spatial):
             coeff_amp = coeffs_field[0,:,:] ** 2 + coeffs_field[1,:,:] ** 2
             power_spectrum = np.sum(coeff_amp, axis=1)
 
-            metric[lt, :] = power_spectrum[1:]
+            metric[lt, ...] = power_spectrum[1:]
 
         return metric
 
 
 class PowerSpectrum(Spatial):
-    """Calculates the isotropic power spectrum of a variables for regular projected grids"""
+    """Calculates the isotropic power spectrum of a variables for regular projected grids using the Discrete Cosine Transform"""
 
     def __init__(
-        self, 
+        self,
         predict_metadata: PredictMetadata,
         workdir: str,
         filename: str,
@@ -239,68 +241,64 @@ class PowerSpectrum(Spatial):
     def get_metric_shape(self) -> tuple:
         _, k_bins, _ = self.get_bins
         return (k_bins.shape[0],)
- 
+
     @cached_property
     def get_bins(self):
+        """ Calculates wavenumbers, bins and bin-edges used in the CDT calculation. """
         nx, ny = self.pm.field_shape
         lats, lons = self.get_latlons
         x, y = projections.get_xy(
-                lats.reshape(nx, ny), 
-                lons.reshape(nx, ny), 
-                self.proj4_str
+            lats.reshape(nx, ny),
+            lons.reshape(nx, ny),
+            self.proj4_str
         )
 
         dx = np.mean(np.diff(x))
         dy = np.mean(np.diff(y))
-        assert np.allclose(np.diff(x), dx, atol=1.0), "Non-uniform grid spacing in x direction"
-        assert np.allclose(np.diff(y), dy, atol=1.0), "Non-uniform grid spacing in y direction"
+        assert np.allclose(np.diff(x), dx, atol=1.0), "Non-uniform grid spacing in x-direction"
+        assert np.allclose(np.diff(y), dy, atol=1.0), "Non-uniform grid spacing in y-direction"
 
-        kx = np.fft.fftshift(np.fft.fftfreq(nx, d=dx)) * 2 * np.pi
-        ky = np.fft.fftshift(np.fft.fftfreq(ny, dy)) * 2 * np.pi
-        kx, ky = np.meshgrid(kx, ky, indexing='ij')
-        k = np.sqrt(kx**2 + ky**2).flatten()
+        kx = np.pi * np.arange(nx) / (nx*dx)
+        ky = np.pi * np.arange(ny) / (ny*dy)
 
-        k_max = np.max(k)
+        KX, KY = np.meshgrid(kx, ky, indexing='ij')
+        k = np.sqrt(KX**2 + KY**2)
+        k_max = k.max()
         if self.n_bins is not None:
             n_bins = self.n_bins
         else:
-            n_bins = min(nx, ny) // 2 
+            n_bins = min(nx, ny) // 2
         
-        k_edges = np.linspace(0, k_max, n_bins + 1)
+        k_edges = np.linspace(0.0, k_max, n_bins + 1)
         k_bins = 0.5 * (k_edges[1:] + k_edges[:-1])
+        k = k.flatten()
         return k_edges, k_bins, k
-    
+
     def get_extra_dimensions(self) -> dict:
         _, k_bin, _ = self.get_bins
         return {"k": k_bin}
 
     def calculate_metric(self, pred: np.ndarray) -> np.ndarray:
+        "Calculate the isotropic power spectrum"
 
         var_index = self.pm.variables.index(self.variable)
         leadtimes = self.pm.num_leadtimes
         metric = np.full((leadtimes,) + self.metric_shape, np.nan, dtype=np.float32)
         nx, ny = self.pm.field_shape
 
+        k_edges, k_bins, k = self.get_bins
+        n_bins = k_bins.shape[0]
+        digitized = np.digitize(k.flatten(), k_edges)
+
         for lt in range(leadtimes):
             field = pred[lt, :, var_index].reshape(nx, ny)
 
-            F = np.fft.fft2(field)
-            F = np.fft.fftshift(F)
-            P2D = np.abs(F)**2 / (nx * ny)
-            P1D = P2D.flatten()
+            P = np.abs(dctn(field, type=2, norm='ortho'))**2
 
-            k_edges, _, k = self.get_bins
-            n_bins = k_edges.shape[0] - 1
-
-            digitized = np.digitize(k.flatten(), k_edges)
-            
-            E_k = np.array([P1D[digitized==i].mean() if np.any(digitized==i) else 0
-                    for i in range(1, n_bins+1)])
+            E_k = np.array([P.flatten()[digitized==i].mean() if np.any(digitized==i) else 0 for i in range(1, n_bins + 1)])
             metric[lt, :] = E_k
 
         return metric
-            
-
 
 
 
