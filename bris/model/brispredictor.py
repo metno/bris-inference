@@ -18,13 +18,12 @@ from ..forcings import (
     get_dynamic_forcings,
 )
 from ..utils import (
+    LOGGER,
     check_anemoi_training,
     timedelta64_from_timestep,
 )
 from .basepredictor import BasePredictor
 from .model_utils import get_model_static_forcings, get_variable_indices
-
-LOGGER = logging.getLogger(__name__)
 
 
 class BrisPredictor(BasePredictor):

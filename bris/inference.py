@@ -1,4 +1,5 @@
 import logging
+import time
 from functools import cached_property
 from typing import Any, Optional
 
@@ -9,8 +10,7 @@ from anemoi.utils.config import DotDict
 from bris.ddp_strategy import DDPGroupStrategy
 
 from .data.datamodule import DataModule
-
-LOGGER = logging.getLogger(__name__)
+from .utils import LOGGER
 
 
 class Inference:
@@ -41,7 +41,7 @@ class Inference:
                 LOGGER.info("Specified device not set. Found GPU")
                 return "cuda"
 
-            LOGGER.info("Specified device not set. Could not find gpu, using CPU")
+            LOGGER.warning("Specified device not set. Could not find gpu, using CPU")
             return "cpu"
 
         LOGGER.info("Using specified device: %s", self._device)
@@ -74,6 +74,9 @@ class Inference:
         return trainer
 
     def run(self):
+        t0 = time.perf_counter()
+        LOGGER.debug("Bris/Inference/run Predicting")
         self.trainer.predict(
             self.model, datamodule=self.datamodule, return_predictions=False
         )
+        LOGGER.debug("bris/Inference.run: %d.1s", (time.perf_counter() - t0))
