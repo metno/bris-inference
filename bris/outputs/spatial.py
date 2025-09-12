@@ -278,10 +278,8 @@ class DCTPowerSpectrum(Spatial):
         KX, KY = np.meshgrid(kx, ky, indexing="ij")
         k = np.sqrt(KX**2 + KY**2)
         k_max = k.max()
-        if self.n_bins is not None:
-            n_bins = self.n_bins
-        else:
-            n_bins = min(nx, ny) // 2
+
+        n_bins = self.n_bins if self.n_bins is not None else min(nx, ny) // 2
 
         k_edges = np.linspace(0.0, k_max, n_bins + 1)
         k_bins = 0.5 * (k_edges[1:] + k_edges[:-1])
