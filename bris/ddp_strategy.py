@@ -9,7 +9,6 @@
 
 
 import logging
-from re import DEBUG
 
 import numpy as np
 import pytorch_lightning as pl

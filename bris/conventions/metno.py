@@ -48,7 +48,9 @@ class Metno:
             # This is likely a forcing variable
             return cfname
         else:
-            LOGGER.error(cfname, leveltype, level)
+            LOGGER.error(
+                f"get_ncname not implemented cfname {cfname}, leveltype {leveltype}, level {level}"
+            )
             raise NotImplementedError()
 
         return ncname
