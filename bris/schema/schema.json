@@ -121,6 +121,67 @@
             },
             "required": ["grib"]
         },
+        "SHPowerSpectrumOutput": {
+            "description": "Spherical Harmonics Power Spectrum output file",
+            "type": "object",
+            "properties": {
+                "sh_power_spectrum": {
+                    "type": "object",
+                    "properties": {
+                        "filename": {
+                            "description": "Where to write the output file. Use %R for run_name",
+                            "type": "string"
+                        },
+                        "variable": {
+                            "description": "What anemoi variable to compute power spectrum for? Can include variables that can be diagnosed from other variables (e.g. 10si from 10u and 10v)",
+                            "type": "string"
+                        },
+                        "delta_degrees": {
+                            "description": "Grid spacing (in degrees) to use when regridding to regular grid. If not provided, the minimum grid spacing in the lat-direction is used.",
+                            "type": "number",
+                            "minimum": 0
+                        }
+                    },
+                    "required": ["filename", "variable"]
+                }
+            },
+            "required": ["powerspectrum_global"]
+        },
+
+        "DCTPowerSpectrum": {
+            "description": "2D Power Spectrum output file",
+            "type": "object",
+            "properties": {
+                "powerspectrum": {
+                    "type": "object",
+                    "properties": {
+                        "filename": {
+                            "description": "Where to write the output file. Use %R for run_name",
+                            "type": "string"
+                        },
+                        "variable": {
+                            "description": "What anemoi variable to compute power spectrum for? Can include variables that can be diagnosed from other variables (e.g. 10si from 10u and 10v)",
+                            "type": "string"
+                        },
+                        "resolution": {
+                            "description": "Approximate grid spacing (in km) to use when estimating the power spectrum. If not provided, the minimum grid spacing in the x-direction is used.",
+                            "type": "number",
+                            "minimum": 0
+                        },
+                        "proj4_str": {
+                            "description": "Assume this projection string when computing x/y coordinates",
+                            "type": "string"
+                        },
+                        "domain_name": {
+                            "description": "Retrieve projection from this predefined domain name (e.g. meps)",
+                            "type": "string"
+                        }
+                    },
+                    "required": ["filename", "variable"]
+                }
+            },
+            "required": ["powerspectrum_gridded"]
+        },
 
         "VerifSource": {
             "description": "Observations stored in a Netcdf verif file",
@@ -280,7 +341,9 @@
                             "oneOf": [
                                 {"$ref": "#/$defs/NetcdfOutput"},
                                 {"$ref": "#/$defs/VerifOutput"},
-                                {"$ref": "#/$defs/GribOutput"}
+                                {"$ref": "#/$defs/GribOutput"},
+                                {"$ref": "#/$defs/SHPowerSpectrumOutput"},
+                                {"$ref": "#/$defs/DCTPowerSpectrum"}
                             ]
                         }
                     }
