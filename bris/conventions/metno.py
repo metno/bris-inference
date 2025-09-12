@@ -6,8 +6,6 @@ these are not unique (e.g. air_temperature_pl vs air_temperature_2m).
 Additionally, the names of some dimension-variables do not use CF-names
 """
 
-from re import LOCALE
-
 from bris.utils import LOGGER
 
 
