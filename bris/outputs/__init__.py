@@ -171,6 +171,5 @@ class Output:
 from .grib import Grib
 from .intermediate import Intermediate
 from .netcdf import Netcdf
+from .spatial import DCTPowerSpectrum, SHPowerSpectrum
 from .verif import Verif
-from .spatial import SHPowerSpectrum
-from .spatial import DCTPowerSpectrum

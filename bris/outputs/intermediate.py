@@ -112,7 +112,6 @@ class Intermediate(Output):
         pass
 
 
-
 class IntermediateSpatial(Intermediate):
     """Intermediate output for spatial metrics, inheriting from Intermediate."""
 

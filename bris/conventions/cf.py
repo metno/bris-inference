@@ -155,76 +155,8 @@ def get_attributes(cfname: str) -> dict[str, str] | dict:
         },
     }
 
-<<<<<<< HEAD
     # Return empty dictionary if unknown
     if cfname not in attribute_mapping:
-=======
-    # Coordinate variables
-    if cfname in ["forecast_reference_time", "time"]:
-        ret["units"] = "seconds since 1970-01-01 00:00:00 +00:00"
-    elif cfname == "latitude":
-        ret["units"] = "degrees_north"
-    elif cfname in [
-        "surface_altitude",
-        "projection_x_coordinate",
-        "projection_y_coordinate",
-    ]:
-        ret["units"] = "m"
-    elif cfname == "longitude":
-        ret["units"] = "degrees_east"
-    elif cfname == "realization":
-        pass
-    elif cfname == "air_pressure":
-        ret["units"] = "hPa"
-        ret["description"] = "pressure"
-        ret["positive"] = "up"
-    elif cfname == "height":
-        ret["units"] = "m"
-        ret["description"] = "height above ground"
-        ret["long_name"] = "height"
-        ret["positive"] = "up"
-    elif cfname in ["thunder_event"]:
-        ret["standard_name"] = "thunderstorm_probability"
-        ret["units"] = "1"
-
-    # Data variables
-    elif cfname in [
-        "x_wind",
-        "y_wind",
-        "wind_speed",
-        "wind_speed_of_gust",
-        "vertical_velocity",
-    ]:
-        ret["units"] = "m/s"
-    elif cfname in ["air_temperature", "dew_point_temperature"]:
-        ret["units"] = "K"
-    elif cfname in ["land_sea_mask", "area_fraction"]:
-        ret["units"] = "1"
-    elif cfname in ["geopotential", "surface_geopotential"]:
-        ret["units"] = "m^2/s^2"
-    elif cfname in ["precipitation_amount", "precipitation_amount_acc"]:
-        ret["units"] = "kg/m^2"
-    elif cfname in ["air_pressure_at_sea_level", "surface_air_pressure"]:
-        ret["units"] = "Pa"
-    elif cfname in ["specific_humidity"]:
-        ret["units"] = "kg/kg"
-    elif cfname in ["cloud_base_altitude", "visibility_in_air"]:
-        ret["units"] = "m"
-    elif cfname in [
-        "integral_of_surface_downwelling_longwave_flux_in_air_wrt_time",
-        "integral_of_surface_downwelling_shortwave_flux_in_air_wrt_time",
-    ]:
-        ret["units"] = "J/m^2"
-
-    # Fourier wavenumbers
-    elif cfname in ["k"]:
-        ret["units"] = "rad/m"
-        ret["long_name"] = "wavenumber"
-    elif cfname in ["l"]:
-        ret["units"] = "1"
-        ret["long_name"] = "spherical wavenumber"
-    else:  # Handle unknown `cfname` by returning an empty dictionary
->>>>>>> 720daf1 (Write wavenumber units to file)
         return {}
 
     # Add standard_name if it doesn't exist, return attributes for the given cfname

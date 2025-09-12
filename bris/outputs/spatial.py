@@ -1,19 +1,18 @@
 import datetime
-
 from abc import abstractmethod
 from functools import cached_property
+
 import numpy as np
 import xarray as xr
-from scipy.interpolate import griddata
-from scipy.fft import dctn
 from pyshtools.expand import SHGLQ, SHExpandGLQ
+from scipy.fft import dctn
+from scipy.interpolate import griddata
 
-from bris.outputs import Output
 from bris import projections, utils
 from bris.conventions import cf
-from bris.predict_metadata import PredictMetadata
+from bris.outputs import Output
 from bris.outputs.intermediate import IntermediateSpatial
-from bris.conventions import cf
+from bris.predict_metadata import PredictMetadata
 
 
 class Spatial(Output):
