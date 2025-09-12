@@ -62,7 +62,6 @@ def get_required_variables(name, init_args):
             return ["10u", "10v"]
         return [init_args["variable"]]
 
-    
     if name == "grib":
         if "variables" in init_args:
             variables = init_args["variables"]
