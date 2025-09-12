@@ -53,7 +53,9 @@ class Intermediate(Output):
 
         return frts
 
-    def get_forecast(self, forecast_reference_time, ensemble_member=None) -> np.ndarray | None:
+    def get_forecast(
+        self, forecast_reference_time, ensemble_member=None
+    ) -> np.ndarray | None:
         """Fetches forecasts from stored numpy files
 
         Args:

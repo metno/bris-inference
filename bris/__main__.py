@@ -18,6 +18,7 @@ from .utils import (
     parse_args,
     set_base_seed,
     set_encoder_decoder_num_chunks,
+    setup_logging,
 )
 from .writer import CustomWriter
 
@@ -25,6 +26,7 @@ from .writer import CustomWriter
 def main(arg_list: list[str] | None = None):
     args = parse_args(arg_list)
     config = create_config(args["config"], args)
+    setup_logging(config)
 
     models = list(config.checkpoints.keys())
     checkpoints = {
@@ -142,13 +144,6 @@ def main(arg_list: list[str] | None = None):
         config["routing"], checkpoints
     )
     writer = CustomWriter(decoder_outputs, write_interval="batch")
-
-    # Set hydra defaults
-    config.defaults = [
-        {"override hydra/job_logging": "none"},  # disable config parsing logs
-        {"override hydra/hydra_logging": "none"},  # disable config parsing logs
-        "_self_",
-    ]
 
     # Forecaster must know about what leadtimes to output
     model = instantiate(

@@ -19,14 +19,6 @@ from omegaconf import DictConfig, ListConfig, OmegaConf
 from .forcings import anemoi_dynamic_forcings, get_dynamic_forcings
 
 LOGGER = logging.getLogger("bris")
-console_handler = logging.StreamHandler(sys.stdout)
-console_handler.setLevel(logging.DEBUG)
-LOGGER.setLevel(logging.DEBUG)
-# Create a formatter for the logs
-formatter = logging.Formatter("%(asctime)s - %(name)s - %(levelname)s - %(message)s")
-console_handler.setFormatter(formatter)
-# Add the handler to the LOGGER
-LOGGER.addHandler(console_handler)
 
 
 def expand_time_tokens(filename: str, unixtime: int) -> str:
@@ -134,18 +126,41 @@ def create_config(config_path: str, overrides: dict) -> DictConfig | ListConfig:
     validate(config_path, raise_on_error=True)
 
     config = OmegaConf.load(config_path)
+
+    # Set hydra defaults
+    config.defaults = [
+        {"override hydra/job_logging": "none"},  # disable config parsing logs
+        {"override hydra/hydra_logging": "none"},  # disable config parsing logs
+        "_self_",
+    ]
+    return OmegaConf.merge(config, OmegaConf.create(overrides))
+
+
+def setup_logging(config: DotDict) -> None:
+    # Set up logging
+    console_handler = logging.StreamHandler(sys.stdout)
+    LOGGER.setLevel(logging.DEBUG)
+    # Create a formatter for the logs
+    formatter = logging.Formatter(
+        "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
+    )
+    console_handler.setFormatter(formatter)
+
     if "loglevel" in config:
         if "debug" in config.loglevel.lower() or "verbose" in config.loglevel.lower():
-            LOGGER.level = logging.DEBUG
+            console_handler.setLevel(logging.DEBUG)
         elif "error" in config.loglevel.lower():
-            LOGGER.level = logging.ERROR
+            console_handler.setLevel(logging.ERROR)
         elif "warn" in config.loglevel.lower():
-            LOGGER.level = logging.WARNING
+            console_handler.setLevel(logging.WARNING)
         else:
-            LOGGER.level = logging.INFO
-    LOGGER.debug(f"config file from {config_path} loaded with log level {config.loglevel}")
+            console_handler.setLevel(logging.INFO)
 
-    return OmegaConf.merge(config, OmegaConf.create(overrides))
+    # Add the handler to the LOGGER
+    LOGGER.addHandler(console_handler)
+    LOGGER.debug(
+        f"config file from {config.config} loaded with log level {console_handler.level}"
+    )
 
 
 def datetime_to_unixtime(dt: np.datetime64) -> np.ndarray[int]:
@@ -162,8 +177,8 @@ def timedelta64_from_timestep(timestep):
     if isinstance(timestep, str) and timestep[-1] in ("h", "m", "s"):
         return np.timedelta64(timestep[0:-1], timestep[-1])
 
-    print(
-        "WARNING: could not decode model timestep from checkpoint, trying to assume hours"
+    LOGGER.warning(
+        "could not decode model timestep from checkpoint, trying to assume hours"
     )
     return np.timedelta64(timestep, "h")
 

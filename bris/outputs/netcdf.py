@@ -191,11 +191,15 @@ class Netcdf(Output):
                 )
                 x_dim_name = c("longitude")
                 y_dim_name = c("latitude")
-                utils.LOGGER.debug(f"netcdf.write _interpolate in {pytime.perf_counter() - t0:.1f}s")
+                utils.LOGGER.debug(
+                    f"netcdf.write _interpolate in {pytime.perf_counter() - t0:.1f}s"
+                )
             else:
                 # TODO: Handle self.latrange and self.lonrange
                 if None not in [self.latrange, self.lonrange]:
-                    utils.LOGGER.warning("Warning: latrange/lonrange not handled in gridded fields")
+                    utils.LOGGER.warning(
+                        "Warning: latrange/lonrange not handled in gridded fields"
+                    )
 
                 if self.proj4_str:
                     lats = np.reshape(self.pm.lats, self.pm.field_shape).astype(
@@ -235,12 +239,16 @@ class Netcdf(Output):
                 coords[x_dim_name] = x
                 coords[y_dim_name] = y
                 spatial_dims = (y_dim_name, x_dim_name)
-                utils.LOGGER.debug(f"netcdf.write _is_masked in {pytime.perf_counter() - t0:.1f}s")
+                utils.LOGGER.debug(
+                    f"netcdf.write _is_masked in {pytime.perf_counter() - t0:.1f}s"
+                )
             else:
                 y = np.arange(len(self.pm.lats)).astype(np.int32)
                 coords["location"] = y
                 spatial_dims = ("location",)
-                utils.LOGGER.debug(f"netcdf.write else in {pytime.perf_counter() - t0:.1f}s")
+                utils.LOGGER.debug(
+                    f"netcdf.write else in {pytime.perf_counter() - t0:.1f}s"
+                )
 
         if self.intermediate is not None:
             coords[c("realization")] = np.arange(self.pm.num_members).astype(np.int32)
@@ -257,7 +265,9 @@ class Netcdf(Output):
             # Don't need to convert dimnames, since these are already to local convention
             coords[dimname] = np.array(levels).astype(np.float32)
             attrs[dimname] = cf.get_attributes(level_type)
-        utils.LOGGER.debug(f"netcdf.write Add dimensions in {pytime.perf_counter() - t0:.1f}s")
+        utils.LOGGER.debug(
+            f"netcdf.write Add dimensions in {pytime.perf_counter() - t0:.1f}s"
+        )
 
         self.ds = xr.Dataset(coords=coords)
 
@@ -320,7 +330,9 @@ class Netcdf(Output):
         if self.proj4_str is not None:
             proj_attrs = projections.get_proj_attributes(self.proj4_str)
         self.ds[self.conventions.get_name("projection")] = ([], 0, proj_attrs)
-        utils.LOGGER.debug(f"netcdf._not_gridded_masked in {pytime.perf_counter() - t0:.1f}s")
+        utils.LOGGER.debug(
+            f"netcdf._not_gridded_masked in {pytime.perf_counter() - t0:.1f}s"
+        )
 
     def _not_gridded_not_masked(self, spatial_dims: tuple):
         t0 = pytime.perf_counter()
@@ -337,7 +349,9 @@ class Netcdf(Output):
                 spatial_dims,
                 self.pm.altitudes,
             )
-        utils.LOGGER.debug(f"netcdf._not_gridded_not_masked in {pytime.perf_counter() - t0:.1f}s")
+        utils.LOGGER.debug(
+            f"netcdf._not_gridded_not_masked in {pytime.perf_counter() - t0:.1f}s"
+        )
 
     def _gridded_not_interpolated(self, spatial_dims: tuple) -> None:
         t0 = pytime.perf_counter()
@@ -367,7 +381,9 @@ class Netcdf(Output):
             # proj_attrs["latitude_of_projection_origin"] = 63.3
             # proj_attrs["earth_radius"] = 6371000.0
         self.ds[self.conventions.get_name("projection")] = ([], 0, proj_attrs)
-        utils.LOGGER.debug(f"netcdf._gridded_not_interpolated in {pytime.perf_counter() - t0:.1f}s")
+        utils.LOGGER.debug(
+            f"netcdf._gridded_not_interpolated in {pytime.perf_counter() - t0:.1f}s"
+        )
 
     def _gridded_interpolate(self):
         """If is gridded and interpolation should be done"""
@@ -523,7 +539,9 @@ class Netcdf(Output):
             unlimited_dims=["time"],
             encoding=self.nc_encoding,
         )
-        utils.LOGGER.debug(f"netcdf._write_files Done in {pytime.perf_counter() - t0:.1f}s")
+        utils.LOGGER.debug(
+            f"netcdf._write_files Done in {pytime.perf_counter() - t0:.1f}s"
+        )
 
     def finalize(self):
         t0 = pytime.perf_counter()
