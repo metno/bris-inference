@@ -112,7 +112,7 @@ def test_DCTPowerSpectrum():
     frt = 1672552800
     times = frt + leadtimes
 
-    with tempfile.TemporaryDictionairy() as temp_dir:
+    with tempfile.TemporaryDirectory() as temp_dir:
         filename = os.path.join(temp_dir, "test_DCTPowerSpectrum.nc")
         workdir = os.path.join(temp_dir, "test_DCTPowerSpectrum")
         variable = "msl"
