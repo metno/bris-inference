@@ -211,10 +211,9 @@ class SHPowerSpectrum(Spatial):
 
             # Compute spherical harmonic coefficients and power spectrum
             lmax = lats_reg_grid.shape[0] - 1
-            zero_w = SHGLQ(lmax)
-            coeffs_field = SHExpandGLQ(field_reg, w=zero_w[1], zero=zero_w[0])
-            coeff_amp = coeffs_field[0, :, :] ** 2 + coeffs_field[1, :, :] ** 2
-            power_spectrum = np.sum(coeff_amp, axis=1)
+            zero, w = SHGLQ(lmax)
+            coeffs_field = SHExpandGLQ(field_reg, w=w, zero=zero)
+            power_spectrum = np.sum(coeffs_field**2, axis=(0, 2))
 
             metric[lt, ...] = power_spectrum[1:]
 
@@ -281,7 +280,6 @@ class DCTPowerSpectrum(Spatial):
 
         k_edges = np.linspace(0.0, k_max, n_bins + 1)
         k_bins = 0.5 * (k_edges[1:] + k_edges[:-1])
-        k = k.flatten()
         return k_edges, k_bins, k
 
     def get_extra_dimensions(self) -> dict:
