@@ -169,4 +169,5 @@ cython_debug/
 #.idea/
 
 .vscode/
+.zed/
 .ruff_cache/
