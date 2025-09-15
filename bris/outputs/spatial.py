@@ -27,7 +27,7 @@ class Spatial(Output):
         predict_metadata: PredictMetadata,
         workdir: str,
         filename: str,
-        variable: str = None,
+        variable: str|None = None,
     ):
         extra_variables = []
         if variable not in predict_metadata.variables:
@@ -144,7 +144,7 @@ class SHPowerSpectrum(Spatial):
         workdir: str,
         filename: str,
         variable: str,
-        delta_degrees: float = None,
+        delta_degrees: float|None = None,
     ):
         self.delta_degrees = delta_degrees
         super().__init__(predict_metadata, workdir, filename, variable)
@@ -155,7 +155,7 @@ class SHPowerSpectrum(Spatial):
     def get_metric_name(self) -> str:
         return f"sh_power_spectrum_{self.variable}"
 
-    def get_metric_shape(self) -> tuple:
+    def get_metric_shape(self, **kwargs) -> tuple:
         lats_reg_grid, _ = self.get_grid_reg_latlons
         return (lats_reg_grid.shape[0] - 1,)
 
@@ -182,7 +182,7 @@ class SHPowerSpectrum(Spatial):
         lons_reg_grid, lats_reg_grid = np.meshgrid(lons_regular, lats_regular)
         return lons_reg_grid, lats_reg_grid
 
-    def calculate_metric(self, pred: np.ndarray) -> np.ndarray:
+    def calculate_metric(self, prediction: np.ndarray) -> np.ndarray:
         """Calculate the wavenumber spherical harmonic power spectrum of the variable"""
 
         var_index = self.pm.variables.index(self.variable)
@@ -193,7 +193,7 @@ class SHPowerSpectrum(Spatial):
         lons_reg_grid, lats_reg_grid = self.get_grid_reg_latlons
 
         for lt in range(leadtimes):
-            field = pred[lt, :, var_index]
+            field = prediction[lt, :, var_index]
 
             field_reg = griddata(
                 (lons, lats),
@@ -230,9 +230,9 @@ class DCTPowerSpectrum(Spatial):
         workdir: str,
         filename: str,
         variable: str,
-        proj4_str: str = None,
-        domain_name: str = None,
-        n_bins: int = None,
+        proj4_str: str|None = None,
+        domain_name: str|None = None,
+        n_bins: int|None = None,
     ):
         self.n_bins = n_bins
         if domain_name is not None:
@@ -248,7 +248,7 @@ class DCTPowerSpectrum(Spatial):
     def get_metric_name(self) -> str:
         return f"power_spectrum_{self.variable}"
 
-    def get_metric_shape(self) -> tuple:
+    def get_metric_shape(self, **kwargs) -> tuple:
         _, k_bins, _ = self.get_bins
         return (k_bins.shape[0],)
 
@@ -288,7 +288,7 @@ class DCTPowerSpectrum(Spatial):
         _, k_bin, _ = self.get_bins
         return {"k": k_bin}
 
-    def calculate_metric(self, pred: np.ndarray) -> np.ndarray:
+    def calculate_metric(self, prediction: np.ndarray) -> np.ndarray:
         "Calculate the isotropic power spectrum"
 
         var_index = self.pm.variables.index(self.variable)
@@ -301,7 +301,7 @@ class DCTPowerSpectrum(Spatial):
         digitized = np.digitize(k.flatten(), k_edges)
 
         for lt in range(leadtimes):
-            field = pred[lt, :, var_index].reshape(nx, ny)
+            field = prediction[lt, :, var_index].reshape(nx, ny)
 
             P = np.abs(dctn(field, type=2, norm="ortho")) ** 2
 
