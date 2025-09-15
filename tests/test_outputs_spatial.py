@@ -43,7 +43,7 @@ def test_SHPowerSpectrum():
             assert var_name in file.variables
 
             dimensions = ["time", "leadtime", "l", "ensemble_member"]
-            for dim in dimension:
+            for dim in dimensions:
                 assert dim in file.coords, dim
 
             n_lats = int(np.floor((lats.max() - lats.min()) / delta_degrees))
