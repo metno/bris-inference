@@ -1,5 +1,7 @@
-import numpy as np
+import os
 import tempfile
+
+import numpy as np
 import xarray as xr
 
 from bris.outputs.spatial import SHPowerSpectrum
