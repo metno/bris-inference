@@ -20,7 +20,7 @@ def test_SHPowerSpectrum():
         variables, lats, lons, altitudes, leadtimes, num_members, field_shape
     )
 
-    pred = np.random.rand(pm.shape)
+    pred = np.random.rand(*pm.shape)
     frt = 1672552800
     times = frt + leadtimes
 
