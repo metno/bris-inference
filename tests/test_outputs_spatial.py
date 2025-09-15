@@ -4,7 +4,7 @@ import tempfile
 import numpy as np
 import xarray as xr
 
-from bris.outputs.netcdf import SHPowerSpectrum
+from bris.outputs.spatial import SHPowerSpectrum
 from bris.predict_metadata import PredictMetadata
 
 
