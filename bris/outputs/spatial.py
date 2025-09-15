@@ -27,7 +27,7 @@ class Spatial(Output):
         predict_metadata: PredictMetadata,
         workdir: str,
         filename: str,
-        variable: str|None = None,
+        variable: str | None = None,
     ):
         extra_variables = []
         if variable not in predict_metadata.variables:
@@ -144,7 +144,7 @@ class SHPowerSpectrum(Spatial):
         workdir: str,
         filename: str,
         variable: str,
-        delta_degrees: float|None = None,
+        delta_degrees: float | None = None,
     ):
         self.delta_degrees = delta_degrees
         super().__init__(predict_metadata, workdir, filename, variable)
@@ -230,9 +230,9 @@ class DCTPowerSpectrum(Spatial):
         workdir: str,
         filename: str,
         variable: str,
-        proj4_str: str|None = None,
-        domain_name: str|None = None,
-        n_bins: int|None = None,
+        proj4_str: str | None = None,
+        domain_name: str | None = None,
+        n_bins: int | None = None,
     ):
         self.n_bins = n_bins
         if domain_name is not None:
