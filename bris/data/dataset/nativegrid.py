@@ -200,8 +200,8 @@ class NativeGridDataset(IterableDataset):
             f"num_data_parallel = num_nodes * num_gpus_per_node / num_gpus_per_model"
         )
         if len(self.valid_date_indices) % self.ens_comm_num_groups != 0:
-            print(
-                f"Warning: Dataloader has {len(self.valid_date_indices)} samples, which is not divisible by "
+            LOGGER.warning(
+                f"Dataloader has {len(self.valid_date_indices)} samples, which is not divisible by "
                 f"{self.ens_comm_num_groups} data parallel workers. This will lead to "
                 f"{len(self.valid_date_indices) % self.ens_comm_num_groups} unprocessed samples.",
                 "num_data_parallel = num_nodes * num_gpus_per_node / num_gpus_per_model",

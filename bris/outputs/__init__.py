@@ -1,10 +1,13 @@
 import copy
+import time
 from typing import Optional
 
 import numpy as np
 
 from bris import sources
 from bris.predict_metadata import PredictMetadata
+
+from ..utils import LOGGER
 
 
 def instantiate(name: str, predict_metadata: PredictMetadata, workdir: str, init_args):
@@ -100,13 +103,13 @@ class Output:
             ensemble_member: Which ensemble member is this?
             pred: 3D numpy array with dimensions (leadtime, location, variable)
         """
-
-        # Append extra variables to prediction
+        # Append extra variables to prediction (quick)
         for name in self.extra_variables:
             if name not in self.pm.variables:
                 self.pm.variables.append(name)
 
         # only do this once. For multiple members, intermediate calls this several times
+        t0 = time.perf_counter()
         if pred.shape[2] != len(self.pm.variables):
             # Append extra variables to prediction
             extra_pred = []
@@ -120,6 +123,9 @@ class Output:
                     raise ValueError(f"No recipe to compute {name}")
 
             pred = np.concatenate([pred] + extra_pred, axis=2)
+        LOGGER.debug(
+            f"outputs.add_forecast Calculate ws in {time.perf_counter() - t0:.1f}s"
+        )
 
         assert pred.shape[0] == self.pm.num_leadtimes
         assert pred.shape[1] == len(self.pm.lats)
@@ -130,7 +136,11 @@ class Output:
         assert ensemble_member >= 0
         assert ensemble_member < self.pm.num_members
 
+        t1 = time.perf_counter()
         self._add_forecast(times, ensemble_member, pred)
+        LOGGER.debug(
+            f"outputs.add_forecast called _add_forecast in {time.perf_counter() - t1:.1f}s"
+        )
 
     def _add_forecast(self, times: list, ensemble_member: int, pred: np.ndarray):
         """Subclasses should implement this"""

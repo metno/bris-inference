@@ -20,11 +20,14 @@ from pytorch_lightning.trainer.states import TrainerFn
 
 from bris.utils import get_base_seed
 
-LOGGER = logging.getLogger(__name__)
+from .utils import LOGGER
 
 
 class DDPGroupStrategy(DDPStrategy):
     """Distributed Data Parallel strategy with group communication."""
+
+    # Define type of model, set in DDPStrategy somewhere
+    model: pl.LightningModule
 
     def __init__(
         self,
@@ -88,6 +91,13 @@ class DDPGroupStrategy(DDPStrategy):
         )
 
         # set up reader groups by further splitting model_comm_group_ranks with read_group_size:
+
+        LOGGER.debug(
+            "world_size %d, model_comm_group_size %d, read_group_size %d",
+            self.world_size,
+            self.model_comm_group_size,
+            self.read_group_size,
+        )
 
         assert self.model_comm_group_size % self.read_group_size == 0, (
             f"Number of GPUs per model ({self.model_comm_group_size}) must be divisible by read_group_size "
@@ -226,7 +236,7 @@ class DDPGroupStrategy(DDPStrategy):
 
     def get_my_reader_group(
         self, model_comm_group_rank: int, read_group_size: int
-    ) -> tuple[int, int, int]:
+    ) -> tuple[int, int, int, int]:
         """Determine tasks that work together and from a reader group.
 
         Parameters
@@ -282,15 +292,15 @@ class DDPGroupStrategy(DDPStrategy):
         )
 
         dataloader.dataset.set_comm_group_info(
-            self.global_rank,
-            model_comm_group_id,
-            model_comm_group_rank,
-            model_comm_num_groups,
-            ens_comm_group_id,
-            ens_comm_group_rank,
-            ens_comm_num_groups,
-            reader_group_rank,
-            self.read_group_size,
+            global_rank=self.global_rank,
+            model_comm_group_id=model_comm_group_id,
+            model_comm_group_rank=model_comm_group_rank,
+            model_comm_num_groups=model_comm_num_groups,
+            ens_comm_group_id=ens_comm_group_id,
+            ens_comm_group_rank=ens_comm_group_rank,
+            ens_comm_num_groups=ens_comm_num_groups,
+            reader_group_rank=reader_group_rank,
+            reader_group_size=self.read_group_size,
         )
 
         return dataloader
