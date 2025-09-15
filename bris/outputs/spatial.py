@@ -230,12 +230,10 @@ class DCTPowerSpectrum(Spatial):
         workdir: str,
         filename: str,
         variable: str,
-        resolution: float = None,
         proj4_str: str = None,
         domain_name: str = None,
         n_bins: int = None,
     ):
-        self.resolution = resolution
         self.n_bins = n_bins
         if domain_name is not None:
             self.proj4_str = projections.get_proj4_str(domain_name)
