@@ -384,21 +384,8 @@ def expr_to_var(variable):
 def resolve_var_expr(variable, name_to_index):
     """
     Return complete variable list with dataset index
-
-    Args:
-        variable: str
-            Variable defined either directly or through expression
-        name_to_index: str
-            Dataset name to index
-
-    Returns:
-        variable: str
-            A potentially updated variable
-        derive_variables: dict
-            Name to index for the derived variable(s)
-        derive: bool
-            Whether or not to derive variable
     """
+
     variables, variable, derive = expr_to_var(variable)
     derive_variables = {v: name_to_index[v] for v in variables}
     return variable, derive_variables, derive
