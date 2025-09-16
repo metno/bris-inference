@@ -573,7 +573,7 @@ class Netcdf(Output):
                 self.write(filename, lead_times, pred)
 
             if self.remove_intermediate:
-                self.intermediate.cleanup()
+                await self.intermediate.cleanup()
         utils.LOGGER.debug(
             f"Netcdf.finalize: {pytime.perf_counter() - t0:.1f}s",
         )

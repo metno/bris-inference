@@ -1,3 +1,4 @@
+import asyncio
 import glob
 import os
 import time
@@ -107,20 +108,30 @@ class Intermediate(Output):
     def get_filenames(self) -> list[str]:
         return glob.glob(f"{self.workdir}/*_*.npy")
 
-    def cleanup(self) -> None:
+    async def rm_file(self, filename: str) -> None:
+        try:
+            os.remove(filename)
+        except OSError as e:
+            utils.LOGGER.error(f"Error during cleanup of {filename}: {e}")
+
+    async def rm_dir(self, dirname: str) -> None:
+        try:
+            os.rmdir(dirname)
+        except OSError as e:
+            utils.LOGGER.error(f"Error removing workdir {dirname}: {e}")
+
+    async def cleanup(self) -> None:
         """Removes up all intermediate files and removes the workdir. Called in finalize of the main output."""
 
         t0 = time.perf_counter()
-        for _filename in self.get_filenames():
-            try:
-                os.remove(_filename)
-            except OSError as e:
-                utils.LOGGER.error(f"Error during cleanup of {_filename}: {e}")
+        async with asyncio.TaskGroup() as tg:
+            for _filename in self.get_filenames():
+                _ = tg.create_task(self.rm_file(_filename))
 
-        try:
-            os.rmdir(self.workdir)
-        except OSError as e:
-            utils.LOGGER.error(f"Error removing workdir {self.workdir}: {e}")
+            try:
+                _ = tg.create_task(self.rm_dir(self.workdir))
+            except OSError as e:
+                utils.LOGGER.error(f"Error removing workdir {self.workdir}: {e}")
         utils.LOGGER.debug(f"Intermediate.cleanup in {time.perf_counter() - t0:.1f}s")
 
     async def finalize(self):

@@ -415,7 +415,7 @@ class Verif(Output):
         )
 
         if self.remove_intermediate:
-            self.intermediate.cleanup()
+            await self.intermediate.cleanup()
 
     def compute_consensus(self, pred) -> np.ndarray:
         assert len(pred.shape) == 3, pred.shape
