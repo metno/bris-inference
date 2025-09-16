@@ -356,7 +356,7 @@ class Grib(Output):
                 self.write(filename, lead_times, pred)
 
             if self.remove_intermediate:
-                await self.intermediate.cleanup()
+                self.intermediate.cleanup()
 
     def get_lower(self, array):
         m = np.min(array)
