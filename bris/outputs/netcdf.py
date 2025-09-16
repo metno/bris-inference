@@ -142,7 +142,7 @@ class Netcdf(Output):
         """Should interpolation to a regular lat/lon grid be performed?"""
         return self.interp_res is not None
 
-    def c(self, x):
+    def conv_name(self, x):
         """Function to easily convert from cf names to conventions"""
         return self.conventions.get_name(x)
 
@@ -163,7 +163,7 @@ class Netcdf(Output):
         # TODO: Seconds or hours for leadtimes?
         times_ut = utils.datetime_to_unixtime(times)
         frt_ut = times_ut[0]
-        coords[self.c("time")] = np.array(times_ut).astype(np.double)
+        coords[self.conv_name("time")] = np.array(times_ut).astype(np.double)
 
         if self._is_gridded:
             if self._interpolate:
@@ -187,8 +187,8 @@ class Netcdf(Output):
                     max_lon + self.interp_res,
                     self.interp_res,
                 )
-                x_dim_name = self.c("longitude")
-                y_dim_name = self.c("latitude")
+                x_dim_name = self.conv_name("longitude")
+                y_dim_name = self.conv_name("latitude")
             else:
                 # TODO: Handle self.latrange and self.lonrange
                 if None not in [self.latrange, self.lonrange]:
@@ -205,8 +205,8 @@ class Netcdf(Output):
                 else:
                     x = np.arange(self.pm.field_shape[1]).astype(np.float32)
                     y = np.arange(self.pm.field_shape[0]).astype(np.float32)
-                x_dim_name = self.c("projection_x_coordinate")
-                y_dim_name = self.c("projection_y_coordinate")
+                x_dim_name = self.conv_name("projection_x_coordinate")
+                y_dim_name = self.conv_name("projection_y_coordinate")
             coords[x_dim_name] = x
             coords[y_dim_name] = y
             spatial_dims = (y_dim_name, x_dim_name)
@@ -224,8 +224,8 @@ class Netcdf(Output):
                         "Mask dataset does not contain projected coordinates variables 'x', 'y' or 'X', 'Y'"
                     )
 
-                x_dim_name = self.c("projection_x_coordinate")
-                y_dim_name = self.c("projection_y_coordinate")
+                x_dim_name = self.conv_name("projection_x_coordinate")
+                y_dim_name = self.conv_name("projection_y_coordinate")
                 coords[x_dim_name] = x
                 coords[y_dim_name] = y
                 spatial_dims = (y_dim_name, x_dim_name)
@@ -235,7 +235,7 @@ class Netcdf(Output):
                 spatial_dims = ("location",)
 
         if self.pm.num_members > 1:
-            coords[self.c("realization")] = np.arange(self.pm.num_members).astype(
+            coords[self.conv_name("realization")] = np.arange(self.pm.num_members).astype(
                 np.int32
             )
 
@@ -255,7 +255,7 @@ class Netcdf(Output):
             self.ds[var].attrs = var_attrs
 
         # Set up other coordinate variables
-        self.ds[self.c("forecast_reference_time")] = ([], frt_ut)
+        self.ds[self.conv_name("forecast_reference_time")] = ([], frt_ut)
 
         # Set up grid definitions
         if self._is_gridded:
@@ -288,11 +288,11 @@ class Netcdf(Output):
                 "Mask dataset does not contain coordinates variables 'lat', 'lon' or 'latitude', 'longitude'"
             )
 
-        self.ds[self.c("latitude")] = (
+        self.ds[self.conv_name("latitude")] = (
             spatial_dims,
             lat,
         )
-        self.ds[self.c("longitude")] = (
+        self.ds[self.conv_name("longitude")] = (
             spatial_dims,
             lon,
         )
@@ -300,7 +300,7 @@ class Netcdf(Output):
             altitudes_rec = np.nan * np.zeros([len(y), len(x)], np.float32)
             # Reconstruct the 2D array
             altitudes_rec[self.mask] = self.pm.altitudes
-            self.ds[self.c("surface_altitude")] = (
+            self.ds[self.conv_name("surface_altitude")] = (
                 spatial_dims,
                 altitudes_rec,
             )
@@ -308,23 +308,23 @@ class Netcdf(Output):
         proj_attrs = {}
         if self.proj4_str is not None:
             proj_attrs = projections.get_proj_attributes(self.proj4_str)
-        self.ds[self.c("projection")] = ([], 0, proj_attrs)
+        self.ds[self.conv_name("projection")] = ([], 0, proj_attrs)
         utils.LOGGER.debug(
             f"netcdf._not_gridded_masked in {pytime.perf_counter() - t0:.1f}s"
         )
 
     def _not_gridded_not_masked(self, spatial_dims: tuple):
         t0 = pytime.perf_counter()
-        self.ds[self.c("latitude")] = (
+        self.ds[self.conv_name("latitude")] = (
             spatial_dims,
             self.pm.lats,
         )
-        self.ds[self.c("longitude")] = (
+        self.ds[self.conv_name("longitude")] = (
             spatial_dims,
             self.pm.lons,
         )
         if self.pm.altitudes is not None:
-            self.ds[self.c("surface_altitude")] = (
+            self.ds[self.conv_name("surface_altitude")] = (
                 spatial_dims,
                 self.pm.altitudes,
             )
@@ -336,18 +336,18 @@ class Netcdf(Output):
         t0 = pytime.perf_counter()
         lats = self.pm.grid_lats.astype(np.double)
         lons = self.pm.grid_lons.astype(np.double)
-        self.ds[self.c("latitude")] = (
+        self.ds[self.conv_name("latitude")] = (
             spatial_dims,
             lats,
         )
-        self.ds[self.c("longitude")] = (
+        self.ds[self.conv_name("longitude")] = (
             spatial_dims,
             lons,
         )
 
         if self.pm.altitudes is not None:
             altitudes = self.pm.grid_altitudes.astype(np.double)
-            self.ds[self.c("surface_altitude")] = (
+            self.ds[self.conv_name("surface_altitude")] = (
                 spatial_dims,
                 altitudes,
             )
@@ -359,7 +359,7 @@ class Netcdf(Output):
             # proj_attrs["longitude_of_central_meridian"] = 15.0
             # proj_attrs["latitude_of_projection_origin"] = 63.3
             # proj_attrs["earth_radius"] = 6371000.0
-        self.ds[self.c("projection")] = ([], 0, proj_attrs)
+        self.ds[self.conv_name("projection")] = ([], 0, proj_attrs)
         utils.LOGGER.debug(
             f"netcdf._set_coords_gridded_not_interpolated in {pytime.perf_counter() - t0:.1f}s"
         )
@@ -383,7 +383,7 @@ class Netcdf(Output):
             "projection_y_coordinate",
             "realization",
         ]:
-            ncname = self.c(cfname)
+            ncname = self.conv_name(cfname)
             if ncname in self.ds:
                 self.ds[ncname].attrs = cf.get_attributes(cfname)
 
@@ -414,7 +414,7 @@ class Netcdf(Output):
                 dim_name = self.variable_list.get_level_dimname(ncname)
                 if dim_name is not None:
                     dims = [
-                        self.c("time"),
+                        self.conv_name("time"),
                         dim_name,
                         *spatial_dims,
                     ]
@@ -423,14 +423,14 @@ class Netcdf(Output):
                     else:
                         shape = [len(times), len(self.ds[dim_name]), len(y)]
                 else:
-                    dims = [self.c("time"), *spatial_dims]
+                    dims = [self.conv_name("time"), *spatial_dims]
                     if self._is_gridded or self._is_masked:
                         shape = [len(times), len(y), len(x)]
                     else:
                         shape = [len(times), len(y)]
 
                 if self.pm.num_members > 1:
-                    dims.insert(1, self.c("ensemble_member"))
+                    dims.insert(1, self.conv_name("ensemble_member"))
                     shape.insert(1, self.pm.num_members)
 
                 ar = np.nan * np.zeros(shape, np.float32)
