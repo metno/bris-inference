@@ -107,7 +107,7 @@ class Netcdf(Output):
         self, times: list, ensemble_member: int, pred: np.ndarray
     ) -> None:
         t0 = pytime.perf_counter()
-        if self.pm.num_members > 1:
+        if self.pm.num_members > 1 and self.intermediate is not None:
             # Cache data with intermediate
             self.intermediate.add_forecast(times, ensemble_member, pred)
             utils.LOGGER.debug(
@@ -154,7 +154,7 @@ class Netcdf(Output):
         """
 
         coords = {}
-        self.nc_encoding = dict()
+        self.nc_encoding: dict[str, dict[str, bool]] = {}
         x: np.ndarray | None = None
         y: np.ndarray | None = None
 
