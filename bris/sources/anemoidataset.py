@@ -7,7 +7,8 @@ from anemoi.datasets import open_dataset
 from bris.conventions.anemoi import get_units as get_anemoi_units
 from bris.observations import Location, Observations
 from bris.sources import Source
-from bris.utils import datetime_to_unixtime
+from bris.utils import datetime_to_unixtime, safe_eval_expr, resolve_var_expr
+
 
 
 class AnemoiDataset(Source):
@@ -25,22 +26,13 @@ class AnemoiDataset(Source):
                       expressions and specifying variables in brackets (e.g. [10u])
             every: include every this number of locations in the verif file
         """
-
         self.dataset = open_dataset(dataset_dict)
-
-        self.variable = variable
-        self.derive = False
-        if "[" in variable:
-            self.derive = True
-            variables = re.findall(r'\[([^\[\]]+)\]', variable)
-            self.derive_template = re.sub(r'\[[^\[\]]+\]', 'np.array({})', variable)
-            self.variable_index = []
-            for v in variables:
-                v_idx = self.dataset.name_to_index[v]
-                self.variable_index.append(v_idx)
-        else:
-            self.variable_index = self.dataset.name_to_index[variable]
+        self.variable, self.derive_variables, self.derive = resolve_var_expr(
+                variable, self.dataset.name_to_index
+        )
         self.every_loc = every_loc
+
+        
 
     @cached_property
     def locations(self):
@@ -70,7 +62,7 @@ class AnemoiDataset(Source):
         requested_times = np.arange(start_time, end_time + 1, frequency)
         num_requested_times = len(requested_times)
 
-        data = np.nan * np.zeros([num_requested_times, len(self.locations)], np.float32)
+        data = np.full([num_requested_times, len(self.locations)], np.nan, np.float32)
         for t, requested_time in enumerate(requested_times):
             i = np.where(self._all_times == requested_time)[0]
             if len(i) > 0:
@@ -81,13 +73,14 @@ class AnemoiDataset(Source):
                     )
                 else:
                     if self.derive:
-                        all_data = []
-                        for v_idx in self.variable_index:
-                            all_data.append(self.dataset[j, v_idx, 0, :: self.every_loc].tolist())
-                        data[t, :] = eval(self.derive_template.format(*all_data))
+                        variables_dict = {}
+                        for var_name, var_idx in self.derive_variables.items():
+                            arr = self.dataset[j, var_idx, 0, :: self.every_loc]
+                            variables_dict[var_name] = arr
+                        data[t, :] = safe_eval_expr(self.variable, variables_dict)
                     else:
                         data[t, :] = self.dataset[
-                            j, self.variable_index, 0, :: self.every_loc
+                            j, self.derive_variables[self.variable], 0, :: self.every_loc
                         ]
 
         observations = Observations(self.locations, requested_times, {variable: data})
