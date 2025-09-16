@@ -219,7 +219,7 @@ class Verif(Output):
         """Create numpy array of NaNs to be overwritten"""
         return np.full(shape, np.nan, dtype)
 
-    async def finalize(self) -> None:
+    def finalize(self) -> None:
         """Write forecasts and observations to file"""
 
         frts = self.intermediate.get_forecast_reference_times()

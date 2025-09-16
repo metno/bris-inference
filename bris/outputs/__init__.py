@@ -146,7 +146,7 @@ class Output:
         """Subclasses should implement this"""
         raise NotImplementedError()
 
-    async def finalize(self):
+    def finalize(self):
         """Finalizes the output. This gets called after all add_forecast calls are done. Subclasses
         can override this, if necessary."""
 

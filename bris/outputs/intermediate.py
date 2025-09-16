@@ -123,5 +123,5 @@ class Intermediate(Output):
             utils.LOGGER.error(f"Error removing workdir {self.workdir}: {e}")
         utils.LOGGER.debug(f"Intermediate.cleanup in {time.perf_counter() - t0:.1f}s")
 
-    async def finalize(self):
+    def finalize(self):
         pass
