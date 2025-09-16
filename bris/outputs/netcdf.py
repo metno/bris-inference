@@ -235,9 +235,9 @@ class Netcdf(Output):
                 spatial_dims = ("location",)
 
         if self.pm.num_members > 1:
-            coords[self.conv_name("realization")] = np.arange(self.pm.num_members).astype(
-                np.int32
-            )
+            coords[self.conv_name("realization")] = np.arange(
+                self.pm.num_members
+            ).astype(np.int32)
 
         dims_to_add = self.variable_list.dimensions
 
