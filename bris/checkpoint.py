@@ -170,7 +170,9 @@ class Checkpoint:
         _model_params = self._model_instance.named_parameters()
         return deepcopy({layer_name: param for layer_name, param in _model_params})
 
-    def update_graph(self, path: Optional[str] = None) -> HeteroData:
+    def update_graph(
+        self, path: Optional[str] = None, graph_label: str = None
+    ) -> HeteroData:
         """
         Replaces existing graph object within model instance.
         The new graph is either provided as an torch file or
@@ -182,55 +184,36 @@ class Checkpoint:
         return
             HeteroData graph object
         """
+        print("path", path)
+        external_graph = torch.load(path, map_location="cpu", weights_only=False)
+        LOGGER.info("Loaded external graph from path")
 
-        # TODO: add check which checks the keys within the graph
-        # the model weights have names tied to f.ex stretched grid or grid.
-        # if the model is trained with keys named grid and we force new graph with keys
-        # stretched grid, the model instance will complain
-        # (not 100% sure but i think i have experienced this)
-        if self.is_graph_replaced:
-            raise RuntimeError(
-                "Graph has already been updated. Mutliple updates is not allowed"
-            )
+        state_dict = deepcopy(self._model_instance.state_dict())
+        print(graph_label)
+        if graph_label:
+            self._model_instance.graph_data[graph_label] = external_graph
         else:
-            if path and os.path.exists(path):
-                state_dict = deepcopy(self._model_instance.state_dict())
+            self._model_instance.graph_data = external_graph
 
-                external_graph = torch.load(
-                    path, map_location="cpu", weights_only=False
-                )
-                LOGGER.info("Loaded external graph from path")
-                
+        self._model_instance.config = self.config
 
-                self._model_instance.graph_data = external_graph
-                # Assign config, as it's not preserved in the pickle.
-                self._model_instance.config = self.config
+        self._model_instance._build_model()
 
-                self._model_instance._build_model()
+        new_state_dict = self._model_instance.state_dict()
 
-                new_state_dict = self._model_instance.state_dict()
-
-                for key in new_state_dict.keys():
-                    if key in state_dict and state_dict[key].shape != new_state_dict[key].shape:
-                        # These are parameters like data_latlon, which are different now because of the graph
-                        pass
-                    else:
-                        # Overwrite with the old parameters
-                        new_state_dict[key] = state_dict[key]
-
-                LOGGER.info(
-                    "Successfully builded model with external graph and reassigning model weights!"
-                )
-                self._model_instance.load_state_dict(new_state_dict)
-
-                return self._model_instance.graph_data
-
+        for key in new_state_dict:
+            if key in state_dict and state_dict[key].shape != new_state_dict[key].shape:
+                # These are parameters like data_latlon, which are different now because of the graph
+                pass
             else:
-                # future implementation
-                # _graph = anemoi.graphs.create() <-- skeleton
-                # self._model_instance.graph_data = _graph <- update graph obj within inst
-                # return _graph <- return graph
-                raise NotImplementedError
+                # Overwrite with the old parameters
+                new_state_dict[key] = state_dict[key]
+
+        print(
+            "Successfully built model with external graph and reassigning model weights!"
+        )
+        self._model_instance.load_state_dict(new_state_dict)
+        return self._model_instance.graph_data
 
     def set_base_seed(self) -> None:
         """
@@ -244,9 +227,9 @@ class Checkpoint:
         LOGGER.info("ANEMOI_BASE_SEED and ANEMOI_BASE_SEED set to 1234")
 
     def set_encoder_decoder_num_chunks(self, chunks: int = 1) -> None:
-        assert isinstance(chunks, int), (
-            f"Expecting chunks to be int, got: {chunks}, {type(chunks)}"
-        )
+        assert isinstance(
+            chunks, int
+        ), f"Expecting chunks to be int, got: {chunks}, {type(chunks)}"
         os.environ["ANEMOI_INFERENCE_NUM_CHUNKS"] = str(chunks)
         LOGGER.info("Encoder and decoder are chunked to %s", chunks)
 
