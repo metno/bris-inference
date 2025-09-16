@@ -1,3 +1,4 @@
+import asyncio
 import logging
 import os
 import time
@@ -23,7 +24,19 @@ from .utils import (
 from .writer import CustomWriter
 
 
-def main(arg_list: list[str] | None = None):
+async def call_finalize(decoder_outputs):
+    async with asyncio.TaskGroup() as tg:
+        for decoder_output in decoder_outputs:
+            for output in decoder_output["outputs"]:
+                t0 = time.perf_counter()
+                _ = tg.create_task(output.finalize())
+                LOGGER.debug(
+                    f"finalizing decoder {decoder_output} output {output.filename_pattern} in %d.1s"
+                    % (time.perf_counter() - t0)
+                )
+
+
+async def main(arg_list: list[str] | None = None):
     args = parse_args(arg_list)
     config = create_config(args["config"], args)
     setup_logging(config)
@@ -173,17 +186,9 @@ def main(arg_list: list[str] | None = None):
         os.environ["SLURM_PROCID"] == "0"
     )
     if is_main_thread:
-        for decoder_output in decoder_outputs:
-            for output in decoder_output["outputs"]:
-                t0 = time.perf_counter()
-                output.finalize()
-                LOGGER.debug(
-                    f"finalizing decoder {decoder_output} output {output.filename_pattern} in %d.1s"
-                    % (time.perf_counter() - t0)
-                )
-
+        await call_finalize(decoder_outputs)
         LOGGER.info("Model run completed. 🤖")
 
 
 if __name__ == "__main__":
-    main()
+    asyncio.run(main())

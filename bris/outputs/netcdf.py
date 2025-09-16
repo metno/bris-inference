@@ -546,7 +546,7 @@ class Netcdf(Output):
             f"netcdf._write_files Done in {pytime.perf_counter() - t0:.1f}s"
         )
 
-    def finalize(self):
+    async def finalize(self):
         t0 = pytime.perf_counter()
 
         if self.intermediate is not None:

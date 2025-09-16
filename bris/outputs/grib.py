@@ -335,7 +335,7 @@ class Grib(Output):
         ecc.codes_write(grib, fp)
         ecc.codes_release(grib)
 
-    def finalize(self):
+    async def finalize(self):
         if self.intermediate is not None:
             # Load data from the intermediate and write to disk
             forecast_reference_times = self.intermediate.get_forecast_reference_times()

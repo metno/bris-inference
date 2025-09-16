@@ -1,10 +1,11 @@
 __version__ = "0.2.0"
+import asyncio
 
 
 def main():
     import bris.__main__
 
-    bris.__main__.main()
+    asyncio.run(bris.__main__.main())
 
 
 def inspect():
