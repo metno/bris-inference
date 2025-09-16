@@ -69,7 +69,7 @@ class AnemoiDataset(Source):
                 j = int(i[0])
                 if j in self.dataset.missing:
                     print(
-                        f"Date {self.dataset.dates[int(i[0])]} missing from verif dataset"
+                        f"Date {self.dataset.dates[j]} missing from verif dataset"
                     )
                 else:
                     if self.derive:
