@@ -107,7 +107,7 @@ class Netcdf(Output):
         self, times: list, ensemble_member: int, pred: np.ndarray
     ) -> None:
         t0 = pytime.perf_counter()
-        if self.intermediate is not None:
+        if self.pm.num_members > 1:
             # Cache data with intermediate
             self.intermediate.add_forecast(times, ensemble_member, pred)
             utils.LOGGER.debug(
@@ -142,7 +142,7 @@ class Netcdf(Output):
         """Should interpolation to a regular lat/lon grid be performed?"""
         return self.interp_res is not None
 
-    def write(self, filename: str, times: np.datetime64, pred: np.ndarray):
+    def write(self, filename: str, times: list[np.datetime64], pred: np.ndarray):
         """Write prediction to NetCDF
         Args:
             times: List of np.datetime64 objects that this forecast is for
@@ -152,6 +152,7 @@ class Netcdf(Output):
         coords = {}
         self.nc_encoding = dict()
         x: np.ndarray | None = None
+        y: np.ndarray | None = None
 
         # Function to easily convert from cf names to conventions
         def c(x):
@@ -163,9 +164,6 @@ class Netcdf(Output):
         times_ut = utils.datetime_to_unixtime(times)
         frt_ut = times_ut[0]
         coords[c("time")] = np.array(times_ut).astype(np.double)
-
-        x: np.ndarray | None = None
-        y: np.ndarray | None = None
 
         if self._is_gridded:
             if self._interpolate:
@@ -260,9 +258,9 @@ class Netcdf(Output):
         # Set up grid definitions
         if self._is_gridded:
             if self._interpolate:
-                self._gridded_interpolate()
+                self._set_coords_gridded_interpolate()
             else:
-                self._gridded_not_interpolated(spatial_dims)
+                self._set_coords_gridded_not_interpolated(spatial_dims)
 
         else:
             if self._is_masked:
@@ -273,7 +271,7 @@ class Netcdf(Output):
         self._set_projection_info()
         self._setup_prediction_vars(spatial_dims, times, x, y, pred)
         self._set_attrs()
-        self._write_files(filename)
+        self._write_file(filename)
 
     def _not_gridded_masked(self, spatial_dims: tuple, y, x):
         t0 = pytime.perf_counter()
@@ -332,7 +330,7 @@ class Netcdf(Output):
             f"netcdf._not_gridded_not_masked in {pytime.perf_counter() - t0:.1f}s"
         )
 
-    def _gridded_not_interpolated(self, spatial_dims: tuple) -> None:
+    def _set_coords_gridded_not_interpolated(self, spatial_dims: tuple) -> None:
         t0 = pytime.perf_counter()
         lats = self.pm.grid_lats.astype(np.double)
         lons = self.pm.grid_lons.astype(np.double)
@@ -361,16 +359,16 @@ class Netcdf(Output):
             # proj_attrs["earth_radius"] = 6371000.0
         self.ds[self.conventions.get_name("projection")] = ([], 0, proj_attrs)
         utils.LOGGER.debug(
-            f"netcdf._gridded_not_interpolated in {pytime.perf_counter() - t0:.1f}s"
+            f"netcdf._set_coords_gridded_not_interpolated in {pytime.perf_counter() - t0:.1f}s"
         )
 
-    def _gridded_interpolate(self):
+    def _set_coords_gridded_interpolate(self) -> None:
         """If is gridded and interpolation should be done"""
         proj_attrs = {}
         proj_attrs["grid_mapping_name"] = "latitude_longitude"
         proj_attrs["earth_radius"] = "6371000.0"
         self.ds["projection"] = ([], 1, proj_attrs)
-        utils.LOGGER.debug("netcdf._gridded_interpolate")
+        utils.LOGGER.debug("netcdf._set_coords_gridded_interpolate")
 
     def _set_projection_info(self) -> None:
         for cfname in [
@@ -397,7 +395,7 @@ class Netcdf(Output):
         spatial_dims: tuple,
         times: list,
         x: np.ndarray | None,
-        y: np.ndarray,
+        y: np.ndarray | None,
         pred: np.ndarray,
     ):
         """Set up all prediction variables"""
@@ -429,7 +427,7 @@ class Netcdf(Output):
                     else:
                         shape = [len(times), len(y)]
 
-                if self.intermediate is not None:
+                if self.pm.num_members > 1:
                     dims.insert(1, self.conventions.get_name("ensemble_member"))
                     shape.insert(1, self.pm.num_members)
 
@@ -474,7 +472,7 @@ class Netcdf(Output):
                 bris.units.convert(ar, from_units, to_units, inplace=True)
 
             if level_index is not None:
-                if self.intermediate is not None:
+                if self.pm.num_members > 1:
                     self.ds[ncname][:, :, level_index, ...] = ar
                 else:
                     self.ds[ncname][:, level_index, ...] = ar
@@ -502,7 +500,7 @@ class Netcdf(Output):
         for key, value in self.global_attributes.items():
             self.ds.attrs[key] = value
 
-    def _write_files(self, filename: str) -> None:
+    def _write_file(self, filename: str) -> None:
         """Write netcdf to disk"""
         t0 = pytime.perf_counter()
         utils.create_directory(filename)
@@ -515,13 +513,13 @@ class Netcdf(Output):
             encoding=self.nc_encoding,
         )
         utils.LOGGER.debug(
-            f"netcdf._write_files Done in {pytime.perf_counter() - t0:.1f}s"
+            f"netcdf._write_file Done in {pytime.perf_counter() - t0:.1f}s"
         )
 
     def finalize(self):
         t0 = pytime.perf_counter()
 
-        if self.intermediate is not None:
+        if self.pm.num_members > 1:
             # Load data from the intermediate and write to disk
             forecast_reference_times = self.intermediate.get_forecast_reference_times()
             for forecast_reference_time in forecast_reference_times:
