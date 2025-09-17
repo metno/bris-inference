@@ -6,6 +6,7 @@ import time
 import uuid
 from argparse import ArgumentParser
 from collections.abc import Iterable
+from typing import Any
 
 import jsonschema
 import numpy as np
@@ -130,7 +131,9 @@ def create_config(config_path: str, overrides: dict) -> DictConfig | ListConfig:
     return OmegaConf.merge(config, OmegaConf.create(overrides))
 
 
-def datetime_to_unixtime(dt: np.datetime64) -> np.ndarray[int]:
+def datetime_to_unixtime(
+    dt: list[np.datetime64],
+) -> np.ndarray[Any, np.dtype[np.int64]]:
     """Convert a np.datetime64 object or list of objects to unixtime"""
     return np.array(dt).astype("datetime64[s]").astype("int")
 
