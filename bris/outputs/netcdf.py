@@ -122,6 +122,9 @@ class Netcdf(Output):
 
         # Add ensemble dimension to the last
         self.write(filename, times, pred[..., None])
+        utils.LOGGER.debug(
+            f"Netcdf._add_forecast for {filename} in {pytime.perf_counter() - t0:.1f}s"
+        )
 
     def get_filename(self, forecast_reference_time: int) -> str:
         """Get the filename for this forecast reference time"""
@@ -189,10 +192,13 @@ class Netcdf(Output):
                 )
                 x_dim_name = self.conv_name("longitude")
                 y_dim_name = self.conv_name("latitude")
+                utils.LOGGER.debug(
+                    f"netcdf.write _interpolate in {pytime.perf_counter() - t0:.1f}s"
+                )
             else:
                 # TODO: Handle self.latrange and self.lonrange
                 if None not in [self.latrange, self.lonrange]:
-                    print("Warning: latrange/lonrange not handled in gridded fields")
+                    utils.LOGGER.warning("Warning: latrange/lonrange not handled in gridded fields")
 
                 if self.proj4_str:
                     lats = np.reshape(self.pm.lats, self.pm.field_shape).astype(
@@ -207,6 +213,9 @@ class Netcdf(Output):
                     y = np.arange(self.pm.field_shape[0]).astype(np.float32)
                 x_dim_name = self.conv_name("projection_x_coordinate")
                 y_dim_name = self.conv_name("projection_y_coordinate")
+                utils.LOGGER.debug(
+                    f"netcdf.write not _interpolate in {pytime.perf_counter() - t0:.1f}s"
+                )
             coords[x_dim_name] = x
             coords[y_dim_name] = y
             spatial_dims = (y_dim_name, x_dim_name)
@@ -229,15 +238,25 @@ class Netcdf(Output):
                 coords[x_dim_name] = x
                 coords[y_dim_name] = y
                 spatial_dims = (y_dim_name, x_dim_name)
+                utils.LOGGER.debug(
+                    f"netcdf.write _is_masked in {pytime.perf_counter() - t0:.1f}s"
+                )
             else:
                 y = np.arange(len(self.pm.lats)).astype(np.int32)
                 coords["location"] = y
                 spatial_dims = ("location",)
+                utils.LOGGER.debug(
+                    f"netcdf.write else in {pytime.perf_counter() - t0:.1f}s"
+                )
 
         if self.pm.num_members > 1:
             coords[self.conv_name("realization")] = np.arange(
                 self.pm.num_members
             ).astype(np.int32)
+
+            utils.LOGGER.debug(
+                f"netcdf.write realization in {pytime.perf_counter() - t0:.1f}s"
+            )
 
         dims_to_add = self.variable_list.dimensions
 
@@ -247,6 +266,9 @@ class Netcdf(Output):
             # Don't need to convert dimnames, since these are already to local convention
             coords[dimname] = np.array(levels).astype(np.float32)
             attrs[dimname] = cf.get_attributes(level_type)
+        utils.LOGGER.debug(
+            f"netcdf.write Add dimensions in {pytime.perf_counter() - t0:.1f}s"
+        )
 
         self.ds = xr.Dataset(coords=coords)
 
@@ -546,6 +568,9 @@ class Netcdf(Output):
 
             if self.remove_intermediate:
                 self.intermediate.cleanup()
+        utils.LOGGER.debug(
+            f"Netcdf.finalize: {pytime.perf_counter() - t0:.1f}s",
+        )
 
     def get_lower(self, array):
         m = np.min(array)

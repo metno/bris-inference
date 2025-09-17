@@ -76,7 +76,7 @@ def get_conversion_map() -> dict[tuple[str, str], tuple[float, float]]:
     return linear_convert
 
 
-def find_common_name(units: str | None) -> str:
+def find_common_name(units: str | None) -> str | None:
     """Finds a more common name for a strange unit, e.g. celsius instead of C or degC
 
     Args:
@@ -108,7 +108,7 @@ def find_common_name(units: str | None) -> str:
     return units
 
 
-def convert(array, iunits: str, ounits: str | None = None, inplace: bool = False):
+def convert(array, iunits: str | None, ounits: str | None = None, inplace: bool = False):
     """Converts data from one unit to another
 
     Args:
