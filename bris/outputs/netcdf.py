@@ -346,6 +346,7 @@ class Netcdf(Output):
             variable_index = self.pm.variables.index(variable)
             level_index = self.variable_list.get_level_index(variable)
             ncname = self.variable_list.get_ncname_from_anemoi_name(variable)
+            ncname = ncname.replace('[', '').replace(']', '').replace('*', '')
             if self.compression:
                 nc_encoding[ncname] = {"zlib": True}
 

@@ -340,9 +340,20 @@ def safe_eval_expr(expr, variables_dict):
     visitor = EvalVisitor()
     return visitor.visit(tree.body)
 
+def expr_to_var(variable):
+    """Extract variables from expression and return
+    complete variable list and whether or not to derive"""
+    if variable == "ws":
+        variable = "([10u]**2+[10v]**2)**0.5"
+    if "[" in variable:
+        return re.findall(r'\[([^\[\]]+)\]', variable), variable, True
+    return [variable], variable, False
+
 
 def resolve_var_expr(variable, name_to_index):
     """
+    Return complete variable list with dataset index
+
     Args:
         variable: str
             Variable defined either directly or through expression
@@ -357,13 +368,6 @@ def resolve_var_expr(variable, name_to_index):
         derive: bool
             Whether or not to derive variable
     """
-    if variable == "ws" and variable not in name_to_index.keys():
-        variable = "([10u]**2+[10v]**2)**0.5"
-   
-    if "[" in variable:
-        derive_variables = re.findall(r'\[([^\[\]]+)\]', variable)
-        derive_variables = {v: name_to_index[v] for v in derive_variables}
-        return variable, derive_variables, True
-    else:
-        derive_variables = {variable: name_to_index[variable]}
-        return variable, derive_variables, False
+    variables, variable, derive = expr_to_var(variable)
+    derive_variables = {v: name_to_index[v] for v in variables}
+    return variable, derive_variables, derive
