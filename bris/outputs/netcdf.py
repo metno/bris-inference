@@ -198,7 +198,9 @@ class Netcdf(Output):
             else:
                 # TODO: Handle self.latrange and self.lonrange
                 if None not in [self.latrange, self.lonrange]:
-                    utils.LOGGER.warning("Warning: latrange/lonrange not handled in gridded fields")
+                    utils.LOGGER.warning(
+                        "Warning: latrange/lonrange not handled in gridded fields"
+                    )
 
                 if self.proj4_str:
                     lats = np.reshape(self.pm.lats, self.pm.field_shape).astype(

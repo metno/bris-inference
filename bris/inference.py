@@ -1,7 +1,7 @@
 import logging
+import time
 from functools import cached_property
 from typing import Any, Optional
-import time
 
 import pytorch_lightning as pl
 import torch

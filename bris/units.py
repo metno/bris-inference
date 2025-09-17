@@ -108,7 +108,9 @@ def find_common_name(units: str | None) -> str | None:
     return units
 
 
-def convert(array, iunits: str | None, ounits: str | None = None, inplace: bool = False):
+def convert(
+    array, iunits: str | None, ounits: str | None = None, inplace: bool = False
+):
     """Converts data from one unit to another
 
     Args:

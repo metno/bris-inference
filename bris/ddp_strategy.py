@@ -18,7 +18,7 @@ from pytorch_lightning.overrides.distributed import _sync_module_states
 from pytorch_lightning.strategies.ddp import DDPStrategy
 from pytorch_lightning.trainer.states import TrainerFn
 
-from bris.utils import get_base_seed, LOGGER
+from bris.utils import LOGGER, get_base_seed
 
 
 class DDPGroupStrategy(DDPStrategy):
