@@ -1,16 +1,16 @@
 import logging
 from functools import cached_property
 from typing import Any, Optional
+import time
 
 import pytorch_lightning as pl
 import torch
 from anemoi.utils.config import DotDict
 
 from bris.ddp_strategy import DDPGroupStrategy
+from bris.utils import LOGGER
 
 from .data.datamodule import DataModule
-
-LOGGER = logging.getLogger(__name__)
 
 
 class Inference:
@@ -38,7 +38,7 @@ class Inference:
     def device(self) -> str:
         if self._device is None:
             if torch.cuda.is_available() and torch.backends.cuda.is_built():
-                LOGGER.info("Specified device not set. Found GPU")
+                LOGGER.warning("Specified device not set. Found GPU")
                 return "cuda"
 
             LOGGER.info("Specified device not set. Could not find gpu, using CPU")
@@ -74,6 +74,9 @@ class Inference:
         return trainer
 
     def run(self):
+        t0 = time.perf_counter()
+        LOGGER.debug("Bris/Inference/run Predicting")
         self.trainer.predict(
             self.model, datamodule=self.datamodule, return_predictions=False
         )
+        LOGGER.debug("bris/Inference.run: %d.1s", (time.perf_counter() - t0))

@@ -10,9 +10,7 @@ from einops import rearrange
 from torch.utils.data import IterableDataset
 
 from bris.data.grid_indices import BaseGridIndices
-from bris.utils import get_base_seed, get_usable_indices
-
-LOGGER = logging.getLogger(__name__)
+from bris.utils import get_base_seed, get_usable_indices, LOGGER
 
 
 class NativeGridDataset(IterableDataset):
@@ -200,7 +198,7 @@ class NativeGridDataset(IterableDataset):
             f"num_data_parallel = num_nodes * num_gpus_per_node / num_gpus_per_model"
         )
         if len(self.valid_date_indices) % self.ens_comm_num_groups != 0:
-            print(
+            LOGGER.warning(
                 f"Warning: Dataloader has {len(self.valid_date_indices)} samples, which is not divisible by "
                 f"{self.ens_comm_num_groups} data parallel workers. This will lead to "
                 f"{len(self.valid_date_indices) % self.ens_comm_num_groups} unprocessed samples.",

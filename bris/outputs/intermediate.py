@@ -1,6 +1,7 @@
 import glob
 import os
 from typing import Optional
+import time
 
 import numpy as np
 
@@ -24,7 +25,8 @@ class Intermediate(Output):
         super().__init__(predict_metadata, extra_variables)
         self.workdir = workdir
 
-    def _add_forecast(self, times, ensemble_member, pred):
+    def _add_forecast(self, times, ensemble_member, pred) -> None:
+        t0 = time.perf_counter()
         filename = self.get_filename(times[0], ensemble_member)
         utils.create_directory(filename)
 
