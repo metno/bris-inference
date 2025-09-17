@@ -2,6 +2,7 @@ import json
 import logging
 import numbers
 import os
+import sys
 import time
 import uuid
 from argparse import ArgumentParser
@@ -126,9 +127,40 @@ def create_config(config_path: str, overrides: dict) -> DictConfig | ListConfig:
     validate(config_path, raise_on_error=True)
 
     config = OmegaConf.load(config_path)
-    LOGGER.debug("config file from %s is loaded", config_path)
-
+    # Set hydra defaults
+    config.defaults = [
+        {"override hydra/job_logging": "none"},  # disable config parsing logs
+        {"override hydra/hydra_logging": "none"},  # disable config parsing logs
+        "_self_",
+    ]
     return OmegaConf.merge(config, OmegaConf.create(overrides))
+
+
+def setup_logging(config: DotDict) -> None:
+    # Set up logging
+    console_handler = logging.StreamHandler(sys.stdout)
+    LOGGER.setLevel(logging.DEBUG)
+    # Create a formatter for the logs
+    formatter = logging.Formatter(
+        "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
+    )
+    console_handler.setFormatter(formatter)
+
+    if "loglevel" in config:
+        if "debug" in config.loglevel.lower() or "verbose" in config.loglevel.lower():
+            console_handler.setLevel(logging.DEBUG)
+        elif "error" in config.loglevel.lower():
+            console_handler.setLevel(logging.ERROR)
+        elif "warn" in config.loglevel.lower():
+            console_handler.setLevel(logging.WARNING)
+        else:
+            console_handler.setLevel(logging.INFO)
+
+    # Add the handler to the LOGGER
+    LOGGER.addHandler(console_handler)
+    LOGGER.debug(
+        f"config file from {config.config} loaded with log level {console_handler.level}"
+    )
 
 
 def datetime_to_unixtime(
@@ -147,8 +179,8 @@ def timedelta64_from_timestep(timestep):
     if isinstance(timestep, str) and timestep[-1] in ("h", "m", "s"):
         return np.timedelta64(timestep[0:-1], timestep[-1])
 
-    print(
-        "WARNING: could not decode model timestep from checkpoint, trying to assume hours"
+    LOGGER.warning(
+        "could not decode model timestep from checkpoint, trying to assume hours"
     )
     return np.timedelta64(timestep, "h")
 
