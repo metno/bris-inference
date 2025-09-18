@@ -13,6 +13,7 @@ from bris.predict_metadata import PredictMetadata
 
 
 class AsyncRm(threading.Thread):
+    """Run background thread to delete files."""
     def __init__(self, path):
         # calling superclass init
         threading.Thread.__init__(self)
@@ -128,6 +129,7 @@ class Intermediate(Output):
         """Removes up all intermediate files and removes the workdir. Called in finalize of the main output."""
 
         t0 = time.perf_counter()
+        # Run in background, don't worry if or when it finishes.
         background = AsyncRm(self.workdir)
         background.start()
         utils.LOGGER.debug(f"Intermediate.cleanup in {time.perf_counter() - t0:.1f}s")

@@ -1,11 +1,12 @@
 import numpy as np
+import threading
 from pytorch_lightning.callbacks import BasePredictionWriter
-
+from .utils import LOGGER
 
 class CustomWriter(BasePredictionWriter):
     """This class is used in a callback to the trainer to write data into output"""
 
-    def __init__(self, outputs: dict, write_interval):
+    def __init__(self, outputs: dict, write_interval, threadlist):
         """
         Args:
             outputs (dict): Dict of domain-name to dict, where dict has "start", "end", and
@@ -14,6 +15,7 @@ class CustomWriter(BasePredictionWriter):
         super().__init__(write_interval)
 
         self.outputs = outputs
+        self.threadlist = threadlist
 
     def write_on_batch_end(
         self,
@@ -46,6 +48,7 @@ class CustomWriter(BasePredictionWriter):
                 ]
 
                 for output in output_dict["outputs"]:
-                    output.add_forecast(
-                        times, ensemble_member, pred
-                    )  # change timestamp to times
+                    thread = threading.Thread(target=output.add_forecast, args=(times, ensemble_member, pred))
+                    self.threadlist.append(thread)
+                    thread.start()
+                    LOGGER.debug(f"CustomWriter started writing {ensemble_member} output {output.filename_pattern} in background.")

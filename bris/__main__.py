@@ -2,6 +2,7 @@ import logging
 import os
 import time
 from datetime import datetime, timedelta
+import threading
 
 from anemoi.utils.dates import frequency_to_seconds
 from hydra.utils import instantiate
@@ -132,6 +133,7 @@ def main(arg_list: list[str] | None = None):
             config.checkpoints.forecaster.timestep_seconds,
         )
 
+
     decoder_outputs = bris.routes.get(
         config["routing"],
         leadtimes,
@@ -143,7 +145,8 @@ def main(arg_list: list[str] | None = None):
     required_variables = bris.routes.get_required_variables_all_checkpoints(
         config["routing"], checkpoints
     )
-    writer = CustomWriter(decoder_outputs, write_interval="batch")
+    threads=[]
+    writer = CustomWriter(decoder_outputs, write_interval="batch", threadlist=threads)
 
     # Forecaster must know about what leadtimes to output
     model = instantiate(
@@ -173,6 +176,13 @@ def main(arg_list: list[str] | None = None):
         os.environ["SLURM_PROCID"] == "0"
     )
     if is_main_thread:
+        # Wait for all threads to finish
+        for t in threads:
+            t2 = time.perf_counter()
+            LOGGER.debug(f"Waiting for thread {t}")
+            t.join()
+            LOGGER.debug(f"Thread {t} done in {time.perf_counter() - t2:.1f}s.")
+
         for decoder_output in decoder_outputs:
             for output in decoder_output["outputs"]:
                 t0 = time.perf_counter()
