@@ -1,10 +1,10 @@
 import ast
-import operator as op
 import json
 import logging
 import numbers
-import re
+import operator as op
 import os
+import re
 import time
 import uuid
 from argparse import ArgumentParser
