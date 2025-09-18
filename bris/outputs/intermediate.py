@@ -114,12 +114,12 @@ class Intermediate(Output):
             try:
                 os.remove(_filename)
             except OSError as e:
-                utils.LOGGER.error(f"Error during cleanup of {_filename}: {e}")
+                utils.LOGGER.warning(f"Error during cleanup of {_filename}: {e}")
 
         try:
             os.rmdir(self.workdir)
         except OSError as e:
-            utils.LOGGER.error(f"Error removing workdir {self.workdir}: {e}")
+            utils.LOGGER.warning(f"Error removing workdir {self.workdir}: {e}")
         utils.LOGGER.debug(f"Intermediate.cleanup in {time.perf_counter() - t0:.1f}s")
 
     def finalize(self):

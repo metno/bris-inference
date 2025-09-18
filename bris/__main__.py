@@ -92,7 +92,7 @@ def main(arg_list: list[str] | None = None):
             "%Y-%m-%dT%H:%M:%S",
         )
         LOGGER.warning(
-            "No start_date given, setting %s based on start_date and timestep.",
+            "No start_date given, setting %s based on end_date and timestep.",
             config.start_date,
         )
     else:

@@ -145,16 +145,14 @@ def setup_logging(config: DotDict) -> None:
         "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
     )
     console_handler.setFormatter(formatter)
+    console_handler.setLevel(logging.INFO)
 
-    if "loglevel" in config:
-        if "debug" in config.loglevel.lower() or "verbose" in config.loglevel.lower():
-            console_handler.setLevel(logging.DEBUG)
-        elif "error" in config.loglevel.lower():
-            console_handler.setLevel(logging.ERROR)
-        elif "warn" in config.loglevel.lower():
-            console_handler.setLevel(logging.WARNING)
-        else:
-            console_handler.setLevel(logging.INFO)
+    if (
+        "loglevel" in config
+        and "debug" in config.loglevel.lower()
+        or "verbose" in config.loglevel.lower()
+    ):
+        console_handler.setLevel(logging.DEBUG)
 
     # Add the handler to the LOGGER
     LOGGER.addHandler(console_handler)

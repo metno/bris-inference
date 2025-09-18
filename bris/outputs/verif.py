@@ -344,7 +344,7 @@ class Verif(Output):
         valid_times = a + b
         valid_times = valid_times.transpose()
         if len(valid_times) == 0:
-            utils.LOGGER.error("### No valid times")
+            utils.LOGGER.warning("Could not finalize verif, no valid times")
             return
 
         # valid_times = np.sort(np.unique(valid_times.flatten()))
