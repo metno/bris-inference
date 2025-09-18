@@ -1,5 +1,6 @@
 import logging
 import os
+import time
 from datetime import datetime, timedelta
 
 from anemoi.utils.dates import frequency_to_seconds
@@ -11,20 +12,22 @@ from bris.data.datamodule import DataModule
 from .checkpoint import Checkpoint
 from .inference import Inference
 from .utils import (
+    LOGGER,
     create_config,
     get_all_leadtimes,
     parse_args,
     set_base_seed,
     set_encoder_decoder_num_chunks,
+    setup_logging,
 )
 from .writer import CustomWriter
 
-LOGGER = logging.getLogger(__name__)
-
 
 def main(arg_list: list[str] | None = None):
+    t0 = time.perf_counter()
     args = parse_args(arg_list)
     config = create_config(args["config"], args)
+    setup_logging(config)
 
     models = list(config.checkpoints.keys())
     checkpoints = {
@@ -88,8 +91,8 @@ def main(arg_list: list[str] | None = None):
             ),
             "%Y-%m-%dT%H:%M:%S",
         )
-        LOGGER.info(
-            "No start_date given, setting %s based on start_date and timestep.",
+        LOGGER.warning(
+            "No start_date given, setting %s based on end_date and timestep.",
             config.start_date,
         )
     else:
@@ -143,13 +146,6 @@ def main(arg_list: list[str] | None = None):
     )
     writer = CustomWriter(decoder_outputs, write_interval="batch")
 
-    # Set hydra defaults
-    config.defaults = [
-        {"override hydra/job_logging": "none"},  # disable config parsing logs
-        {"override hydra/hydra_logging": "none"},  # disable config parsing logs
-        "_self_",
-    ]
-
     # Forecaster must know about what leadtimes to output
     model = instantiate(
         config.model,
@@ -180,9 +176,13 @@ def main(arg_list: list[str] | None = None):
     if is_main_thread:
         for decoder_output in decoder_outputs:
             for output in decoder_output["outputs"]:
+                t1 = time.perf_counter()
                 output.finalize()
+                LOGGER.debug(
+                    f"finalizing decoder {decoder_output} output {output.filename_pattern} in {time.perf_counter() - t1:.1f}s"
+                )
 
-        print("Model run completed. 🤖")
+        LOGGER.info(f"Bris completed in {time.perf_counter() - t0:.1f}s. 🤖")
 
 
 if __name__ == "__main__":

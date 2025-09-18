@@ -1,5 +1,6 @@
 import glob
 import os
+import time
 from typing import Optional
 
 import numpy as np
@@ -24,17 +25,21 @@ class Intermediate(Output):
         super().__init__(predict_metadata, extra_variables)
         self.workdir = workdir
 
-    def _add_forecast(self, times, ensemble_member, pred):
+    def _add_forecast(self, times, ensemble_member, pred) -> None:
+        t0 = time.perf_counter()
         filename = self.get_filename(times[0], ensemble_member)
         utils.create_directory(filename)
 
         np.save(filename, pred)
+        utils.LOGGER.debug(
+            f"Intermediate._add_forecast for {filename} in {time.perf_counter() - t0:.1f}s"
+        )
 
-    def get_filename(self, forecast_reference_time, ensemble_member):
+    def get_filename(self, forecast_reference_time, ensemble_member) -> str:
         frt_ut = utils.datetime_to_unixtime(forecast_reference_time)
         return f"{self.workdir}/{frt_ut:.0f}_{ensemble_member:.0f}.npy"
 
-    def get_forecast_reference_times(self):
+    def get_forecast_reference_times(self) -> list[np.datetime64]:
         """Returns all forecast reference times that have been saved"""
         filenames = self.get_filenames()
         frts = []
@@ -48,7 +53,9 @@ class Intermediate(Output):
 
         return frts
 
-    def get_forecast(self, forecast_reference_time, ensemble_member=None):
+    def get_forecast(
+        self, forecast_reference_time, ensemble_member=None
+    ) -> np.ndarray | None:
         """Fetches forecasts from stored numpy files
 
         Args:
@@ -61,6 +68,7 @@ class Intermediate(Output):
                       4D otherwise (leadtime, points, variables, members)
         """
 
+        t0 = time.perf_counter()
         if ensemble_member is None:
             shape = [
                 self.pm.num_leadtimes,
@@ -73,16 +81,21 @@ class Intermediate(Output):
                 filename = self.get_filename(forecast_reference_time, e)
                 if os.path.exists(filename):
                     pred[..., e] = np.load(filename)
+                utils.LOGGER.debug(
+                    f"Intermediate.get_forecast for {filename} in {time.perf_counter() - t0:.1f}s"
+                )
         else:
             assert isinstance(ensemble_member, int)
 
             filename = self.get_filename(forecast_reference_time, ensemble_member)
             pred = np.load(filename) if os.path.exists(filename) else None
-
+            utils.LOGGER.debug(
+                f"Intermediate.get_forecast for {filename} in {time.perf_counter() - t0:.1f}s"
+            )
         return pred
 
     @property
-    def num_members(self):
+    def num_members(self) -> int:
         filenames = self.get_filenames()
 
         max_member = 0
@@ -91,22 +104,23 @@ class Intermediate(Output):
             max_member = max(int(member), max_member)
         return max_member + 1
 
-    def get_filenames(self):
+    def get_filenames(self) -> list[str]:
         return glob.glob(f"{self.workdir}/*_*.npy")
 
-    def cleanup(self):
+    def cleanup(self) -> None:
         """Removes up all intermediate files and removes the workdir. Called in finalize of the main output."""
-
+        t0 = time.perf_counter()
         for _filename in self.get_filenames():
             try:
                 os.remove(_filename)
             except OSError as e:
-                print(f"Error during cleanup of {_filename}: {e}")
+                utils.LOGGER.warning(f"Error during cleanup of {_filename}: {e}")
 
         try:
             os.rmdir(self.workdir)
         except OSError as e:
-            print(f"Error removing workdir {self.workdir}: {e}")
+            utils.LOGGER.warning(f"Error removing workdir {self.workdir}: {e}")
+        utils.LOGGER.debug(f"Intermediate.cleanup in {time.perf_counter() - t0:.1f}s")
 
     def finalize(self):
         pass
