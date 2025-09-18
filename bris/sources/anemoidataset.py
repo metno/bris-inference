@@ -20,18 +20,16 @@ class AnemoiDataset(Source):
         """
         Args:
             dataset_dict: open_dataset recipe, dictionary.
-            variable: variable to fetch from dataset. Can also specify how to 
+            variable: variable to fetch from dataset. Can also specify how to
                       derive from other variables using standard Pythonic math
                       expressions and specifying variables in brackets (e.g. [10u])
             every: include every this number of locations in the verif file
         """
         self.dataset = open_dataset(dataset_dict)
         self.variable, self.derive_variables, self.derive = resolve_var_expr(
-                variable, self.dataset.name_to_index
+            variable, self.dataset.name_to_index
         )
         self.every_loc = every_loc
-
-        
 
     @cached_property
     def locations(self):
@@ -67,9 +65,7 @@ class AnemoiDataset(Source):
             if len(i) > 0:
                 j = int(i[0])
                 if j in self.dataset.missing:
-                    print(
-                        f"Date {self.dataset.dates[j]} missing from verif dataset"
-                    )
+                    print(f"Date {self.dataset.dates[j]} missing from verif dataset")
                 else:
                     if self.derive:
                         variables_dict = {}
@@ -79,7 +75,10 @@ class AnemoiDataset(Source):
                         data[t, :] = safe_eval_expr(self.variable, variables_dict)
                     else:
                         data[t, :] = self.dataset[
-                            j, self.derive_variables[self.variable], 0, :: self.every_loc
+                            j,
+                            self.derive_variables[self.variable],
+                            0,
+                            :: self.every_loc,
                         ]
 
         observations = Observations(self.locations, requested_times, {variable: data})
