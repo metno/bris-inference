@@ -1,5 +1,7 @@
 import glob
 import os
+import shutil
+import threading
 import time
 from typing import Optional
 
@@ -8,6 +10,21 @@ import numpy as np
 from bris import utils
 from bris.outputs import Output
 from bris.predict_metadata import PredictMetadata
+
+
+class AsyncRm(threading.Thread):
+    def __init__(self, path):
+        # calling superclass init
+        threading.Thread.__init__(self)
+        self.path = path
+
+    def run(self):
+        t0 = time.perf_counter()
+        try:
+            shutil.rmtree(self.path)
+        except OSError as e:
+            utils.LOGGER.error(f"Error removing workdir {self.path}: {e}")
+        utils.LOGGER.debug(f"AsyncRm in {time.perf_counter() - t0:.1f}s")
 
 
 class Intermediate(Output):
@@ -111,16 +128,8 @@ class Intermediate(Output):
         """Removes up all intermediate files and removes the workdir. Called in finalize of the main output."""
 
         t0 = time.perf_counter()
-        for _filename in self.get_filenames():
-            try:
-                os.remove(_filename)
-            except OSError as e:
-                utils.LOGGER.error(f"Error during cleanup of {_filename}: {e}")
-
-        try:
-            os.rmdir(self.workdir)
-        except OSError as e:
-            utils.LOGGER.error(f"Error removing workdir {self.workdir}: {e}")
+        background = AsyncRm(self.workdir)
+        background.start()
         utils.LOGGER.debug(f"Intermediate.cleanup in {time.perf_counter() - t0:.1f}s")
 
     def finalize(self):
