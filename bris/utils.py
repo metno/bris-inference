@@ -370,9 +370,10 @@ def safe_eval_expr(expr, variables_dict):
     for original_name, safe_name in zip(variables_dict.keys(), safe_variables.keys()):
         expr_safe = expr_safe.replace(f"[{original_name}]", safe_name)
 
-    tree = ast.parse(expr_safe, mode='eval')
+    tree = ast.parse(expr_safe, mode="eval")
     visitor = EvalVisitor()
     return visitor.visit(tree.body)
+
 
 def expr_to_var(variable):
     """Extract variables from expression and return
@@ -380,7 +381,7 @@ def expr_to_var(variable):
     if variable == "ws":
         variable = "([10u]**2+[10v]**2)**0.5"
     if "[" in variable:
-        return re.findall(r'\[([^\[\]]+)\]', variable), variable, True
+        return re.findall(r"\[([^\[\]]+)\]", variable), variable, True
     return [variable], variable, False
 
 

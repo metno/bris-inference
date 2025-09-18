@@ -101,7 +101,7 @@ class Output:
         # Append extra variables to prediction
         for name in self.extra_variables:
             if name not in self.pm.variables:
-                clean_name = name.replace('[', '').replace(']', '').replace('*', '')
+                clean_name = name.replace("[", "").replace("]", "").replace("*", "")
                 self.pm.variables.append(clean_name)
 
         # only do this once. For multiple members, intermediate calls this several times
@@ -117,7 +117,7 @@ class Output:
                 for v in extr_vars:
                     idx = self.pm.variables.index(v)
                     variables_dict[v] = pred[..., idx]
-                extra_pred += [safe_eval_expr(name, variables_dict)[...,None]]
+                extra_pred += [safe_eval_expr(name, variables_dict)[..., None]]
 
             pred = np.concatenate([pred] + extra_pred, axis=2)
         LOGGER.debug(
