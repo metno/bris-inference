@@ -161,7 +161,7 @@ class Netcdf(Output):
         x: np.ndarray | None = None
         y: np.ndarray | None = None
 
-        t0 = pytime.perf_counter()
+        #t0 = pytime.perf_counter()
 
         # TODO: Seconds or hours for leadtimes?
         times_ut = utils.datetime_to_unixtime(times)
@@ -544,7 +544,7 @@ class Netcdf(Output):
         )
 
     def finalize(self):
-        t0 = pytime.perf_counter()
+        #t0 = pytime.perf_counter()
 
         if self.pm.num_members > 1:
             # Load data from the intermediate and write to disk
