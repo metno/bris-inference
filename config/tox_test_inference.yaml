@@ -40,5 +40,3 @@ routing:
       - grib:
           filename_pattern: ./tox_test_inference.grib
           variables: [2t, 2d]
-
-loglevel: warning

@@ -147,10 +147,8 @@ def setup_logging(config: DotDict) -> None:
     console_handler.setFormatter(formatter)
     console_handler.setLevel(logging.INFO)
 
-    if (
-        "loglevel" in config
-        and "debug" in config.loglevel.lower()
-        or "verbose" in config.loglevel.lower()
+    if "loglevel" in config and (
+        "debug" in config.loglevel.lower() or "verbose" in config.loglevel.lower()
     ):
         console_handler.setLevel(logging.DEBUG)
 
