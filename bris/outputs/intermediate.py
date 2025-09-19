@@ -12,23 +12,6 @@ from bris.outputs import Output
 from bris.predict_metadata import PredictMetadata
 
 
-class AsyncRm(threading.Thread):
-    """Run background thread to delete files."""
-
-    def __init__(self, path):
-        # calling superclass init
-        threading.Thread.__init__(self)
-        self.path = path
-
-    def run(self):
-        t0 = time.perf_counter()
-        try:
-            shutil.rmtree(self.path)
-        except OSError as e:
-            utils.LOGGER.error(f"Error removing workdir {self.path}: {e}")
-        utils.LOGGER.debug(f"AsyncRm in {time.perf_counter() - t0:.1f}s")
-
-
 class Intermediate(Output):
     """This output saves data into an intermediate format, that can be used by other outputs to
     cache data. It saves one forecast run in each file (i.e. a separate file for each
@@ -126,13 +109,23 @@ class Intermediate(Output):
     def get_filenames(self) -> list[str]:
         return glob.glob(f"{self.workdir}/*_*.npy")
 
-    def cleanup(self) -> None:
-        """Removes up all intermediate files and removes the workdir. Called in finalize of the main output."""
+    def remove_workdir(self) -> None:
+        """Recursively delete a directory, with timing and logging."""
+        t0 = time.perf_counter()
+        try:
+            shutil.rmtree(self.workdir)
+        except OSError as e:
+            utils.LOGGER.error(f"Error removing dir {self.workdir}: {e}")
+        utils.LOGGER.debug(
+            f"intermediate.remove_workdir done in {time.perf_counter() - t0:.1f}s"
+        )
 
+    def cleanup(self) -> None:
+        """Starts a background thread to remove all intermediate files. Called in finalize of the main output."""
         t0 = time.perf_counter()
         # Run in background, don't worry if or when it finishes.
-        background = AsyncRm(self.workdir)
-        background.start()
+        thread = threading.Thread(target=self.remove_workdir)
+        thread.start()
         utils.LOGGER.debug(f"Intermediate.cleanup in {time.perf_counter() - t0:.1f}s")
 
     def finalize(self):
