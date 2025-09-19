@@ -146,7 +146,7 @@ def main(arg_list: list[str] | None = None):
     )
     writer_threads = []
     writer = CustomWriter(
-        decoder_outputs, threadlist=writer_threads
+        decoder_outputs, thread_list=writer_threads
     )
 
     # Forecaster must know about what leadtimes to output
@@ -180,10 +180,10 @@ def main(arg_list: list[str] | None = None):
         # Wait for all writer_threads to finish
         for t in writer_threads:
             t2 = time.perf_counter()
-            LOGGER.debug(f"Waiting for writer thread {t.get_native_id()}...")
+            LOGGER.debug(f"Waiting for writer {t.getName()}...")
             t.join()
             LOGGER.debug(
-                f"Waited {time.perf_counter() - t2:.1f}s for thread {t.get_native_id()} to complete."
+                f"Waited {time.perf_counter() - t2:.1f}s for {t.getName()} to complete."
             )
 
         for decoder_output in decoder_outputs:
