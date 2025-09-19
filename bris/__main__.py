@@ -145,9 +145,7 @@ def main(arg_list: list[str] | None = None):
         config["routing"], checkpoints
     )
     writer_threads = []
-    writer = CustomWriter(
-        decoder_outputs, thread_list=writer_threads
-    )
+    writer = CustomWriter(decoder_outputs, thread_list=writer_threads)
 
     # Forecaster must know about what leadtimes to output
     model = instantiate(
