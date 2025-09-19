@@ -145,8 +145,8 @@ def main(arg_list: list[str] | None = None):
     required_variables = bris.routes.get_required_variables_all_checkpoints(
         config["routing"], checkpoints
     )
-    threads=[]
-    writer = CustomWriter(decoder_outputs, write_interval="batch", threadlist=threads)
+    writer_threads=[]
+    writer = CustomWriter(decoder_outputs, write_interval="batch", threadlist=writer_threads)
 
     # Forecaster must know about what leadtimes to output
     model = instantiate(
@@ -176,19 +176,19 @@ def main(arg_list: list[str] | None = None):
         os.environ["SLURM_PROCID"] == "0"
     )
     if is_main_thread:
-        # Wait for all threads to finish
-        for t in threads:
+        # Wait for all writer_threads to finish
+        for t in writer_threads:
             t2 = time.perf_counter()
-            LOGGER.debug(f"Waiting for thread {t.get_native_id()}")
+            LOGGER.debug(f"Waiting for writer thread {t.get_native_id()}...")
             t.join()
-            LOGGER.debug(f"Thread {t.get_native_id()} done in {time.perf_counter() - t2:.1f}s.")
+            LOGGER.debug(f"Waited {time.perf_counter() - t2:.1f}s for thread {t.get_native_id()} to complete.")
 
         for decoder_output in decoder_outputs:
             for output in decoder_output["outputs"]:
                 t0 = time.perf_counter()
                 output.finalize()
                 LOGGER.debug(
-                    f"finalizing decoder {decoder_output} output {output.filename_pattern} in %d.1s"
+                    f"Finalizing decoder {decoder_output} output {output.filename_pattern} in %d.1s"
                     % (time.perf_counter() - t0)
                 )
 
