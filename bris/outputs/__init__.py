@@ -7,6 +7,7 @@ import numpy as np
 from bris import sources
 from bris.predict_metadata import PredictMetadata
 from bris.utils import LOGGER
+from bris.utils import datetime_to_unixtime, safe_eval_expr, expr_to_var
 
 
 def instantiate(name: str, predict_metadata: PredictMetadata, workdir: str, init_args):
@@ -48,32 +49,20 @@ def get_required_variables(name, init_args):
     provided
     """
 
-    if name == "netcdf":
+    if name in ["netcdf", "grib"]:
         if "variables" in init_args:
             variables = init_args["variables"]
             if "extra_variables" in init_args:
                 for var_name in init_args["extra_variables"]:
-                    if var_name == "ws":
-                        variables += ["10u", "10v"]
+                    extr_vars, _, _ = expr_to_var(var_name)
+                    variables.extend(extr_vars)
             variables = sorted(list(set(variables)))
             return variables
         return [None]
 
     if name in ["verif", "powerspectrum_gridded", "powerspectrum_global"]:
-        if init_args["variable"] == "ws":
-            return ["10u", "10v"]
-        return [init_args["variable"]]
-
-    if name == "grib":
-        if "variables" in init_args:
-            variables = init_args["variables"]
-            if "extra_variables" in init_args:
-                for name in init_args["extra_variables"]:
-                    if name == "ws":
-                        variables += ["10u", "10v"]
-            variables = sorted(list(set(variables)))
-            return variables
-        return [None]
+        extr_vars, _, _ = expr_to_var(init_args["variable"])
+        return extr_vars
 
     raise ValueError(f"Invalid output: {name}")
 
@@ -112,7 +101,8 @@ class Output:
         # Append extra variables to prediction
         for name in self.extra_variables:
             if name not in self.pm.variables:
-                self.pm.variables.append(name)
+                clean_name = name.replace('[', '').replace(']', '').replace('*', '')
+                self.pm.variables.append(clean_name)
 
         # only do this once. For multiple members, intermediate calls this several times
         t0 = time.perf_counter()
@@ -120,13 +110,14 @@ class Output:
             # Append extra variables to prediction
             extra_pred = []
             for name in self.extra_variables:
-                if name == "ws":
-                    Ix = self.pm.variables.index("10u")
-                    Iy = self.pm.variables.index("10v")
-                    curr = np.sqrt(pred[..., [Ix]] ** 2 + pred[..., [Iy]] ** 2)
-                    extra_pred += [curr]
-                else:
-                    raise ValueError(f"No recipe to compute {name}")
+                extr_vars, name, success = expr_to_var(name)
+                assert success, "Variables could not be extracted from expression"
+
+                variables_dict = {}
+                for v in extr_vars:
+                    idx = self.pm.variables.index(v)
+                    variables_dict[v] = pred[..., idx]
+                extra_pred += [safe_eval_expr(name, variables_dict)[...,None]]
 
             pred = np.concatenate([pred] + extra_pred, axis=2)
         LOGGER.debug(
