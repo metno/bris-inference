@@ -56,6 +56,7 @@ def test_1():
                     quantile_levels=quantile_levels,
                     elev_gradient=elev_gradient,
                     max_distance=max_distance,
+                    remove_intermediate=False,
                 )
 
                 times = frt + leadtimes
