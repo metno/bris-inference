@@ -6,8 +6,7 @@ import numpy as np
 
 from bris import sources
 from bris.predict_metadata import PredictMetadata
-from bris.utils import LOGGER
-from bris.utils import datetime_to_unixtime, expr_to_var, safe_eval_expr
+from bris.utils import LOGGER, datetime_to_unixtime, expr_to_var, safe_eval_expr
 
 
 def instantiate(name: str, predict_metadata: PredictMetadata, workdir: str, init_args):
