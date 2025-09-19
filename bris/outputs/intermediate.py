@@ -14,6 +14,7 @@ from bris.predict_metadata import PredictMetadata
 
 class AsyncRm(threading.Thread):
     """Run background thread to delete files."""
+
     def __init__(self, path):
         # calling superclass init
         threading.Thread.__init__(self)
