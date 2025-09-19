@@ -25,6 +25,7 @@ from .writer import CustomWriter
 
 
 def main(arg_list: list[str] | None = None):
+    t0 = time.perf_counter()
     args = parse_args(arg_list)
     config = create_config(args["config"], args)
     setup_logging(config)
@@ -91,8 +92,8 @@ def main(arg_list: list[str] | None = None):
             ),
             "%Y-%m-%dT%H:%M:%S",
         )
-        LOGGER.error(
-            "No start_date given, setting %s based on start_date and timestep.",
+        LOGGER.warning(
+            "No start_date given, setting %s based on end_date and timestep.",
             config.start_date,
         )
     else:
@@ -186,14 +187,13 @@ def main(arg_list: list[str] | None = None):
 
         for decoder_output in decoder_outputs:
             for output in decoder_output["outputs"]:
-                t0 = time.perf_counter()
+                t1 = time.perf_counter()
                 output.finalize()
                 LOGGER.debug(
-                    f"Finalizing decoder {decoder_output} output {output.filename_pattern} in %d.1s"
-                    % (time.perf_counter() - t0)
+                    f"finalizing decoder {decoder_output} output {output.filename_pattern} in {time.perf_counter() - t1:.1f}s"
                 )
 
-        LOGGER.info("Model run completed. 🤖")
+        LOGGER.info(f"Bris completed in {time.perf_counter() - t0:.1f}s. 🤖")
 
 
 if __name__ == "__main__":

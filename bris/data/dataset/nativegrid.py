@@ -10,9 +10,7 @@ from einops import rearrange
 from torch.utils.data import IterableDataset
 
 from bris.data.grid_indices import BaseGridIndices
-from bris.utils import get_base_seed, get_usable_indices
-
-LOGGER = logging.getLogger(__name__)
+from bris.utils import LOGGER, get_base_seed, get_usable_indices
 
 
 class NativeGridDataset(IterableDataset):

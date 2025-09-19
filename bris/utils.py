@@ -7,6 +7,7 @@ import time
 import uuid
 from argparse import ArgumentParser
 from collections.abc import Iterable
+from typing import Any
 
 import jsonschema
 import numpy as np
@@ -126,7 +127,6 @@ def create_config(config_path: str, overrides: dict) -> DictConfig | ListConfig:
     validate(config_path, raise_on_error=True)
 
     config = OmegaConf.load(config_path)
-
     # Set hydra defaults
     config.defaults = [
         {"override hydra/job_logging": "none"},  # disable config parsing logs
@@ -145,16 +145,12 @@ def setup_logging(config: DotDict) -> None:
         "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
     )
     console_handler.setFormatter(formatter)
+    console_handler.setLevel(logging.INFO)
 
-    if "loglevel" in config:
-        if "debug" in config.loglevel.lower() or "verbose" in config.loglevel.lower():
-            console_handler.setLevel(logging.DEBUG)
-        elif "error" in config.loglevel.lower():
-            console_handler.setLevel(logging.ERROR)
-        elif "warn" in config.loglevel.lower():
-            console_handler.setLevel(logging.WARNING)
-        else:
-            console_handler.setLevel(logging.INFO)
+    if "loglevel" in config and (
+        "debug" in config.loglevel.lower() or "verbose" in config.loglevel.lower()
+    ):
+        console_handler.setLevel(logging.DEBUG)
 
     # Add the handler to the LOGGER
     LOGGER.addHandler(console_handler)
@@ -163,7 +159,9 @@ def setup_logging(config: DotDict) -> None:
     )
 
 
-def datetime_to_unixtime(dt: np.datetime64) -> np.ndarray:
+def datetime_to_unixtime(
+    dt: list[np.datetime64],
+) -> np.ndarray[Any, np.dtype[np.int64]]:
     """Convert a np.datetime64 object or list of objects to unixtime"""
     return np.array(dt).astype("datetime64[s]").astype("int")
 

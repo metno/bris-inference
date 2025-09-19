@@ -8,9 +8,9 @@ import torch
 from anemoi.utils.config import DotDict
 
 from bris.ddp_strategy import DDPGroupStrategy
+from bris.utils import LOGGER
 
 from .data.datamodule import DataModule
-from .utils import LOGGER
 
 
 class Inference:
@@ -79,4 +79,4 @@ class Inference:
         self.trainer.predict(
             self.model, datamodule=self.datamodule, return_predictions=False
         )
-        LOGGER.debug("bris/Inference.run: %d.1s", (time.perf_counter() - t0))
+        LOGGER.debug(f"bris/Inference.run: {time.perf_counter() - t0:.1f}s")

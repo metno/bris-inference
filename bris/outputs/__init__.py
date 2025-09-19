@@ -6,6 +6,7 @@ import numpy as np
 
 from bris import sources
 from bris.predict_metadata import PredictMetadata
+from bris.utils import LOGGER
 
 from ..utils import LOGGER
 
