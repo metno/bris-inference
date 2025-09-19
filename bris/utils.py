@@ -4,11 +4,8 @@ import logging
 import numbers
 import operator as op
 import os
-<<<<<<< HEAD
-import sys
-=======
 import re
->>>>>>> a9d0003 (Ruff)
+import sys
 import time
 import uuid
 from argparse import ArgumentParser
