@@ -8,8 +8,6 @@ from bris import sources
 from bris.predict_metadata import PredictMetadata
 from bris.utils import LOGGER
 
-from ..utils import LOGGER
-
 
 def instantiate(name: str, predict_metadata: PredictMetadata, workdir: str, init_args):
     """Creates an object of type name with config
