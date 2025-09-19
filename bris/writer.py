@@ -1,19 +1,32 @@
+import threading
+
 import numpy as np
 from pytorch_lightning.callbacks import BasePredictionWriter
 
+from .utils import LOGGER
+
 
 class CustomWriter(BasePredictionWriter):
-    """This class is used in a callback to the trainer to write data into output"""
+    """This class is used in a callback to the trainer to write data to output."""
 
-    def __init__(self, outputs: dict, write_interval):
+    def __init__(
+        self, outputs: dict, thread_list: list, write_interval: str = "batch"
+    ) -> None:
         """
         Args:
             outputs (dict): Dict of domain-name to dict, where dict has "start", "end", and
-                "outputs", where "outputs" is a list of Output objects that the writer will call
+                "outputs", where "outputs" is a list of Output objects that the writer will call.
+
+            thread_list (list): reference to empty list to add new Thread() objects to, so the
+                caller can keep track of background writer threads spawned by this function. Caller
+                must run .join() on each thread in list to wait for them to finish.
+
+            write_interval (str): Only "batch" is supported.
         """
         super().__init__(write_interval)
 
         self.outputs = outputs
+        self.thread_list = thread_list
 
     def write_on_batch_end(
         self,
@@ -24,7 +37,7 @@ class CustomWriter(BasePredictionWriter):
         batch,
         batch_idx,
         dataloader_idx,
-    ):
+    ) -> None:
         """
         Args:
             prediction: This comes from predict_step in forecaster
@@ -46,6 +59,13 @@ class CustomWriter(BasePredictionWriter):
                 ]
 
                 for output in output_dict["outputs"]:
-                    output.add_forecast(
-                        times, ensemble_member, pred
-                    )  # change timestamp to times
+                    thread = threading.Thread(
+                        target=output.add_forecast, args=(times, ensemble_member, pred)
+                    )
+                    self.thread_list.append(thread)
+                    thread.start()
+                    LOGGER.debug(
+                        f"CustomWriter started writing member <{ensemble_member}> to "
+                        f"{output.filename_pattern} in background thread "
+                        f"{thread.name}."
+                    )

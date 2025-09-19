@@ -1,5 +1,6 @@
 import logging
 import os
+import threading
 import time
 from datetime import datetime, timedelta
 
@@ -144,7 +145,8 @@ def main(arg_list: list[str] | None = None):
     required_variables = bris.routes.get_required_variables_all_checkpoints(
         config["routing"], checkpoints
     )
-    writer = CustomWriter(decoder_outputs, write_interval="batch")
+    writer_threads = []
+    writer = CustomWriter(decoder_outputs, thread_list=writer_threads)
 
     # Forecaster must know about what leadtimes to output
     model = instantiate(
@@ -174,6 +176,15 @@ def main(arg_list: list[str] | None = None):
         os.environ["SLURM_PROCID"] == "0"
     )
     if is_main_thread:
+        # Wait for all writer_threads to finish
+        for t in writer_threads:
+            t2 = time.perf_counter()
+            LOGGER.debug(f"Waiting for writer {t.name}...")
+            t.join()
+            LOGGER.debug(
+                f"Waited {time.perf_counter() - t2:.1f}s for {t.name} to complete."
+            )
+
         for decoder_output in decoder_outputs:
             for output in decoder_output["outputs"]:
                 t1 = time.perf_counter()

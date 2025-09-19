@@ -486,7 +486,11 @@ class Netcdf(Output):
             else:
                 ar = np.reshape(pred[..., variable_index, :], shape)
 
-            ar = np.moveaxis(ar, [-1], [1]) if self.pm.num_members > 1 else ar[..., 0]
+            ar = (
+                np.moveaxis(ar, [-1], [1])
+                if self.intermediate is not None
+                else ar[..., 0]
+            )
 
             cfname = cf.get_metadata(variable)["cfname"]
             attrs = cf.get_attributes(cfname)
