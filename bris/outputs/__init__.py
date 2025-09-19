@@ -108,6 +108,7 @@ class Output:
             ensemble_member: Which ensemble member is this?
             pred: 3D numpy array with dimensions (leadtime, location, variable)
         """
+
         # Append extra variables to prediction
         for name in self.extra_variables:
             if name not in self.pm.variables:

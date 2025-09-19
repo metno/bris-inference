@@ -163,15 +163,10 @@ class Netcdf(Output):
 
         t0 = pytime.perf_counter()
 
-        t0 = pytime.perf_counter()
-
         # TODO: Seconds or hours for leadtimes?
         times_ut = utils.datetime_to_unixtime(times)
         frt_ut = times_ut[0]
         coords[self.conv_name("time")] = np.array(times_ut).astype(np.double)
-
-        x: np.ndarray | None = None
-        y: np.ndarray | None = None
 
         if self._is_gridded:
             if self._interpolate:
@@ -263,10 +258,6 @@ class Netcdf(Output):
 
             utils.LOGGER.debug(
                 f"netcdf.write realization in {pytime.perf_counter() - t0:.1f}s"
-            )
-
-            utils.LOGGER.debug(
-                f"netcdf.write self.intermediate is not None in {pytime.perf_counter() - t0:.1f}s"
             )
 
         dims_to_add = self.variable_list.dimensions
@@ -511,7 +502,7 @@ class Netcdf(Output):
                 bris.units.convert(ar, from_units, to_units, inplace=True)
 
             if level_index is not None:
-                if self.intermediate is not None:
+                if self.pm.num_members > 1:
                     self.ds[ncname][:, :, level_index, ...] = ar
                 else:
                     self.ds[ncname][:, level_index, ...] = ar

@@ -290,15 +290,15 @@ class DDPGroupStrategy(DDPStrategy):
         )
 
         dataloader.dataset.set_comm_group_info(
-            global_rank=self.global_rank,
-            model_comm_group_id=model_comm_group_id,
-            model_comm_group_rank=model_comm_group_rank,
-            model_comm_num_groups=model_comm_num_groups,
-            ens_comm_group_id=ens_comm_group_id,
-            ens_comm_group_rank=ens_comm_group_rank,
-            ens_comm_num_groups=ens_comm_num_groups,
-            reader_group_rank=reader_group_rank,
-            reader_group_size=self.read_group_size,
+            self.global_rank,
+            model_comm_group_id,
+            model_comm_group_rank,
+            model_comm_num_groups,
+            ens_comm_group_id,
+            ens_comm_group_rank,
+            ens_comm_num_groups,
+            reader_group_rank,
+            self.read_group_size,
         )
 
         return dataloader

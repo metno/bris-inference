@@ -81,7 +81,7 @@ def main(arg_list: list[str] | None = None):
     try:
         multistep = checkpoints["forecaster"].config.training.multistep_input
     except KeyError:
-        LOGGER.error("Multistep not found in checkpoint")
+        LOGGER.debug("Multistep not found in checkpoint")
 
     # If no start_date given, calculate as end_date-((multistep-1)*timestep)
     if "start_date" not in config or config.start_date is None:

@@ -19,7 +19,7 @@ from omegaconf import DictConfig, ListConfig, OmegaConf
 
 from .forcings import anemoi_dynamic_forcings, get_dynamic_forcings
 
-LOGGER = logging.getLogger("bris")
+LOGGER = logging.getLogger("__name__")
 
 
 def expand_time_tokens(filename: str, unixtime: int) -> str:
