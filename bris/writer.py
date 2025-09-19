@@ -51,4 +51,4 @@ class CustomWriter(BasePredictionWriter):
                     thread = threading.Thread(target=output.add_forecast, args=(times, ensemble_member, pred))
                     self.threadlist.append(thread)
                     thread.start()
-                    LOGGER.debug(f"CustomWriter started writing {ensemble_member} output {output.filename_pattern} in background.")
+                    LOGGER.debug(f"CustomWriter started writing member <{ensemble_member}> to {output.filename_pattern} in background.")

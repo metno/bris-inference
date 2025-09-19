@@ -179,9 +179,9 @@ def main(arg_list: list[str] | None = None):
         # Wait for all threads to finish
         for t in threads:
             t2 = time.perf_counter()
-            LOGGER.debug(f"Waiting for thread {t}")
+            LOGGER.debug(f"Waiting for thread {t.get_native_id()}")
             t.join()
-            LOGGER.debug(f"Thread {t} done in {time.perf_counter() - t2:.1f}s.")
+            LOGGER.debug(f"Thread {t.get_native_id()} done in {time.perf_counter() - t2:.1f}s.")
 
         for decoder_output in decoder_outputs:
             for output in decoder_output["outputs"]:
