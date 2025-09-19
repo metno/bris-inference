@@ -1,5 +1,5 @@
-from functools import cached_property
 import re
+from functools import cached_property
 
 import numpy as np
 from anemoi.datasets import open_dataset
@@ -7,8 +7,7 @@ from anemoi.datasets import open_dataset
 from bris.conventions.anemoi import get_units as get_anemoi_units
 from bris.observations import Location, Observations
 from bris.sources import Source
-from bris.utils import datetime_to_unixtime, safe_eval_expr, resolve_var_expr
-
+from bris.utils import datetime_to_unixtime, resolve_var_expr, safe_eval_expr
 
 
 class AnemoiDataset(Source):
