@@ -180,10 +180,10 @@ def main(arg_list: list[str] | None = None):
         # Wait for all writer_threads to finish
         for t in writer_threads:
             t2 = time.perf_counter()
-            LOGGER.debug(f"Waiting for writer {t.getName()}...")
+            LOGGER.debug(f"Waiting for writer {t.name}...")
             t.join()
             LOGGER.debug(
-                f"Waited {time.perf_counter() - t2:.1f}s for {t.getName()} to complete."
+                f"Waited {time.perf_counter() - t2:.1f}s for {t.name} to complete."
             )
 
         for decoder_output in decoder_outputs:

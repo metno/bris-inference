@@ -67,5 +67,5 @@ class CustomWriter(BasePredictionWriter):
                     LOGGER.debug(
                         f"CustomWriter started writing member <{ensemble_member}> to "
                         f"{output.filename_pattern} in background thread "
-                        f"{thread.getName()}."
+                        f"{thread.name}."
                     )
