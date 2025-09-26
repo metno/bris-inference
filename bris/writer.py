@@ -59,13 +59,20 @@ class CustomWriter(BasePredictionWriter):
                 ]
 
                 for output in output_dict["outputs"]:
-                    thread = threading.Thread(
-                        target=output.add_forecast, args=(times, ensemble_member, pred)
-                    )
-                    self.thread_list.append(thread)
-                    thread.start()
-                    LOGGER.debug(
-                        f"CustomWriter started writing member <{ensemble_member}> to "
-                        f"{output.filename_pattern} in background thread "
-                        f"{thread.name}."
-                    )
+                    if self.thread_list is None: # Disable threading
+                        output.add_forecast(times, ensemble_member, pred)
+                        LOGGER.debug(
+                            f"CustomWriter writing member <{ensemble_member}> to "
+                            f"{output.filename_pattern}"
+                        )
+                    else:
+                        thread = threading.Thread(
+                            target=output.add_forecast, args=(times, ensemble_member, pred)
+                        )
+                        self.thread_list.append(thread)
+                        thread.start()
+                        LOGGER.debug(
+                            f"CustomWriter started writing member <{ensemble_member}> to "
+                            f"{output.filename_pattern} in background thread "
+                            f"{thread.name}."
+                        )

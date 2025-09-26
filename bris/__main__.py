@@ -146,6 +146,8 @@ def main(arg_list: list[str] | None = None):
         config["routing"], checkpoints
     )
     writer_threads = []
+    if "background_write" in config and config["background_write"] == False:
+        writer_threads = None
     writer = CustomWriter(decoder_outputs, thread_list=writer_threads)
 
     # Forecaster must know about what leadtimes to output
@@ -177,13 +179,14 @@ def main(arg_list: list[str] | None = None):
     )
     if is_main_thread:
         # Wait for all writer_threads to finish
-        for t in writer_threads:
-            t2 = time.perf_counter()
-            LOGGER.debug(f"Waiting for writer {t.name}...")
-            t.join()
-            LOGGER.debug(
-                f"Waited {time.perf_counter() - t2:.1f}s for {t.name} to complete."
-            )
+        if writer_threads is not None:
+            for t in writer_threads:
+                t2 = time.perf_counter()
+                LOGGER.debug(f"Waiting for writer {t.name}...")
+                t.join()
+                LOGGER.debug(
+                    f"Waited {time.perf_counter() - t2:.1f}s for {t.name} to complete."
+                )
 
         for decoder_output in decoder_outputs:
             for output in decoder_output["outputs"]:
