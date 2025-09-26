@@ -53,3 +53,5 @@ routing:
       - netcdf:
           filename_pattern: ./tox_test_inference%Y%m%dT%HZ_dec1.nc
           variables: [tp]
+
+loglevel: debug
