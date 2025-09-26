@@ -146,7 +146,7 @@ def main(arg_list: list[str] | None = None):
         config["routing"], checkpoints
     )
     writer_threads = []
-    if "background_write" in config and config["background_write"] == False:
+    if "background_write" in config and not config["background_write"]:
         writer_threads = None
     writer = CustomWriter(decoder_outputs, thread_list=writer_threads)
 
