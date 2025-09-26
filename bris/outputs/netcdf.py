@@ -488,7 +488,7 @@ class Netcdf(Output):
 
             ar = (
                 np.moveaxis(ar, [-1], [1])
-                if self.intermediate is not None
+                if self.pm.num_members > 1
                 else ar[..., 0]
             )
 
