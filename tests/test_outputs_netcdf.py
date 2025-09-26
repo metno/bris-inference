@@ -75,8 +75,9 @@ def test_1():
 
         output_filename = os.path.join(temp_dir, "test_20230101T06Z.nc")
         with xr.open_dataset(output_filename) as file:
-            # Check that altitude variable has attributes
-            assert "altitude" not in file.variables
+            assert "altitude" in file.variables
+            assert np.max(file.variables["altitude"]) == 200
+            assert np.min(file.variables["altitude"]) == 100
 
 
 def test_domain_name():

@@ -284,7 +284,7 @@ class Netcdf(Output):
         # Set up grid definitions
         if self._is_gridded:
             if self._interpolate:
-                self._set_coords_gridded_interpolate()
+                self._set_coords_gridded_interpolate(spatial_dims, x, y)
             else:
                 self._set_coords_gridded_not_interpolated(spatial_dims)
 
@@ -388,12 +388,24 @@ class Netcdf(Output):
             f"netcdf._set_coords_gridded_not_interpolated in {pytime.perf_counter() - t0:.1f}s"
         )
 
-    def _set_coords_gridded_interpolate(self) -> None:
+    def _set_coords_gridded_interpolate(self, spatial_dims: tuple, x, y) -> None:
         """If is gridded and interpolation should be done"""
         proj_attrs = {}
         proj_attrs["grid_mapping_name"] = "latitude_longitude"
         proj_attrs["earth_radius"] = "6371000.0"
         self.ds["projection"] = ([], 1, proj_attrs)
+
+        if self.pm.altitudes is not None:
+            ipoints = gridpp.Points(self.pm.lats, self.pm.lons)
+            yy, xx = np.meshgrid(y, x)
+            ogrid = gridpp.Grid(yy.transpose(), xx.transpose())
+
+            altitudes = gridpp.nearest(ipoints, ogrid, self.pm.altitudes).astype(np.double)
+            self.ds[self.conv_name("surface_altitude")] = (
+                spatial_dims,
+                altitudes,
+            )
+
         utils.LOGGER.debug("netcdf._set_coords_gridded_interpolate")
 
     def _set_projection_info(self) -> None:
