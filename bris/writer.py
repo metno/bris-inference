@@ -59,7 +59,7 @@ class CustomWriter(BasePredictionWriter):
                 ]
 
                 for output in output_dict["outputs"]:
-                    if self.thread_list is None: # Disable threading
+                    if self.thread_list is None:  # Disable threading
                         output.add_forecast(times, ensemble_member, pred)
                         LOGGER.debug(
                             f"CustomWriter writing member <{ensemble_member}> to "
@@ -67,7 +67,8 @@ class CustomWriter(BasePredictionWriter):
                         )
                     else:
                         thread = threading.Thread(
-                            target=output.add_forecast, args=(times, ensemble_member, pred)
+                            target=output.add_forecast,
+                            args=(times, ensemble_member, pred),
                         )
                         self.thread_list.append(thread)
                         thread.start()

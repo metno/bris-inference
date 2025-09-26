@@ -486,11 +486,7 @@ class Netcdf(Output):
             else:
                 ar = np.reshape(pred[..., variable_index, :], shape)
 
-            ar = (
-                np.moveaxis(ar, [-1], [1])
-                if self.pm.num_members > 1
-                else ar[..., 0]
-            )
+            ar = np.moveaxis(ar, [-1], [1]) if self.pm.num_members > 1 else ar[..., 0]
 
             cfname = cf.get_metadata(variable)["cfname"]
             attrs = cf.get_attributes(cfname)
@@ -535,9 +531,7 @@ class Netcdf(Output):
         t0 = pytime.perf_counter()
         utils.create_directory(filename)
 
-        utils.LOGGER.debug(
-            f"netcdf._write_file writing to {filename}"
-        )
+        utils.LOGGER.debug(f"netcdf._write_file writing to {filename}")
         self.ds.to_netcdf(
             filename,
             mode="w",
