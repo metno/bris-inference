@@ -1,5 +1,7 @@
 import glob
 import os
+import shutil
+import threading
 import time
 from typing import Optional
 
@@ -107,19 +109,23 @@ class Intermediate(Output):
     def get_filenames(self) -> list[str]:
         return glob.glob(f"{self.workdir}/*_*.npy")
 
-    def cleanup(self) -> None:
-        """Removes up all intermediate files and removes the workdir. Called in finalize of the main output."""
+    def remove_workdir(self) -> None:
+        """Recursively delete a directory, with timing and logging."""
         t0 = time.perf_counter()
-        for _filename in self.get_filenames():
-            try:
-                os.remove(_filename)
-            except OSError as e:
-                utils.LOGGER.warning(f"Error during cleanup of {_filename}: {e}")
-
         try:
-            os.rmdir(self.workdir)
+            shutil.rmtree(self.workdir)
         except OSError as e:
-            utils.LOGGER.warning(f"Error removing workdir {self.workdir}: {e}")
+            utils.LOGGER.error(f"Error removing dir {self.workdir}: {e}")
+        utils.LOGGER.debug(
+            f"intermediate.remove_workdir done in {time.perf_counter() - t0:.1f}s"
+        )
+
+    def cleanup(self) -> None:
+        """Starts a background thread to remove all intermediate files. Called in finalize of the main output."""
+        t0 = time.perf_counter()
+        # Run in background, don't worry if or when it finishes.
+        thread = threading.Thread(target=self.remove_workdir)
+        thread.start()
         utils.LOGGER.debug(f"Intermediate.cleanup in {time.perf_counter() - t0:.1f}s")
 
     def finalize(self):

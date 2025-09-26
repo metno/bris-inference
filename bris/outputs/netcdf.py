@@ -531,6 +531,7 @@ class Netcdf(Output):
         t0 = pytime.perf_counter()
         utils.create_directory(filename)
 
+        utils.LOGGER.debug(f"netcdf._write_file writing to {filename}")
         self.ds.to_netcdf(
             filename,
             mode="w",
