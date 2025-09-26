@@ -193,7 +193,7 @@ def main(arg_list: list[str] | None = None):
                 t1 = time.perf_counter()
                 output.finalize()
                 LOGGER.debug(
-                    f"finalizing decoder {decoder_output} output {output.filename_pattern} in {time.perf_counter() - t1:.1f}s"
+                    f"finalizing decoder {decoder_output} output in {time.perf_counter() - t1:.1f}s"
                 )
 
         LOGGER.info(f"Bris completed in {time.perf_counter() - t0:.1f}s. 🤖")
