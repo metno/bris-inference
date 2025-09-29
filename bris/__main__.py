@@ -1,6 +1,4 @@
-import logging
 import os
-import threading
 import time
 from datetime import datetime, timedelta
 
@@ -60,7 +58,9 @@ def main(arg_list: list[str] | None = None):
     num_members = config["hardware"].get("num_members", 1)
 
     # Distribute ensemble members across GPUs, run in sequence if not enough GPUs
-    num_gpus = config["hardware"]["num_gpus_per_node"] * config["hardware"]["num_nodes"]
+    num_gpus = config["hardware"].get("num_gpus_per_node", 1) * config["hardware"].get(
+        "num_nodes", 1
+    )
     num_gpus_per_model = config["hardware"].get("num_gpus_per_model", 1)
     num_gpus_per_ensemble = num_gpus_per_model * num_members
 
