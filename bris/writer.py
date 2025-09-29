@@ -62,7 +62,7 @@ class CustomWriter(BasePredictionWriter):
                     if self.thread_list is None:  # Disable threading
                         output.add_forecast(times, ensemble_member, pred)
                         LOGGER.debug(
-                            f"CustomWriter writing member <{ensemble_member}> to "
+                            f"CustomWriter starting add_forecast for member <{ensemble_member}>, "
                             f"{output.filename_pattern}"
                         )
                     else:
@@ -73,7 +73,6 @@ class CustomWriter(BasePredictionWriter):
                         self.thread_list.append(thread)
                         thread.start()
                         LOGGER.debug(
-                            f"CustomWriter started writing member <{ensemble_member}> to "
-                            f"{output.filename_pattern} in background thread "
-                            f"{thread.name}."
+                            f"CustomWriter starting background thread {thread.name} of add_forecast for member <{ensemble_member}>, "
+                            f"{output.filename_pattern}."
                         )
