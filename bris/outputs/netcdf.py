@@ -300,7 +300,6 @@ class Netcdf(Output):
         self._setup_prediction_vars(spatial_dims, times, x, y, pred)
         self._set_attrs()
         self._write_file(filename)
-        self.ds.close()
 
     def _not_gridded_masked(self, spatial_dims: tuple, y, x):
         t0 = pytime.perf_counter()
@@ -535,16 +534,13 @@ class Netcdf(Output):
         utils.create_directory(filename)
 
         utils.LOGGER.debug(f"netcdf._write_file writing to {filename}")
-        try:
-            self.ds.to_netcdf(
-                filename,
-                mode="w",
-                engine="netcdf4",
-                unlimited_dims=["time"],
-                encoding=self.nc_encoding,
-            )
-        except Exception as e:
-            utils.LOGGER.warning(f"Failed to write netcdf file: {e}")
+        self.ds.to_netcdf(
+            filename,
+            mode="w",
+            engine="netcdf4",
+            unlimited_dims=["time"],
+            encoding=self.nc_encoding,
+        )
         utils.LOGGER.debug(
             f"netcdf._write_file Done in {pytime.perf_counter() - t0:.1f}s"
         )
