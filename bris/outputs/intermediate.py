@@ -58,7 +58,7 @@ class Intermediate(Output):
         return frts
 
     def get_forecast(
-        self, forecast_reference_time: str, ensemble_member: int|None=None
+        self, forecast_reference_time: str, ensemble_member: int | None = None
     ) -> np.ndarray | None:
         """Fetches forecasts from stored numpy files
 
@@ -94,9 +94,7 @@ class Intermediate(Output):
             filename = self.get_filename(forecast_reference_time, ensemble_member)
             if os.path.exists(filename):
                 pred = np.load(filename)
-                utils.LOGGER.debug(
-                    f"Intermediate.get_forecast loaded {filename}."
-                )
+                utils.LOGGER.debug(f"Intermediate.get_forecast loaded {filename}.")
             else:
                 pred = None
             utils.LOGGER.debug(
