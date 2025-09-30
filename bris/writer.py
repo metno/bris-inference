@@ -13,7 +13,10 @@ class CustomWriter(BasePredictionWriter):
     """This class is used in a callback to the trainer to write data to output."""
 
     def __init__(
-        self, outputs: list[dict], process_list: list[multiprocessing.Process]|None = None, write_interval: str = "batch"
+        self,
+        outputs: list[dict],
+        process_list: list[multiprocessing.Process] | None = None,
+        write_interval: str = "batch",
     ) -> None:
         """
         Args:
@@ -36,7 +39,7 @@ class CustomWriter(BasePredictionWriter):
         trainer: Trainer,
         pl_module: LightningModule,
         prediction,
-        batch_indices: Sequence[int]|None,
+        batch_indices: Sequence[int] | None,
         batch,
         batch_idx: int,
         dataloader_idx: int,
