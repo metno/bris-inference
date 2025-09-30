@@ -30,19 +30,23 @@ class Intermediate(Output):
         filename = self.get_filename(times[0], ensemble_member)
         utils.create_directory(filename)
 
-        np.save(filename, pred)
+        try:
+            np.save(filename, pred)
+        except Exception as e:
+            utils.LOGGER.warning(f"Failed to write netcdf file: {e}")
+
         utils.LOGGER.debug(
             f"Intermediate._add_forecast for {filename} in {time.perf_counter() - t0:.1f}s"
         )
 
-    def get_filename(self, forecast_reference_time, ensemble_member) -> str:
+    def get_filename(self, forecast_reference_time: str, ensemble_member: int) -> str:
         frt_ut = utils.datetime_to_unixtime(forecast_reference_time)
         return f"{self.workdir}/{frt_ut:.0f}_{ensemble_member:.0f}.npy"
 
     def get_forecast_reference_times(self) -> list[np.datetime64]:
         """Returns all forecast reference times that have been saved"""
         filenames = self.get_filenames()
-        frts = []
+        frts: list[np.datetime64] = []
         for filename in filenames:
             frt_ut, _ = filename.split("/")[-1].split("_")
             frt = utils.unixtime_to_datetime(int(frt_ut))
@@ -54,7 +58,7 @@ class Intermediate(Output):
         return frts
 
     def get_forecast(
-        self, forecast_reference_time, ensemble_member=None
+        self, forecast_reference_time: str, ensemble_member: int|None=None
     ) -> np.ndarray | None:
         """Fetches forecasts from stored numpy files
 
@@ -88,7 +92,13 @@ class Intermediate(Output):
             assert isinstance(ensemble_member, int)
 
             filename = self.get_filename(forecast_reference_time, ensemble_member)
-            pred = np.load(filename) if os.path.exists(filename) else None
+            if os.path.exists(filename):
+                pred = np.load(filename)
+                utils.LOGGER.debug(
+                    f"Intermediate.get_forecast loaded {filename}."
+                )
+            else:
+                pred = None
             utils.LOGGER.debug(
                 f"Intermediate.get_forecast for {filename} in {time.perf_counter() - t0:.1f}s"
             )
