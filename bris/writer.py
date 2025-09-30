@@ -15,7 +15,7 @@ class CustomWriter(BasePredictionWriter):
     def __init__(
         self,
         outputs: list[dict],
-        process_list: list[multiprocessing.Process] | None = None,
+        process_list: list[multiprocessing.Process] | None,
         write_interval: str = "batch",
     ) -> None:
         """
@@ -65,7 +65,7 @@ class CustomWriter(BasePredictionWriter):
                 ]
 
                 for output in output_dict["outputs"]:
-                    if self.process_list is None:  # Disable processing
+                    if self.process_list is None:  # Disable background processes
                         output.add_forecast(times, ensemble_member, pred)
                         LOGGER.debug(
                             f"CustomWriter starting add_forecast for member <{ensemble_member}>, times {times}."
