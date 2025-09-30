@@ -129,3 +129,6 @@ reportUnknownVariableType = false
 reportAny = false
 reportArgumentType = false
 reportUnknownMemberType = false
+reportMissingTypeArgument = false
+reportUnknownParameterType = false
+reportUnannotatedClassAttribute = false

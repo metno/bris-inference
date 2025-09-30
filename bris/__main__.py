@@ -145,10 +145,10 @@ def main(arg_list: list[str] | None = None):
     required_variables = bris.routes.get_required_variables_all_checkpoints(
         config["routing"], checkpoints
     )
-    writer_threads = []
+    writer_processes = []
     if "background_write" in config and not config["background_write"]:
-        writer_threads = None
-    writer = CustomWriter(decoder_outputs, thread_list=writer_threads)
+        writer_processes = None
+    writer = CustomWriter(decoder_outputs, process_list=writer_processes)
 
     # Forecaster must know about what leadtimes to output
     model = instantiate(
@@ -173,14 +173,14 @@ def main(arg_list: list[str] | None = None):
     )
     inference.run()
 
-    # Wait for all writer_threads to finish
-    if writer_threads is not None:
-        for t in writer_threads:
+    # Wait for all writer_processes to finish
+    if writer_processes is not None:
+        for p in writer_processes:
             t2 = time.perf_counter()
-            LOGGER.debug(f"Waiting for writer {t.name}...")
-            t.join()
+            LOGGER.debug(f"Waiting for writer process {p.name}...")
+            p.join()
             LOGGER.debug(
-                f"Waited {time.perf_counter() - t2:.1f}s for {t.name} to complete."
+                f"Waited {time.perf_counter() - t2:.1f}s for {p.name} to complete."
             )
 
     # Finalize all output, so they can flush to disk if needed
