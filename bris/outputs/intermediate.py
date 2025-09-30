@@ -29,12 +29,7 @@ class Intermediate(Output):
         t0 = time.perf_counter()
         filename = self.get_filename(times[0], ensemble_member)
         utils.create_directory(filename)
-
-        try:
-            np.save(filename, pred)
-        except Exception as e:
-            utils.LOGGER.warning(f"Failed to write netcdf file: {e}")
-
+        np.save(filename, pred)
         utils.LOGGER.debug(
             f"Intermediate._add_forecast for {filename} in {time.perf_counter() - t0:.1f}s"
         )
