@@ -15,6 +15,7 @@ class CustomWriter(BasePredictionWriter):
     def __init__(
         self,
         outputs: list[dict],
+        current_batch_no,
         process_list: list[multiprocessing.Process] | None,
         write_interval: str = "batch",
     ) -> None:
@@ -33,6 +34,7 @@ class CustomWriter(BasePredictionWriter):
 
         self.outputs = outputs
         self.process_list = process_list
+        self.current_batch_no = current_batch_no
 
     def write_on_batch_end(
         self,
@@ -71,6 +73,16 @@ class CustomWriter(BasePredictionWriter):
                             f"CustomWriter starting add_forecast for member <{ensemble_member}>, times {times}."
                         )
                     else:
+                        # If on new batch, wait for previous to complete writing
+                        if self.current_batch_no.value != batch_idx:
+                            LOGGER.debug(
+                                f"CustomWriter waiting for previous batch_idx ({self.current_batch_no.value}) to complete"
+                            )
+                            for p in self.process_list:
+                                p.join()
+                        with self.current_batch_no.get_lock():
+                            self.current_batch_no.value = batch_idx
+
                         process = multiprocessing.Process(
                             target=output.add_forecast,
                             args=(times, ensemble_member, pred),
@@ -78,5 +90,5 @@ class CustomWriter(BasePredictionWriter):
                         self.process_list.append(process)
                         process.start()
                         LOGGER.debug(
-                            f"CustomWriter starting background process {process.name} of add_forecast for member <{ensemble_member}>, times {times}."
+                            f"CustomWriter starting background process {process.name} of add_forecast for member <{ensemble_member}>, times {times} for writing batch_idx {batch_idx}."
                         )

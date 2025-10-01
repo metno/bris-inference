@@ -1,3 +1,4 @@
+import multiprocessing
 import os
 import time
 from datetime import datetime, timedelta
@@ -146,9 +147,14 @@ def main(arg_list: list[str] | None = None):
         config["routing"], checkpoints
     )
     writer_processes = []
+    current_batch_no = multiprocessing.Value("i", -1)
     if "background_write" in config and not config["background_write"]:
         writer_processes = None
-    writer = CustomWriter(decoder_outputs, process_list=writer_processes)
+    writer = CustomWriter(
+        decoder_outputs,
+        current_batch_no=current_batch_no,
+        process_list=writer_processes,
+    )
 
     # Forecaster must know about what leadtimes to output
     model = instantiate(
@@ -177,7 +183,6 @@ def main(arg_list: list[str] | None = None):
     if writer_processes is not None:
         for p in writer_processes:
             t2 = time.perf_counter()
-            LOGGER.debug(f"Waiting for writer process {p.name}...")
             p.join()
             LOGGER.debug(
                 f"Waited {time.perf_counter() - t2:.1f}s for {p.name} to complete."

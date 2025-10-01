@@ -55,4 +55,3 @@ routing:
           variables: [tp]
 
 loglevel: debug
-background_write: false
