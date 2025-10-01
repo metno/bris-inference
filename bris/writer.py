@@ -1,6 +1,6 @@
 import multiprocessing
-from collections.abc import Sequence
 import time
+from collections.abc import Sequence
 
 import numpy as np
 from pytorch_lightning.callbacks import BasePredictionWriter
