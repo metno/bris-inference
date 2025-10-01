@@ -28,6 +28,7 @@ class Spatial(Output):
         workdir: str,
         filename: str,
         variable: str | None = None,
+        remove_intermediate: bool = True,
     ):
         extra_variables = []
         if variable not in predict_metadata.variables:
@@ -42,6 +43,7 @@ class Spatial(Output):
         self.metric_name = self.get_metric_name()
         self.metric_shape = self.get_metric_shape()
         self.filename = filename
+        self.remove_intermediate = remove_intermediate
 
     @abstractmethod
     def calculate_metric(self, prediction: np.ndarray) -> np.ndarray: ...
@@ -129,6 +131,8 @@ class Spatial(Output):
 
         utils.create_directory(self.filename)
         self.ds.to_netcdf(self.filename, mode="w", engine="netcdf4")
+        if self.remove_intermediate:
+            self.intermediate.cleanup()
 
     @cached_property
     def get_latlons(self) -> tuple:
