@@ -52,6 +52,8 @@ class CustomWriter(BasePredictionWriter):
             prediction: This comes from predict_step in forecaster
         """
 
+        LOGGER.debug(f"CustomWriter self.process_list contains {self.process_list}")
+
         times = prediction["times"]
         ensemble_member = prediction["ensemble_member"]
 
