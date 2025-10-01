@@ -1,5 +1,6 @@
 import multiprocessing
 from collections.abc import Sequence
+import time
 
 import numpy as np
 from pytorch_lightning.callbacks import BasePredictionWriter
@@ -75,11 +76,13 @@ class CustomWriter(BasePredictionWriter):
                     else:
                         # If on new batch, wait for previous to complete writing
                         if self.current_batch_no.value != batch_idx:
-                            LOGGER.debug(
-                                f"CustomWriter waiting for previous batch_idx ({self.current_batch_no.value}) to complete"
-                            )
-                            for p in self.process_list:
+                            while len(self.process_list) > 0:
+                                t0 = time.perf_counter()
+                                p = self.process_list.pop()
                                 p.join()
+                                LOGGER.debug(
+                                    f"CustomWriter waited {time.perf_counter() - t0:.1f}s for {p} to complete previous batch_idx ({self.current_batch_no.value})."
+                                )
                         with self.current_batch_no.get_lock():
                             self.current_batch_no.value = batch_idx
 
@@ -90,5 +93,5 @@ class CustomWriter(BasePredictionWriter):
                         self.process_list.append(process)
                         process.start()
                         LOGGER.debug(
-                            f"CustomWriter starting background process {process.name} of add_forecast for member <{ensemble_member}>, times {times} for writing batch_idx {batch_idx}."
+                            f"CustomWriter starting {process.name} of add_forecast for member <{ensemble_member}>, times {times} for writing, batch_idx {batch_idx}."
                         )

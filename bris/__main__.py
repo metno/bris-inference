@@ -59,9 +59,7 @@ def main(arg_list: list[str] | None = None):
     num_members = config["hardware"].get("num_members", 1)
 
     # Distribute ensemble members across GPUs, run in sequence if not enough GPUs
-    num_gpus = config["hardware"].get("num_gpus_per_node", 1) * config["hardware"].get(
-        "num_nodes", 1
-    )
+    num_gpus = config["hardware"]["num_gpus_per_node"] * config["hardware"]["num_nodes"]
     num_gpus_per_model = config["hardware"].get("num_gpus_per_model", 1)
     num_gpus_per_ensemble = num_gpus_per_model * num_members
 
@@ -146,14 +144,18 @@ def main(arg_list: list[str] | None = None):
     required_variables = bris.routes.get_required_variables_all_checkpoints(
         config["routing"], checkpoints
     )
-    writer_processes = []
-    current_batch_no = multiprocessing.Value("i", -1)
+
+    # List of background write processes
+    write_process_list = []
+    # Value shared between processes to keep track of written batches
+    current_batch_no = multiprocessing.Value("i", 0)
+
     if "background_write" in config and not config["background_write"]:
-        writer_processes = None
+        write_process_list = None
     writer = CustomWriter(
         decoder_outputs,
         current_batch_no=current_batch_no,
-        process_list=writer_processes,
+        process_list=write_process_list,
     )
 
     # Forecaster must know about what leadtimes to output
@@ -180,8 +182,8 @@ def main(arg_list: list[str] | None = None):
     inference.run()
 
     # Wait for all writer_processes to finish
-    if writer_processes is not None:
-        for p in writer_processes:
+    if write_process_list is not None:
+        for p in write_process_list:
             t2 = time.perf_counter()
             p.join()
             LOGGER.debug(
@@ -200,8 +202,9 @@ def main(arg_list: list[str] | None = None):
                 LOGGER.debug(
                     f"finalizing decoder {decoder_output} output in {time.perf_counter() - t1:.1f}s"
                 )
-
-        LOGGER.info(f"Bris completed in {time.perf_counter() - t0:.1f}s. 🤖")
+        LOGGER.info(f"Bris main completed in {time.perf_counter() - t0:.1f}s. 🤖")
+    else:
+        LOGGER.info(f"Bris instance completed in {time.perf_counter() - t0:.1f}s.")
 
 
 if __name__ == "__main__":

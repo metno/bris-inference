@@ -87,11 +87,7 @@ class Intermediate(Output):
             assert isinstance(ensemble_member, int)
 
             filename = self.get_filename(forecast_reference_time, ensemble_member)
-            if os.path.exists(filename):
-                pred = np.load(filename)
-                utils.LOGGER.debug(f"Intermediate.get_forecast loaded {filename}.")
-            else:
-                pred = None
+            pred = np.load(filename) if os.path.exists(filename) else None
             utils.LOGGER.debug(
                 f"Intermediate.get_forecast for {filename} in {time.perf_counter() - t0:.1f}s"
             )
