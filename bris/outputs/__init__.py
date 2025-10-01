@@ -1,5 +1,6 @@
 import copy
 import time
+from abc import abstractmethod
 from typing import Optional
 
 import numpy as np
@@ -148,6 +149,7 @@ class Output:
             f"outputs.add_forecast called _add_forecast in {time.perf_counter() - t1:.1f}s"
         )
 
+    @abstractmethod
     def _add_forecast(self, times: list, ensemble_member: int, pred: np.ndarray):
         """Subclasses should implement this"""
         raise NotImplementedError()
