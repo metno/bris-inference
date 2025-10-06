@@ -39,13 +39,13 @@ class CustomWriter(BasePredictionWriter):
 
     def write_on_batch_end(
         self,
-        trainer: Trainer, # Not used
-        pl_module: LightningModule, # Not used
+        trainer: Trainer,  # Not used
+        pl_module: LightningModule,  # Not used
         prediction,
-        batch_indices: Sequence[int] | None, # Not used
-        batch, # Not used
+        batch_indices: Sequence[int] | None,  # Not used
+        batch,  # Not used
         batch_idx: int,
-        dataloader_idx: int, # Not used
+        dataloader_idx: int,  # Not used
     ) -> None:
         """
         Args:
