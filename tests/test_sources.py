@@ -10,7 +10,3 @@ def test_instantiate():
 
     args = {"filename": filename}
     _ = sources.instantiate("verif", args)
-
-
-if __name__ == "__main__":
-    test_instantiate()

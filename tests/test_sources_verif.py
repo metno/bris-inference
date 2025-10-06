@@ -39,8 +39,3 @@ def test_read_no_leadtime():
     values = result.get_data(variable, start_time)
     expected = [-2.9, 2.8, -7.9, 2.1, -5.3, -5.4]
     np.testing.assert_array_almost_equal(values, expected)
-
-
-if __name__ == "__main__":
-    test_read()
-    test_read_no_leadtime()

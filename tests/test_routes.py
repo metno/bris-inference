@@ -96,7 +96,3 @@ def test_get():
     _ = bris.routes.get(
         config, len(leadtimes), num_members, data_module, checkpoints, workdir
     )
-
-
-if __name__ == "__main__":
-    test_get()
