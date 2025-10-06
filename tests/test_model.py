@@ -136,14 +136,15 @@ def test_bris_predictor(benchmark):
         num_members_in_parallel=num_members_in_parallel,
     )
 
-    result = benchmark(bris.model.brispredictor.BrisPredictor,
-            checkpoints=checkpoints,
-            datamodule=datamodule,
-            forecast_length=1,
-            required_variables=required_variables,
-            hardware_config=DotDict(config.hardware),
-            num_members_in_parallel=num_members_in_parallel,
-        )
+    result = benchmark(
+        bris.model.brispredictor.BrisPredictor,
+        checkpoints=checkpoints,
+        datamodule=datamodule,
+        forecast_length=1,
+        required_variables=required_variables,
+        hardware_config=DotDict(config.hardware),
+        num_members_in_parallel=num_members_in_parallel,
+    )
 
 
 def test_multiencdec_predictor(benchmark):
@@ -264,7 +265,8 @@ def test_multiencdec_predictor(benchmark):
         num_members_in_parallel=num_members_in_parallel,
     )
 
-    benchmark(bris.model.multiencdecpredictor.MultiEncDecPredictor,
+    benchmark(
+        bris.model.multiencdecpredictor.MultiEncDecPredictor,
         checkpoints=checkpoints,
         datamodule=datamodule,
         forecast_length=1,
