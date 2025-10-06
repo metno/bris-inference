@@ -8,7 +8,7 @@ from bris.outputs.netcdf import Netcdf
 from bris.predict_metadata import PredictMetadata
 
 
-def test_1():
+def test_output_netcdf(benchmark):
     variables = ["u_800", "u_600", "2t", "v_500", "10u", "tp", "skt"]
     lats = np.array([1, 2])
     lons = np.array([2, 4])
@@ -30,9 +30,11 @@ def test_1():
         attrs = {"creator": "met.no"}
         output = Netcdf(pm, workdir, pattern, global_attributes=attrs)
 
-        for member in range(num_members):
-            output.add_forecast(times, member, pred)
-        output.finalize()
+        @benchmark
+        def result():
+            for member in range(num_members):
+                output.add_forecast(times, member, pred)
+            output.finalize()
 
         output_filename = os.path.join(temp_dir, "test_20230101T06Z.nc")
 
@@ -102,8 +104,3 @@ def test_domain_name():
         for member in range(num_members):
             output.add_forecast(times, member, pred)
             output.finalize()
-
-
-if __name__ == "__main__":
-    test_domain_name()
-    test_1()
