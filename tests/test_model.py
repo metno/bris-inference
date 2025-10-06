@@ -22,7 +22,7 @@ from bris.utils import (
 )
 
 
-def test_bris_predictor():
+def test_bris_predictor(benchmark):
     """Set up configuration and do a simple test run of the BrisPredictor class.
     Test will be skipped if the required dataset is not available. Also touches
     DataModule."""
@@ -136,14 +136,14 @@ def test_bris_predictor():
         num_members_in_parallel=num_members_in_parallel,
     )
 
-    _bp = bris.model.brispredictor.BrisPredictor(
-        checkpoints=checkpoints,
-        datamodule=datamodule,
-        forecast_length=1,
-        required_variables=required_variables,
-        hardware_config=DotDict(config.hardware),
-        num_members_in_parallel=num_members_in_parallel,
-    )
+    result = benchmark(bris.model.brispredictor.BrisPredictor,
+            checkpoints=checkpoints,
+            datamodule=datamodule,
+            forecast_length=1,
+            required_variables=required_variables,
+            hardware_config=DotDict(config.hardware),
+            num_members_in_parallel=num_members_in_parallel,
+        )
 
 
 def test_multiencdec_predictor():

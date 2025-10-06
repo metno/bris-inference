@@ -171,3 +171,4 @@ cython_debug/
 .vscode/
 .zed/
 .ruff_cache/
+benchmark/

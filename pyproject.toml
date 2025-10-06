@@ -50,6 +50,7 @@ dependencies = [
 optional-dependencies.dev = [
   "bris[tests]",
   "pytest",       # For testing in IDE
+  "pytest-benchmark",
   "types-PyYAML", # For mypy in IDE
 ]
 
