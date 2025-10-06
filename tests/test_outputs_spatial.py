@@ -144,8 +144,3 @@ def test_DCTPowerSpectrum():
                 assert dim in file.coords, dim
 
             assert len(file["k"]) == n_bins
-
-
-if __name__ == "__main__":
-    test_SHPowerSpectrum()
-    test_DCTPowerSpectrum()
