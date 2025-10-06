@@ -3,5 +3,5 @@
 import pytest
 import bris.__main__ as b
 
-def test_inference():
-    b.main(arg_list=["--config", "../../../config/tox_test_py_inference.yaml"])
+def test_inference(benchmark):
+    benchmark(b.main, arg_list=["--config", "./tox_test_inference.yaml"])
