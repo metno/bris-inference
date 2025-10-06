@@ -7,7 +7,7 @@ from bris import outputs
 from bris.predict_metadata import PredictMetadata
 
 
-def test_instantiate(benchmark):
+def test_instantiate():
     variables = ["u_800", "u_600", "2t", "v_500", "10u"]
     lats = np.array([1, 2])
     lons = np.array([2, 4])
@@ -25,4 +25,4 @@ def test_instantiate(benchmark):
 
         args = {"filename_pattern": filename}
 
-        benchmark(outputs.instantiate, "netcdf", pm, workdir, args)
+        outputs.instantiate("netcdf", pm, workdir, args)
