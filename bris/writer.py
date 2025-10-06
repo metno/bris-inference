@@ -1,6 +1,7 @@
 import multiprocessing
 import time
 from collections.abc import Sequence
+from multiprocessing.sharedctypes import Synchronized
 
 import numpy as np
 from pytorch_lightning.callbacks import BasePredictionWriter
@@ -16,7 +17,7 @@ class CustomWriter(BasePredictionWriter):
     def __init__(
         self,
         outputs: list[dict],
-        current_batch_no,
+        current_batch_no: Synchronized,
         process_list: list[multiprocessing.Process] | None,
         write_interval: str = "batch",
     ) -> None:
