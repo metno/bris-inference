@@ -146,7 +146,7 @@ def test_bris_predictor(benchmark):
         )
 
 
-def test_multiencdec_predictor():
+def test_multiencdec_predictor(benchmark):
     """Set up a configuration and do a simple test run of the MultiEncDecPredictor class.
     Test will be skipped if the required dataset is not available."""
     dataset_path = "./bris_random_data.zarr"
@@ -264,7 +264,7 @@ def test_multiencdec_predictor():
         num_members_in_parallel=num_members_in_parallel,
     )
 
-    _bp = bris.model.multiencdecpredictor.MultiEncDecPredictor(
+    benchmark(bris.model.multiencdecpredictor.MultiEncDecPredictor,
         checkpoints=checkpoints,
         datamodule=datamodule,
         forecast_length=1,
