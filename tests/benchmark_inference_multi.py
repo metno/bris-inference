@@ -1,6 +1,4 @@
-# Attempt to replace tox test inference_CI: bris --config tox_test_inference.yaml
-
-import pytest
+# Attempt to replace tox test inference_multi_CI: bris --config tox_test_inference.yaml
 
 import bris.__main__ as b
 

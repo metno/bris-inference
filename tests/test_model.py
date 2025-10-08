@@ -136,7 +136,7 @@ def test_bris_predictor(benchmark):
         num_members_in_parallel=num_members_in_parallel,
     )
 
-    result = benchmark(
+    _ = benchmark(
         bris.model.brispredictor.BrisPredictor,
         checkpoints=checkpoints,
         datamodule=datamodule,
