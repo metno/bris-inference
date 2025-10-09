@@ -3,5 +3,5 @@
 import bris.__main__ as b
 
 
-def test_inference(benchmark):
+def test_inference_multi(benchmark):
     benchmark(b.main, arg_list=["--config", "./tox_test_inference.yaml"])
