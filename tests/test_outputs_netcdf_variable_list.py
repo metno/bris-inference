@@ -64,8 +64,3 @@ def test_single_level_height():
 
     dim = vl.get_level_dimname("x_wind_pl")
     assert vl.dimensions[dim] == ("air_pressure", [600, 800])
-
-
-if __name__ == "__main__":
-    test_3()
-    test_single_level_height()

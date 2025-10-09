@@ -25,8 +25,4 @@ def test_instantiate():
 
         args = {"filename_pattern": filename}
 
-        _ = outputs.instantiate("netcdf", pm, workdir, args)
-
-
-if __name__ == "__main__":
-    test_instantiate()
+        outputs.instantiate("netcdf", pm, workdir, args)

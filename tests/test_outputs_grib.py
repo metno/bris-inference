@@ -146,8 +146,3 @@ def test_grib_attrs():
                         file[var].attrs.get("GRIB_numberOfPoints") == file[var][0].size
                     )
                     assert file[var].attrs.get("GRIB_units") == f.get("units")
-
-
-if __name__ == "__main__":
-    test_file_exists()
-    test_grib_attrs()

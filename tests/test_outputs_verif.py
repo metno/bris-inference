@@ -156,8 +156,3 @@ def test_2():
             )
 
             output.finalize()
-
-
-if __name__ == "__main__":
-    test_1()
-    test_2()
