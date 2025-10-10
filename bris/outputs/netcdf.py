@@ -40,6 +40,7 @@ class Netcdf(Output):
         latrange=None,
         lonrange=None,
         extra_variables=None,
+        accumulated_variables=None,
         proj4_str=None,
         domain_name=None,
         mask_file: str = "",
@@ -65,6 +66,12 @@ class Netcdf(Output):
             if extra_variables is None:
                 extra_variables = []
             self.extract_variables = variables + extra_variables
+
+        if accumulated_variables is None:
+            self.accumulated_variables = []
+        else:
+            self.accumulated_variables = [v + "_acc" for v in accumulated_variables]
+            self.extract_variables += self.accumulated_variables
 
         self.intermediate = None
         if self.pm.num_members > 1:
@@ -428,7 +435,11 @@ class Netcdf(Output):
         t0 = pytime.perf_counter()
         for variable in self.extract_variables:
             t1 = pytime.perf_counter()
-            variable_index = self.pm.variables.index(variable)
+            if variable in self.accumulated_variables:
+                variable_index = self.pm.variables.index(variable.removesuffix("_acc"))
+            else:
+                variable_index = self.pm.variables.index(variable)
+
             level_index = self.variable_list.get_level_index(variable)
             ncname = self.variable_list.get_ncname_from_anemoi_name(variable)
             if self.compression:
@@ -485,6 +496,10 @@ class Netcdf(Output):
                 ar[:, self.mask, :] = curr
             else:
                 ar = np.reshape(pred[..., variable_index, :], shape)
+
+            if variable in self.accumulated_variables:
+                #Accumulate over lead times
+                ar = np.cumsum(np.nan_to_num(ar, nan=0), axis=0)
 
             ar = np.moveaxis(ar, [-1], [1]) if self.pm.num_members > 1 else ar[..., 0]
 

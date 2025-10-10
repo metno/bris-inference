@@ -234,8 +234,9 @@ class BrisPredictor(BasePredictor):
         # Set up data_input with variable order expected by the model.
         # Prognostic and static forcings come from batch, dynamic forcings
         # are calculated and diagnostic variables are filled with 0.
-        data_input = torch.zeros(
+        data_input = torch.full(
             batch.shape[:-1] + (len(self.variables["all"]),),
+            float("nan"),
             dtype=batch.dtype,
             device=batch.device,
         )

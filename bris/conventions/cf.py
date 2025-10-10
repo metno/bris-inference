@@ -36,16 +36,25 @@ def get_metadata(anemoi_variable: str) -> dict:
         "mcc": ("medium_type_cloud_area_fraction", "height", 0),
         "tcc": ("cloud_area_fraction", "height", 0),
         "ssrd": (
-            "integral_of_surface_downwelling_shortwave_flux_in_air_wrt_time",
+            "ssrd",
             "height",
             0,
         ),
         "strd": (
-            "integral_of_surface_downwelling_longwave_flux_in_air_wrt_time",
+            "strd",
             "height",
             0,
         ),
         "tcw": ("atmosphere_mass_content_of_water", "height", 0),
+        "tp_acc": ("precipitation_amount_acc", "height", 0),
+        "ssrd_acc": (
+            "integral_of_surface_downwelling_shortwave_flux_in_air_wrt_time",
+            "height", 0,
+        ),
+        "strd_acc": (
+            "integral_of_surface_downwelling_longwave_flux_in_air_wrt_time",
+            "height", 0,
+        ),
     }
 
     if anemoi_variable in variable_mapping:
