@@ -49,11 +49,13 @@ def get_metadata(anemoi_variable: str) -> dict:
         "tp_acc": ("precipitation_amount_acc", "height", 0),
         "ssrd_acc": (
             "integral_of_surface_downwelling_shortwave_flux_in_air_wrt_time",
-            "height", 0,
+            "height",
+            0,
         ),
         "strd_acc": (
             "integral_of_surface_downwelling_longwave_flux_in_air_wrt_time",
-            "height", 0,
+            "height",
+            0,
         ),
     }
 

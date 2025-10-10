@@ -498,7 +498,7 @@ class Netcdf(Output):
                 ar = np.reshape(pred[..., variable_index, :], shape)
 
             if variable in self.accumulated_variables:
-                #Accumulate over lead times
+                # Accumulate over lead times
                 ar = np.cumsum(np.nan_to_num(ar, nan=0), axis=0)
 
             ar = np.moveaxis(ar, [-1], [1]) if self.pm.num_members > 1 else ar[..., 0]
