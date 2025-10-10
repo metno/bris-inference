@@ -16,7 +16,6 @@ See [Wiki](https://github.com/metno/bris-inference/wiki)
 
 ## Requirements
 
-- [udunits2](https://www.unidata.ucar.edu/software/udunits/) library. On ubuntu available as `libudunits2-0`
 - Running on ARM/MacOS requires some workarounds for now: https://github.com/metno/bris-inference/issues/85
 
 ## Install
