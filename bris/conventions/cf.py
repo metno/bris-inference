@@ -35,16 +35,6 @@ def get_metadata(anemoi_variable: str) -> dict:
         "lcc": ("low_type_cloud_area_fraction", "height", 0),
         "mcc": ("medium_type_cloud_area_fraction", "height", 0),
         "tcc": ("cloud_area_fraction", "height", 0),
-        "ssrd": (
-            "ssrd",
-            "height",
-            0,
-        ),
-        "strd": (
-            "strd",
-            "height",
-            0,
-        ),
         "tcw": ("atmosphere_mass_content_of_water", "height", 0),
         "tp_acc": ("precipitation_amount_acc", "height", 0),
         "ssrd_acc": (

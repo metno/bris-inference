@@ -28,7 +28,13 @@ def test_1():
         pattern = os.path.join(temp_dir, "test_%Y%m%dT%HZ.nc")
         workdir = os.path.join(temp_dir, "test_gridded")
         attrs = {"creator": "met.no"}
-        output = Netcdf(pm, workdir, pattern, global_attributes=attrs)
+        output = Netcdf(
+            pm,
+            workdir,
+            pattern,
+            accumulated_variables=["2t", "tp"],
+            global_attributes=attrs,
+        )
 
         for member in range(num_members):
             output.add_forecast(times, member, pred)
@@ -48,6 +54,8 @@ def test_1():
                 "air_temperature_2m",
                 "air_temperature_0m",
                 "x_wind_pl",
+                "precipitation_amount_acc",
+                "2t_acc",
             ]:
                 assert variable in file.variables, variable
                 var = file.variables[variable]
@@ -61,6 +69,11 @@ def test_1():
             height_dim = file.variables["air_temperature_0m"].dims[1]
             levels = file.variables[height_dim].values
             assert levels == [0]
+
+            # Test that accumulated values are correct
+            tp = file["precipitation_amount"].data
+            tp_acc = file["precipitation_amount_acc"].data
+            assert (np.cumusum(np.nan_to_num(tp, nan=0), axis=0) == tp_acc).all()
 
     # Test interpolation
     with tempfile.TemporaryDirectory() as temp_dir:
