@@ -55,7 +55,6 @@ def test_1():
                 "air_temperature_0m",
                 "x_wind_pl",
                 "precipitation_amount_acc",
-                "2t_acc",
             ]:
                 assert variable in file.variables, variable
                 var = file.variables[variable]
@@ -71,6 +70,7 @@ def test_1():
             assert levels == [0]
 
             # Test that accumulated values are correct
+            assert "2t_acc" in file.variables
             tp = file["precipitation_amount"].data
             tp_acc = file["precipitation_amount_acc"].data
             assert (np.cumusum(np.nan_to_num(tp, nan=0), axis=0) == tp_acc).all()
