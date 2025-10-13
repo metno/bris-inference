@@ -73,7 +73,7 @@ def test_1():
             assert "2t_acc" in file.variables
             tp = file["precipitation_amount"].data
             tp_acc = file["precipitation_amount_acc"].data
-            assert (np.cumusum(np.nan_to_num(tp, nan=0), axis=0) == tp_acc).all()
+            assert (np.cumsum(np.nan_to_num(tp, nan=0), axis=0) == tp_acc).all()
 
     # Test interpolation
     with tempfile.TemporaryDirectory() as temp_dir:
