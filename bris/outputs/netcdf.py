@@ -61,7 +61,7 @@ class Netcdf(Output):
 
         self.filename_pattern = filename_pattern
         if variables is None:
-            self.extract_variables = predict_metadata.variables
+            self.extract_variables = list(predict_metadata.variables)
         else:
             if extra_variables is None:
                 extra_variables = []
