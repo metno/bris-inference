@@ -1,3 +1,4 @@
+import re
 from functools import cached_property
 
 import numpy as np
@@ -6,7 +7,7 @@ from anemoi.datasets import open_dataset
 from bris.conventions.anemoi import get_units as get_anemoi_units
 from bris.observations import Location, Observations
 from bris.sources import Source
-from bris.utils import datetime_to_unixtime
+from bris.utils import datetime_to_unixtime, resolve_var_expr, safe_eval_expr
 
 
 class AnemoiDataset(Source):
@@ -19,13 +20,15 @@ class AnemoiDataset(Source):
         """
         Args:
             dataset_dict: open_dataset recipe, dictionary.
-            variable: variable to fetch from dataset
+            variable: variable to fetch from dataset. Can also specify how to
+                      derive from other variables using standard Pythonic math
+                      expressions and specifying variables in brackets (e.g. [10u])
             every: include every this number of locations in the verif file
         """
-
         self.dataset = open_dataset(dataset_dict)
-        self.variable = variable
-        self.variable_index = self.dataset.name_to_index[variable]
+        self.variable, self.derive_variables, self.derive = resolve_var_expr(
+            variable, self.dataset.name_to_index
+        )
         self.every_loc = every_loc
 
     @cached_property
@@ -56,18 +59,27 @@ class AnemoiDataset(Source):
         requested_times = np.arange(start_time, end_time + 1, frequency)
         num_requested_times = len(requested_times)
 
-        data = np.nan * np.zeros([num_requested_times, len(self.locations)], np.float32)
+        data = np.full([num_requested_times, len(self.locations)], np.nan, np.float32)
         for t, requested_time in enumerate(requested_times):
             i = np.where(self._all_times == requested_time)[0]
             if len(i) > 0:
-                if int(i[0]) in self.dataset.missing:
-                    print(
-                        f"Date {self.dataset.dates[int(i[0])]} missing from verif dataset"
-                    )
+                j = int(i[0])
+                if j in self.dataset.missing:
+                    print(f"Date {self.dataset.dates[j]} missing from verif dataset")
                 else:
-                    data[t, :] = self.dataset[
-                        int(i[0]), self.variable_index, 0, :: self.every_loc
-                    ]
+                    if self.derive:
+                        variables_dict = {}
+                        for var_name, var_idx in self.derive_variables.items():
+                            arr = self.dataset[j, var_idx, 0, :: self.every_loc]
+                            variables_dict[var_name] = arr
+                        data[t, :] = safe_eval_expr(self.variable, variables_dict)
+                    else:
+                        data[t, :] = self.dataset[
+                            j,
+                            self.derive_variables[self.variable],
+                            0,
+                            :: self.every_loc,
+                        ]
 
         observations = Observations(self.locations, requested_times, {variable: data})
         return observations

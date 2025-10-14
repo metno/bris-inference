@@ -1,7 +1,10 @@
+import ast
 import json
 import logging
 import numbers
+import operator as op
 import os
+import re
 import sys
 import time
 import uuid
@@ -309,3 +312,94 @@ def get_all_leadtimes(
     )
 
     return np.concatenate([high_res, low_res])
+
+
+def safe_eval_expr(expr, variables_dict):
+    """
+    Safely evaluate a math expression like '[10u]**2 + [10v]**2' using AST.
+    """
+
+    allowed_operators = {
+        ast.Add: op.add,
+        ast.Sub: op.sub,
+        ast.Mult: op.mul,
+        ast.Div: op.truediv,
+        ast.Pow: op.pow,
+        ast.USub: op.neg,
+    }
+
+    class EvalVisitor(ast.NodeVisitor):
+        def visit_BinOp(self, node):
+            left = self.visit(node.left)
+            right = self.visit(node.right)
+            return allowed_operators[type(node.op)](left, right)
+
+        def visit_UnaryOp(self, node):
+            operand = self.visit(node.operand)
+            return allowed_operators[type(node.op)](operand)
+
+        def visit_Name(self, node):
+            if node.id in safe_variables:
+                return safe_variables[node.id]
+            else:
+                raise ValueError(f"Unknown variable: {node.id}")
+
+        def visit_Expr(self, node):
+            return self.visit(node.value)
+
+        def visit_Call(self, node):
+            raise ValueError("Function calls not allowed")
+
+        def visit_Num(self, node):
+            return node.n
+
+        def visit_Constant(self, node):  # Python 3.8+
+            return node.value
+
+    # map to safe names
+    safe_variables = {}
+    for i, original_name in enumerate(variables_dict.keys()):
+        safe_name = f"var_{i}"
+        safe_variables[safe_name] = variables_dict[original_name]
+
+    # Replace all occurrences of original names in expression with safe names
+    expr_safe = expr
+    for original_name, safe_name in zip(variables_dict.keys(), safe_variables.keys()):
+        expr_safe = expr_safe.replace(f"[{original_name}]", safe_name)
+
+    tree = ast.parse(expr_safe, mode="eval")
+    visitor = EvalVisitor()
+    return visitor.visit(tree.body)
+
+
+def expr_to_var(variable):
+    """Extract variables from expression and return
+    complete variable list and whether or not to derive"""
+    if variable == "ws":
+        variable = "([10u]**2+[10v]**2)**0.5"
+    if "[" in variable:
+        return re.findall(r"\[([^\[\]]+)\]", variable), variable, True
+    return [variable], variable, False
+
+
+def resolve_var_expr(variable, name_to_index):
+    """
+    Return complete variable list with dataset index
+
+    Args:
+        variable: str
+            Variable defined either directly or through expression
+        name_to_index: str
+            Dataset name to index
+
+    Returns:
+        variable: str
+            A potentially updated variable
+        derive_variables: dict
+            Name to index for the derived variable(s)
+        derive: bool
+            Whether or not to derive variable
+    """
+    variables, variable, derive = expr_to_var(variable)
+    derive_variables = {v: name_to_index[v] for v in variables}
+    return variable, derive_variables, derive
