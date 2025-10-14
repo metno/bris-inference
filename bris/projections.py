@@ -9,6 +9,7 @@ def get_proj4_str(name: str) -> str:
         "arome_arctic": "+proj=lcc +lat_0=77.5 +lon_0=-25 +lat_1=77.5 +lat_2=77.5 +x_0=0 +y_0=0 +R=6371000 +units=m +no_defs +type=crs",
         "norkyst_v3": "+proj=stere +lat_0=90 +lat_ts=60 +lon_0=70 +x_0=3369600 +y_0=1844800 +a=6378137 +b=6356752.3142 +units=m +no_defs +type=crs",
         "nordic_analysis": "+proj=lcc +lat_0=63.0 +lon_0=15 +lat_1=63.0 +lat_2=63.0 +x_0=0 +y_0=0 +R=6371000 +units=m +no_defs +type=crs",
+        "ara": "+proj=lcc +lat_0=47.400 +lon_0=13.800 +lat_1=42.981 +lat_2=51.819 +x_0=0 +y_0=0 +R=6371000 +units=m +no_defs +type=crs"
     }[name]
 
 
