@@ -407,7 +407,9 @@ class Netcdf(Output):
             yy, xx = np.meshgrid(y, x)
             ogrid = gridpp.Grid(yy.transpose(), xx.transpose())
 
-            altitudes = gridpp.nearest(ipoints, ogrid, self.pm.altitudes).astype(np.double)
+            altitudes = gridpp.nearest(ipoints, ogrid, self.pm.altitudes).astype(
+                np.double
+            )
             self.ds[self.conv_name("surface_altitude")] = (
                 spatial_dims,
                 altitudes,
