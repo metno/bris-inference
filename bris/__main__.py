@@ -47,6 +47,8 @@ def main():
         config.checkpoints[model].timestep = None
         try:
             config.checkpoints[model].timestep = checkpoints[model].config.data.timestep
+            if model == "interpolator":
+                config.checkpoints[model].timestep = "1h" #incorrectly set to 6h in the config
         except KeyError as err:
             raise RuntimeError from err(
                 f"Error getting timestep from {model} checkpoint (checkpoint.config.data.timestep)"

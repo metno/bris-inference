@@ -219,7 +219,7 @@ class BrisPredictor(BasePredictor):
         del data_normalized
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
-        return self.model(x, self.model_comm_group)
+        return self.model(x, model_comm_group = self.model_comm_group)
 
     def advance_input_predict(
         self, x: torch.Tensor, y_pred: torch.Tensor, time: np.datetime64
@@ -595,7 +595,7 @@ class Interpolator(BasePredictor):
                             "interpolator": self.interpolator.data_indices}
         self.multistep = checkpoints["forecaster"].metadata.config.training.multistep_input
         self.timestep_forecaster = timedelta64_from_timestep(checkpoints["forecaster"].metadata.config.data.timestep)
-        self.timestep_interpolator = timedelta64_from_timestep(checkpoints["interpolator"].metadata.config.data.timestep)
+        self.timestep_interpolator = timedelta64_from_timestep("1h") #checkpoints["interpolator"].metadata.config.data.timestep)
         self.forecast_length = checkpoints_config["forecaster"]["leadtimes"]
         self.interpolation_length = checkpoints_config["interpolator"]["leadtimes"]
         self.leadtimes = get_all_leadtimes(
@@ -791,9 +791,7 @@ class Interpolator(BasePredictor):
         fcast_index = 1
         with torch.autocast(device_type="cuda", dtype=torch.bfloat16):
             for fcast_step in range(self.forecast_length - 1):
-                if self.model_comm_group_rank == 0:
-                    print("time", time)
-                y_pred = self.forecaster(x, self.model_comm_group)
+                y_pred = self.forecaster(x, model_comm_group = self.model_comm_group)
                 x = self.advance_input_predict(x, y_pred, time + self.timestep_forecaster)
                 x_interp = self.advance_input_interpolator(x_interp, self.forecaster.post_processors(y_pred, in_place=False), time + self.timestep_forecaster)
 
@@ -856,24 +854,25 @@ class Interpolator(BasePredictor):
 
                     for interp_index, interp_step in enumerate(self.interp_times):
                         time_interp = time + interp_step * self.timestep_interpolator
-                        dynamic_target_forcings = get_dynamic_forcings(time_interp, self.longitudes, self.latitudes, self.target_forcings)
+                        dynamic_target_forcings = get_dynamic_forcings(time_interp, self.latitudes, self.longitudes, self.target_forcings)
                         for forcing_index, forcing in enumerate(self.target_forcings):
                             if np.ndarray is type(dynamic_target_forcings[forcing]):
                                 target_forcing[..., forcing_index] = torch.from_numpy(dynamic_target_forcings[forcing])
                             else:
-                                target_forcing[..., forcing_index] = torch.from_numpy(dynamic_target_forcings[forcing])
+                                target_forcing[..., forcing_index] = dynamic_target_forcings[forcing]
                         if self.use_time_fraction:
-                            target_forcing[..., -1] = (interp_step - self.boundary_times[1]) / (
-                                self.boundary_times[1] - self.boundary_times[0]
+                            target_forcing[..., -1] = (interp_step - self.boundary_times[-2]) / (
+                                self.boundary_times[-1] - self.boundary_times[-2]
                             )
                         if self.model_comm_group_rank == 0:
-                            print("time_interp", time_interp)
-                            print("time_frac", (interp_step - self.boundary_times[1]) / (
-                                self.boundary_times[1] - self.boundary_times[0]
-                            ))
-                            print("index", fcast_index + interp_index)
+                            # print("time_interp", time_interp)
+                            # print("time_frac", (interp_step - self.boundary_times[-2]) / (
+                            #     self.boundary_times[-1] - self.boundary_times[-2]
+                            # ))
+                            # #print("index", fcast_index + interp_index)
+                            pass
 
-                        y_pred_interp = self.interpolator(interpolator_input, target_forcing)
+                        y_pred_interp = self.interpolator(interpolator_input, target_forcing = target_forcing, model_comm_group=self.model_comm_group)
                         y_preds[:,fcast_index + interp_index] = self.interpolator.post_processors(
                             y_pred_interp, in_place=True
                         )[:, 0, :, self.indices["interpolator"]["variables_output"]].cpu()
@@ -881,7 +880,7 @@ class Interpolator(BasePredictor):
 
                     fcast_index += self.interpolator_steps
                 if self.model_comm_group_rank == 0:
-                    print("fcast_index", fcast_index)
+                    pass
                 y_preds[:,fcast_index] = self.forecaster.post_processors(
                     y_pred, in_place=True
                 )[:, 0, :, self.indices["forecaster"]["variables_output"]].cpu()
