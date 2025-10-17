@@ -51,12 +51,16 @@ def get_required_variables(name, init_args):
 
     if name == "netcdf":
         if "variables" in init_args:
-            variables = init_args["variables"]
+            variables = list(init_args["variables"])
             if "extra_variables" in init_args:
                 for var_name in init_args["extra_variables"]:
                     if var_name == "ws":
                         variables += ["10u", "10v"]
-            variables = sorted(list(set(variables)))
+            if "accumulated_variables" in init_args:
+                for var_name in init_args["accumulated_variables"]:
+                    if var_name not in variables:
+                        variables += [var_name]
+            variables = sorted(set(variables))
             return variables
         return [None]
 
@@ -67,12 +71,12 @@ def get_required_variables(name, init_args):
 
     if name == "grib":
         if "variables" in init_args:
-            variables = init_args["variables"]
+            variables = list(init_args["variables"])
             if "extra_variables" in init_args:
                 for name in init_args["extra_variables"]:
                     if name == "ws":
                         variables += ["10u", "10v"]
-            variables = sorted(list(set(variables)))
+            variables = sorted(set(variables))
             return variables
         return [None]
 
