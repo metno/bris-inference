@@ -93,9 +93,9 @@ def find_common_name(units: str | None) -> str | None:
 
     # Key: common name, value: List of alternative names
     identical = {
-        "celsius": ["C", "degC"],
+        "celsius": ["C", "degC", "°C"],
         "km/h": ["kmh"],
-        "kg/m^2": ["mm", "Kg/m^2", "Kg/m2", "kg/m2"],
+        "kg/m^2": ["mm", "Kg/m^2", "Kg/m2", "kg/m2", "mm/6h", "mm/3h", "mm/1h"], # verif package should be handling the temporal accum window
         "degree": ["degrees"],
         "%": ["percent"],
     }
