@@ -23,6 +23,7 @@ class Metno:
         """Gets the name of a NetCDF variable given level information"""
         if cfname in [
             "precipitation_amount",
+            "precipitation_amount_acc",
             "surface_air_pressure",
             "air_pressure_at_sea_level",
             "wind_speed_of_gust",
