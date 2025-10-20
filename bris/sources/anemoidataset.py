@@ -26,7 +26,9 @@ class AnemoiDataset(Source):
         self.dataset = open_dataset(dataset_dict)
         self.variable = variable
         if variable == "ws":
-            self.variable_index = [self.dataset.name_to_index[v] for v in ["10u", "10v"]]
+            self.variable_index = [
+                self.dataset.name_to_index[v] for v in ["10u", "10v"]
+            ]
         else:
             self.variable_index = self.dataset.name_to_index[variable]
         self.every_loc = every_loc
@@ -69,9 +71,13 @@ class AnemoiDataset(Source):
                     )
                 else:
                     if self.variable == "ws":
-                        data_u = self.dataset[int(i[0]), self.variable_index[0], 0, :: self.every_loc]
-                        data_v = self.dataset[int(i[0]), self.variable_index[1], 0, :: self.every_loc]
-                        data[t, :] = (data_u**2+data_v**2)**0.5
+                        data_u = self.dataset[
+                            int(i[0]), self.variable_index[0], 0, :: self.every_loc
+                        ]
+                        data_v = self.dataset[
+                            int(i[0]), self.variable_index[1], 0, :: self.every_loc
+                        ]
+                        data[t, :] = (data_u**2 + data_v**2) ** 0.5
                     else:
                         data[t, :] = self.dataset[
                             int(i[0]), self.variable_index, 0, :: self.every_loc
