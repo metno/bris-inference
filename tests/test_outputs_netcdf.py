@@ -25,7 +25,6 @@ def test_deterministic():
     times = frt + leadtimes
 
     with tempfile.TemporaryDirectory() as temp_dir:
-        temp_dir = "./"
         pattern = os.path.join(temp_dir, "test_%Y%m%dT%HZ.nc")
         workdir = os.path.join(temp_dir, "test_gridded")
         attrs = {"creator": "met.no"}
@@ -126,7 +125,6 @@ def test_ensemble():
     times = frt + leadtimes
 
     with tempfile.TemporaryDirectory() as temp_dir:
-        temp_dir = "./"
         pattern = os.path.join(temp_dir, "test_%Y%m%dT%HZ.nc")
         workdir = os.path.join(temp_dir, "test_gridded")
         attrs = {"creator": "met.no"}
