@@ -10,7 +10,7 @@ def get_units(name: str) -> str | None:
     units = attrs.get("units", None)
 
     # Here's an opportunity to override, if needed:
-    if name in ["tp", "tp_acc"]:
+    if name == "tp":
         return "Mg/m^2"
 
     return units
