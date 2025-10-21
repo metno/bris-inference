@@ -2,8 +2,6 @@ import netCDF4
 import numpy as np
 import pyproj
 
-from bris.utils import LOGGER
-
 
 def get_proj4_str(name: str) -> str:
     """Returns a proj4 string based on a name"""
