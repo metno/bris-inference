@@ -437,6 +437,26 @@ class Netcdf(Output):
                     self.ds[ncname].attrs["coordinates"] = "latitude longitude"
         utils.LOGGER.debug("netcdf._set_projection_info")
 
+    def _rotate_winds(self, pred, x, y) -> np.ndarray:
+        x_wind_index = self.pm.variables.index("10u")
+        y_wind_index = self.pm.variables.index("10v")
+        for leadtime in range(self.pm.num_leadtimes):
+            for member in range(self.pm.num_members):
+                u_wind = pred[leadtime, :, x_wind_index, member]
+                v_wind = pred[leadtime, :, y_wind_index, member]
+                u_rot, v_rot = projections.rotate_wind_to_projected_coords(
+                    u_wind,
+                    v_wind,
+                    self.pm.lats,
+                    self.pm.lons,
+                    self.proj4_str,
+                    "proj+=longlat",
+                )
+                pred[leadtime, :, x_wind_index, member] = u_rot
+                pred[leadtime, :, y_wind_index, member] = v_rot
+
+        return pred
+
     def _setup_prediction_vars(
         self,
         spatial_dims: tuple,
@@ -447,6 +467,11 @@ class Netcdf(Output):
     ):
         """Set up all prediction variables"""
         t0 = pytime.perf_counter()
+        # Rotate winds if needed
+        if self.proj4_str is not None:
+            if "10u" in self.extract_variables and "10v" in self.extract_variables:
+                self._rotate_winds(pred, x, y)
+
         for variable in self.extract_variables:
             t1 = pytime.perf_counter()
             if variable in self.accumulated_variables:
