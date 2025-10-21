@@ -142,7 +142,10 @@ def get_attributes(cfname: str) -> dict[str, str] | dict:
         "geopotential": {"units": "m^2/s^2"},
         "surface_geopotential": {"units": "m^2/s^2"},
         "precipitation_amount": {"units": "kg/m^2"},
-        "precipitation_amount_acc": {"units": "kg/m^2"},
+        "precipitation_amount_acc": {
+            "units": "kg/m^2",
+            "standard_name": "precipitation_amount",
+        },
         "air_pressure_at_sea_level": {"units": "Pa"},
         "surface_air_pressure": {"units": "Pa"},
         "specific_humidity": {"units": "kg/kg"},
