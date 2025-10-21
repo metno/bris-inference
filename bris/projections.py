@@ -2,6 +2,8 @@ import netCDF4
 import numpy as np
 import pyproj
 
+from bris.utils import LOGGER
+
 
 def get_proj4_str(name: str) -> str:
     """Returns a proj4 string based on a name"""
@@ -152,9 +154,6 @@ def rotate_wind_to_projected_coords(
     new_y_wind = Y1 - Y0
     if proj_to.name == "longlat":
         new_x_wind *= np.cos(lats * 3.14159265 / 180)
-    else:
-        print('proj_to.name == "longlat" is False')
-        print("proj_to.name: ", proj_to.name)
 
     if proj_to.name == "longlat" or proj_from.name == "longlat":
         # Ensure the wind speed is not changed (which might not the case since the units in longlat
@@ -162,7 +161,5 @@ def rotate_wind_to_projected_coords(
         curr_speed = np.sqrt(new_x_wind**2 + new_y_wind**2)
         new_x_wind *= orig_speed / curr_speed
         new_y_wind *= orig_speed / curr_speed
-    else:
-        print('proj_to.name == "longlat" or proj_from.name == "longlat" is False')
 
     return new_x_wind, new_y_wind
