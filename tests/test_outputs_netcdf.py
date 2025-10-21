@@ -192,7 +192,7 @@ def test_ensemble():
         output_filename = os.path.join(temp_dir, "test_20230101T06Z.nc")
         with xr.open_dataset(output_filename) as file:
             # Check that altitude variable has attributes
-            assert "altitude" not in file.variables
+            assert "altitude" in file.variables
 
 
 def test_domain_name():
