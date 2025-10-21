@@ -529,7 +529,7 @@ class Netcdf(Output):
             from_units = anemoi_conventions.get_units(variable)
             if "units" in attrs:
                 to_units = attrs["units"]
-                bris.units.convert(ar, from_units, to_units, inplace=True)
+                ar, _ = bris.units.convert(ar, from_units, to_units, inplace=False)
 
             if level_index is not None:
                 self.ds[ncname][:, level_index, ...] = ar
