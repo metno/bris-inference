@@ -1,6 +1,6 @@
 import netCDF4
-import pyproj
 import numpy as np
+import pyproj
 
 
 def get_proj4_str(name: str) -> str:

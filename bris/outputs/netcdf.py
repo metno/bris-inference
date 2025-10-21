@@ -468,9 +468,12 @@ class Netcdf(Output):
         """Set up all prediction variables"""
         t0 = pytime.perf_counter()
         # Rotate winds if needed
-        if self.proj4_str is not None:
-            if "10u" in self.extract_variables and "10v" in self.extract_variables:
-                self._rotate_winds(pred, x, y)
+        if (
+            self.proj4_str is not None
+            and "10u" in self.extract_variables
+            and "10v" in self.extract_variables
+        ):
+            self._rotate_winds(pred, x, y)
 
         for variable in self.extract_variables:
             t1 = pytime.perf_counter()
