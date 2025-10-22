@@ -1,10 +1,10 @@
 import datetime
 import time as pytime
+from functools import cached_property
 
 import gridpp
 import numpy as np
 import xarray as xr
-from functools import cached_property
 
 import bris.units
 from bris import projections, utils
