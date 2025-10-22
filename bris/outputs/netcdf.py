@@ -4,6 +4,7 @@ import time as pytime
 import gridpp
 import numpy as np
 import xarray as xr
+from functools import cached_property
 
 import bris.units
 from bris import projections, utils
@@ -437,23 +438,40 @@ class Netcdf(Output):
                     self.ds[ncname].attrs["coordinates"] = "latitude longitude"
         utils.LOGGER.debug("netcdf._set_projection_info")
 
-    def _rotate_winds(self, pred, x, y) -> np.ndarray:
-        x_wind_index = self.pm.variables.index("10u")
-        y_wind_index = self.pm.variables.index("10v")
-        for leadtime in range(self.pm.num_leadtimes):
-            for member in range(self.pm.num_members):
-                u_wind = pred[leadtime, :, x_wind_index, member]
-                v_wind = pred[leadtime, :, y_wind_index, member]
-                u_rot, v_rot = projections.rotate_wind_to_projected_coords(
-                    u_wind,
-                    v_wind,
-                    self.pm.lats,
-                    self.pm.lons,
-                    self.proj4_str,
-                    "proj+=longlat",
-                )
-                pred[leadtime, :, x_wind_index, member] = u_rot
-                pred[leadtime, :, y_wind_index, member] = v_rot
+    @cached_property
+    def get_projection_rotation_matrices(self) -> tuple[np.ndarray]:
+        """Precompute rotation matrices for field rotation from east/north to projected coordinates"""
+        if self.proj4_str is None:
+            raise ValueError("No projection defined for field rotation")
+
+        e_x, n_x, e_y, n_y = projections.compute_local_mapping_from_lonlat(
+            self.pm.lons, self.pm.lats, self.proj4_str, dist=1.0
+        )
+        return e_x, n_x, e_y, n_y
+
+    def _rotate_fields_to_proj(self, pred, x, y) -> np.ndarray:
+        for u_field, v_field in self.conventions.fields_to_rotate:
+            if (
+                u_field not in self.extract_variables
+                or v_field not in self.extract_variables
+            ):
+                continue
+
+            # Cached property so this will be computed only once
+            e_x, n_x, e_y, n_y = self.get_projection_rotation_matrices
+
+            u_field_index = self.pm.variables.index(u_field)
+            v_field_index = self.pm.variables.index(v_field)
+            for leadtime in range(self.pm.num_leadtimes):
+                for member in range(self.pm.num_members):
+                    u_values = pred[leadtime, :, u_field_index, member]
+                    v_values = pred[leadtime, :, v_field_index, member]
+
+                    x_values = e_x * u_values + n_x * v_values
+                    y_values = e_y * u_values + n_y * v_values
+
+                    pred[leadtime, :, u_field_index, member] = x_values
+                    pred[leadtime, :, v_field_index, member] = y_values
 
         return pred
 
@@ -468,12 +486,8 @@ class Netcdf(Output):
         """Set up all prediction variables"""
         t0 = pytime.perf_counter()
         # Rotate winds if needed
-        if (
-            self.proj4_str is not None
-            and "10u" in self.extract_variables
-            and "10v" in self.extract_variables
-        ):
-            self._rotate_winds(pred, x, y)
+        if self.proj4_str is not None:
+            self._rotate_fields_to_proj(pred, x, y)
 
         for variable in self.extract_variables:
             t1 = pytime.perf_counter()

@@ -70,94 +70,64 @@ def proj_from_ncfile(filename):
     return proj_str
 
 
-def rotate_wind_to_projected_coords(
-    x_wind, y_wind, lats, lons, proj_str_to, proj_str_from="proj+=longlat"
+def compute_local_mapping_from_lonlat(
+    lon, lat, proj_str, dist=1.0, return_matrix=False
 ):
-    """Rotates winds in projection to another projection. Based loosely on
-    https://github.com/SciTools/cartopy/blob/main/lib/cartopy/crs.py#L429
+    """
+    Compute local 2x2 mapping M such that:
+        [Vx, Vy]^T = M @ [u_east, v_north]^T
 
     Args:
-        x_wind (np.array or list): Array of winds in x-direction [m]
-        y_wind (np.array or list): Array of winds in y-direction [m]
-        lats (np.array or list): Array of latitudes [degrees]
-        lons (np.array or list): Array of longitudes [degrees]
-        proj_str_from (str): Projection string to convert from
-        proj_str_to (str): Projection string to convert to
+        lon, lat : arrays (shape (...)) in degrees
+        proj_str : projection string or anything accepted by pyproj.CRS.from_user_input
+        dist : step distance in metres used to estimate east/north displacements (default 1.0)
+        return_matrix : if True, return array shaped (..., 2, 2)
 
     Returns:
-        new_x_wind (np.array): Array of winds in x-direction in new projection [m]
-        new_y_wind (np.array): Array of winds in y-direction in new projection [m]
-
-    Todo:
-        Deal with perturbations that end up outside the domain of the transformation
-        Deal with any issues related to directions on the poles
+        If return_matrix is False:
+            e_x, n_x, e_y, n_y  (each shaped like lon/lat)
+            where M = [[e_x, n_x],
+                       [e_y, n_y]]
+        If return_matrix is True:
+            M : array shaped (..., 2, 2)
+    Notes:
+        - Use dist=1.0 if u,v are in m/s (so matrix maps m/s east/north -> m/s proj).
+        - lon,lat may be any shape; results have same shape.
     """
+    lon = np.asarray(lon, dtype=np.float64)
+    lat = np.asarray(lat, dtype=np.float64)
 
-    if np.shape(x_wind) != np.shape(y_wind):
-        raise ValueError(
-            f"x_wind {np.shape(x_wind)} and y_wind {np.shape(y_wind)} arrays must be the same size"
+    # CRS/transformers
+    crs_proj = pyproj.CRS.from_user_input(proj_str)
+    to_proj = pyproj.Transformer.from_crs(
+        pyproj.CRS.from_epsg(4326), crs_proj, always_xy=True
+    )
+
+    # geodetic forward: compute points dist metres East (az=90) and North (az=0)
+    geod = pyproj.Geod(ellps="WGS84")
+    lon_east, lat_east, _ = geod.fwd(
+        lon, lat, np.full_like(lon, 90.0), np.full_like(lon, dist)
+    )  # 90° = east
+    lon_north, lat_north, _ = geod.fwd(
+        lon, lat, np.full_like(lon, 0.0), np.full_like(lon, dist)
+    )  # 0° = north
+
+    # project original and offset points into projection coordinates
+    x, y = to_proj.transform(lon, lat)
+    x_east, y_east = to_proj.transform(lon_east, lat_east)
+    x_north, y_north = to_proj.transform(lon_north, lat_north)
+
+    # compute projected displacements per metre geographic displacement
+    e_x = (x_east - x) / dist
+    e_y = (y_east - y) / dist
+    n_x = (x_north - x) / dist
+    n_y = (y_north - y) / dist
+
+    if return_matrix:
+        # stack into shape (..., 2, 2) where M[...,0,0]=e_x, M[...,0,1]=n_x, M[...,1,0]=e_y, M[...,1,1]=n_y
+        M = np.stack(
+            [np.stack([e_x, n_x], axis=-1), np.stack([e_y, n_y], axis=-1)], axis=-2
         )
-    if len(lats.shape) != 1:
-        raise ValueError(f"lats {np.shape(lats)} must be 1D")
+        return M
 
-    if np.shape(lats) != np.shape(lons):
-        raise ValueError(
-            f"lats {np.shape(lats)} and lats {np.shape(lons)} must be the same size"
-        )
-
-    if len(np.shape(x_wind)) == 1:
-        if np.shape(x_wind) != np.shape(lats):
-            raise ValueError(
-                f"x_wind {len(x_wind)} and lats {len(lats)} arrays must be the same size"
-            )
-    elif len(np.shape(x_wind)) == 2:
-        if x_wind.shape[1] != len(lats):
-            raise ValueError(
-                f"Second dimension of x_wind {x_wind.shape[1]} must equal number of lats {len(lats)}"
-            )
-    else:
-        raise ValueError(f"x_wind {np.shape(x_wind)} must be 1D or 2D")
-
-    proj_from = pyproj.Proj(proj_str_from)
-    proj_to = pyproj.Proj(proj_str_to)
-
-    transformer = pyproj.transformer.Transformer.from_proj(proj_from, proj_to)
-
-    # To compute the new vector components:
-    # 1) perturb each position in the direction of the winds
-    # 2) convert the perturbed positions into the new coordinate system
-    # 3) measure the new x/y components.
-    #
-    # A complication occurs when using the longlat "projections", since this is not a cartesian grid
-    # (i.e. distances in each direction is not consistent), we need to deal with the fact that the
-    # width of a longitude varies with latitude
-    orig_speed = np.sqrt(x_wind**2 + y_wind**2)
-
-    x0, y0 = proj_from(lons, lats)
-    if proj_from.name != "longlat":
-        x1 = x0 + x_wind
-        y1 = y0 + y_wind
-    else:
-        # Reduce the perturbation, since x_wind and y_wind are in meters, which would create
-        # large perturbations in lat, lon. Also, deal with the fact that the width of longitude
-        # varies with latitude.
-        factor = 3600000.0
-        x1 = x0 + x_wind / factor / np.cos(lats * 3.14159265 / 180)
-        y1 = y0 + y_wind / factor
-
-    X0, Y0 = transformer.transform(x0, y0)
-    X1, Y1 = transformer.transform(x1, y1)
-
-    new_x_wind = X1 - X0
-    new_y_wind = Y1 - Y0
-    if proj_to.name == "longlat":
-        new_x_wind *= np.cos(lats * 3.14159265 / 180)
-
-    if proj_to.name == "longlat" or proj_from.name == "longlat":
-        # Ensure the wind speed is not changed (which might not the case since the units in longlat
-        # is degrees, not meters)
-        curr_speed = np.sqrt(new_x_wind**2 + new_y_wind**2)
-        new_x_wind *= orig_speed / curr_speed
-        new_y_wind *= orig_speed / curr_speed
-
-    return new_x_wind, new_y_wind
+    return e_x, n_x, e_y, n_y
