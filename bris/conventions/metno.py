@@ -86,3 +86,25 @@ class Metno:
             if v == ncname:
                 return k
         return ncname
+
+    @property
+    def fields_to_rotate(self) -> list[tuple[str, str]]:
+        """Returns a list of fields (with anemoi names) that need to be rotated from latlon to projected coordinates"""
+        ret = [
+            ("10u", "10v"),
+            ("100u", "100v"),
+            ("u_1000", "v_1000"),
+            ("u_925", "v_925"),
+            ("u_850", "v_850"),
+            ("u_700", "v_700"),
+            ("u_500", "v_500"),
+            ("u_400", "v_400"),
+            ("u_300", "v_300"),
+            ("u_250", "v_250"),
+            ("u_200", "v_200"),
+            ("u_150", "v_150"),
+            ("u_100", "v_100"),
+            ("u_50", "v_50"),
+        ]
+
+        return ret
