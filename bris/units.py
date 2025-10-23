@@ -95,7 +95,7 @@ def find_common_name(units: str | None) -> str | None:
     identical = {
         "celsius": ["C", "degC", "°C"],
         "km/h": ["kmh"],
-        "kg/m^2": ["mm", "Kg/m^2", "Kg/m2", "kg/m2", "mm/6h", "mm/3h", "mm/1h"], # verif package should be handling the temporal accum window
+        "kg/m^2": ["mm", "Kg/m^2", "Kg/m2", "kg/m2", "mm/6h", "mm/3h", "mm/1h"],
         "degree": ["degrees"],
         "%": ["percent"],
     }
