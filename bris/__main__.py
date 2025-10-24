@@ -1,4 +1,4 @@
-import logging
+import multiprocessing
 import os
 import time
 from datetime import datetime, timedelta
@@ -144,7 +144,19 @@ def main(arg_list: list[str] | None = None):
     required_variables = bris.routes.get_required_variables_all_checkpoints(
         config["routing"], checkpoints
     )
-    writer = CustomWriter(decoder_outputs, write_interval="batch")
+
+    # List of background write processes
+    write_process_list = []
+    # Value shared between processes to keep track of written batches
+    current_batch_no = multiprocessing.Value("i", 0)
+
+    if "background_write" in config and not config["background_write"]:
+        write_process_list = None
+    writer = CustomWriter(
+        decoder_outputs,
+        current_batch_no=current_batch_no,
+        process_list=write_process_list,
+    )
 
     # Forecaster must know about what leadtimes to output
     model = instantiate(
@@ -169,6 +181,15 @@ def main(arg_list: list[str] | None = None):
     )
     inference.run()
 
+    # Wait for all writer_processes to finish
+    if write_process_list is not None:
+        for p in write_process_list:
+            t2 = time.perf_counter()
+            p.join()
+            LOGGER.debug(
+                f"Waited {time.perf_counter() - t2:.1f}s for {p.name} to complete."
+            )
+
     # Finalize all output, so they can flush to disk if needed
     is_main_thread = ("SLURM_PROCID" not in os.environ) or (
         os.environ["SLURM_PROCID"] == "0"
@@ -181,8 +202,9 @@ def main(arg_list: list[str] | None = None):
                 LOGGER.debug(
                     f"finalizing decoder {decoder_output} output in {time.perf_counter() - t1:.1f}s"
                 )
-
-        LOGGER.info(f"Bris completed in {time.perf_counter() - t0:.1f}s. 🤖")
+        LOGGER.info(f"Bris main completed in {time.perf_counter() - t0:.1f}s. 🤖")
+    else:
+        LOGGER.info(f"Bris instance completed in {time.perf_counter() - t0:.1f}s.")
 
 
 if __name__ == "__main__":
