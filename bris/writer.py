@@ -42,6 +42,7 @@ class CustomWriter(BasePredictionWriter):
         self.process_list = process_list
         self.current_batch_no = current_batch_no
         self.max_processes = max_processes
+        LOGGER.debug(f"CustomWriter max_processes set to {self.max_processes}")
 
     def write_on_batch_end(
         self,
@@ -58,7 +59,7 @@ class CustomWriter(BasePredictionWriter):
             prediction: This comes from predict_step in forecaster
         """
 
-        LOGGER.debug(f"CustomWriter self.process_list contains {self.process_list}")
+        LOGGER.debug(f"CustomWriter process_list contains {self.process_list}")
 
         times = prediction["times"]
         ensemble_member = prediction["ensemble_member"]
@@ -82,15 +83,6 @@ class CustomWriter(BasePredictionWriter):
                             f"CustomWriter starting add_forecast for member <{ensemble_member}>, times {times}."
                         )
                     else:
-                        # If too many processes, wait for previous to complete writing
-                        if len(self.process_list) > self.max_processes:
-                            while len(self.process_list) > 0:
-                                t0 = time.perf_counter()
-                                p = self.process_list.pop()
-                                p.join()
-                                LOGGER.debug(
-                                    f"CustomWriter waited {time.perf_counter() - t0:.1f}s for {p} to complete before creating new processes."
-                                )
                         # If on new batch, wait for previous to complete writing
                         if self.current_batch_no.value != batch_idx:
                             while len(self.process_list) > 0:
@@ -99,6 +91,15 @@ class CustomWriter(BasePredictionWriter):
                                 p.join()
                                 LOGGER.debug(
                                     f"CustomWriter waited {time.perf_counter() - t0:.1f}s for {p} to complete previous batch_idx ({self.current_batch_no.value})."
+                                )
+                        # If too many processes, wait for previous to complete writing
+                        if len(self.process_list) > self.max_processes:
+                            while len(self.process_list) > 0:
+                                t0 = time.perf_counter()
+                                p = self.process_list.pop()
+                                p.join()
+                                LOGGER.debug(
+                                    f"CustomWriter waited {time.perf_counter() - t0:.1f}s for {p} to complete before creating new processes."
                                 )
                         with self.current_batch_no.get_lock():
                             self.current_batch_no.value = batch_idx
