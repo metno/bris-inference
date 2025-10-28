@@ -20,7 +20,7 @@ class CustomWriter(BasePredictionWriter):
         current_batch_no: Synchronized,
         process_list: list[multiprocessing.Process] | None,
         write_interval: str = "batch",
-        max_processes: int = 2,
+        max_processes: int = 1,
     ) -> None:
         """
         Args:
@@ -32,6 +32,8 @@ class CustomWriter(BasePredictionWriter):
                 must run .join() on each process in list to wait for them to finish.
 
             write_interval (str): Only "batch" is supported.
+
+            max_processes (int): Max background writing processes. Don't set <1.
         """
         super().__init__(write_interval)
 
