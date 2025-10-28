@@ -20,6 +20,7 @@ class CustomWriter(BasePredictionWriter):
         current_batch_no: Synchronized,
         process_list: list[multiprocessing.Process] | None,
         write_interval: str = "batch",
+        max_processes: int = 2,
     ) -> None:
         """
         Args:
@@ -37,6 +38,7 @@ class CustomWriter(BasePredictionWriter):
         self.outputs = outputs
         self.process_list = process_list
         self.current_batch_no = current_batch_no
+        self.max_processes = max_processes
 
     def write_on_batch_end(
         self,
@@ -85,6 +87,15 @@ class CustomWriter(BasePredictionWriter):
                                 p.join()
                                 LOGGER.debug(
                                     f"CustomWriter waited {time.perf_counter() - t0:.1f}s for {p} to complete previous batch_idx ({self.current_batch_no.value})."
+                                )
+                        # If too many processes, wait for previous to complete writing
+                        if len(self.process_list) > self.max_processes:
+                            while len(self.process_list) > 0:
+                                t0 = time.perf_counter()
+                                p = self.process_list.pop()
+                                p.join()
+                                LOGGER.debug(
+                                    f"CustomWriter waited {time.perf_counter() - t0:.1f}s for {p} to complete before creating new processes."
                                 )
                         with self.current_batch_no.get_lock():
                             self.current_batch_no.value = batch_idx
