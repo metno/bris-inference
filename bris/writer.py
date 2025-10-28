@@ -1,4 +1,5 @@
 import multiprocessing
+import os
 import time
 from collections.abc import Sequence
 from multiprocessing.sharedctypes import Synchronized
@@ -20,7 +21,7 @@ class CustomWriter(BasePredictionWriter):
         current_batch_no: Synchronized,
         process_list: list[multiprocessing.Process] | None,
         write_interval: str = "batch",
-        max_processes: int = 1,
+        max_processes: int = os.cpu_count(),
     ) -> None:
         """
         Args:
@@ -81,15 +82,6 @@ class CustomWriter(BasePredictionWriter):
                             f"CustomWriter starting add_forecast for member <{ensemble_member}>, times {times}."
                         )
                     else:
-                        # If on new batch, wait for previous to complete writing
-                        if self.current_batch_no.value != batch_idx:
-                            while len(self.process_list) > 0:
-                                t0 = time.perf_counter()
-                                p = self.process_list.pop()
-                                p.join()
-                                LOGGER.debug(
-                                    f"CustomWriter waited {time.perf_counter() - t0:.1f}s for {p} to complete previous batch_idx ({self.current_batch_no.value})."
-                                )
                         # If too many processes, wait for previous to complete writing
                         if len(self.process_list) > self.max_processes:
                             while len(self.process_list) > 0:
@@ -98,6 +90,15 @@ class CustomWriter(BasePredictionWriter):
                                 p.join()
                                 LOGGER.debug(
                                     f"CustomWriter waited {time.perf_counter() - t0:.1f}s for {p} to complete before creating new processes."
+                                )
+                        # If on new batch, wait for previous to complete writing
+                        if self.current_batch_no.value != batch_idx:
+                            while len(self.process_list) > 0:
+                                t0 = time.perf_counter()
+                                p = self.process_list.pop()
+                                p.join()
+                                LOGGER.debug(
+                                    f"CustomWriter waited {time.perf_counter() - t0:.1f}s for {p} to complete previous batch_idx ({self.current_batch_no.value})."
                                 )
                         with self.current_batch_no.get_lock():
                             self.current_batch_no.value = batch_idx
