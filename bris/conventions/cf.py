@@ -107,6 +107,11 @@ def get_attributes(cfname: str) -> dict[str, str] | dict:
         "forecast_reference_time": {
             "units": "seconds since 1970-01-01 00:00:00 +00:00"
         },
+        "fog_type_cloud_area_fraction": {"units": "m"},
+        "high_type_cloud_area_fraction": {"units": "m"},
+        "low_type_cloud_area_fraction": {"units": "m"},
+        "medium_type_cloud_area_fraction": {"units": "m"},
+        "cloud_area_fraction": {"units": "m"},
         "time": {"units": "seconds since 1970-01-01 00:00:00 +00:00"},
         "latitude": {"units": "degrees_north"},
         "longitude": {"units": "degrees_east"},
