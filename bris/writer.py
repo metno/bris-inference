@@ -1,4 +1,5 @@
 from concurrent.futures import ThreadPoolExecutor
+from concurrent.futures import Future
 import os
 import time
 from collections.abc import Sequence
@@ -17,7 +18,7 @@ class CustomWriter(BasePredictionWriter):
     def __init__(
         self,
         outputs: list[dict],
-        process_list: list[multiprocessing.Process] | None,
+        process_list: list[Future] | None,
         write_interval: str = "batch",
         max_processes: int = os.cpu_count(),
     ) -> None:
