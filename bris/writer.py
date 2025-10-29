@@ -20,7 +20,6 @@ class CustomWriter(BasePredictionWriter):
     def __init__(
         self,
         outputs: list[dict],
-        current_batch_no: Synchronized,
         process_list: list[multiprocessing.Process] | None,
         write_interval: str = "batch",
         max_processes: int = os.cpu_count(),
@@ -42,10 +41,8 @@ class CustomWriter(BasePredictionWriter):
 
         self.outputs = outputs
         self.process_list = process_list
-        self.current_batch_no = current_batch_no
         self.max_processes = max_processes
         self.pool = ThreadPoolExecutor(max_workers=max_processes)
-        #self.pool = Pool(processes=max_processes)
         LOGGER.debug(f"CustomWriter max_processes set to {self.max_processes}")
 
     def write_on_batch_end(
@@ -64,11 +61,11 @@ class CustomWriter(BasePredictionWriter):
         """
 
         LOGGER.debug(f"CustomWriter process_list contains {self.process_list}")
+        #Wait for processes from the previous batch to finish
         while len(self.process_list) > 0:
             LOGGER.debug("CustomWriter waiting for previous process to complete before writing new data.")
             process = self.process_list.pop()
-            process.result()  # Wait for process to complete
-            #process.get()
+            process.result()
             LOGGER.debug("CustomWriter previous process completed.")
 
         times = prediction["times"]
@@ -86,8 +83,6 @@ class CustomWriter(BasePredictionWriter):
 
                 for output in output_dict["outputs"]:
                     if self.process_list is not None:
-                        #res = self.pool.apply_async(output.add_forecast, args=(times, ensemble_member, pred))
-                        #self.process_list.append(res)
                         self.process_list.append(
                             self.pool.submit(output.add_forecast, times, ensemble_member, pred)
                         )
