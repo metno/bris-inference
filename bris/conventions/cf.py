@@ -107,11 +107,6 @@ def get_attributes(cfname: str) -> dict[str, str] | dict:
         "forecast_reference_time": {
             "units": "seconds since 1970-01-01 00:00:00 +00:00"
         },
-        "fog_type_cloud_area_fraction": {"units": "m"},
-        "high_type_cloud_area_fraction": {"units": "m"},
-        "low_type_cloud_area_fraction": {"units": "m"},
-        "medium_type_cloud_area_fraction": {"units": "m"},
-        "cloud_area_fraction": {"units": "m"},
         "time": {"units": "seconds since 1970-01-01 00:00:00 +00:00"},
         "latitude": {"units": "degrees_north"},
         "longitude": {"units": "degrees_east"},
@@ -162,6 +157,11 @@ def get_attributes(cfname: str) -> dict[str, str] | dict:
         "integral_of_surface_downwelling_shortwave_flux_in_air_wrt_time": {
             "units": "J/m^2"
         },
+        "fog_type_cloud_area_fraction": {"units": "1"},
+        "high_type_cloud_area_fraction": {"units": "1"},
+        "low_type_cloud_area_fraction": {"units": "1"},
+        "medium_type_cloud_area_fraction": {"units": "1"},
+        "cloud_area_fraction": {"units": "1"},
         "atmosphere_mass_content_of_water": {
             "long_name": "Total column water contents (TCW)",
             "units": "kg/m^2",
