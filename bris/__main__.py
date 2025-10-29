@@ -162,7 +162,6 @@ def main(arg_list: list[str] | None = None):
         max_processes=max_processes,
     )
 
-    # Forecaster must know about what leadtimes to output
     model = instantiate(
         config.model,
         checkpoints=checkpoints,
@@ -185,7 +184,7 @@ def main(arg_list: list[str] | None = None):
     )
     inference.run()
 
-    # Wait for all writer_processes to finish
+    # Wait for all writer processes to finish
     if write_process_list is not None:
         for p in write_process_list:
             t2 = time.perf_counter()
@@ -194,7 +193,7 @@ def main(arg_list: list[str] | None = None):
                 f"Waited {time.perf_counter() - t2:.1f}s for {p} to complete."
             )
 
-    # Finalize all output, so they can flush to disk if needed
+    # Finalize all outputs, so they can flush to disk if needed
     is_main_thread = ("SLURM_PROCID" not in os.environ) or (
         os.environ["SLURM_PROCID"] == "0"
     )

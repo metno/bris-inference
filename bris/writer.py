@@ -60,8 +60,8 @@ class CustomWriter(BasePredictionWriter):
             prediction: This comes from predict_step in forecaster
         """
 
-        LOGGER.debug(f"CustomWriter process_list contains {self.process_list}")
         #Wait for processes from the previous batch to finish
+        LOGGER.debug(f"CustomWriter process_list contains {self.process_list}")
         while len(self.process_list) > 0:
             LOGGER.debug("CustomWriter waiting for previous process to complete before writing new data.")
             process = self.process_list.pop()
