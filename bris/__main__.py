@@ -1,4 +1,3 @@
-import multiprocessing
 import os
 import time
 from datetime import datetime, timedelta
@@ -22,7 +21,6 @@ from .utils import (
     setup_logging,
 )
 from .writer import CustomWriter
-
 
 def main(arg_list: list[str] | None = None):
     t0 = time.perf_counter()
@@ -201,17 +199,9 @@ def main(arg_list: list[str] | None = None):
     if is_main_thread:
         LOGGER.debug("Starting finalizing all outputs.")
         t1 = time.perf_counter()
-        if write_process_list is not None:
-            with ThreadPoolExecutor(max_workers=max_processes) as pool:
-                for decoder_output in decoder_outputs:
-                    for output in decoder_output["outputs"]:
-                        write_process_list.append(pool.submit(output.finalize))
-                for p in write_process_list:
-                    p.result()
-        else:
-            for decoder_output in decoder_outputs:
-                for output in decoder_output["outputs"]:
-                    output.finalize()
+        for decoder_output in decoder_outputs:
+            for output in decoder_output["outputs"]:
+                output.finalize()
         LOGGER.debug(
             f"Finalized all outputs in {time.perf_counter() - t1:.1f}s."
         )

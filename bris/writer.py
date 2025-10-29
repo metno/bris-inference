@@ -1,10 +1,7 @@
-import multiprocessing
-from multiprocessing import Pool
 from concurrent.futures import ThreadPoolExecutor
 import os
 import time
 from collections.abc import Sequence
-from multiprocessing.sharedctypes import Synchronized
 
 import numpy as np
 from pytorch_lightning.callbacks import BasePredictionWriter
