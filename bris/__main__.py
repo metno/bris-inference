@@ -201,14 +201,18 @@ def main(arg_list: list[str] | None = None):
     if is_main_thread:
         LOGGER.debug("Starting finalizing all outputs.")
         t1 = time.perf_counter()
-        with ThreadPoolExecutor(max_workers=max_processes) as pool:
-            futures = []
+        if write_process_list is not None:
+            with ThreadPoolExecutor(max_workers=max_processes) as pool:
+                for decoder_output in decoder_outputs:
+                    for output in decoder_output["outputs"]:
+                        write_process_list.append(pool.submit(output.finalize))
+                for p in write_process_list:
+                    p.result()
+        else:
             for decoder_output in decoder_outputs:
                 for output in decoder_output["outputs"]:
-                    futures.append(pool.submit(output.finalize))
-            for future in futures:
-                future.result()
-        logger.debug(
+                    output.finalize()
+        LOGGER.debug(
             f"Finalized all outputs in {time.perf_counter() - t1:.1f}s."
         )
         LOGGER.info(f"Bris main completed in {time.perf_counter() - t0:.1f}s. 🤖")
