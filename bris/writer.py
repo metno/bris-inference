@@ -1,4 +1,6 @@
 import multiprocessing
+from multiprocessing import Pool
+from concurrent.futures import ThreadPoolExecutor
 import os
 import time
 from collections.abc import Sequence
@@ -42,6 +44,8 @@ class CustomWriter(BasePredictionWriter):
         self.process_list = process_list
         self.current_batch_no = current_batch_no
         self.max_processes = max_processes
+        self.pool = ThreadPoolExecutor(max_workers=max_processes)
+        #self.pool = Pool(processes=max_processes)
         LOGGER.debug(f"CustomWriter max_processes set to {self.max_processes}")
 
     def write_on_batch_end(
@@ -60,12 +64,16 @@ class CustomWriter(BasePredictionWriter):
         """
 
         LOGGER.debug(f"CustomWriter process_list contains {self.process_list}")
+        while len(self.process_list) > 0:
+            LOGGER.debug("CustomWriter waiting for previous process to complete before writing new data.")
+            process = self.process_list.pop()
+            process.result()  # Wait for process to complete
+            #process.get()
+            LOGGER.debug("CustomWriter previous process completed.")
 
         times = prediction["times"]
         ensemble_member = prediction["ensemble_member"]
-
-        # TODO: Why is this here, don't we want all data-parallel processes to write to disk?
-        if prediction["group_rank"] == 0:  # related to model parallel?
+        if prediction["group_rank"] == 0:
             for output_dict in self.outputs:
                 pred = prediction["pred"][output_dict["decoder_index"]]
                 assert pred.shape[0] == 1, "Batchsize (per dataparallel) should be 1"
@@ -77,39 +85,17 @@ class CustomWriter(BasePredictionWriter):
                 ]
 
                 for output in output_dict["outputs"]:
-                    if self.process_list is None:  # Disable background processes
-                        output.add_forecast(times, ensemble_member, pred)
+                    if self.process_list is not None:
+                        #res = self.pool.apply_async(output.add_forecast, args=(times, ensemble_member, pred))
+                        #self.process_list.append(res)
+                        self.process_list.append(
+                            self.pool.submit(output.add_forecast, times, ensemble_member, pred)
+                        )
                         LOGGER.debug(
-                            f"CustomWriter starting add_forecast for member <{ensemble_member}>, times {times}."
+                            f"CustomWriter starting async add_forecast for member <{ensemble_member}>, times {times} for writing, batch_idx {batch_idx}."
                         )
                     else:
-                        # If on new batch, wait for previous to complete writing
-                        if self.current_batch_no.value != batch_idx:
-                            while len(self.process_list) > 0:
-                                t0 = time.perf_counter()
-                                p = self.process_list.pop()
-                                p.join()
-                                LOGGER.debug(
-                                    f"CustomWriter waited {time.perf_counter() - t0:.1f}s for {p} to complete previous batch_idx ({self.current_batch_no.value})."
-                                )
-                        # If too many processes, wait for previous to complete writing
-                        if len(self.process_list) > self.max_processes:
-                            while len(self.process_list) > 0:
-                                t0 = time.perf_counter()
-                                p = self.process_list.pop()
-                                p.join()
-                                LOGGER.debug(
-                                    f"CustomWriter waited {time.perf_counter() - t0:.1f}s for {p} to complete before creating new processes."
-                                )
-                        with self.current_batch_no.get_lock():
-                            self.current_batch_no.value = batch_idx
-
-                        process = multiprocessing.Process(
-                            target=output.add_forecast,
-                            args=(times, ensemble_member, pred),
-                        )
-                        self.process_list.append(process)
-                        process.start()
+                        output.add_forecast(times, ensemble_member, pred)
                         LOGGER.debug(
-                            f"CustomWriter starting {process.name} of add_forecast for member <{ensemble_member}>, times {times} for writing, batch_idx {batch_idx}."
+                            f"CustomWriter added forecast for member <{ensemble_member}>, times {times} for writing, batch_idx {batch_idx}."
                         )

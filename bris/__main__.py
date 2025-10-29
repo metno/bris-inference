@@ -8,6 +8,7 @@ from hydra.utils import instantiate
 
 import bris.routes
 from bris.data.datamodule import DataModule
+from concurrent.futures import ThreadPoolExecutor
 
 from .checkpoint import Checkpoint
 from .inference import Inference
@@ -152,10 +153,15 @@ def main(arg_list: list[str] | None = None):
 
     if "background_write" in config and not config["background_write"]:
         write_process_list = None
+
+    num_workers = config["dataloader"].get("num_workers", 1)
+    max_processes = os.cpu_count() - num_workers - 1
+    print("cpus available", os.cpu_count(), "max writer processes", max_processes)
     writer = CustomWriter(
         decoder_outputs,
         current_batch_no=current_batch_no,
         process_list=write_process_list,
+        max_processes=max_processes,
     )
 
     # Forecaster must know about what leadtimes to output
@@ -185,7 +191,8 @@ def main(arg_list: list[str] | None = None):
     if write_process_list is not None:
         for p in write_process_list:
             t2 = time.perf_counter()
-            p.join()
+            #p.join()
+            p.result()  # Wait for process to complete
             LOGGER.debug(
                 f"Waited {time.perf_counter() - t2:.1f}s for {p.name} to complete."
             )
@@ -195,13 +202,17 @@ def main(arg_list: list[str] | None = None):
         os.environ["SLURM_PROCID"] == "0"
     )
     if is_main_thread:
-        for decoder_output in decoder_outputs:
-            for output in decoder_output["outputs"]:
-                t1 = time.perf_counter()
-                output.finalize()
-                LOGGER.debug(
-                    f"finalizing decoder {decoder_output} output in {time.perf_counter() - t1:.1f}s"
-                )
+        with ThreadPoolExecutor(max_workers=max_processes) as pool:
+            futures = []
+            for decoder_output in decoder_outputs:
+                for output in decoder_output["outputs"]:
+                    #t1 = time.perf_counter()
+                    futures.append(pool.submit(output.finalize))
+            for future in futures:
+                future.result()
+                #LOGGER.debug(
+                #    f"finalizing decoder {decoder_output} output in {time.perf_counter() - t1:.1f}s"
+                #)
         LOGGER.info(f"Bris main completed in {time.perf_counter() - t0:.1f}s. 🤖")
     else:
         LOGGER.info(f"Bris instance completed in {time.perf_counter() - t0:.1f}s.")
