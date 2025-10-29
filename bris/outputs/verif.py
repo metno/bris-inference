@@ -33,6 +33,8 @@ class Verif(Output):
         fair_threshold: bool = True,
         fair_quantile: bool = True,
         fair_crps: bool = True,
+        remove_intermediate: bool = True,
+        compression: bool = False,
     ) -> None:
         """
         Args:
@@ -46,6 +48,7 @@ class Verif(Output):
             fair_quantile: Whether or not quantile is adjusted for sampling error
             fair_threshold: Whether or not threshold is adjusted for sampling error
             fair_crps: Whether or not to adjust crps for ensemble size
+            compression: If True, write compressed output files
         """
         if quantile_levels is None:
             quantile_levels = []
@@ -125,6 +128,8 @@ class Verif(Output):
             predict_metadata.num_members,
         )
         self.intermediate = Intermediate(intermediate_pm, workdir)
+        self.remove_intermediate = remove_intermediate
+        self.compression = compression
 
     def _add_forecast(self, times: list, ensemble_member: int, pred: np.array) -> None:
         """Add forecasts to this object. Will be written when .write() is called
@@ -217,8 +222,11 @@ class Verif(Output):
     def finalize(self) -> None:
         """Write forecasts and observations to file"""
 
+        frts = self.intermediate.get_forecast_reference_times()
+        frts_unix = utils.datetime_to_unixtime(frts).astype(np.double)
+
         coords = {}
-        coords["time"] = (["time"], [], cf.get_attributes("time"))
+        coords["time"] = (["time"], frts_unix, cf.get_attributes("time"))
         coords["leadtime"] = (
             ["leadtime"],
             self.intermediate.pm.leadtimes.astype(np.float32) / 3600,
@@ -264,9 +272,6 @@ class Verif(Output):
             coords["threshold"] = (["threshold"], self.thresholds)
 
         self.ds = xr.Dataset(coords=coords)
-
-        frts = self.intermediate.get_forecast_reference_times()
-        self.ds["time"] = utils.datetime_to_unixtime(frts).astype(np.double)
 
         # Load forecasts
         fcst_shape = (
@@ -339,7 +344,7 @@ class Verif(Output):
         valid_times = a + b
         valid_times = valid_times.transpose()
         if len(valid_times) == 0:
-            print("### No valid times")
+            utils.LOGGER.warning("Could not finalize verif, no valid times")
             return
 
         # valid_times = np.sort(np.unique(valid_times.flatten()))
@@ -385,7 +390,32 @@ class Verif(Output):
         self.ds.attrs["standard_name"] = cf.get_metadata(self.variable)["cfname"]
 
         utils.create_directory(self.filename)
-        self.ds.to_netcdf(self.filename, mode="w", engine="netcdf4")
+
+        data_variables = [
+            "obs",
+            "fcst",
+            "ensemble",
+            "ens-mean",
+            "cdf",
+            "x",
+            "crps",
+            "pit",
+        ]
+        if self.compression:
+            nc_encoding = {v: {"zlib": True} for v in data_variables if v in self.ds}
+        else:
+            nc_encoding = dict()
+
+        self.ds.to_netcdf(
+            self.filename,
+            mode="w",
+            engine="netcdf4",
+            unlimited_dims=["time"],
+            encoding=nc_encoding,
+        )
+
+        if self.remove_intermediate:
+            self.intermediate.cleanup()
 
     def compute_consensus(self, pred) -> np.ndarray:
         assert len(pred.shape) == 3, pred.shape

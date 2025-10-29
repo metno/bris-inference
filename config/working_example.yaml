@@ -31,7 +31,7 @@ hardware:
 release_cache: False
 
 model:
-  _target_: bris.model.brispredictor.BrisPredictor
+  _target_: bris.model.BrisPredictor
   _convert_: all
 
 routing:

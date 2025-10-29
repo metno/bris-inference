@@ -1,10 +1,12 @@
 import copy
+import time
 from typing import Optional
 
 import numpy as np
 
 from bris import sources
 from bris.predict_metadata import PredictMetadata
+from bris.utils import LOGGER
 
 
 def instantiate(name: str, predict_metadata: PredictMetadata, workdir: str, init_args):
@@ -29,6 +31,15 @@ def instantiate(name: str, predict_metadata: PredictMetadata, workdir: str, init
     if name == "netcdf":
         return Netcdf(predict_metadata, workdir, **init_args)
 
+    if name == "grib":
+        return Grib(predict_metadata, workdir, **init_args)
+
+    if name == "powerspectrum_global":
+        return SHPowerSpectrum(predict_metadata, workdir, **init_args)
+
+    if name == "powerspectrum_gridded":
+        return DCTPowerSpectrum(predict_metadata, workdir, **init_args)
+
     raise ValueError(f"Invalid output: {name}")
 
 
@@ -39,19 +50,34 @@ def get_required_variables(name, init_args):
 
     if name == "netcdf":
         if "variables" in init_args:
-            variables = init_args["variables"]
+            variables = list(init_args["variables"])
             if "extra_variables" in init_args:
                 for var_name in init_args["extra_variables"]:
                     if var_name == "ws":
                         variables += ["10u", "10v"]
-            variables = sorted(list(set(variables)))
+            if "accumulated_variables" in init_args:
+                for var_name in init_args["accumulated_variables"]:
+                    if var_name not in variables:
+                        variables += [var_name]
+            variables = sorted(set(variables))
             return variables
         return [None]
 
-    if name == "verif":
+    if name in ["verif", "powerspectrum_gridded", "powerspectrum_global"]:
         if init_args["variable"] == "ws":
             return ["10u", "10v"]
         return [init_args["variable"]]
+
+    if name == "grib":
+        if "variables" in init_args:
+            variables = list(init_args["variables"])
+            if "extra_variables" in init_args:
+                for name in init_args["extra_variables"]:
+                    if name == "ws":
+                        variables += ["10u", "10v"]
+            variables = sorted(set(variables))
+            return variables
+        return [None]
 
     raise ValueError(f"Invalid output: {name}")
 
@@ -71,7 +97,9 @@ class Output:
             extra_variables = []
 
         predict_metadata = copy.deepcopy(predict_metadata)
-        predict_metadata.variables += extra_variables
+        for name in extra_variables:
+            if name not in predict_metadata.variables:
+                predict_metadata.variables += [name]
 
         self.pm = predict_metadata
         self.extra_variables = extra_variables
@@ -91,6 +119,7 @@ class Output:
                 self.pm.variables.append(name)
 
         # only do this once. For multiple members, intermediate calls this several times
+        t0 = time.perf_counter()
         if pred.shape[2] != len(self.pm.variables):
             # Append extra variables to prediction
             extra_pred = []
@@ -104,6 +133,9 @@ class Output:
                     raise ValueError(f"No recipe to compute {name}")
 
             pred = np.concatenate([pred] + extra_pred, axis=2)
+        LOGGER.debug(
+            f"outputs.add_forecast Calculate ws in {time.perf_counter() - t0:.1f}s"
+        )
 
         assert pred.shape[0] == self.pm.num_leadtimes
         assert pred.shape[1] == len(self.pm.lats)
@@ -114,7 +146,11 @@ class Output:
         assert ensemble_member >= 0
         assert ensemble_member < self.pm.num_members
 
+        t1 = time.perf_counter()
         self._add_forecast(times, ensemble_member, pred)
+        LOGGER.debug(
+            f"outputs.add_forecast called _add_forecast in {time.perf_counter() - t1:.1f}s"
+        )
 
     def _add_forecast(self, times: list, ensemble_member: int, pred: np.ndarray):
         """Subclasses should implement this"""
@@ -157,6 +193,8 @@ class Output:
         return pred
 
 
+from .grib import Grib
 from .intermediate import Intermediate
 from .netcdf import Netcdf
+from .spatial import DCTPowerSpectrum, SHPowerSpectrum
 from .verif import Verif

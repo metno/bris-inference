@@ -18,13 +18,12 @@ from ..forcings import (
     get_dynamic_forcings,
 )
 from ..utils import (
+    LOGGER,
     check_anemoi_training,
     timedelta64_from_timestep,
 )
 from .basepredictor import BasePredictor
 from .model_utils import get_model_static_forcings, get_variable_indices
-
-LOGGER = logging.getLogger(__name__)
 
 
 class BrisPredictor(BasePredictor):
@@ -55,6 +54,7 @@ class BrisPredictor(BasePredictor):
         forecast_length: int,
         required_variables: dict,
         release_cache: bool = False,
+        fcstep_const: bool = False,
         **kwargs,
     ) -> None:
         """
@@ -82,6 +82,9 @@ class BrisPredictor(BasePredictor):
             release_cache
                 Release cache (torch.cuda.empty_cache()) after each prediction step. This is useful for large models,
                 but may slow down the prediction.
+
+            fcstep_const
+                For inference on non-rollout trained ensemble models. Keep fcstep constant at 0 as in training if True.
         """
 
         super().__init__(*args, checkpoints=checkpoints, **kwargs)
@@ -95,6 +98,7 @@ class BrisPredictor(BasePredictor):
         self.forecast_length = forecast_length
         self.latitudes = datamodule.data_reader.latitudes
         self.longitudes = datamodule.data_reader.longitudes
+        self.fcstep_const = fcstep_const
 
         # Backwards compatibility with older anemoi-models versions,
         # for example legendary-gnome.
@@ -235,8 +239,9 @@ class BrisPredictor(BasePredictor):
         # Set up data_input with variable order expected by the model.
         # Prognostic and static forcings come from batch, dynamic forcings
         # are calculated and diagnostic variables are filled with 0.
-        data_input = torch.zeros(
+        data_input = torch.full(
             batch.shape[:-1] + (len(self.variables["all"]),),
+            float("nan"),
             dtype=batch.dtype,
             device=batch.device,
         )
@@ -284,7 +289,10 @@ class BrisPredictor(BasePredictor):
             for forecast_step in range(self.forecast_length - 1):
                 # Backwards compatibility to older models without kwargs
                 try:
-                    y_pred = self(x, fcstep=forecast_step)
+                    if self.fcstep_const:
+                        y_pred = self(x, fcstep=0)
+                    else:
+                        y_pred = self(x, fcstep=forecast_step)
                 except TypeError:
                     y_pred = self(x)
                 time += self.timestep
