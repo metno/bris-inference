@@ -186,8 +186,9 @@ def main(arg_list: list[str] | None = None):
 
     # Wait for all writer processes to finish
     if write_process_list is not None:
-        for p in write_process_list:
+        while  len(write_process_list) > 0:
             t2 = time.perf_counter()
+            p = write_process_list.pop()
             p.result()
             LOGGER.debug(
                 f"Waited {time.perf_counter() - t2:.1f}s for {p} to complete."
