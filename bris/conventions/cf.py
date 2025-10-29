@@ -162,6 +162,14 @@ def get_attributes(cfname: str) -> dict[str, str] | dict:
         "integral_of_surface_downwelling_shortwave_flux_in_air_wrt_time": {
             "units": "J/m^2"
         },
+        "atmosphere_mass_content_of_water": {
+            "long_name": "Total column water contents (TCW)",
+            "units": "kg/m^2",
+        },
+        "surface_temperature": {
+            "long_name": "Surface (skin) temperature (SKT)",
+            "units": "K",
+        },
     }
 
     # Return empty dictionary if unknown
