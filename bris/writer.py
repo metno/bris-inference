@@ -1,8 +1,7 @@
-from concurrent.futures import ThreadPoolExecutor
-from concurrent.futures import Future
 import os
 import time
 from collections.abc import Sequence
+from concurrent.futures import Future, ThreadPoolExecutor
 
 import numpy as np
 from pytorch_lightning.callbacks import BasePredictionWriter
@@ -58,10 +57,12 @@ class CustomWriter(BasePredictionWriter):
             prediction: This comes from predict_step in forecaster
         """
 
-        #Wait for processes from the previous batch to finish
+        # Wait for processes from the previous batch to finish
         LOGGER.debug(f"CustomWriter process_list contains {self.process_list}")
         while len(self.process_list) > 0:
-            LOGGER.debug("CustomWriter waiting for previous process to complete before writing new data.")
+            LOGGER.debug(
+                "CustomWriter waiting for previous process to complete before writing new data."
+            )
             process = self.process_list.pop()
             process.result()
             LOGGER.debug("CustomWriter previous process completed.")
@@ -82,7 +83,9 @@ class CustomWriter(BasePredictionWriter):
                 for output in output_dict["outputs"]:
                     if self.process_list is not None:
                         self.process_list.append(
-                            self.pool.submit(output.add_forecast, times, ensemble_member, pred)
+                            self.pool.submit(
+                                output.add_forecast, times, ensemble_member, pred
+                            )
                         )
                         LOGGER.debug(
                             f"CustomWriter starting async add_forecast for member <{ensemble_member}>, times {times} for writing, batch_idx {batch_idx}."
