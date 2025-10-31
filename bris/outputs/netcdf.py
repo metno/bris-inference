@@ -117,21 +117,23 @@ class Netcdf(Output):
         t0 = pytime.perf_counter()
         if self.pm.num_members > 1 and self.intermediate is not None:
             # Cache data with intermediate
-            self.intermediate.add_forecast(times, ensemble_member, pred)
             utils.LOGGER.debug(
-                f"Netcdf._add_forecast calling intermediate.add_forecast for ensemble_member {ensemble_member} in {pytime.perf_counter() - t0:.1f}s"
+                "Netcdf._add_forecast calling intermediate.add_forecast for ensemble_member 0."
             )
+            self.intermediate.add_forecast(times, ensemble_member, pred)
             return
         assert ensemble_member == 0
 
         forecast_reference_time = times[0].astype("datetime64[s]").astype("int")
-
         filename = self.get_filename(forecast_reference_time)
 
         # Add ensemble dimension to the last
+        utils.LOGGER.debug(
+            f"Netcdf._add_forecast calling intermediate.add_forecast for ensemble_member {ensemble_member}"
+        )
         self.write(filename, times, pred[..., None])
         utils.LOGGER.debug(
-            f"Netcdf._add_forecast for {filename} in {pytime.perf_counter() - t0:.1f}s"
+            f"Netcdf._add_forecast completed for {filename} in {pytime.perf_counter() - t0:.1f}s"
         )
 
     def get_filename(self, forecast_reference_time: int) -> str:
@@ -604,6 +606,7 @@ class Netcdf(Output):
         t0 = pytime.perf_counter()
         utils.create_directory(filename)
 
+        utils.LOGGER.debug(f"netcdf._write_file writing to {filename}")
         self.ds.to_netcdf(
             filename,
             mode="w",
