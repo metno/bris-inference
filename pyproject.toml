@@ -120,15 +120,3 @@ skips = [
     "B101", # B101:assert_used
     "B614", # B614:pytorch_load_save, https://github.com/metno/bris-inference/issues/14
 ]
-
-[tool.pyright]
-reportImplicitOverride = false
-reportDeprecated = false
-reportMissingTypeStubs = false
-reportUnknownVariableType = false
-reportAny = false
-reportArgumentType = false
-reportUnknownMemberType = false
-reportMissingTypeArgument = false
-reportUnknownParameterType = false
-reportUnannotatedClassAttribute = false
