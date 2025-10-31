@@ -92,3 +92,20 @@ class CustomWriter(BasePredictionWriter):
                         LOGGER.debug(
                             f"CustomWriter added forecast for member <{ensemble_member}>, times {times} for writing, batch_idx {batch_idx}."
                         )
+
+    def on_predict_end(
+        self,
+        trainer: Trainer,
+        pl_module: LightningModule,  # Not used
+    ) -> None:
+        """Called when prediction ends."""
+        LOGGER.debug("CustomWriter on_predict_end called, waiting for all processes to finish.")
+        #Wait for all processes to finish
+        if self.process_list is not None:
+            while len(self.process_list) > 0:
+                process = self.process_list.pop()
+                process.result()
+        LOGGER.debug(
+            "CustomWriter all processes finished."
+        )   
+        self.pool.shutdown(wait=True)
