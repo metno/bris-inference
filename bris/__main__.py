@@ -1,5 +1,6 @@
 import os
 import time
+from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime, timedelta
 
 from anemoi.utils.dates import frequency_to_seconds
@@ -7,7 +8,6 @@ from hydra.utils import instantiate
 
 import bris.routes
 from bris.data.datamodule import DataModule
-from concurrent.futures import ThreadPoolExecutor
 
 from .checkpoint import Checkpoint
 from .inference import Inference
@@ -21,6 +21,7 @@ from .utils import (
     setup_logging,
 )
 from .writer import CustomWriter
+
 
 def main(arg_list: list[str] | None = None):
     t0 = time.perf_counter()
@@ -184,13 +185,11 @@ def main(arg_list: list[str] | None = None):
 
     # Wait for all writer processes to finish
     if write_process_list is not None:
-        while  len(write_process_list) > 0:
+        while len(write_process_list) > 0:
             t2 = time.perf_counter()
             p = write_process_list.pop()
             p.result()
-            LOGGER.debug(
-                f"Waited {time.perf_counter() - t2:.1f}s for {p} to complete."
-            )
+            LOGGER.debug(f"Waited {time.perf_counter() - t2:.1f}s for {p} to complete.")
 
     # Finalize all outputs, so they can flush to disk if needed
     is_main_thread = ("SLURM_PROCID" not in os.environ) or (
@@ -202,9 +201,7 @@ def main(arg_list: list[str] | None = None):
         for decoder_output in decoder_outputs:
             for output in decoder_output["outputs"]:
                 output.finalize()
-        LOGGER.debug(
-            f"Finalized all outputs in {time.perf_counter() - t1:.1f}s."
-        )
+        LOGGER.debug(f"Finalized all outputs in {time.perf_counter() - t1:.1f}s.")
         LOGGER.info(f"Bris main completed in {time.perf_counter() - t0:.1f}s. 🤖")
     else:
         LOGGER.info(f"Bris instance completed in {time.perf_counter() - t0:.1f}s.")
