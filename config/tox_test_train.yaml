@@ -123,7 +123,7 @@ model:
 training:
   run_id: null
   fork_run_id: null
-  load_weights_only: False
+  load_weights_only: False 
   transfer_learning: False
   max_epochs: null
   max_steps: 300

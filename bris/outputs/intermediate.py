@@ -29,19 +29,20 @@ class Intermediate(Output):
         t0 = time.perf_counter()
         filename = self.get_filename(times[0], ensemble_member)
         utils.create_directory(filename)
+
         np.save(filename, pred)
         utils.LOGGER.debug(
             f"Intermediate._add_forecast for {filename} in {time.perf_counter() - t0:.1f}s"
         )
 
-    def get_filename(self, forecast_reference_time: str, ensemble_member: int) -> str:
+    def get_filename(self, forecast_reference_time, ensemble_member) -> str:
         frt_ut = utils.datetime_to_unixtime(forecast_reference_time)
         return f"{self.workdir}/{frt_ut:.0f}_{ensemble_member:.0f}.npy"
 
     def get_forecast_reference_times(self) -> list[np.datetime64]:
         """Returns all forecast reference times that have been saved"""
         filenames = self.get_filenames()
-        frts: list[np.datetime64] = []
+        frts = []
         for filename in filenames:
             frt_ut, _ = filename.split("/")[-1].split("_")
             frt = utils.unixtime_to_datetime(int(frt_ut))
@@ -53,7 +54,7 @@ class Intermediate(Output):
         return frts
 
     def get_forecast(
-        self, forecast_reference_time: str, ensemble_member: int | None = None
+        self, forecast_reference_time, ensemble_member=None
     ) -> np.ndarray | None:
         """Fetches forecasts from stored numpy files
 
