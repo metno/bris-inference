@@ -157,6 +157,19 @@ def get_attributes(cfname: str) -> dict[str, str] | dict:
         "integral_of_surface_downwelling_shortwave_flux_in_air_wrt_time": {
             "units": "J/m^2"
         },
+        "fog_type_cloud_area_fraction": {"units": "1"},
+        "high_type_cloud_area_fraction": {"units": "1"},
+        "low_type_cloud_area_fraction": {"units": "1"},
+        "medium_type_cloud_area_fraction": {"units": "1"},
+        "cloud_area_fraction": {"units": "1"},
+        "atmosphere_mass_content_of_water": {
+            "long_name": "Total column water contents (TCW)",
+            "units": "kg/m^2",
+        },
+        "surface_temperature": {
+            "long_name": "Surface (skin) temperature (SKT)",
+            "units": "K",
+        },
     }
 
     # Return empty dictionary if unknown
