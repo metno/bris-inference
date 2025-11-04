@@ -42,7 +42,6 @@ def get(
     required_variables = get_required_variables_all_checkpoints(
         routing_config, checkpoints
     )
-    print("required_varaiables", required_variables)
     count = 0
     for config in routing_config:
         decoder_index = config["decoder_index"]
@@ -68,7 +67,6 @@ def get(
             field_shape = data_module.field_shape[decoder_index][domain_index]
 
             curr_required_variables = required_variables[decoder_index]
-            print("curr_required_variables", curr_required_variables)
 
             pm = PredictMetadata(
                 curr_required_variables,
@@ -81,7 +79,6 @@ def get(
             )
 
             for output_type, args in oc.items():
-                print("args", args)
                 curr_workdir = utils.get_workdir(workdir) + "_" + str(count)
                 count += 1
                 output = bris.outputs.instantiate(output_type, pm, curr_workdir, args)
@@ -124,7 +121,6 @@ def get_required_variables_all_checkpoints(
 def get_required_variables(
     routing_config: dict, checkpoint_object: Checkpoint
 ) -> dict[int, list[str]]:
-    print("routing config before", routing_config)
     """Returns a list of required variables for each decoder"""
     required_variables: dict[int, list[str]] = defaultdict(list)
     for rc in routing_config:
@@ -141,7 +137,6 @@ def get_required_variables(
         else:
             required_variables[decoder_index] = sorted(list(set(v)))
     
-    print("routing config after", routing_config)
 
     return required_variables
 
