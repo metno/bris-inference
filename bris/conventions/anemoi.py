@@ -1,7 +1,7 @@
 from . import cf
 
 
-def get_units(name):
+def get_units(name: str) -> str | None:
     """Returns the units used in Anemoi Datasets"""
 
     # Assume anemoi datasets use CF units
@@ -10,7 +10,7 @@ def get_units(name):
     units = attrs.get("units", None)
 
     # Here's an opportunity to override, if needed:
-    if name == "tp":
+    if name in ["tp", "tp_acc"]:
         return "Mg/m^2"
 
     return units

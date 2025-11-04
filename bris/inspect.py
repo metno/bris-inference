@@ -5,21 +5,39 @@ from argparse import ArgumentParser
 
 from .checkpoint import Checkpoint
 from .forcings import anemoi_dynamic_forcings
-from .model import get_variable_indices
 
 
-def clean_version_name(name: str) -> str:
-    """Filter wout these weird version names like
-    torch==2.6.0+cu124
+def clean_version_name(name: str) -> tuple[str, str]:
+    """Filter out these weird version names that can't be compared, like torch==2.6.0+cu124.
+
+    anemoi-models 0.1.dev92+g80c9fbf comes from https://github.com/metno/anemoi-models/commit/80c9fbf,
+    but there's no automatic way to figure out which fork it's from.
     """
+    clean_version = name
+    version_hash = ""
+    if "+g" in name:
+        clean_version = name.split("+")[0]
+        version_hash = name.split("+g")[1]
     if "+" in name:
-        return name.split("+")[0]
-    return name
+        clean_version = name.split("+")[0]
+    return clean_version, version_hash
 
 
-def check_module_versions(checkpoint: Checkpoint, debug: bool = False) -> list:
-    """List installed module versions that doesn't match versions in the checkpoint."""
-    modules_with_wrong_version = []
+def get_pip_name(name: str) -> str:
+    """Workaround for modules with legacy name, like PIL is really Pillow. If
+    not found, return input."""
+    names = {"PIL": "pillow", "attr": "attrs"}
+    return names.get(name, name)
+
+
+def check_module_versions(
+    checkpoint: Checkpoint, debug: bool = False
+) -> tuple[list, list]:
+    """List installed module versions that doesn't match versions in the checkpoint.
+    First list are pip-installed modules. Second list have hashes."""
+    pip_modules = []
+    hash_modules = []
+
     for module in checkpoint.metadata.provenance_training.module_versions:
         if debug:
             print(
@@ -34,37 +52,33 @@ def check_module_versions(checkpoint: Checkpoint, debug: bool = False) -> list:
         ]:
             continue
 
-        try:
+        try:  # Import each module to check version
             m = importlib.import_module(module)
-            if clean_version_name(
+            clean_version, version_hash = clean_version_name(
                 checkpoint.metadata.provenance_training.module_versions[module]
-            ) != clean_version_name(m.__version__):
+            )
+            if clean_version != clean_version_name(m.__version__)[0]:
                 if debug:
                     print(
                         f"  Warning: Installed version of {module} is <{m.__version__}>, while "
                         f"checkpoint was created with <{checkpoint.metadata.provenance_training.module_versions[module]}>."
                     )
 
-                # Workaround for modules with legacy name
-                module_name = module
-                if module == "PIL":
-                    module_name = "Pillow"
+                if version_hash:
+                    hash_modules.append(f"{get_pip_name(module)} hash: {version_hash}")
+                else:
+                    pip_modules.append(f"{get_pip_name(module)}=={clean_version}")
 
-                modules_with_wrong_version.append(
-                    f"{module_name}=={clean_version_name(checkpoint.metadata.provenance_training.module_versions[module])}"
-                )
         except AttributeError:
-            print(f"  Error: Could not find version for module <{module}>.")
-            modules_with_wrong_version.append(
-                f"{module}=={clean_version_name(checkpoint.metadata.provenance_training.module_versions[module])}"
+            print(
+                f"  Error: Could not find version for module <{get_pip_name(module)}>."
             )
+            pip_modules.append(f"{module}=={clean_version}")
         except ModuleNotFoundError:
             if debug:
                 print(f"  Warning: Could not find module <{module}>, please install.")
-            modules_with_wrong_version.append(
-                f"{module}=={clean_version_name(checkpoint.metadata.provenance_training.module_versions[module])}"
-            )
-    return modules_with_wrong_version
+            pip_modules.append(f"{module}=={clean_version}")
+    return pip_modules, hash_modules
 
 
 def get_required_variables(checkpoint: Checkpoint) -> dict:
@@ -127,16 +141,25 @@ def inspect(checkpoint_path: str, debug: bool = False) -> int:
         f"Checkpoint required variables:\t{json.dumps(get_required_variables(checkpoint), indent=4)}"
     )
 
-    if debug:
-        print("\nFor each module, checking if we have matching version installed...")
-    modules_with_wrong_version = check_module_versions(checkpoint, debug)
-
-    if len(modules_with_wrong_version) > 0:
+    pip_modules, hash_modules = check_module_versions(checkpoint, debug)
+    print(
+        "\nThe important module is <anemoi-models>, but showing all modules that differs."
+    )
+    if pip_modules:
         print(
-            "\nThe important module is <anemoi-models>, but showing all modules that differs. To install correct versions, run:"
+            f"To install correct versions, run:\n   pip install {' '.join(pip_modules)}"
         )
-        print(f"  pip install {' '.join(modules_with_wrong_version)}")
-        print("Then test again to make sure.")
+
+    if hash_modules:
+        print(
+            "The following modules were not installed from a package. Visit "
+            "the repo for each module and search for the hash. Install "
+            "directly from hash using for example `pip install "
+            "git+https://github.com/metno/example-module.git@80c9fbf`"
+        )
+        print("  " + "\n  ".join(hash_modules))
+
+    if pip_modules or hash_modules:
         return 1
     print("\nAll modules are correct version.")
     return 0

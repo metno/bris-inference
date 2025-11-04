@@ -2,15 +2,21 @@ import logging
 import os
 from copy import deepcopy
 from functools import cached_property
-from typing import Any, Optional, TypedDict
+from typing import Optional
 
 import torch
-from anemoi.models.data_indices.collection import IndexCollection
 from anemoi.utils.checkpoints import load_metadata
 from anemoi.utils.config import DotDict
 from torch_geometric.data import HeteroData
 
 LOGGER = logging.getLogger(__name__)
+
+try:
+    from anemoi.models.data_indices.collection import IndexCollection
+except ImportError:
+    LOGGER.error(
+        "\nAnemoi-models package missing. Install a version compatible with the checkpoint. <https://pypi.org/project/anemoi-models/>\n"
+    )
 
 
 class TrainingConfig(DotDict):
@@ -40,7 +46,7 @@ class Metadata(DotDict):
 
 
 class Checkpoint:
-    """This class makes accessible various information stored in Anemoi checkpoints"""
+    """This class makes accessible various information stored in Anemoi checkpoints."""
 
     def __init__(self, path: str, graph: Optional[str] = None):
         assert os.path.exists(path), f"The given checkpoint {path} does not exist!"
@@ -141,7 +147,6 @@ class Checkpoint:
 
         return:
             HeteroData graph object
-
         """
         return (
             self._model_instance.graph_data
@@ -149,31 +154,31 @@ class Checkpoint:
             else None
         )
 
-    @property
-    def _get_copy_model_params(self) -> dict:
-        """
-        Caches the model's state in CPU memory.
+    # @property
+    # def _get_copy_model_params(self) -> dict:
+    #     """
+    #     Caches the model's state in CPU memory.
 
-        This cache includes only the model's weights
-        and their corresponding layer names. It does not include the
-        optimizer state. Note that this specifically refers to
-        model.named_parameters() and not model.state_dict().
+    #     This cache includes only the model's weights
+    #     and their corresponding layer names. It does not include the
+    #     optimizer state. Note that this specifically refers to
+    #     model.named_parameters() and not model.state_dict().
 
-        A deep copy of the model state is performed
-        to ensure the integrity of the cached data,
-        even if the user decides to update
-        the internal graph of the model later.
+    #     A deep copy of the model state is performed
+    #     to ensure the integrity of the cached data,
+    #     even if the user decides to update
+    #     the internal graph of the model later.
 
-        Args:
-            None
-        Return
-            torch dict containing the state of the model.
-            Keys: name of the layer
-            Value: The state for a given layer
-        """
+    #     Args:
+    #         None
+    #     Return
+    #         torch dict containing the state of the model.
+    #         Keys: name of the layer
+    #         Value: The state for a given layer
+    #     """
 
-        _model_params = self._model_instance.named_parameters()
-        return deepcopy({layer_name: param for layer_name, param in _model_params})
+    #     _model_params = self._model_instance.named_parameters()
+    #     return deepcopy(dict(_model_params))
 
     def update_graph(self, path: Optional[str] = None) -> HeteroData:
         """
@@ -225,7 +230,7 @@ class Checkpoint:
         _data_indices = self._model_instance.data_indices
         if isinstance(_data_indices, (tuple, list)) and len(_data_indices) >= 2:
             return tuple(
-                [_data_indices[k].name_to_index for k in range(len(_data_indices))]
+                _data_indices[k].name_to_index for k in range(len(_data_indices))
             )
 
         return (_data_indices.name_to_index,)
@@ -241,13 +246,11 @@ class Checkpoint:
         _data_indices = self._model_instance.data_indices
         if isinstance(_data_indices, (tuple, list)) and len(_data_indices) >= 2:
             return tuple(
-                [
-                    {
-                        index: var
-                        for var, index in self.name_to_index[decoder_index].items()
-                    }
-                    for decoder_index in range(len(self.name_to_index))
-                ]
+                {
+                    index: var
+                    for (var, index) in self.name_to_index[decoder_index].items()
+                }
+                for decoder_index in range(len(self.name_to_index))
             )
         return ({index: name for name, index in _data_indices.name_to_index.items()},)
 
@@ -294,10 +297,8 @@ class Checkpoint:
                 for grid_index in range(len(self._metadata.data_indices))
             }
             return tuple(
-                [
-                    {name: self.index_to_name[k][index] for name, index in v.items()}
-                    for k, v in mapping.items()
-                ]
+                {name: self.index_to_name[k][index] for (name, index) in v.items()}
+                for (k, v) in mapping.items()
             )
 
         mapping = self._make_indices_mapping(
@@ -324,10 +325,8 @@ class Checkpoint:
             and len(self._metadata.data_indices) >= 2
         ):
             return tuple(
-                [
-                    {name: index for index, name in v.items()}
-                    for k, v in enumerate(self.model_output_index_to_name)
-                ]
+                {name: index for (index, name) in v.items()}
+                for (k, v) in enumerate(self.model_output_index_to_name)
             )
 
         return (

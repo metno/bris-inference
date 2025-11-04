@@ -37,8 +37,8 @@ def get(
             decoder_index -> variable_indices
 
     """
-    print("routing_config", routing_config[0]["outputs"])
-    ret = list()
+
+    ret = []
     required_variables = get_required_variables_all_checkpoints(
         routing_config, checkpoints
     )
@@ -56,7 +56,7 @@ def get(
             start_gridpoint = np.sum(curr_grids[0:domain_index])
             end_gridpoint = start_gridpoint + curr_grids[domain_index]
 
-        outputs = list()
+        outputs = []
         for oc in config["outputs"]:
             lats = data_module.latitudes[decoder_index][start_gridpoint:end_gridpoint]
             lons = data_module.longitudes[decoder_index][start_gridpoint:end_gridpoint]
@@ -90,12 +90,12 @@ def get(
         # We don't need to pass out domain_index, since this is only used to get start/end
         # gridpoints and is not used elsewhere in the code
         ret += [
-            dict(
-                decoder_index=decoder_index,
-                start_gridpoint=start_gridpoint,
-                end_gridpoint=end_gridpoint,
-                outputs=outputs,
-            )
+            {
+                "decoder_index": decoder_index,
+                "start_gridpoint": start_gridpoint,
+                "end_gridpoint": end_gridpoint,
+                "outputs": outputs,
+            }
         ]
 
     return ret
@@ -116,7 +116,7 @@ def get_required_variables_all_checkpoints(
             required_variables_full[key].update(variable_list)
 
     required_variables = {
-        key: list(values) for key, values in required_variables_full.items()
+        key: sorted(list(values)) for key, values in required_variables_full.items()
     }
     return required_variables
 

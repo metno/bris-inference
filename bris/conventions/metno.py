@@ -6,6 +6,8 @@ these are not unique (e.g. air_temperature_pl vs air_temperature_2m).
 Additionally, the names of some dimension-variables do not use CF-names
 """
 
+from bris.utils import LOGGER
+
 
 class Metno:
     cf_to_metno = {
@@ -14,16 +16,24 @@ class Metno:
         "realization": "ensemble_member",
         "air_pressure": "pressure",
         "surface_altitude": "altitude",
+        "tcw": "atmosphere_mass_content_of_water",
     }
 
     def get_ncname(self, cfname: str, leveltype: str, level: int):
         """Gets the name of a NetCDF variable given level information"""
         if cfname in [
             "precipitation_amount",
+            "precipitation_amount_acc",
             "surface_air_pressure",
             "air_pressure_at_sea_level",
             "wind_speed_of_gust",
             "land_sea_mask",
+            "fog_type_cloud_area_fraction",
+            "high_type_cloud_area_fraction",
+            "low_type_cloud_area_fraction",
+            "medium_type_cloud_area_fraction",
+            "cloud_area_fraction",
+            "atmosphere_mass_content_of_water",
         ]:
             # Prevent _0m from being added at the end of variable name
             ncname = f"{cfname}"
@@ -39,20 +49,62 @@ class Metno:
             # This is likely a forcing variable
             return cfname
         else:
-            print(cfname, leveltype, level)
+            LOGGER.error(
+                f"get_ncname not implemented cfname {cfname}, leveltype {leveltype}, level {level}"
+            )
             raise NotImplementedError()
 
         return ncname
 
-    def get_name(self, cfname: str):
+    def is_single_level(self, cfname: str, leveltype: str) -> bool:
+        """Returns true if there should only be a single level in the level dimension for this
+        variable.
+
+        Args:
+            cfname: e.g. air_temperature
+            leveltype: e.g. height
+
+        E.g. air_temperature_2m and air_temperature_0m should not share a height dimension, and
+        therefore these should return True
+        """
+        return cfname in [
+            "air_temperature",
+            "x_wind",
+            "y_wind",
+            "wind_speed",
+        ] and leveltype in ["height"]
+
+    def get_name(self, cfname: str) -> str:
         """Get MetNorway's dimension name from cf standard name"""
         if cfname in self.cf_to_metno:
             return self.cf_to_metno[cfname]
         return cfname
 
-    def get_cfname(self, ncname):
+    def get_cfname(self, ncname) -> str:
         """Get the CF-standard name from a given MetNo name"""
         for k, v in self.cf_to_metno.items():
             if v == ncname:
                 return k
         return ncname
+
+    @property
+    def fields_to_rotate(self) -> list[tuple[str, str]]:
+        """Returns a list of fields (with anemoi names) that need to be rotated from latlon to projected coordinates"""
+        ret = [
+            ("10u", "10v"),
+            ("100u", "100v"),
+            ("u_1000", "v_1000"),
+            ("u_925", "v_925"),
+            ("u_850", "v_850"),
+            ("u_700", "v_700"),
+            ("u_500", "v_500"),
+            ("u_400", "v_400"),
+            ("u_300", "v_300"),
+            ("u_250", "v_250"),
+            ("u_200", "v_200"),
+            ("u_150", "v_150"),
+            ("u_100", "v_100"),
+            ("u_50", "v_50"),
+        ]
+
+        return ret

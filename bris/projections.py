@@ -1,4 +1,5 @@
 import netCDF4
+import numpy as np
 import pyproj
 
 
@@ -52,7 +53,7 @@ def proj_from_ncfile(filename):
     for variable in file.variables:
         var = file.variables[variable]
         if hasattr(var, "grid_mapping_name"):
-            attributes = dict()
+            attributes = {}
             for attr in var.ncattrs():
                 attributes[attr] = getattr(var, attr)
             try:
@@ -67,3 +68,66 @@ def proj_from_ncfile(filename):
     file.close()
 
     return proj_str
+
+
+def compute_local_mapping_from_lonlat(
+    lon, lat, proj_str, dist=1.0, return_matrix=False
+):
+    """
+    Compute local 2x2 mapping M such that:
+        [Vx, Vy]^T = M @ [u_east, v_north]^T
+
+    Args:
+        lon, lat : arrays (shape (...)) in degrees
+        proj_str : projection string or anything accepted by pyproj.CRS.from_user_input
+        dist : step distance in metres used to estimate east/north displacements (default 1.0)
+        return_matrix : if True, return array shaped (..., 2, 2)
+
+    Returns:
+        If return_matrix is False:
+            e_x, n_x, e_y, n_y  (each shaped like lon/lat)
+            where M = [[e_x, n_x],
+                       [e_y, n_y]]
+        If return_matrix is True:
+            M : array shaped (..., 2, 2)
+    Notes:
+        - Use dist=1.0 if u,v are in m/s (so matrix maps m/s east/north -> m/s proj).
+        - lon,lat may be any shape; results have same shape.
+    """
+    lon = np.asarray(lon, dtype=np.float64)
+    lat = np.asarray(lat, dtype=np.float64)
+
+    # CRS/transformers
+    crs_proj = pyproj.CRS.from_user_input(proj_str)
+    to_proj = pyproj.Transformer.from_crs(
+        pyproj.CRS.from_epsg(4326), crs_proj, always_xy=True
+    )
+
+    # geodetic forward: compute points dist metres East (az=90) and North (az=0)
+    geod = pyproj.Geod(ellps="WGS84")
+    lon_east, lat_east, _ = geod.fwd(
+        lon, lat, np.full_like(lon, 90.0), np.full_like(lon, dist)
+    )  # 90° = east
+    lon_north, lat_north, _ = geod.fwd(
+        lon, lat, np.full_like(lon, 0.0), np.full_like(lon, dist)
+    )  # 0° = north
+
+    # project original and offset points into projection coordinates
+    x, y = to_proj.transform(lon, lat)
+    x_east, y_east = to_proj.transform(lon_east, lat_east)
+    x_north, y_north = to_proj.transform(lon_north, lat_north)
+
+    # compute projected displacements per metre geographic displacement
+    e_x = (x_east - x) / dist
+    e_y = (y_east - y) / dist
+    n_x = (x_north - x) / dist
+    n_y = (y_north - y) / dist
+
+    if return_matrix:
+        # stack into shape (..., 2, 2) where M[...,0,0]=e_x, M[...,0,1]=n_x, M[...,1,0]=e_y, M[...,1,1]=n_y
+        M = np.stack(
+            [np.stack([e_x, n_x], axis=-1), np.stack([e_y, n_y], axis=-1)], axis=-2
+        )
+        return M
+
+    return e_x, n_x, e_y, n_y

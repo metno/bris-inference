@@ -2,24 +2,30 @@ import json
 import logging
 import numbers
 import os
-import re
+import sys
 import time
 import uuid
 from argparse import ArgumentParser
+from collections.abc import Iterable
+from typing import Any
 
 import jsonschema
 import numpy as np
+import torch
 import yaml
+from anemoi.models.data_indices.index import DataIndex, ModelIndex
 from anemoi.utils.config import DotDict
-from omegaconf import OmegaConf
+from omegaconf import DictConfig, ListConfig, OmegaConf
+
+from .forcings import anemoi_dynamic_forcings, get_dynamic_forcings
 
 LOGGER = logging.getLogger(__name__)
 
 
-def expand_time_tokens(filename: str, unixtime: int):
+def expand_time_tokens(filename: str, unixtime: int) -> str:
     """Expand time tokens in a filename and return absolute path."""
     if not isinstance(unixtime, numbers.Number):
-        raise ValueError(f"Unixtime but be numeric not {unixtime}")
+        raise ValueError(f"Unixtime must be numeric not {unixtime}")
 
     return os.path.abspath(time.strftime(filename, time.gmtime(unixtime)))
 
@@ -70,34 +76,14 @@ def check_anemoi_training(metadata: DotDict) -> bool:
 #         raise RuntimeError("metadata.provenance_training does not module_versions")
 
 
-def create_config(parser: ArgumentParser) -> OmegaConf:
-    args, _ = parser.parse_known_args()
-
-    validate(args.config, raise_on_error=True)
-
-    config = OmegaConf.load(args.config)
-    LOGGER.debug("config file from %s is loaded", args.config)
-
-    parser.add_argument(
-        "-sd",
-        type=str,
-        dest="start_date",
-        required=False,
-        default=config.start_date if "start_date" in config else None,
-    )
-    parser.add_argument("-ed", type=str, dest="end_date", default=config.end_date)
+def parse_args(arg_list: list[str] | None) -> ArgumentParser:
+    """Parse command line arguments."""
+    parser = ArgumentParser()
+    parser.add_argument("--debug", action="store_true")
+    parser.add_argument("--config", type=str, required=True)
     parser.add_argument(
         "-p", type=str, dest="dataset_path", help="Path to dataset", default=None
     )
-    parser.add_argument(
-        "-wd",
-        type=str,
-        dest="workdir",
-        help="Path to work directory",
-        required=False,
-        default=config.workdir if "workdir" in config else None,
-    )
-
     parser.add_argument(
         "-pc",
         type=str,
@@ -107,24 +93,75 @@ def create_config(parser: ArgumentParser) -> OmegaConf:
         default=None,
         const=None,
     )
-    # TODO: Logic that can add dataset or cutout dataset to the dataloader config
 
-    parser.add_argument("-f", type=str, dest="frequency", default=config.frequency)
+    parser.add_argument(
+        "-sd",
+        type=str,
+        dest="start_date",
+        required=False,
+    )
+    parser.add_argument("-ed", type=str, dest="end_date", required=False)
+    parser.add_argument(
+        "-wd",
+        type=str,
+        dest="workdir",
+        help="Path to work directory",
+        required=False,
+    )
+    parser.add_argument("-f", type=str, dest="frequency", required=False)
     parser.add_argument(
         "-l",
         type=int,
         dest="checkpoints.forecaster.leadtimes",
-        default=config.checkpoints.forecaster.leadtimes,
     )
-    args = parser.parse_args()
 
-    args_dict = vars(args)
+    # If passed a list, will parse it. If passed None, will parse sys.argv
+    args, _ = parser.parse_known_args(arg_list)
 
-    # TODO: change start_date and end_date to numpy datetime, https://github.com/metno/bris-inference/issues/53
-    return OmegaConf.merge(config, OmegaConf.create(args_dict))
+    # Don't return None values, as they will override the config file
+    return {k: v for k, v in args.__dict__.items() if v is not None}
 
 
-def datetime_to_unixtime(dt: np.datetime64) -> np.typing.NDArray[int]:
+def create_config(config_path: str, overrides: dict) -> DictConfig | ListConfig:
+    # Validate config file
+    validate(config_path, raise_on_error=True)
+
+    config = OmegaConf.load(config_path)
+    # Set hydra defaults
+    config.defaults = [
+        {"override hydra/job_logging": "none"},  # disable config parsing logs
+        {"override hydra/hydra_logging": "none"},  # disable config parsing logs
+        "_self_",
+    ]
+    return OmegaConf.merge(config, OmegaConf.create(overrides))
+
+
+def setup_logging(config: DotDict) -> None:
+    # Set up logging
+    console_handler = logging.StreamHandler(sys.stdout)
+    LOGGER.setLevel(logging.DEBUG)
+    # Create a formatter for the logs
+    formatter = logging.Formatter(
+        "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
+    )
+    console_handler.setFormatter(formatter)
+    console_handler.setLevel(logging.INFO)
+
+    if "loglevel" in config and (
+        "debug" in config.loglevel.lower() or "verbose" in config.loglevel.lower()
+    ):
+        console_handler.setLevel(logging.DEBUG)
+
+    # Add the handler to the LOGGER
+    LOGGER.addHandler(console_handler)
+    LOGGER.debug(
+        f"config file from {config.config} loaded with log level {console_handler.level}"
+    )
+
+
+def datetime_to_unixtime(
+    dt: list[np.datetime64],
+) -> np.ndarray[Any, np.dtype[np.int64]]:
     """Convert a np.datetime64 object or list of objects to unixtime"""
     return np.array(dt).astype("datetime64[s]").astype("int")
 
@@ -137,11 +174,11 @@ def unixtime_to_datetime(ut: int) -> np.datetime64:
 def timedelta64_from_timestep(timestep):
     if isinstance(timestep, str) and timestep[-1] in ("h", "m", "s"):
         return np.timedelta64(timestep[0:-1], timestep[-1])
-    else:
-        print(
-            "WARNING: could not decode model timestep from checkpoint, trying to assume hours"
-        )
-        return np.timedelta64(timestep, "h")
+
+    LOGGER.warning(
+        "could not decode model timestep from checkpoint, trying to assume hours"
+    )
+    return np.timedelta64(timestep, "h")
 
 
 def validate(filename: str, raise_on_error: bool = False) -> None:

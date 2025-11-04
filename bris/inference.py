@@ -1,4 +1,5 @@
 import logging
+import time
 from functools import cached_property
 from typing import Any, Optional
 
@@ -7,11 +8,9 @@ import torch
 from anemoi.utils.config import DotDict
 
 from bris.ddp_strategy import DDPGroupStrategy
+from bris.utils import LOGGER
 
-from .checkpoint import Checkpoint
 from .data.datamodule import DataModule
-
-LOGGER = logging.getLogger(__name__)
 
 
 class Inference:
@@ -21,6 +20,7 @@ class Inference:
         model: pl.LightningModule,
         callbacks: Any,
         datamodule: DataModule,
+        num_gpus_per_ensemble,
         precision: Optional[str] = None,
         device: Optional[str] = None,
     ) -> None:
@@ -30,6 +30,7 @@ class Inference:
         self.datamodule = datamodule
         self.precision = precision
         self._device = device
+        self.num_gpus_per_ensemble = num_gpus_per_ensemble
 
         torch.set_float32_matmul_precision("high")
 
@@ -39,17 +40,18 @@ class Inference:
             if torch.cuda.is_available() and torch.backends.cuda.is_built():
                 LOGGER.info("Specified device not set. Found GPU")
                 return "cuda"
-            else:
-                LOGGER.info("Specified device not set. Could not find gpu, using CPU")
-                return "cpu"
-        else:
-            LOGGER.info(f"Using specified device: {self._device}")
-            return self._device
+
+            LOGGER.warning("Specified device not set. Could not find gpu, using CPU")
+            return "cpu"
+
+        LOGGER.info("Using specified device: %s", self._device)
+        return self._device
 
     @cached_property
     def strategy(self):
         return DDPGroupStrategy(
             num_gpus_per_model=self.config.hardware.num_gpus_per_model,
+            num_gpus_per_ensemble=self.num_gpus_per_ensemble,
             read_group_size=1,
             static_graph=False,
         )
@@ -72,6 +74,9 @@ class Inference:
         return trainer
 
     def run(self):
+        t0 = time.perf_counter()
+        LOGGER.debug("Bris/Inference/run Predicting")
         self.trainer.predict(
             self.model, datamodule=self.datamodule, return_predictions=False
         )
+        LOGGER.debug(f"bris/Inference.run: {time.perf_counter() - t0:.1f}s")
