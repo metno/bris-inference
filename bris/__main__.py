@@ -146,7 +146,7 @@ def main(arg_list: list[str] | None = None):
     )
 
     # List of background write processes
-    write_process_list: list[Future]|None = []
+    write_process_list: list[Future] | None = []
 
     if "background_write" in config and not config["background_write"]:
         write_process_list = None
