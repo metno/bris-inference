@@ -28,6 +28,7 @@ def prediction():
         "pred": [np.ones((1, 2, 3))],  # shape: (batch, grid, var)
     }
 
+
 def test_custom_writer_async(prediction):
     """Test that DummyOutput is being called, and with the correct arguments for background writing. Calls must be a list shared between threads."""
     calls = Queue()
