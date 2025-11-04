@@ -111,6 +111,14 @@ class Interpolator(BasePredictor):
         self.target_forcings = ["insolation"]
         self.use_time_fraction = True
 
+        self.batch_info = {}
+
+    def update_batch_info(self, time):
+        if time not in self.batch_info:
+            self.batch_info[time] = 1
+        else:
+            self.batch_info[time] += 1
+
     # TODO: Move this to base class (should be able to write one function that works for interp, forecaster and multi-enc/dec)
     def get_static_forcings(
         self, 
@@ -168,7 +176,7 @@ class Interpolator(BasePredictor):
             ].float()
 
         return static_forcings
-      
+    
     @torch.inference_mode
     def predict_step(self, batch: tuple, batch_idx: int) -> dict:
            
@@ -334,12 +342,13 @@ class Interpolator(BasePredictor):
                 time += self.timestep_forecaster
                 times.append(time)
                 fcast_index += 1
-
+        self.update_batch_info(time)
         return {
             "pred": [y_preds.to(torch.float32).numpy()],
             "times": times,
             "group_rank": self.model_comm_group_rank,
-            "ensemble_member": 0,
+            "ensemble_member": self.member_id 
+            + self.num_members_in_parallel * (self.batch_info[time] - 1)
         }
 
     def advance_input_predict(
