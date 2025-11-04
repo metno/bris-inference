@@ -186,6 +186,7 @@ def main(arg_list: list[str] | None = None):
         for p in write_process_list:
             t2 = time.perf_counter()
             p.join()
+            p.close()
             LOGGER.debug(
                 f"Waited {time.perf_counter() - t2:.1f}s for {p.name} to complete."
             )

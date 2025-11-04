@@ -41,7 +41,7 @@ class CustomWriter(BasePredictionWriter):
         self.outputs = outputs
         self.process_list = process_list
         self.current_batch_no = current_batch_no
-        self.max_processes = max_processes
+        self.max_processes = max_processes if max_processes > 0 else 1
         LOGGER.debug(f"CustomWriter max_processes set to {self.max_processes}")
 
     def write_on_batch_end(
@@ -89,6 +89,7 @@ class CustomWriter(BasePredictionWriter):
                                 t0 = time.perf_counter()
                                 p = self.process_list.pop()
                                 p.join()
+                                p.close()
                                 LOGGER.debug(
                                     f"CustomWriter waited {time.perf_counter() - t0:.1f}s for {p} to complete previous batch_idx ({self.current_batch_no.value})."
                                 )
@@ -98,6 +99,7 @@ class CustomWriter(BasePredictionWriter):
                                 t0 = time.perf_counter()
                                 p = self.process_list.pop()
                                 p.join()
+                                p.close()
                                 LOGGER.debug(
                                     f"CustomWriter waited {time.perf_counter() - t0:.1f}s for {p} to complete before creating new processes."
                                 )
