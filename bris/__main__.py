@@ -1,6 +1,6 @@
 import os
 import time
-from concurrent.futures import ThreadPoolExecutor
+from concurrent.futures import Future
 from datetime import datetime, timedelta
 
 from anemoi.utils.dates import frequency_to_seconds
@@ -146,7 +146,7 @@ def main(arg_list: list[str] | None = None):
     )
 
     # List of background write processes
-    write_process_list = []
+    write_process_list: list[Future]|None = []
 
     if "background_write" in config and not config["background_write"]:
         write_process_list = None

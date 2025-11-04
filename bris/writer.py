@@ -38,9 +38,10 @@ class CustomWriter(BasePredictionWriter):
 
         self.outputs = outputs
         self.process_list = process_list
-        self.max_processes = max_processes
+        if max_processes < 1:
+            max_processes = 1
         self.pool = ThreadPoolExecutor(max_workers=max_processes)
-        LOGGER.debug(f"CustomWriter max_processes set to {self.max_processes}")
+        LOGGER.debug(f"CustomWriter max_processes set to {max_processes}")
 
     def write_on_batch_end(
         self,
