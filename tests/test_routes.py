@@ -3,6 +3,7 @@ import os
 import bris.routes
 from bris.checkpoint import Checkpoint
 
+
 class FakeDataModule:
     def __init__(self):
         self.field_shape = [[None, [1, 2]], [None]]
@@ -101,10 +102,12 @@ def test_get():
 
 
 def test_add_checkpoint_name_to_attrs():
-    test_oc = {"netcdf": {
+    test_oc = {
+        "netcdf": {
             "filename_pattern": "./tox_test_inference.nc",
-            "variables": ["2t", "2d"]
-        }}
+            "variables": ["2t", "2d"],
+        }
+    }
     test_ckpts = {"testchk": Checkpoint("./tests/files/checkpoint.ckpt")}
     new_oc = bris.routes.add_checkpoint_name_to_attrs(test_oc, test_ckpts)
-    assert "testchk" in new_oc['netcdf']['global_attributes']['source']
+    assert "testchk" in new_oc["netcdf"]["global_attributes"]["source"]
