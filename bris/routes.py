@@ -1,3 +1,4 @@
+import os
 from collections import defaultdict
 from typing import Any, Literal
 
@@ -161,6 +162,7 @@ def add_checkpoint_name_to_attrs(
     if "source" in oc["netcdf"]["global_attributes"]:
         ckpt_str = f"{oc['netcdf']['global_attributes']['source']} {ckpt_str}"
     for type, checkpoint in checkpoints.items():
-        ckpt_str += f"{type}: {checkpoint.path}, "
+        ckpt_path = os.path.abspath(checkpoint.path)
+        ckpt_str += f"{type}:{ckpt_path}, "
     oc["netcdf"]["global_attributes"]["source"] = f"{ckpt_str}"
     return oc
