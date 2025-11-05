@@ -1,7 +1,7 @@
 import os
 
 import bris.routes
-
+from bris.checkpoint import Checkpoint
 
 class FakeDataModule:
     def __init__(self):
@@ -32,6 +32,8 @@ class FakeDataModule:
 
 
 class FakeCheckpointObject:
+    path = "FakeCheckpointObject_path"
+
     @property
     def model_output_name_to_index(self):
         return [{"2t": 0, "10u": 1, "10v": 2}, {"100v": 0, "100u": 1}]
@@ -98,5 +100,11 @@ def test_get():
     )
 
 
-if __name__ == "__main__":
-    test_get()
+def test_add_checkpoint_name_to_attrs():
+    test_oc = {"netcdf": {
+            "filename_pattern": "./tox_test_inference.nc",
+            "variables": ["2t", "2d"]
+        }}
+    test_ckpts = {"testchk": Checkpoint("./tests/files/checkpoint.ckpt")}
+    new_oc = bris.routes.add_checkpoint_name_to_attrs(test_oc, test_ckpts)
+    print(new_oc)
