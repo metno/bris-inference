@@ -34,6 +34,8 @@ class Metno:
             "medium_type_cloud_area_fraction",
             "cloud_area_fraction",
             "atmosphere_mass_content_of_water",
+            "integral_of_surface_downwelling_shortwave_flux_in_air_wrt_time",
+            "integral_of_surface_downwelling_longwave_flux_in_air_wrt_time",
         ]:
             # Prevent _0m from being added at the end of variable name
             ncname = f"{cfname}"
