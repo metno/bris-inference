@@ -7,7 +7,7 @@ from anemoi.models.data_indices.index import DataIndex
 from anemoi.datasets import open_dataset
 
 from ..checkpoint import Checkpoint
-from ..data.data_module import DataModule
+from ..data.datamodule import DataModule
 from ..forcings import get_dynamic_forcings
 
 
@@ -32,6 +32,7 @@ class Interpolator(BasePredictor):
        checkpoints_config: dict,
        required_variables: dict,
        release_cache: bool = False,
+       fcstep_const: bool = False, 
        **kwargs,
     ) -> None:
         super().__init__(*args, checkpoints=checkpoints, **kwargs)
@@ -40,6 +41,16 @@ class Interpolator(BasePredictor):
         self.interpolator = checkpoints["interpolator"].model
         self.data_indices = {"forecaster": self.forecaster.data_indices,
                             "interpolator": self.interpolator.data_indices}
+        # Backwards compatibility fix
+        for data_indices in self.data_indices.values():
+            if hasattr(data_indices, "internal_data") and hasattr(
+                data_indices, "internal_model"
+            ):
+                continue
+            else:
+                data_indices.internal_data = data_indices.data
+                data_indices.internal_model = data_indices.model
+        
         self.multistep = checkpoints["forecaster"].metadata.config.training.multistep_input
         self.timestep_forecaster = timedelta64_from_timestep(checkpoints["forecaster"].metadata.config.data.timestep)
         self.timestep_interpolator = timedelta64_from_timestep("1h") #checkpoints["interpolator"].metadata.config.data.timestep)
@@ -73,7 +84,6 @@ class Interpolator(BasePredictor):
             self.data_indices["interpolator"].internal_data,
             self.data_indices["interpolator"].internal_model,
             0,
-            require_all_variables=False
         )
         
         self.indices["interpolator_forcings"], self.variables["interpolator_forcings"] = get_variable_indices(
@@ -82,7 +92,6 @@ class Interpolator(BasePredictor):
             self.data_indices["interpolator"].internal_data,
             self.data_indices["interpolator"].internal_model,
             0,
-            require_all_variables=False
         )
 
         self.static_forcings_forecaster = self.get_static_forcings(
@@ -112,6 +121,7 @@ class Interpolator(BasePredictor):
         self.use_time_fraction = True
 
         self.batch_info = {}
+        self.fcstep_const = fcstep_const
 
     def update_batch_info(self, time):
         if time not in self.batch_info:
@@ -246,7 +256,14 @@ class Interpolator(BasePredictor):
         fcast_index = 1
         with torch.autocast(device_type="cuda", dtype=torch.bfloat16):
             for fcast_step in range(self.forecast_length - 1):
-                y_pred = self.forecaster(x, model_comm_group = self.model_comm_group)
+                try:
+                    if self.fcstep_const:
+                        y_pred = self.forecaster(x, model_comm_group = self.model_comm_group, fcstep=0)
+                    else:
+                        y_pred = self.forecaster(x, model_comm_group = self.model_comm_group, fcstep=fcast_step)
+                except TypeError:
+                    y_pred = self.forecaster(x, model_comm_group = self.model_comm_group)
+            
                 x = self.advance_input_predict(x, y_pred, time + self.timestep_forecaster)
                 x_interp = self.advance_input_interpolator(x_interp, self.forecaster.post_processors(y_pred, in_place=False), time + self.timestep_forecaster)
 
