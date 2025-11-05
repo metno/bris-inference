@@ -1,4 +1,5 @@
 from collections import defaultdict
+from typing import Any, Literal
 
 import numpy as np
 
@@ -58,6 +59,11 @@ def get(
 
         outputs = []
         for oc in config["outputs"]:
+            # If outputing netcdf, add global_attributes with checkpoint name
+            if 'netcdf' in oc:
+                oc = add_checkpoint_name_to_attrs(oc, checkpoints)
+
+
             lats = data_module.latitudes[decoder_index][start_gridpoint:end_gridpoint]
             lons = data_module.longitudes[decoder_index][start_gridpoint:end_gridpoint]
             altitudes = None
@@ -143,3 +149,18 @@ def get_required_variables(
 
 def expand_variable(string: str, variable: str) -> str:
     return string.replace("%V", variable)
+
+
+def add_checkpoint_name_to_attrs(oc: dict[Literal['netcdf'], dict[str, Any]], checkpoints: dict[str, Checkpoint]) -> dict[Literal['netcdf'], dict[str, Any]]:
+    """Add checkpoint name """
+    # oc {'netcdf': {'filename_pattern': './tox_test_inference.nc', 'variables': ['2t', '2d']}}
+    ckpt_str = "Checkpoints used: "
+    if 'global_attributes' not in oc['netcdf']:
+        oc['netcdf']['global_attributes'] = {}
+    if 'source' in oc['netcdf']['global_attributes']:
+        ckpt_str = f"{oc['netcdf']['global_attributes']['source']} {ckpt_str}"
+    for type, checkpoint in checkpoints.items():
+        print("add_checkpoint_name_to_attrs ckpt", checkpoint)
+        ckpt_str += f"{type}: {checkpoint.path}, "
+    oc['netcdf']['global_attributes']['source'] = f"{ckpt_str}"
+    return oc
