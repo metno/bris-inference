@@ -160,7 +160,6 @@ def add_checkpoint_name_to_attrs(oc: dict[Literal['netcdf'], dict[str, Any]], ch
     if 'source' in oc['netcdf']['global_attributes']:
         ckpt_str = f"{oc['netcdf']['global_attributes']['source']} {ckpt_str}"
     for type, checkpoint in checkpoints.items():
-        print("add_checkpoint_name_to_attrs ckpt", checkpoint)
         ckpt_str += f"{type}: {checkpoint.path}, "
     oc['netcdf']['global_attributes']['source'] = f"{ckpt_str}"
     return oc
