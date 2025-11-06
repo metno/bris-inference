@@ -290,7 +290,12 @@ class Netcdf(Output):
 
         # Set up other coordinate variables
         # Forecast reference time should be double, not int64 (otherwise thredds complains)
-        self.ds[self.conv_name("forecast_reference_time")] = ([], frt_ut, {}, {"dtype": "double"})
+        self.ds[self.conv_name("forecast_reference_time")] = (
+            [],
+            frt_ut,
+            {},
+            {"dtype": "double"},
+        )
 
         # Set up grid definitions
         if self._is_gridded:
