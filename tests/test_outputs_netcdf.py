@@ -44,10 +44,13 @@ def test_deterministic():
 
         assert os.path.exists(output_filename)
 
-        with xr.open_dataset(output_filename) as file:
+        with xr.open_dataset(output_filename, decode_times=False) as file:
             # Check that global attributes are written
             for k, v in attrs.items():
                 assert file.attrs[k] == v
+
+            assert file.variables["forecast_reference_time"].dtype == "float64"
+            assert file.variables["projection"].dtype == "int32"
 
             for variable in [
                 "altitude",
