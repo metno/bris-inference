@@ -289,7 +289,13 @@ class Netcdf(Output):
             self.ds[var].attrs = var_attrs
 
         # Set up other coordinate variables
-        self.ds[self.conv_name("forecast_reference_time")] = ([], frt_ut)
+        # Forecast reference time should be double, not int64 (otherwise thredds complains)
+        self.ds[self.conv_name("forecast_reference_time")] = (
+            [],
+            frt_ut,
+            {},
+            {"dtype": "double"},
+        )
 
         # Set up grid definitions
         if self._is_gridded:
@@ -342,7 +348,8 @@ class Netcdf(Output):
         proj_attrs = {}
         if self.proj4_str is not None:
             proj_attrs = projections.get_proj_attributes(self.proj4_str)
-        self.ds[self.conv_name("projection")] = ([], 0, proj_attrs)
+        # Projection
+        self.ds[self.conv_name("projection")] = ([], 0, proj_attrs, {"dtype": "int32"})
         utils.LOGGER.debug(
             f"netcdf._not_gridded_masked in {pytime.perf_counter() - t0:.1f}s"
         )
@@ -388,12 +395,7 @@ class Netcdf(Output):
         proj_attrs = {}
         if self.proj4_str is not None:
             proj_attrs = projections.get_proj_attributes(self.proj4_str)
-            # proj_attrs["grid_mapping_name"] = "lambert_conformal_conic"
-            # proj_attrs["standard_parallel"] = (63.3, 63.3)
-            # proj_attrs["longitude_of_central_meridian"] = 15.0
-            # proj_attrs["latitude_of_projection_origin"] = 63.3
-            # proj_attrs["earth_radius"] = 6371000.0
-        self.ds[self.conv_name("projection")] = ([], 0, proj_attrs)
+        self.ds[self.conv_name("projection")] = ([], 0, proj_attrs, {"dtype": "int32"})
         utils.LOGGER.debug(
             f"netcdf._set_coords_gridded_not_interpolated in {pytime.perf_counter() - t0:.1f}s"
         )
@@ -403,7 +405,7 @@ class Netcdf(Output):
         proj_attrs = {}
         proj_attrs["grid_mapping_name"] = "latitude_longitude"
         proj_attrs["earth_radius"] = "6371000.0"
-        self.ds["projection"] = ([], 1, proj_attrs)
+        self.ds[self.conv_name("projection")] = ([], 0, proj_attrs, {"dtype": "int32"})
 
         if self.pm.altitudes is not None:
             ipoints = gridpp.Points(self.pm.lats, self.pm.lons)
