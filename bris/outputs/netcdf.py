@@ -117,21 +117,23 @@ class Netcdf(Output):
         t0 = pytime.perf_counter()
         if self.pm.num_members > 1 and self.intermediate is not None:
             # Cache data with intermediate
-            self.intermediate.add_forecast(times, ensemble_member, pred)
             utils.LOGGER.debug(
-                f"Netcdf._add_forecast calling intermediate.add_forecast for ensemble_member {ensemble_member} in {pytime.perf_counter() - t0:.1f}s"
+                "Netcdf._add_forecast calling intermediate.add_forecast for ensemble_member 0."
             )
+            self.intermediate.add_forecast(times, ensemble_member, pred)
             return
         assert ensemble_member == 0
 
         forecast_reference_time = times[0].astype("datetime64[s]").astype("int")
-
         filename = self.get_filename(forecast_reference_time)
 
         # Add ensemble dimension to the last
+        utils.LOGGER.debug(
+            f"Netcdf._add_forecast calling intermediate.add_forecast for ensemble_member {ensemble_member}"
+        )
         self.write(filename, times, pred[..., None])
         utils.LOGGER.debug(
-            f"Netcdf._add_forecast for {filename} in {pytime.perf_counter() - t0:.1f}s"
+            f"Netcdf._add_forecast completed for {filename} in {pytime.perf_counter() - t0:.1f}s"
         )
 
     def get_filename(self, forecast_reference_time: int) -> str:
@@ -287,7 +289,13 @@ class Netcdf(Output):
             self.ds[var].attrs = var_attrs
 
         # Set up other coordinate variables
-        self.ds[self.conv_name("forecast_reference_time")] = ([], frt_ut)
+        # Forecast reference time should be double, not int64 (otherwise thredds complains)
+        self.ds[self.conv_name("forecast_reference_time")] = (
+            [],
+            frt_ut,
+            {},
+            {"dtype": "double"},
+        )
 
         # Set up grid definitions
         if self._is_gridded:
@@ -340,7 +348,8 @@ class Netcdf(Output):
         proj_attrs = {}
         if self.proj4_str is not None:
             proj_attrs = projections.get_proj_attributes(self.proj4_str)
-        self.ds[self.conv_name("projection")] = ([], 0, proj_attrs)
+        # Projection
+        self.ds[self.conv_name("projection")] = ([], 0, proj_attrs, {"dtype": "int32"})
         utils.LOGGER.debug(
             f"netcdf._not_gridded_masked in {pytime.perf_counter() - t0:.1f}s"
         )
@@ -386,12 +395,7 @@ class Netcdf(Output):
         proj_attrs = {}
         if self.proj4_str is not None:
             proj_attrs = projections.get_proj_attributes(self.proj4_str)
-            # proj_attrs["grid_mapping_name"] = "lambert_conformal_conic"
-            # proj_attrs["standard_parallel"] = (63.3, 63.3)
-            # proj_attrs["longitude_of_central_meridian"] = 15.0
-            # proj_attrs["latitude_of_projection_origin"] = 63.3
-            # proj_attrs["earth_radius"] = 6371000.0
-        self.ds[self.conv_name("projection")] = ([], 0, proj_attrs)
+        self.ds[self.conv_name("projection")] = ([], 0, proj_attrs, {"dtype": "int32"})
         utils.LOGGER.debug(
             f"netcdf._set_coords_gridded_not_interpolated in {pytime.perf_counter() - t0:.1f}s"
         )
@@ -401,7 +405,7 @@ class Netcdf(Output):
         proj_attrs = {}
         proj_attrs["grid_mapping_name"] = "latitude_longitude"
         proj_attrs["earth_radius"] = "6371000.0"
-        self.ds["projection"] = ([], 1, proj_attrs)
+        self.ds[self.conv_name("projection")] = ([], 0, proj_attrs, {"dtype": "int32"})
 
         if self.pm.altitudes is not None:
             ipoints = gridpp.Points(self.pm.lats, self.pm.lons)
@@ -604,6 +608,7 @@ class Netcdf(Output):
         t0 = pytime.perf_counter()
         utils.create_directory(filename)
 
+        utils.LOGGER.debug(f"netcdf._write_file writing to {filename}")
         self.ds.to_netcdf(
             filename,
             mode="w",
