@@ -45,20 +45,12 @@ def main(arg_list: list[str] | None = None):
 
     set_base_seed()
 
-    # Get timestep from checkpoint. Also store a version in seconds for local use.
-    for model in models:
-        config.checkpoints[model].timestep = None
-        try:
-            config.checkpoints[model].timestep = checkpoints[model].config.data.timestep
-            if model == "interpolator":
-                config.checkpoints[model].timestep = "1h" #incorrectly set to 6h in the config
-        except KeyError as err:
-            raise RuntimeError(
-                f"Error getting timestep from {model} checkpoint (checkpoint.config.data.timestep)"
-            ) from err
-        config.checkpoints[model].timestep_seconds = frequency_to_seconds(
-            config.checkpoints[model].timestep
-        )
+    # Compute timestep_seconds for each checkpoint
+    config.checkpoints.forecaster.timestep = checkpoints["forecaster"].config.data.timestep
+    config.checkpoints.forecaster.timestep_seconds = frequency_to_seconds(
+        config.checkpoints.forecaster.timestep
+    )
+    config.checkpoints.interpolator.timestep_seconds = int(config.checkpoints.forecaster.timestep_seconds / (len(checkpoints["interpolator"].config.training.explicit_times.target) + 1))
 
     num_members = config["hardware"].get("num_members", 1)
 

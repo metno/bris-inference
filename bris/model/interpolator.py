@@ -24,6 +24,25 @@ from .model_utils import get_variable_indices
 
 
 class Interpolator(BasePredictor):
+    """
+    Combined Forecaster and Interpolator model.
+
+    Methods
+    -------
+
+    __init__
+
+    get_static_forcings: Get static forcings for the model.
+
+    predict_step: Perform prediction step combining forecaster and interpolator.
+
+    advance_input_predict: Advance input for forecaster predictions.
+
+    advance_input_interpolator: Advance input for interpolator predictions.
+
+    allgather_batch: Gather batch across distributed processes (not implemented).
+    """
+
     def __init__(
        self,
        *args,
@@ -35,12 +54,24 @@ class Interpolator(BasePredictor):
        fcstep_const: bool = False, 
        **kwargs,
     ) -> None:
-        super().__init__(*args, checkpoints=checkpoints, **kwargs)
+        """
+        Initialize Interpolator.
 
+        Args:
+            checkpoints: Dictionary containing 'forecaster' and 'interpolator' Checkpoint objects.
+            datamodule: DataModule object for data handling.
+            checkpoints_config: Configuration dictionary for checkpoints.
+            required_variables: Required variables for the model.
+            release_cache: Boolean flag to release cache (default: False).
+            fcstep_const: Boolean flag for constant forecast step (default: False).
+        """
+
+        super().__init__(*args, checkpoints=checkpoints, **kwargs)
         self.forecaster = checkpoints["forecaster"].model
         self.interpolator = checkpoints["interpolator"].model
         self.data_indices = {"forecaster": self.forecaster.data_indices,
                             "interpolator": self.interpolator.data_indices}
+        
         # Backwards compatibility fix
         for data_indices in self.data_indices.values():
             if hasattr(data_indices, "internal_data") and hasattr(
@@ -52,8 +83,9 @@ class Interpolator(BasePredictor):
                 data_indices.internal_model = data_indices.model
         
         self.multistep = checkpoints["forecaster"].metadata.config.training.multistep_input
-        self.timestep_forecaster = timedelta64_from_timestep(checkpoints["forecaster"].metadata.config.data.timestep)
-        self.timestep_interpolator = timedelta64_from_timestep("1h") #checkpoints["interpolator"].metadata.config.data.timestep)
+        self.timestep_forecaster = np.timedelta64(checkpoints_config["forecaster"]["timestep_seconds"], 's')
+        self.timestep_interpolator = np.timedelta64(checkpoints_config["interpolator"]["timestep_seconds"], 's')
+        
         self.forecast_length = checkpoints_config["forecaster"]["leadtimes"]
         self.interpolation_length = checkpoints_config["interpolator"]["leadtimes"]
         self.leadtimes = get_all_leadtimes(
@@ -62,7 +94,6 @@ class Interpolator(BasePredictor):
             checkpoints_config["interpolator"]["leadtimes"],
             checkpoints_config["interpolator"]["timestep_seconds"],
         )
-        self.interpolator_steps = 5 #TODO: figure out where to get this
         self.latitudes = datamodule.data_reader.latitudes
         self.longitudes = datamodule.data_reader.longitudes
         self.forcing_dataset_interp = open_dataset(checkpoints_config["interpolator"]["static_forcings_dataset"])
@@ -79,7 +110,7 @@ class Interpolator(BasePredictor):
             0
         )
         self.indices["interpolator"], self.variables["interpolator"] = get_variable_indices(
-            required_variables[0], #Assume decoder
+            required_variables[0], #Assume one decoder
             list(self.data_indices["forecaster"].internal_model.input.name_to_index.keys()),
             self.data_indices["interpolator"].internal_data,
             self.data_indices["interpolator"].internal_model,
@@ -112,13 +143,11 @@ class Interpolator(BasePredictor):
             self.data_indices["interpolator"].internal_data
             )
 
-        
-        #Get these from config
-
-        self.boundary_times = [0,6]
-        self.interp_times = [1,2,3,4,5]
-        self.target_forcings = ["insolation"]
-        self.use_time_fraction = True
+        self.boundary_times = checkpoints["interpolator"].metadata.config.training.explicit_times.input
+        self.interp_times = checkpoints["interpolator"].metadata.config.training.explicit_times.target
+        self.interpolator_steps = len(self.interp_times)
+        self.target_forcings = checkpoints["interpolator"].metadata.config.training.target_forcing.data
+        self.use_time_fraction = checkpoints["interpolator"].metadata.config.training.target_forcing.time_fraction
 
         self.batch_info = {}
         self.fcstep_const = fcstep_const
@@ -129,7 +158,6 @@ class Interpolator(BasePredictor):
         else:
             self.batch_info[time] += 1
 
-    # TODO: Move this to base class (should be able to write one function that works for interp, forecaster and multi-enc/dec)
     def get_static_forcings(
         self, 
         data_reader: Iterable, 
@@ -140,10 +168,25 @@ class Interpolator(BasePredictor):
         internal_data: DataIndex,
         normalize: bool = True
     ) -> dict:
+        """
+        Get static forcings for the model.
+
+        Args:
+            data_reader: Data reader or dataset to extract static forcings from.
+            data_config: Configuration dictionary for data.
+            model: The model for which static forcings are being retrieved.
+            variables: Dictionary of variables required by the model.
+            indices: Dictionary of indices mapping variables to their positions.
+            internal_data: Internal data index for the model.
+            normalize: Boolean flag to indicate if normalization is needed (default: True).
+        Returns:
+            Dictionary of static forcings.
+        """
         selection = data_config["forcing"]
         data = torch.from_numpy(data_reader[0].squeeze(axis=1).swapaxes(0, 1))
-        data_input = torch.zeros(
+        data_input = torch.full(
             data.shape[:-1] + (len(variables["all"]),),
+            float("nan"),
             dtype=data.dtype,
             device=data.device,
         )
@@ -189,8 +232,17 @@ class Interpolator(BasePredictor):
     
     @torch.inference_mode
     def predict_step(self, batch: tuple, batch_idx: int) -> dict:
+        """
+        Perform prediction step combining forecaster and interpolator.
+
+        Args:
+            batch: Input batch for prediction.
+            batch_idx: Index of the batch.
+
+        Returns:
+            Dictionary containing predictions, times, group rank, and ensemble member.
+        """
            
-        # Do the regular prediction (copy BrisForecaster)
         batch = self.allgather_batch(batch)
         batch, time_stamp = batch
         time = np.datetime64(time_stamp[0])
@@ -336,13 +388,6 @@ class Interpolator(BasePredictor):
                             target_forcing[..., -1] = (interp_step - self.boundary_times[-2]) / (
                                 self.boundary_times[-1] - self.boundary_times[-2]
                             )
-                        if self.model_comm_group_rank == 0:
-                            # print("time_interp", time_interp)
-                            # print("time_frac", (interp_step - self.boundary_times[-2]) / (
-                            #     self.boundary_times[-1] - self.boundary_times[-2]
-                            # ))
-                            # #print("index", fcast_index + interp_index)
-                            pass
 
                         y_pred_interp = self.interpolator(interpolator_input, target_forcing = target_forcing, model_comm_group=self.model_comm_group)
                         y_preds[:,fcast_index + interp_index] = self.interpolator.post_processors(
@@ -371,6 +416,16 @@ class Interpolator(BasePredictor):
     def advance_input_predict(
         self, x: torch.Tensor, y_pred: torch.Tensor, time: np.datetime64
     ) -> torch.Tensor:
+        """
+        Advance input for forecaster predictions.
+        Args:
+            x: Current input tensor for the forecaster.
+            y_pred: Predictions from the forecaster model.
+            time: Current time as a numpy datetime64 object.
+        Returns:
+            Updated input tensor for the forecaster.
+        """
+        
         x = x.roll(-1, dims=1)
 
         # Get prognostic variables:
@@ -395,6 +450,16 @@ class Interpolator(BasePredictor):
     def advance_input_interpolator(
         self, x: torch.Tensor, y_pred: torch.Tensor, time: np.datetime64
     ) -> torch.Tensor:
+        """
+        Advance input for interpolator predictions.
+
+        Args:
+            x: Current input tensor for the interpolator.
+            y_pred: Predictions from the forecaster model.
+            time: Current time as a numpy datetime64 object.
+        Returns:
+            Updated input tensor for the interpolator.
+        """
         x = x.roll(-1, dims=1)
 
         # Get prognostic variables:
@@ -417,4 +482,4 @@ class Interpolator(BasePredictor):
         return x
 
     def allgather_batch(self, batch: torch.Tensor) -> torch.Tensor:
-        return batch  # Not implemented properly
+        return batch  # Not implemented
