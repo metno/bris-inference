@@ -3,20 +3,17 @@ from collections.abc import Iterable
 
 import numpy as np
 import torch
-from anemoi.models.data_indices.index import DataIndex
 from anemoi.datasets import open_dataset
+from anemoi.models.data_indices.index import DataIndex
 
 from ..checkpoint import Checkpoint
 from ..data.datamodule import DataModule
 from ..forcings import get_dynamic_forcings
-
-
 from ..utils import (
     LOGGER,
-    timedelta64_from_timestep,
     get_all_leadtimes,
+    timedelta64_from_timestep,
 )
-
 from .basepredictor import BasePredictor
 from .model_utils import get_variable_indices
 
