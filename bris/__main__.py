@@ -30,7 +30,7 @@ def main(arg_list: list[str] | None = None):
     setup_logging(config)
 
     models = list(config.checkpoints.keys())
-    
+
     checkpoints = {
         model: Checkpoint(
             config.checkpoints[model].checkpoint_path,
@@ -46,11 +46,16 @@ def main(arg_list: list[str] | None = None):
     set_base_seed()
 
     # Compute timestep_seconds for each checkpoint
-    config.checkpoints.forecaster.timestep = checkpoints["forecaster"].config.data.timestep
+    config.checkpoints.forecaster.timestep = checkpoints[
+        "forecaster"
+    ].config.data.timestep
     config.checkpoints.forecaster.timestep_seconds = frequency_to_seconds(
         config.checkpoints.forecaster.timestep
     )
-    config.checkpoints.interpolator.timestep_seconds = int(config.checkpoints.forecaster.timestep_seconds / (len(checkpoints["interpolator"].config.training.explicit_times.target) + 1))
+    config.checkpoints.interpolator.timestep_seconds = int(
+        config.checkpoints.forecaster.timestep_seconds
+        / (len(checkpoints["interpolator"].config.training.explicit_times.target) + 1)
+    )
 
     num_members = config["hardware"].get("num_members", 1)
 
@@ -161,7 +166,7 @@ def main(arg_list: list[str] | None = None):
         checkpoints=checkpoints,
         hardware_config=config.hardware,
         datamodule=datamodule,
-        checkpoints_config = config.checkpoints,
+        checkpoints_config=config.checkpoints,
         required_variables=required_variables,
         release_cache=config.release_cache,
         num_members_in_parallel=num_members_in_parallel,

@@ -142,7 +142,6 @@ def get_required_variables(
             required_variables[decoder_index] = sorted(list(set(name_to_index.keys())))
         else:
             required_variables[decoder_index] = sorted(list(set(v)))
-    
 
     return required_variables
 
