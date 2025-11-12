@@ -43,7 +43,7 @@ def test_bris_predictor():
         "config/tox_test_inference.yaml",
         {
             "checkpoints": {
-                "forecaster": {"checkpoint_path": checkpoint_path, leadtimes: 2}
+                "forecaster": {"checkpoint_path": checkpoint_path, "leadtimes": 2}
             },
             "dataset": dataset_path,
         },
@@ -166,7 +166,7 @@ def test_multiencdec_predictor():
         "config/tox_test_inference_multi.yaml",
         {
             "checkpoints": {
-                "forecaster": {"checkpoint_path": checkpoint_path, leadtimes: 2}
+                "forecaster": {"checkpoint_path": checkpoint_path, "leadtimes": 2}
             },
             "dataset": {
                 "zip": [
