@@ -3,10 +3,10 @@ end_date: 2023-06-01T12:00:00
 
 checkpoints:
   forecaster:
-    checkpoint_path: PATH_TO_CHECKPOINT.ckpt # Full path to checkpoint
+    checkpoint_path: PATH/TO/CHECKPOINT.ckpt # Full path to checkpoint
     leadtimes: 12 #Number of leadtimes in each forecast (incuding starting state)
   interpolator:
-    checkpoint_path: PATH_TO_INTERPOLATOR_CHECKPOINT.ckpt # Full path to interpolator checkpoint
+    checkpoint_path: PATH/TO/INTERPOLATOR_CHECKPOINT.ckpt # Full path to interpolator checkpoint
     leadtimes: 11 # Number of forecaster leadtime pairs to interpolate in between
                   # Max is forecaster leadtimes - 1
     static_forcings_dataset: ${dataset} # Path to static forcings dataset
