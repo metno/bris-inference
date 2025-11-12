@@ -42,9 +42,9 @@ def test_bris_predictor():
     config = bris.utils.create_config(
         "config/tox_test_inference.yaml",
         {
-            "leadtimes": 2,
-            "timestep": "6h",
-            "checkpoints": {"forecaster": {"checkpoint_path": checkpoint_path}},
+            "checkpoints": {
+                "forecaster": {"checkpoint_path": checkpoint_path, leadtimes: 2}
+            },
             "dataset": dataset_path,
         },
     )
@@ -130,7 +130,7 @@ def test_bris_predictor():
         checkpoints=checkpoints,
         hardware_config=config.hardware,
         datamodule=datamodule,
-        forecast_length=config.leadtimes,
+        checkpoints_config=config.checkpoints,
         required_variables=required_variables,
         release_cache=config.release_cache,
         num_members_in_parallel=num_members_in_parallel,
@@ -139,7 +139,7 @@ def test_bris_predictor():
     _bp = bris.model.brispredictor.BrisPredictor(
         checkpoints=checkpoints,
         datamodule=datamodule,
-        forecast_length=1,
+        checkpoints_config=config.checkpoints,
         required_variables=required_variables,
         hardware_config=DotDict(config.hardware),
         num_members_in_parallel=num_members_in_parallel,
@@ -165,9 +165,9 @@ def test_multiencdec_predictor():
     config = bris.utils.create_config(
         "config/tox_test_inference_multi.yaml",
         {
-            "leadtimes": 2,
-            "timestep": "6h",
-            "checkpoints": {"forecaster": {"checkpoint_path": checkpoint_path}},
+            "checkpoints": {
+                "forecaster": {"checkpoint_path": checkpoint_path, leadtimes: 2}
+            },
             "dataset": {
                 "zip": [
                     {"dataset": dataset_path},
@@ -258,7 +258,7 @@ def test_multiencdec_predictor():
         checkpoints=checkpoints,
         hardware_config=config.hardware,
         datamodule=datamodule,
-        forecast_length=config.leadtimes,
+        checkpoints_config=config.checkpoints,
         required_variables=required_variables,
         release_cache=config.release_cache,
         num_members_in_parallel=num_members_in_parallel,
@@ -267,7 +267,7 @@ def test_multiencdec_predictor():
     _bp = bris.model.multiencdecpredictor.MultiEncDecPredictor(
         checkpoints=checkpoints,
         datamodule=datamodule,
-        forecast_length=1,
+        checkpoints_config=config.checkpoints,
         required_variables=required_variables,
         hardware_config=DotDict(config.hardware),
         num_members_in_parallel=num_members_in_parallel,
