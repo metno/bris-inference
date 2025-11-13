@@ -53,13 +53,12 @@ def main(arg_list: list[str] | None = None):
         config.checkpoints.forecaster.timestep
     )
     if "interpolator" in checkpoints:
-        config.checkpoints.interpolator.timestep_seconds = int(
-            config.checkpoints.forecaster.timestep_seconds
-            / (
-                len(checkpoints["interpolator"].config.training.explicit_times.target)
-                + 1
-            )
-        )
+        target_times = checkpoints["interpolator"].config.training.explicit_times.target
+        input_times = checkpoints["interpolator"].config.training.expllicit_times.input
+        if target_times[-1] == input_times[-1]:
+            config.checkpoints.timestep_seconds = int(config.checkpoints.interpolator.timestep_seconds / len(target_times))
+        else:
+            config.checkpoints.timestep_seconds = int(config.checkpoints.interpolator.timestep_seconds / (len(target_times) + 1))
 
     num_members = config["hardware"].get("num_members", 1)
 

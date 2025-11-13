@@ -171,6 +171,8 @@ class Interpolator(BasePredictor):
             "interpolator"
         ].metadata.config.training.target_forcing.time_fraction
 
+        self.reforcast_last = self.boundary_times[-1] == self.interp_times[-1]
+
         self.batch_info = {}
         self.fcstep_const = fcstep_const
 
@@ -477,14 +479,16 @@ class Interpolator(BasePredictor):
                         times.append(time_interp)
 
                     fcast_index += self.interpolator_steps
-                if self.model_comm_group_rank == 0:
-                    pass
-                y_preds[:, fcast_index] = self.forecaster.post_processors(
-                    y_pred, in_place=True
-                )[:, 0, :, self.indices["forecaster"]["variables_output"]].cpu()
-                time += self.timestep_forecaster
-                times.append(time)
-                fcast_index += 1
+                if not self.reforcast_last:    
+                    y_preds[:, fcast_index] = self.forecaster.post_processors(
+                        y_pred, in_place=True
+                    )[:, 0, :, self.indices["forecaster"]["variables_output"]].cpu()
+                    time += self.timestep_forecaster
+                    times.append(time)
+                    fcast_index += 1
+                else:
+                    time += self.timestep_forecaster
+                    
         self.update_batch_info(time)
         return {
             "pred": [y_preds.to(torch.float32).numpy()],
