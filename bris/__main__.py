@@ -30,6 +30,7 @@ def main(arg_list: list[str] | None = None):
     setup_logging(config)
 
     models = list(config.checkpoints.keys())
+
     checkpoints = {
         model: Checkpoint(
             config.checkpoints[model].checkpoint_path,
@@ -37,23 +38,27 @@ def main(arg_list: list[str] | None = None):
         )
         for model in models
     }
+
     set_encoder_decoder_num_chunks(getattr(config, "inference_num_chunks", 1))
     if "release_cache" not in config or not isinstance(config["release_cache"], bool):
         config["release_cache"] = False
 
     set_base_seed()
 
-    # Get timestep from checkpoint. Also store a version in seconds for local use.
-    for model in models:
-        config.checkpoints[model].timestep = None
-        try:
-            config.checkpoints[model].timestep = checkpoints[model].config.data.timestep
-        except KeyError as err:
-            raise RuntimeError(
-                f"Error getting timestep from {model} checkpoint (checkpoint.config.data.timestep)"
-            ) from err
-        config.checkpoints[model].timestep_seconds = frequency_to_seconds(
-            config.checkpoints[model].timestep
+    # Compute timestep_seconds for each checkpoint
+    config.checkpoints.forecaster.timestep = checkpoints[
+        "forecaster"
+    ].config.data.timestep
+    config.checkpoints.forecaster.timestep_seconds = frequency_to_seconds(
+        config.checkpoints.forecaster.timestep
+    )
+    if "interpolator" in checkpoints:
+        config.checkpoints.interpolator.timestep_seconds = int(
+            config.checkpoints.forecaster.timestep_seconds
+            / (
+                len(checkpoints["interpolator"].config.training.explicit_times.target)
+                + 1
+            )
         )
 
     num_members = config["hardware"].get("num_members", 1)
@@ -118,14 +123,13 @@ def main(arg_list: list[str] | None = None):
         frequency=config.frequency,
         num_members_in_sequence=num_members_in_sequence,
     )
-
     # Get outputs and required_variables of each decoder
     if hasattr(config.checkpoints, "interpolator"):
         leadtimes = get_all_leadtimes(
             config.checkpoints.forecaster.leadtimes,
             config.checkpoints.forecaster.timestep_seconds,
             config.checkpoints.interpolator.leadtimes,
-            config.checkpoints.intepoltor.timestep_seconds,
+            config.checkpoints.interpolator.timestep_seconds,
         )
     else:
         leadtimes = get_all_leadtimes(
@@ -166,7 +170,7 @@ def main(arg_list: list[str] | None = None):
         checkpoints=checkpoints,
         hardware_config=config.hardware,
         datamodule=datamodule,
-        forecast_length=config.checkpoints.forecaster.leadtimes,
+        checkpoints_config=config.checkpoints,
         required_variables=required_variables,
         release_cache=config.release_cache,
         num_members_in_parallel=num_members_in_parallel,
