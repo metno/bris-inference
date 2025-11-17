@@ -124,6 +124,12 @@ def get_attributes(cfname: str) -> dict[str, str] | dict:
             "long_name": "height",
             "positive": "up",
         },
+        "height_above_msl": {
+            "units": "m",
+            "description": "height above MSL",
+            "long_name": "height",
+            "positive": "up",
+        },
         "thunder_event": {
             "standard_name": "thunderstorm_probability",
             "units": "1",
