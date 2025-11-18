@@ -35,6 +35,7 @@ def main(arg_list: list[str] | None = None):
         model: Checkpoint(
             config.checkpoints[model].checkpoint_path,
             getattr(config.checkpoints[model], "switch_graph", None),
+            getattr(config.checkpoints[model], "graph_label", None)
         )
         for model in models
     }
