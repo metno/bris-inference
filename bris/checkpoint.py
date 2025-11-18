@@ -48,14 +48,15 @@ class Metadata(DotDict):
 class Checkpoint:
     """This class makes accessible various information stored in Anemoi checkpoints."""
 
-    def __init__(self, path: str, graph: Optional[str] = None):
+    def __init__(self, path: str, graph: Optional[str] = None, graph_label: Optional[str] = None):
         assert os.path.exists(path), f"The given checkpoint {path} does not exist!"
 
         self.path = path
         self._model_instance = self._load_model()
         if graph:
+            assert os.path.isfile(graph), f"Graph is pointing to a non-existing path. Got {graph}"
             LOGGER.info("Updating graph to the one provided in config")
-            self.update_graph(graph)
+            self.update_graph(graph, graph_label=graph_label)
 
     @property
     def metadata(self) -> Metadata:
@@ -180,7 +181,7 @@ class Checkpoint:
     #     _model_params = self._model_instance.named_parameters()
     #     return deepcopy(dict(_model_params))
 
-    def update_graph(self, path: Optional[str] = None) -> HeteroData:
+    def update_graph(self, path: Optional[str] = None, graph_label: Optional[str] = None) -> HeteroData:
         """
         Replaces existing graph object within model instance.
         The new graph is either provided as an torch file or
@@ -197,8 +198,15 @@ class Checkpoint:
         LOGGER.info("Loaded external graph from path")
 
         state_dict = deepcopy(self._model_instance.state_dict())
-
-        self._model_instance.graph_data = external_graph
+        if graph_label:
+            LOGGER.info(
+                f"Found graph_label: {graph_label} in config. "
+                "Injecting new graph into graph_data"
+            )
+            self._model_instance.graph_data[graph_label] = external_graph
+        else:
+            self._model_instance.graph_data = external_graph
+            
         self._model_instance.config = self.config
 
         self._model_instance._build_model()
