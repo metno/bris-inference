@@ -45,7 +45,14 @@ class DataModule(pl.LightningDataModule):
         )
 
         self.config = config
-        self.graph = checkpoint_object.graph
+        if isinstance(checkpoint_object.graph, dict):
+            msg="You have chosen multi-domain checkpoint, but no graph_label has been provided"
+            assert hasattr(self.config.checkpoints.forecaster,"graph_label"), msg
+            self.graph_label = self.config.checkpoints.forecaster.graph_label
+            self.graph = checkpoint_object.graph[self.graph_label]
+        else:
+            self.graph = checkpoint_object.graph
+
         self.checkpoint_object = checkpoint_object
         self.timestep = timestep
         self.frequency = frequency
@@ -281,5 +288,5 @@ class DataModule(pl.LightningDataModule):
             if hasattr(dataset, "datasets"):
                 return dataset.datasets[dataset_index].field_shape
             return dataset.field_shape
-        assert decoder_index == 0 and dataset_index == 0
+        #assert decoder_index == 0 and dataset_index == 0
         return data_reader.field_shape
