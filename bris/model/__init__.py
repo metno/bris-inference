@@ -2,3 +2,4 @@
 from .brispredictor import BrisPredictor  # noqa
 from .multiencdecpredictor import MultiEncDecPredictor  # noqa
 from .interpolator import Interpolator
+from .mt_interpolator import mtInterpolator
