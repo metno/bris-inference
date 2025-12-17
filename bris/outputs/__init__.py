@@ -113,6 +113,9 @@ class Output:
             ensemble_member: Which ensemble member is this?
             pred: 3D numpy array with dimensions (leadtime, location, variable)
         """
+        assert ensemble_member >= 0
+        if ensemble_member >= self.pm.num_members:
+            return
 
         # Append extra variables to prediction
         for name in self.extra_variables:
@@ -144,8 +147,6 @@ class Output:
             pred.shape[2],
             len(self.pm.variables),
         )
-        assert ensemble_member >= 0
-        assert ensemble_member < self.pm.num_members
 
         t1 = time.perf_counter()
         self._add_forecast(times, ensemble_member, pred)
