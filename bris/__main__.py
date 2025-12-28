@@ -196,6 +196,10 @@ def main(arg_list: list[str] | None = None):
             LOGGER.debug(f"Waited {time.perf_counter() - t2:.1f}s for {p} to complete.")
 
     # Finalize all outputs, so they can flush to disk if needed
+    if "RANK" in os.environ:
+        print("# RANK: ", os.environ["RANK"])
+    if "SLURM_PROCID" in os.environ:
+        print("# SLURM_PROCID", os.environ["SLURM_PROCID"])
     is_main_thread = ("SLURM_PROCID" not in os.environ) or (
         os.environ["SLURM_PROCID"] == "0"
     )
