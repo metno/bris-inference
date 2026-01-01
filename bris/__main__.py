@@ -24,6 +24,8 @@ from .writer import CustomWriter
 
 
 def main(arg_list: list[str] | None = None):
+    is_main_thread = ("RANK" not in os.environ) or (os.environ["RANK"] == "0")
+
     t0 = time.perf_counter()
     args = parse_args(arg_list)
     config = create_config(args["config"], args)
@@ -52,14 +54,14 @@ def main(arg_list: list[str] | None = None):
     config.checkpoints.forecaster.timestep_seconds = frequency_to_seconds(
         config.checkpoints.forecaster.timestep
     )
+
     if "interpolator" in checkpoints:
-        config.checkpoints.interpolator.timestep_seconds = int(
-            config.checkpoints.forecaster.timestep_seconds
-            / (
-                len(checkpoints["interpolator"].config.training.explicit_times.target)
-                + 1
-            )
-        )
+        target_times = checkpoints["interpolator"].metadata.config.training.explicit_times.target
+        input_times = checkpoints["interpolator"].metadata.config.training.explicit_times.input
+        if target_times[-1] == input_times[-1]:
+            config.checkpoints.interpolator.timestep_seconds = int(config.checkpoints.forecaster.timestep_seconds / len(target_times))
+        else:
+            config.checkpoints.interpolator.timestep_seconds = int(config.checkpoints.forecaster.timestep_seconds / (len(target_times) + 1))
 
     num_members = config["hardware"].get("num_members", 1)
 
@@ -196,13 +198,6 @@ def main(arg_list: list[str] | None = None):
             LOGGER.debug(f"Waited {time.perf_counter() - t2:.1f}s for {p} to complete.")
 
     # Finalize all outputs, so they can flush to disk if needed
-    if "RANK" in os.environ:
-        print("# RANK: ", os.environ["RANK"])
-    if "SLURM_PROCID" in os.environ:
-        print("# SLURM_PROCID", os.environ["SLURM_PROCID"])
-    is_main_thread = ("SLURM_PROCID" not in os.environ) or (
-        os.environ["SLURM_PROCID"] == "0"
-    )
     if is_main_thread:
         LOGGER.debug("Starting finalizing all outputs.")
         t1 = time.perf_counter()

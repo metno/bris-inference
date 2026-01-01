@@ -18,7 +18,7 @@ from .basepredictor import BasePredictor
 from .model_utils import get_variable_indices
 
 
-class Interpolator(BasePredictor):
+class mtInterpolator(BasePredictor):
     """
     Combined Forecaster and Interpolator model.
 
@@ -163,13 +163,9 @@ class Interpolator(BasePredictor):
         self.interp_times = checkpoints[
             "interpolator"
         ].metadata.config.training.explicit_times.target
+        #temp:
+        #self.interp_times = self.interp_times[:-1]
         self.interpolator_steps = len(self.interp_times)
-        self.target_forcings = checkpoints[
-            "interpolator"
-        ].metadata.config.training.target_forcing.data
-        self.use_time_fraction = checkpoints[
-            "interpolator"
-        ].metadata.config.training.target_forcing.time_fraction
 
         self.reforcast_last = self.boundary_times[-1] == self.interp_times[-1]
 
@@ -428,47 +424,18 @@ class Interpolator(BasePredictor):
                         ..., self.data_indices["interpolator"].internal_data.input.full
                     ]
 
-                    # Setup target forcings
-                    num_tfi = len(self.target_forcings)
-                    target_forcing = torch.empty(
-                        interpolator_input.shape[0],
-                        interpolator_input.shape[2],
-                        interpolator_input.shape[3],
-                        num_tfi + self.use_time_fraction,
-                        device=interpolator_input.device,
-                        dtype=interpolator_input.dtype,
+                    y_pred_interp = self.interpolator(
+                        interpolator_input,
+                        model_comm_group=self.model_comm_group,
                     )
 
                     for interp_index, interp_step in enumerate(self.interp_times):
                         time_interp = time + interp_step * self.timestep_interpolator
-                        dynamic_target_forcings = get_dynamic_forcings(
-                            time_interp,
-                            self.latitudes,
-                            self.longitudes,
-                            self.target_forcings,
-                        )
-                        for forcing_index, forcing in enumerate(self.target_forcings):
-                            if np.ndarray is type(dynamic_target_forcings[forcing]):
-                                target_forcing[..., forcing_index] = torch.from_numpy(
-                                    dynamic_target_forcings[forcing]
-                                )
-                            else:
-                                target_forcing[..., forcing_index] = (
-                                    dynamic_target_forcings[forcing]
-                                )
-                        if self.use_time_fraction:
-                            target_forcing[..., -1] = (
-                                interp_step - self.boundary_times[-2]
-                            ) / (self.boundary_times[-1] - self.boundary_times[-2])
 
-                        y_pred_interp = self.interpolator(
-                            interpolator_input,
-                            target_forcing=target_forcing,
-                            model_comm_group=self.model_comm_group,
-                        )
+                        y_pred_interp_step = y_pred_interp[:, interp_index]
                         y_preds[:, fcast_index + interp_index] = (
                             self.interpolator.post_processors(
-                                y_pred_interp, in_place=True
+                                y_pred_interp_step, in_place=True
                             )[
                                 :,
                                 0,
