@@ -23,6 +23,7 @@ class Metno:
         """Gets the name of a NetCDF variable given level information"""
         if cfname in [
             "precipitation_amount",
+            "precipitation_amount_acc",
             "surface_air_pressure",
             "air_pressure_at_sea_level",
             "wind_speed_of_gust",
@@ -33,6 +34,8 @@ class Metno:
             "medium_type_cloud_area_fraction",
             "cloud_area_fraction",
             "atmosphere_mass_content_of_water",
+            "integral_of_surface_downwelling_shortwave_flux_in_air_wrt_time",
+            "integral_of_surface_downwelling_longwave_flux_in_air_wrt_time",
         ]:
             # Prevent _0m from being added at the end of variable name
             ncname = f"{cfname}"
@@ -85,3 +88,25 @@ class Metno:
             if v == ncname:
                 return k
         return ncname
+
+    @property
+    def fields_to_rotate(self) -> list[tuple[str, str]]:
+        """Returns a list of fields (with anemoi names) that need to be rotated from latlon to projected coordinates"""
+        ret = [
+            ("10u", "10v"),
+            ("100u", "100v"),
+            ("u_1000", "v_1000"),
+            ("u_925", "v_925"),
+            ("u_850", "v_850"),
+            ("u_700", "v_700"),
+            ("u_500", "v_500"),
+            ("u_400", "v_400"),
+            ("u_300", "v_300"),
+            ("u_250", "v_250"),
+            ("u_200", "v_200"),
+            ("u_150", "v_150"),
+            ("u_100", "v_100"),
+            ("u_50", "v_50"),
+        ]
+
+        return ret

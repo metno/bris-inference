@@ -35,17 +35,18 @@ def get_metadata(anemoi_variable: str) -> dict:
         "lcc": ("low_type_cloud_area_fraction", "height", 0),
         "mcc": ("medium_type_cloud_area_fraction", "height", 0),
         "tcc": ("cloud_area_fraction", "height", 0),
-        "ssrd": (
+        "tcw": ("atmosphere_mass_content_of_water", "height", 0),
+        "tp_acc": ("precipitation_amount_acc", "height", 0),
+        "ssrd_acc": (
             "integral_of_surface_downwelling_shortwave_flux_in_air_wrt_time",
             "height",
             0,
         ),
-        "strd": (
+        "strd_acc": (
             "integral_of_surface_downwelling_longwave_flux_in_air_wrt_time",
             "height",
             0,
         ),
-        "tcw": ("atmosphere_mass_content_of_water", "height", 0),
     }
 
     if anemoi_variable in variable_mapping:
@@ -123,6 +124,12 @@ def get_attributes(cfname: str) -> dict[str, str] | dict:
             "long_name": "height",
             "positive": "up",
         },
+        "height_above_msl": {
+            "units": "m",
+            "description": "height above MSL",
+            "long_name": "height",
+            "positive": "up",
+        },
         "thunder_event": {
             "standard_name": "thunderstorm_probability",
             "units": "1",
@@ -141,7 +148,10 @@ def get_attributes(cfname: str) -> dict[str, str] | dict:
         "geopotential": {"units": "m^2/s^2"},
         "surface_geopotential": {"units": "m^2/s^2"},
         "precipitation_amount": {"units": "kg/m^2"},
-        "precipitation_amount_acc": {"units": "kg/m^2"},
+        "precipitation_amount_acc": {
+            "units": "kg/m^2",
+            "standard_name": "precipitation_amount",
+        },
         "air_pressure_at_sea_level": {"units": "Pa"},
         "surface_air_pressure": {"units": "Pa"},
         "specific_humidity": {"units": "kg/kg"},
@@ -152,6 +162,19 @@ def get_attributes(cfname: str) -> dict[str, str] | dict:
         },
         "integral_of_surface_downwelling_shortwave_flux_in_air_wrt_time": {
             "units": "J/m^2"
+        },
+        "fog_type_cloud_area_fraction": {"units": "1"},
+        "high_type_cloud_area_fraction": {"units": "1"},
+        "low_type_cloud_area_fraction": {"units": "1"},
+        "medium_type_cloud_area_fraction": {"units": "1"},
+        "cloud_area_fraction": {"units": "1"},
+        "atmosphere_mass_content_of_water": {
+            "long_name": "Total column water contents (TCW)",
+            "units": "kg/m^2",
+        },
+        "surface_temperature": {
+            "long_name": "Surface (skin) temperature (SKT)",
+            "units": "K",
         },
     }
 
