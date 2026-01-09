@@ -31,7 +31,6 @@ def get(
     Returns:
         list of dicts:
             decoder_index (int)
-            domain_index (int)
             start_gridpoint (int)
             end_gridpoint (int)
             outputs (list)
@@ -47,10 +46,14 @@ def get(
     count = 0
     for config in routing_config:
         decoder_index = config["decoder_index"]
-        domain_index = config["domain_index"]
+        domain_index = config.get("domain_index", None)
 
         curr_grids = data_module.grids[decoder_index]
-        if domain_index == 0:
+
+        if domain_index is None:
+            start_gridpoint = 0
+            end_gridpoint = np.sum(curr_grids)
+        elif domain_index == 0:
             start_gridpoint = 0
             end_gridpoint = curr_grids[domain_index]
         else:
@@ -70,7 +73,11 @@ def get(
                 altitudes = data_module.altitudes[decoder_index][
                     start_gridpoint:end_gridpoint
                 ]
-            field_shape = data_module.field_shape[decoder_index][domain_index]
+            if domain_index is None:
+                # Concatenate all domains together
+                field_shape = (np.sum([g for g in data_module.grids]),)
+            else:
+                field_shape = data_module.field_shape[decoder_index][domain_index]
 
             curr_required_variables = required_variables[decoder_index]
 
