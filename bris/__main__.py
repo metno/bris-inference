@@ -19,6 +19,7 @@ from .utils import (
     set_base_seed,
     set_encoder_decoder_num_chunks,
     setup_logging,
+    get_dataset_config,
 )
 from .writer import CustomWriter
 
@@ -27,6 +28,7 @@ def main(arg_list: list[str] | None = None):
     t0 = time.perf_counter()
     args = parse_args(arg_list)
     config = create_config(args["config"], args)
+
     setup_logging(config)
 
     models = list(config.checkpoints.keys())
@@ -108,13 +110,8 @@ def main(arg_list: list[str] | None = None):
             ),
             "%Y-%m-%dT%H:%M:%S",
         )
-
-    config.dataset = {
-        "dataset": config.dataset,
-        "start": config.start_date,
-        "end": config.end_date,
-        "frequency": config.frequency,
-    }
+    # Get dataset config with backwards comapatibility for single dataset config setup
+    config.datasets = get_dataset_config(config)
 
     datamodule = DataModule(
         config=config,

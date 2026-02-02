@@ -30,12 +30,12 @@ def get(
         checkpoints: Dictionary with checkpoints
     Returns:
         list of dicts:
-            decoder_index (int)
+            decoder_name (str)
             start_gridpoint (int)
             end_gridpoint (int)
             outputs (list)
         dicts:
-            decoder_index -> variable_indices
+            decoder_name -> variable_indices
 
     """
 
@@ -45,10 +45,10 @@ def get(
     )
     count = 0
     for config in routing_config:
-        decoder_index = config["decoder_index"]
+        decoder_name = config["decoder_name"]
         domain_index = config.get("domain_index", None)
 
-        curr_grids = data_module.grids[decoder_index]
+        curr_grids = data_module.grids[decoder_name]
 
         if domain_index is None:
             start_gridpoint = 0
@@ -66,20 +66,17 @@ def get(
             if "netcdf" in oc:
                 oc = add_checkpoint_name_to_attrs(oc, checkpoints)
 
-            lats = data_module.latitudes[decoder_index][start_gridpoint:end_gridpoint]
-            lons = data_module.longitudes[decoder_index][start_gridpoint:end_gridpoint]
+            lats = data_module.latitudes[decoder_name][start_gridpoint:end_gridpoint]
+            lons = data_module.longitudes[decoder_name][start_gridpoint:end_gridpoint]
             altitudes = None
-            if data_module.altitudes[decoder_index] is not None:
-                altitudes = data_module.altitudes[decoder_index][
+            if data_module.altitudes[decoder_name] is not None:
+                altitudes = data_module.altitudes[decoder_name][
                     start_gridpoint:end_gridpoint
                 ]
-            if domain_index is None:
-                # Concatenate all domains together
-                field_shape = (np.sum([g for g in data_module.grids]),)
-            else:
-                field_shape = data_module.field_shape[decoder_index][domain_index]
 
-            curr_required_variables = required_variables[decoder_index]
+            field_shape = data_module.field_shape[decoder_name][domain_index]
+
+            curr_required_variables = required_variables[decoder_name]
 
             pm = PredictMetadata(
                 curr_required_variables,
@@ -101,7 +98,7 @@ def get(
         # gridpoints and is not used elsewhere in the code
         ret += [
             {
-                "decoder_index": decoder_index,
+                "decoder_name": decoder_name,
                 "start_gridpoint": start_gridpoint,
                 "end_gridpoint": end_gridpoint,
                 "outputs": outputs,
@@ -141,14 +138,14 @@ def get_required_variables(
         for oc in rc["outputs"]:
             for output_type, args in oc.items():
                 var_list += bris.outputs.get_required_variables(output_type, args)
-        required_variables[rc["decoder_index"]] += var_list
+        required_variables[rc["decoder_name"]] += var_list
 
-    for decoder_index, v in required_variables.items():
+    for decoder_name, v in required_variables.items():
         if None in v:
-            name_to_index = checkpoint_object.model_output_name_to_index[decoder_index]
-            required_variables[decoder_index] = sorted(list(set(name_to_index.keys())))
+            model_output = checkpoint_object.data_indices[decoder_name].model.output.includes
+            required_variables[decoder_name] = sorted(model_output)
         else:
-            required_variables[decoder_index] = sorted(list(set(v)))
+            required_variables[decoder_name] = sorted(list(set(v)))
 
     return required_variables
 

@@ -33,8 +33,8 @@ class NativeGridDataset(IterableDataset):
 
     def __init__(
         self,
-        data_reader: Callable,
-        grid_indices: list[type[BaseGridIndices]],
+        data_readers: dict[str, Callable],
+        grid_indices: dict[str, type[BaseGridIndices]],
         rollout: int = 1,
         multistep: int = 1,
         timeincrement: int = 1,
@@ -45,11 +45,12 @@ class NativeGridDataset(IterableDataset):
         """Initialize (part of) the dataset state.
 
         Args:
-        data_reader : Callable
-            user function that opens and returns the zarr array data
+        data_reader : dict[str, Callable]
+            dict containing the dataset name and a user function that opens and 
+            returns the zarr array data
 
-        grid_indices : Type[BaseGridIndices]
-            indices of the grid to keep. Defaults to None, which keeps all spatial indices.
+        grid_indices : dict[str, type[BaseGridIndices]]
+            dict containing the dataset name and indices of the grid to keep. Defaults to None, which keeps all spatial indices
 
         rollout : int, optional
             length of rollout window, default 1
@@ -71,11 +72,12 @@ class NativeGridDataset(IterableDataset):
             for each member in the sequence.
         """
         self.label = label
-        self.data = data_reader
+        self.data = data_readers
+        self.dataset_names = list(data_readers.keys())
 
         self.rollout = rollout
         self.timeincrement = timeincrement
-        self.grid_indices = grid_indices[0]  # Assume 1 input dataset
+        self.grid_indices = grid_indices
         self.num_members_in_sequence = num_members_in_sequence
 
         # Lazy init
@@ -101,11 +103,17 @@ class NativeGridDataset(IterableDataset):
         self.ensemble_dim: int = 2
 
         if init_ensemble_size:
-            self.ensemble_size = self.data.shape[self.ensemble_dim]
+            self.ensemble_size = self.data[self.dataset_names[0]].shape[self.ensemble_dim]
+            for dataset_name in self.dataset_names:
+                assert self.data[dataset_name].shape[self.ensemble_dim] == self.ensemble_size, (
+                    f"Ensemble size mismatch for dataset {dataset_name}: "
+                    f"{self.data[dataset_name].shape[self.ensemble_dim]} != {self.ensemble_size}"
+                )
+        
 
     @cached_property
     def valid_date_indices(self) -> np.ndarray:
-        """Return valid date indices.
+        """Return common valid date indices for all datasets.
 
         A date t is valid if we can sample the sequence
             (t - multistep + 1, ..., t + rollout)
@@ -115,13 +123,28 @@ class NativeGridDataset(IterableDataset):
         dataset length minus rollout minus additional multistep inputs
         (if time_increment is 1).
         """
-        return get_usable_indices(
-            self.data.missing,
-            len(self.data),
-            self.rollout,
-            self.multi_step,
-            self.timeincrement,
-        )
+        dataset_length = len(self.data[self.dataset_names[0]])
+        for dataset_name in self.dataset_names[1:]:
+            assert len(self.data[dataset_name]) == dataset_length, (
+                f"Dataset length mismatch for dataset {dataset_name}: "
+                f"{len(self.data[dataset_name])} != {dataset_length}"
+            )
+        valid_indices = {}
+        for dataset_name in self.dataset_names:
+            valid_indices[dataset_name] = get_usable_indices(
+                self.data[dataset_name].missing,
+                dataset_length,
+                self.rollout,
+                self.multi_step,
+                self.timeincrement,
+            )
+        
+        common_valid_indices = set(valid_indices[self.dataset_names[0]])
+        for dataset_name in self.dataset_names[1:]:
+            common_valid_indices &= set(valid_indices[dataset_name])
+        common_valid_indices = np.array(sorted(common_valid_indices), dtype=np.uint32)
+
+        return common_valid_indices
 
     def set_comm_group_info(
         self,
@@ -222,7 +245,7 @@ class NativeGridDataset(IterableDataset):
         random.seed(base_seed)
         self.rng = np.random.default_rng(seed=base_seed)
 
-    def __iter__(self) -> Iterator[tuple[torch.Tensor, str]]:
+    def __iter__(self) -> Iterator[tuple[dict[str, torch.Tensor], str]]:
         """Return an iterator over the dataset.
 
         The datasets are retrieved by Anemoi Datasets from zarr files. This iterator yields
@@ -238,15 +261,20 @@ class NativeGridDataset(IterableDataset):
             start = i - (self.multi_step - 1) * self.timeincrement
             end = i + (self.rollout + 1) * self.timeincrement
 
-            grid_shard_indices = self.grid_indices.get_shard_indices(
-                self.reader_group_rank
-            )
-            x = self.data[start : end : self.timeincrement, :, :, :]
-            x = x[..., grid_shard_indices]  # select the grid shard
-            x = rearrange(
-                x,
-                "dates variables ensemble gridpoints -> dates ensemble gridpoints variables",
-            )
+            batch = {}
+            for dataset_name in self.dataset_names:
+                                
+                grid_shard_indices = self.grid_indices[dataset_name].get_shard_indices(
+                    self.reader_group_rank
+                )
+                x = self.data[dataset_name][start : end : self.timeincrement, :, :, :]
+                x = x[..., grid_shard_indices]  # select the grid shard
+                x = rearrange(
+                    x,
+                    "dates variables ensemble gridpoints -> dates ensemble gridpoints variables",
+                )
+                batch[dataset_name] = torch.from_numpy(x)
+            
             self.ensemble_dim = 1
 
-            yield (torch.from_numpy(x), str(self.data.dates[i]))
+            yield (batch, str(self.data[self.dataset_names[0]].dates[i]))
