@@ -71,7 +71,7 @@ class CustomWriter(BasePredictionWriter):
         ensemble_member = prediction["ensemble_member"]
         if prediction["group_rank"] == 0:
             for output_dict in self.outputs:
-                pred = prediction["pred"][output_dict["decoder_index"]]
+                pred = prediction["pred"][output_dict["decoder_name"]]
                 assert pred.shape[0] == 1, "Batchsize (per dataparallel) should be 1"
                 pred = np.squeeze(pred, axis=0)
                 pred = pred[

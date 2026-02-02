@@ -81,18 +81,6 @@ def parse_args(arg_list: list[str] | None) -> ArgumentParser:
     parser = ArgumentParser()
     parser.add_argument("--debug", action="store_true")
     parser.add_argument("--config", type=str, required=True)
-    parser.add_argument(
-        "-p", type=str, dest="dataset_path", help="Path to dataset", default=None
-    )
-    parser.add_argument(
-        "-pc",
-        type=str,
-        dest="dataset_path_cutout",
-        nargs="*",
-        help="List of paths for the input datasets in a cutout dataset",
-        default=None,
-        const=None,
-    )
 
     parser.add_argument(
         "-sd",
@@ -309,3 +297,28 @@ def get_all_leadtimes(
     )
 
     return np.concatenate([high_res, low_res])
+
+def get_dataset_config(config: DictConfig) -> DictConfig:
+    """Convert dataset config to the correct format."""
+    if "dataset" in config:
+        ds_cfg = {
+            "data": {
+                "dataset": config.dataset,
+                "start": config.start_date,
+                "end": config.end_date,
+                "frequency": config.frequency,
+            }
+        }
+    elif "datasets" in config:
+        ds_cfg = {}
+        for dataset_name, dataset_recipe in config.datasets.items():
+            ds_cfg[dataset_name] = {
+                "dataset": dataset_recipe,
+                "start": config.start_date,
+                "end": config.end_date,
+                "frequency": config.frequency,
+            }
+    else:
+        raise ValueError("Config must contain either 'dataset' or 'datasets' key.")
+    
+    return OmegaConf.create(ds_cfg)

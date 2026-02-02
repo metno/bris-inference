@@ -2,6 +2,7 @@ import numpy as np
 import torch
 from anemoi.datasets.data.dataset import Dataset
 from anemoi.models.data_indices.index import DataIndex, ModelIndex
+from anemoi.utils.config import DotDict
 
 from ..forcings import anemoi_dynamic_forcings, get_dynamic_forcings
 
@@ -11,7 +12,6 @@ def get_model_static_forcings(
     data_reader: Dataset,
     data_normalized,
     internal_data: DataIndex,
-    dataset_no: int | None = None,
 ) -> dict:
     """Get static forcings from the model.
 
@@ -24,11 +24,6 @@ def get_model_static_forcings(
 
         internal_data (DataIndex): Data index object, from checkpoint.data_indices
 
-        dataset_no (int | None): Dataset number. If None, data_reader and
-            internal_data contains only one, simple dataset. If not None,
-            dataset_reader and internal_data contains multiple datasets used for
-            a multiencdec model, and we have to use dataset_no to fetch the
-            correct one, like data_reader.latitudes[dataset_no].
     """
     static_forcings = {}
     if selection is None:
@@ -36,72 +31,32 @@ def get_model_static_forcings(
 
     if "cos_latitude" in selection:
         static_forcings["cos_latitude"] = torch.from_numpy(
-            np.cos(
-                (
-                    data_reader.latitudes[dataset_no]
-                    if dataset_no is not None
-                    else data_reader.latitudes
-                )
-                * np.pi
-                / 180.0
-            )
+            np.cos(data_reader.latitudes * np.pi / 180.0)
         ).float()
 
     if "sin_latitude" in selection:
         static_forcings["sin_latitude"] = torch.from_numpy(
-            np.sin(
-                (
-                    data_reader.latitudes[dataset_no]
-                    if dataset_no is not None
-                    else data_reader.latitudes
-                )
-                * np.pi
-                / 180.0
-            )
+            np.sin(data_reader.latitudes) * np.pi / 180.0
         ).float()
 
     if "cos_longitude" in selection:
         static_forcings["cos_longitude"] = torch.from_numpy(
-            np.cos(
-                (
-                    data_reader.longitudes[dataset_no]
-                    if dataset_no is not None
-                    else data_reader.longitudes
-                )
-                * np.pi
-                / 180.0
-            )
+            np.cos(data_reader.longitudes) * np.pi / 180.0
         ).float()
 
     if "sin_longitude" in selection:
         static_forcings["sin_longitude"] = torch.from_numpy(
-            np.sin(
-                (
-                    data_reader.longitudes[dataset_no]
-                    if dataset_no is not None
-                    else data_reader.longitudes
-                )
-                * np.pi
-                / 180.0
-            )
+            np.sin(data_reader.longitudes) * np.pi / 180.0
         ).float()
 
     if "lsm" in selection:
         static_forcings["lsm"] = (
-            data_normalized[dataset_no][
-                ..., internal_data.input.name_to_index["lsm"]
-            ].float()
-            if dataset_no is not None
-            else data_normalized[..., internal_data.input.name_to_index["lsm"]].float()
-        )
+            data_normalized[..., internal_data.input.name_to_index["lsm"]]
+        ).float()
 
     if "z" in selection:
         static_forcings["z"] = (
-            data_normalized[dataset_no][
-                ..., internal_data.input.name_to_index["z"]
-            ].float()
-            if dataset_no is not None
-            else data_normalized[..., internal_data.input.name_to_index["z"]].float()
+            data_normalized[..., internal_data.input.name_to_index["z"]].float()
         )
 
     return static_forcings
@@ -112,7 +67,7 @@ def get_variable_indices(
     datamodule_variables: list,
     internal_data: DataIndex,
     internal_model: ModelIndex,
-    decoder_index: int,
+    decoder_name: int,
 ) -> tuple[dict, dict]:
     """
     Helper function for BrisPredictor, get indices for variables in input data and model. This is used to map the
@@ -122,7 +77,7 @@ def get_variable_indices(
         datamodule_variables (list): List of variables in the input data.
         internal_data (DataIndex): Data index object, from checkpoint.data_indices
         internal_model (ModelIndex): Model index object, from checkpoint.data_indices.model
-        decoder_index (int): Index of decoder, always zero for brispredictor.
+        decoder_name (int): Name of dataset associated with decoder.
     Returns:
         tuple[dict, dict]:
             - indices: A dictionary containing the indices for the variables in the input data and the model.
@@ -170,7 +125,7 @@ def get_variable_indices(
     ]
     if len(missing_vars) > 0:
         raise ValueError(
-            f"Missing the following required variables in dataset {decoder_index}: {missing_vars}"
+            f"Missing the following required variables in dataset {decoder_name}: {missing_vars}"
         )
 
     indices_prognostic_dataset = torch.tensor(
@@ -230,3 +185,19 @@ def get_variable_indices(
     }
 
     return indices, variables
+
+def get_data_config(config: DotDict) -> DotDict:
+    """Get data configuration from the model configuration.
+    Backwards compatibility to checkpoints with old data config structure.
+
+    Args:
+        config (DotDict): Model configuration.
+    Returns:
+        DotDict: Data configuration.
+    """
+
+    if "dataset_specific" in config.data:
+        return config.data.dataset_specific.datasets
+    
+    cfg = DotDict({"data": config.data})
+    return cfg
