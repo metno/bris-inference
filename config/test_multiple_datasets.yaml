@@ -1,0 +1,86 @@
+start_date: 2023-06-01T00:00:00
+end_date: 2023-06-01T00:00:00
+
+checkpoints: 
+  forecaster:
+    checkpoint_path: /leonardo_work/EUHPC_R04_079/hhaugen/multi_model_mapper_int/test_output/checkpoint/49ea4970-8849-4e8c-b5cb-d40c1ca7ec38/inference-anemoi-by_epoch-epoch_000-step_000100.ckpt
+    leadtimes: 11
+
+frequency: 6h
+
+system:
+  input:
+    datasets: /leonardo_work/DestE_330_25/anemoi/datasets/
+    dataset_meps: MEPS/aifs-meps-2.5km-2020-2023-6h-v7.zarr
+    dataset_era_atm: IFS/aifs-od-an-oper-0001-mars-n320-2019-2023-6h-v6.zarr
+    dataset_era_sfc: ERA5/aifs-ea-an-oper-0001-mars-n320-1979-2023-6h-v1-land.zarr
+
+
+output: ??
+workdir: ??
+
+hardware:
+  num_gpus_per_node: 4
+  num_gpus_per_model: 4
+  num_nodes: 1
+  num_members: 1 # Number of ensemble members
+
+# If the user wants to release GPU cache and memory
+# This option releases unused cached/memory used by torch
+release_cache: False
+
+datasets:
+  era_meps_sg: 
+    dataset:
+      cutout:
+      - dataset: ${system.input.datasets}${system.input.dataset_meps}
+        trim_edge: 50
+        reorder: sort
+      - join:
+        - dataset: ${system.input.datasets}${system.input.dataset_era_atm}
+        - dataset: ${system.input.datasets}${system.input.dataset_era_sfc}
+        adjust: ["start", "end"]
+        reorder: sort
+      min_distance_km: 0
+      adjust: all
+    select: ${selected_vars}
+    reorder: sort
+
+  obs: 
+    dataset: 
+      dataset: ${system.input.datasets}${system.input.dataset_meps}
+      trim_edge: 200
+    thinning: 4
+    select: ["2t", "10u", "10v", "lsm", "z"]
+
+dataloader:
+  datamodule:
+    _target_: bris.data.dataset.NativeGridDataset
+    _convert_: all
+
+model:
+  _target_: bris.model.BrisPredictor
+  _convert_: all
+
+
+selected_vars: ['10u', '10v', '2d', '2t', 'cos_julian_day', 'cos_latitude', 'cos_local_time', 'cos_longitude', 'hcc', 'insolation', 'lcc', 'lsm', 'mcc', 'msl', 'q_100', 'q_1000', 'q_150', 'q_200', 'q_250', 'q_300', 'q_400', 'q_50', 'q_500', 'q_700', 'q_850', 'q_925', 'sin_julian_day', 'sin_latitude', 'sin_local_time', 'sin_longitude', 'skt', 'sp', 'ssrd', 'strd', 't_100', 't_1000', 't_150', 't_200', 't_250', 't_300', 't_400', 't_50', 't_500', 't_700', 't_850', 't_925', 'tcc', 'tcw', 'tp', 'u_100', 'u_1000', 'u_150', 'u_200', 'u_250', 'u_300', 'u_400', 'u_50', 'u_500', 'u_700', 'u_850', 'u_925', 'v_100', 'v_1000', 'v_150', 'v_200', 'v_250', 'v_300', 'v_400', 'v_50', 'v_500', 'v_700', 'v_850', 'v_925', 'w_100', 'w_1000', 'w_150', 'w_200', 'w_250', 'w_300', 'w_400', 'w_50', 'w_500', 'w_700', 'w_850', 'w_925', 'z', 'z_100', 'z_1000', 'z_150', 'z_200', 'z_250', 'z_300', 'z_400', 'z_50', 'z_500', 'z_700', 'z_850', 'z_925']
+
+
+routing:
+  - decoder_name: era_meps_sg
+    domain_index: 0
+    outputs:
+      - netcdf:
+          filename_pattern: ${output}/pred_sg_%Y-%m-%dT%H.nc
+          variables: [2t, msl, tp]
+          extra_variables: [ws]
+          domain_name: meps
+
+  - decoder_name: obs
+    domain_index: 0
+    outputs:
+      - netcdf:
+          filename_pattern: ${output}/pred_obs_%Y-%m-%dT%H.nc
+          variables: [2t]
+          extra_variables: [ws]
+          domain_name: meps
