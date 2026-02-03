@@ -103,8 +103,7 @@ class BrisPredictor(BasePredictor):
         self.latitudes = datamodule.latitudes
         self.longitudes = datamodule.longitudes
         self.fcstep_const = fcstep_const
-        self.dataset_names = ["era_meps_sg", "obs"]
-        #self.dataset_names = get(checkpoint.models, "inputs", ["data"])
+        self.dataset_names = checkpoint.model.model.inputs
 
         assert self.dataset_names == datamodule.dataset_names, (
             f" Dataset names of the input data {datamodule.dataset_names} do not match expected dataset names {self.dataset_names} of the model."
@@ -198,7 +197,8 @@ class BrisPredictor(BasePredictor):
             torch.Tensor: Advanced input tensor for the next prediction step.
         """
         # Shift the input tensor to the next time step
-        for ds, _x in x.items():
+        for ds in x.keys():
+            _x = x[ds]
             _x = _x.roll(-1, dims=1)
 
             # Get prognostic variables:
@@ -218,6 +218,8 @@ class BrisPredictor(BasePredictor):
                     )
                 else:
                     _x[:, -1, :, :, self.internal_model[ds].input.name_to_index[forcing]] = value
+
+            x[ds] = _x
         return x
 
     @torch.inference_mode
