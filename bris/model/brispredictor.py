@@ -103,7 +103,12 @@ class BrisPredictor(BasePredictor):
         self.latitudes = datamodule.latitudes
         self.longitudes = datamodule.longitudes
         self.fcstep_const = fcstep_const
-        self.dataset_names = checkpoint.model.model.inputs
+        if hasattr(checkpoint.model.model, "inputs"):
+            self.dataset_names = checkpoint.model.model.inputs
+        elif hasattr(checkpoint.model.model, "dataset_names"): # Compatilbility with anemoi core main
+            self.dataset_names = checkpoint.model.model.dataset_names
+        else: # Legacy compatibility
+            self.dataset_names = ["data"]
 
         assert self.dataset_names == datamodule.dataset_names, (
             f" Dataset names of the input data {datamodule.dataset_names} do not match expected dataset names {self.dataset_names} of the model."

@@ -198,6 +198,8 @@ def get_data_config(config: DotDict) -> DotDict:
 
     if "dataset_specific" in config.data:
         return config.data.dataset_specific.datasets
+    elif "datasets" in config.data:
+        return config.data.datasets
     
     cfg = DotDict({"data": config.data})
     return cfg
