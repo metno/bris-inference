@@ -36,17 +36,17 @@ def get_model_static_forcings(
 
     if "sin_latitude" in selection:
         static_forcings["sin_latitude"] = torch.from_numpy(
-            np.sin(data_reader.latitudes) * np.pi / 180.0
+            np.sin(data_reader.latitudes * np.pi / 180.0)
         ).float()
 
     if "cos_longitude" in selection:
         static_forcings["cos_longitude"] = torch.from_numpy(
-            np.cos(data_reader.longitudes) * np.pi / 180.0
+            np.cos(data_reader.longitudes * np.pi / 180.0)
         ).float()
 
     if "sin_longitude" in selection:
         static_forcings["sin_longitude"] = torch.from_numpy(
-            np.sin(data_reader.longitudes) * np.pi / 180.0
+            np.sin(data_reader.longitudes * np.pi / 180.0)
         ).float()
 
     if "lsm" in selection:
