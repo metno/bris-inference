@@ -308,7 +308,7 @@ class Verif(Output):
                     ["time", "leadtime", "location", "ensemble_member"],
                     ens,
                 )
-                self.ds["ens-mean"] = (["time", "leadtime", "location"], ens_mean)
+                self.ds["ensemble_mean"] = (["time", "leadtime", "location"], ens_mean)
             # Load threshold forecasts
             if len(self.thresholds) > 0 and self.num_members > 1:
                 cdf = self.create_nan_array(fcst_shape + (len(self.thresholds),))
@@ -383,7 +383,7 @@ class Verif(Output):
 
         if self.num_members > 1:
             crps = self.compute_crps(ens, obs, self.fair_crps)
-            self.ds["crps"] = (["time", "leadtime", "location"], crps)
+            self.ds["ensemble_crps"] = (["time", "leadtime", "location"], crps)
 
         self.ds.attrs["units"] = self.units
         self.ds.attrs["verif_version"] = "1.0.0"
@@ -395,10 +395,10 @@ class Verif(Output):
             "obs",
             "fcst",
             "ensemble",
-            "ens-mean",
+            "ensemble_mean",
             "cdf",
             "x",
-            "crps",
+            "ensemble_crps",
             "pit",
         ]
         if self.compression:
