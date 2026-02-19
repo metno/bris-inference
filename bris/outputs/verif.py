@@ -281,6 +281,7 @@ class Verif(Output):
         )
         fcst = self.create_nan_array(fcst_shape)
         ens_mean = self.create_nan_array(fcst_shape)
+        ens_var = self.create_nan_array(fcst_shape)
         ens = self.create_nan_array(fcst_shape + (self.num_members,))
         for i, frt in enumerate(frts):
             curr = self.intermediate.get_forecast(frt)[..., 0, :]
@@ -288,6 +289,7 @@ class Verif(Output):
             if self.num_members > 1:
                 ens[i, ...] = curr
                 ens_mean[i, ...] = curr.mean(axis=-1)
+                ens_var[i, ...] = curr.var(axis=-1)
 
         if self.variable_type in ["logit", "threshold_probability"]:
             cdf = np.copy(fcst)
@@ -309,6 +311,7 @@ class Verif(Output):
                     ens,
                 )
                 self.ds["ensemble_mean"] = (["time", "leadtime", "location"], ens_mean)
+                self.ds["ensemble_variance"] = (["time", "leadtime", "location"], ens_var)
             # Load threshold forecasts
             if len(self.thresholds) > 0 and self.num_members > 1:
                 cdf = self.create_nan_array(fcst_shape + (len(self.thresholds),))
@@ -396,6 +399,7 @@ class Verif(Output):
             "fcst",
             "ensemble",
             "ensemble_mean",
+            "ensemble_variance",
             "cdf",
             "x",
             "ensemble_crps",
