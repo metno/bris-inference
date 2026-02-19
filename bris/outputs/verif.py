@@ -311,7 +311,10 @@ class Verif(Output):
                     ens,
                 )
                 self.ds["ensemble_mean"] = (["time", "leadtime", "location"], ens_mean)
-                self.ds["ensemble_variance"] = (["time", "leadtime", "location"], ens_var)
+                self.ds["ensemble_variance"] = (
+                    ["time", "leadtime", "location"],
+                    ens_var,
+                )
             # Load threshold forecasts
             if len(self.thresholds) > 0 and self.num_members > 1:
                 cdf = self.create_nan_array(fcst_shape + (len(self.thresholds),))
