@@ -233,7 +233,7 @@ class DataModule(pl.LightningDataModule):
                 if np.prod(_field_shape) == grid:
                     field_shape[decoder_name][dataset_index] = _field_shape
                 else:
-                    field_shape[decoder_name][dataset_index] = grid
+                    field_shape[decoder_name][dataset_index] = (grid,)
         
         return field_shape
 

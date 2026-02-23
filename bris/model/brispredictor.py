@@ -124,7 +124,7 @@ class BrisPredictor(BasePredictor):
             self.internal_data[ds] = self.data_indices[ds].data
 
             self.indices[ds], self.variables[ds] = get_variable_indices(
-                required_variables=required_variables[ds],
+                required_variables=required_variables.get(ds, []),
                 datamodule_variables=datamodule.data_readers[ds].variables,
                 internal_data=self.internal_data[ds],
                 internal_model=self.internal_model[ds],
