@@ -73,8 +73,11 @@ def get(
                 altitudes = data_module.altitudes[decoder_name][
                     start_gridpoint:end_gridpoint
                 ]
-
-            field_shape = data_module.field_shape[decoder_name][domain_index]
+            
+            if domain_index is None:
+                field_shape = (np.sum([g for g in data_module.grids[decoder_name]]),)
+            else:
+                field_shape = data_module.field_shape[decoder_name][domain_index]
 
             curr_required_variables = required_variables[decoder_name]
 

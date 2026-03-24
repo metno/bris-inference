@@ -1,15 +1,15 @@
 import numpy as np
 import torch
-from anemoi.datasets.data.dataset import Dataset
 from anemoi.models.data_indices.index import DataIndex, ModelIndex
 from anemoi.utils.config import DotDict
+from collections.abc import Iterable
 
 from ..forcings import anemoi_dynamic_forcings, get_dynamic_forcings
 
 
 def get_model_static_forcings(
     selection: list,
-    data_reader: Dataset,
+    data_reader: Iterable,
     data_normalized,
     internal_data: DataIndex,
 ) -> dict:

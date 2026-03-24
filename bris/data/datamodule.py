@@ -2,8 +2,16 @@ import logging
 from functools import cached_property
 from typing import Any
 
-import anemoi.datasets.data.select
-import anemoi.datasets.data.subset
+try:
+    import anemoi.datasets.data.select
+except ImportError:
+    import anemoi.datasets.usage.gridded.select
+
+try:
+    import anemoi.datasets.data.subset
+except ImportError:
+    import anemoi.datasets.usage.gridded.subset
+    
 import numpy as np
 import pytorch_lightning as pl
 from anemoi.datasets import open_dataset
