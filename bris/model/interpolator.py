@@ -155,6 +155,7 @@ class Interpolator(BasePredictor):
             self.variables["interpolator_forcings"],
             self.indices["interpolator_forcings"],
             self.data_indices["interpolator"].internal_data,
+            normalize=False,
         )
 
         self.boundary_times = checkpoints[
