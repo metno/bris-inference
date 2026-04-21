@@ -164,8 +164,8 @@ class mtInterpolator(BasePredictor):
         self.interp_times = checkpoints[
             "interpolator"
         ].metadata.config.training.explicit_times.target
-        #temp:
-        #self.interp_times = self.interp_times[:-1]
+        # temp:
+        # self.interp_times = self.interp_times[:-1]
         self.interpolator_steps = len(self.interp_times)
 
         self.reforcast_last = self.boundary_times[-1] == self.interp_times[-1]
@@ -447,7 +447,7 @@ class mtInterpolator(BasePredictor):
                         times.append(time_interp)
 
                     fcast_index += self.interpolator_steps
-                if not self.reforcast_last:    
+                if not self.reforcast_last:
                     y_preds[:, fcast_index] = self.forecaster.post_processors(
                         y_pred, in_place=True
                     )[:, 0, :, self.indices["forecaster"]["variables_output"]].cpu()
@@ -456,7 +456,7 @@ class mtInterpolator(BasePredictor):
                     fcast_index += 1
                 else:
                     time += self.timestep_forecaster
-                    
+
         self.update_batch_info(time)
         return {
             "pred": [y_preds.to(torch.float32).numpy()],
