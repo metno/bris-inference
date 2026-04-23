@@ -1,14 +1,18 @@
+from __future__ import annotations
+
 import os
 from collections import defaultdict
-from typing import Any, Literal
+from typing import Any, Literal, TYPE_CHECKING
 
 import numpy as np
 
 import bris.outputs
 from bris import utils
-from bris.checkpoint import Checkpoint
-from bris.data.datamodule import DataModule
 from bris.predict_metadata import PredictMetadata
+
+if TYPE_CHECKING:
+    from bris.checkpoint import Checkpoint
+    from bris.data.datamodule import DataModule
 
 
 def get(
@@ -53,12 +57,18 @@ def get(
         if domain_index is None:
             start_gridpoint = 0
             end_gridpoint = np.sum(curr_grids)
+            if len(curr_grids) == 1:
+                field_shape = data_module.field_shape[decoder_name][0]
+            else:
+                field_shape = (int(end_gridpoint),)
         elif domain_index == 0:
             start_gridpoint = 0
             end_gridpoint = curr_grids[domain_index]
+            field_shape = data_module.field_shape[decoder_name][domain_index]
         else:
             start_gridpoint = np.sum(curr_grids[0:domain_index])
             end_gridpoint = start_gridpoint + curr_grids[domain_index]
+            field_shape = data_module.field_shape[decoder_name][domain_index]
 
         outputs = []
         for oc in config["outputs"]:
@@ -73,8 +83,6 @@ def get(
                 altitudes = data_module.altitudes[decoder_name][
                     start_gridpoint:end_gridpoint
                 ]
-
-            field_shape = data_module.field_shape[decoder_name][domain_index]
 
             curr_required_variables = required_variables[decoder_name]
 

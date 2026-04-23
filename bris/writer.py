@@ -59,13 +59,14 @@ class CustomWriter(BasePredictionWriter):
 
         # Wait for processes from the previous batch to finish
         LOGGER.debug(f"CustomWriter process_list contains {self.process_list}")
-        while len(self.process_list) > 0:
-            LOGGER.debug(
-                "CustomWriter waiting for previous process to complete before writing new data."
-            )
-            process = self.process_list.pop()
-            process.result()
-            LOGGER.debug("CustomWriter previous process completed.")
+        if self.process_list is not None:
+            while len(self.process_list) > 0:
+                LOGGER.debug(
+                    "CustomWriter waiting for previous process to complete before writing new data."
+                )
+                process = self.process_list.pop()
+                process.result()
+                LOGGER.debug("CustomWriter previous process completed.")
 
         times = prediction["times"]
         ensemble_member = prediction["ensemble_member"]
