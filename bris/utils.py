@@ -298,6 +298,7 @@ def get_all_leadtimes(
 
     return np.concatenate([high_res, low_res])
 
+
 def get_dataset_config(config: DictConfig) -> DictConfig:
     """Convert dataset config to the correct format."""
     if "dataset" in config:
@@ -320,5 +321,5 @@ def get_dataset_config(config: DictConfig) -> DictConfig:
             }
     else:
         raise ValueError("Config must contain either 'dataset' or 'datasets' key.")
-    
+
     return OmegaConf.create(ds_cfg)

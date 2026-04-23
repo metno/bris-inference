@@ -222,7 +222,7 @@ class Checkpoint:
     @cached_property
     def data_indices(self) -> dict[str, IndexCollection]:
         _data_indices = self._model_instance.data_indices
-        if isinstance(_data_indices, IndexCollection): #Backwards compatibility
+        if isinstance(_data_indices, IndexCollection):  # Backwards compatibility
             return {"data": _data_indices}
         else:
             return _data_indices

@@ -55,9 +55,9 @@ def get_model_static_forcings(
         ).float()
 
     if "z" in selection:
-        static_forcings["z"] = (
-            data_normalized[..., internal_data.input.name_to_index["z"]].float()
-        )
+        static_forcings["z"] = data_normalized[
+            ..., internal_data.input.name_to_index["z"]
+        ].float()
 
     return static_forcings
 
@@ -186,6 +186,7 @@ def get_variable_indices(
 
     return indices, variables
 
+
 def get_data_config(config: DotDict) -> DotDict:
     """Get data configuration from the model configuration.
     Backwards compatibility to checkpoints with old data config structure.
@@ -200,6 +201,6 @@ def get_data_config(config: DotDict) -> DotDict:
         return config.data.dataset_specific.datasets
     elif "datasets" in config.data:
         return config.data.datasets
-    
+
     cfg = DotDict({"data": config.data})
     return cfg

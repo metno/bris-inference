@@ -73,7 +73,7 @@ def get(
                 altitudes = data_module.altitudes[decoder_name][
                     start_gridpoint:end_gridpoint
                 ]
-            
+
             if domain_index is None:
                 field_shape = (np.sum([g for g in data_module.grids[decoder_name]]),)
             else:
@@ -145,7 +145,9 @@ def get_required_variables(
 
     for decoder_name, v in required_variables.items():
         if None in v:
-            model_output = checkpoint_object.data_indices[decoder_name].model.output.includes
+            model_output = checkpoint_object.data_indices[
+                decoder_name
+            ].model.output.includes
             required_variables[decoder_name] = sorted(model_output)
         else:
             required_variables[decoder_name] = sorted(list(set(v)))

@@ -11,7 +11,7 @@ try:
     import anemoi.datasets.data.subset
 except ImportError:
     import anemoi.datasets.usage.gridded.subset
-    
+
 import numpy as np
 import pytorch_lightning as pl
 from anemoi.datasets import open_dataset
@@ -117,7 +117,7 @@ class DataModule(pl.LightningDataModule):
     def data_readers(self):
         """
         Creates a dictionairy of open_dataset objects for
-        a given dataset (or set of datasets). 
+        a given dataset (or set of datasets).
         The config.dataset is highly adjustable
         and see: https://anemoi-datasets.readthedocs.io/en/latest/
         on how to open your dataset in various ways.
@@ -131,7 +131,7 @@ class DataModule(pl.LightningDataModule):
         data_readers = {}
         for dataset_name, dataset_recipe in ds_cfg.items():
             data_readers[dataset_name] = open_dataset(dataset_recipe)
-        
+
         return data_readers
 
     @cached_property
@@ -169,7 +169,8 @@ class DataModule(pl.LightningDataModule):
         """
 
         return {
-            ds_name: self.data_readers[ds_name].name_to_index for ds_name in self.dataset_names
+            ds_name: self.data_readers[ds_name].name_to_index
+            for ds_name in self.dataset_names
         }
 
     @cached_property
@@ -182,9 +183,8 @@ class DataModule(pl.LightningDataModule):
             gi = FullGrid(nodes_name=ds_name, reader_group_size=reader_group_size)
             gi.setup(self.graph)
             grid_indices[ds_name] = gi
-        
-        return grid_indices
 
+        return grid_indices
 
     @cached_property
     def grids(self) -> tuple:
@@ -201,7 +201,8 @@ class DataModule(pl.LightningDataModule):
         Retrieves latitude from data_reader method
         """
         return {
-            ds_name: self.data_readers[ds_name].latitudes for ds_name in self.dataset_names
+            ds_name: self.data_readers[ds_name].latitudes
+            for ds_name in self.dataset_names
         }
 
     @cached_property
@@ -210,7 +211,8 @@ class DataModule(pl.LightningDataModule):
         Retrieves longitude from data_reader method
         """
         return {
-            ds_name: self.data_readers[ds_name].longitudes for ds_name in self.dataset_names
+            ds_name: self.data_readers[ds_name].longitudes
+            for ds_name in self.dataset_names
         }
 
     @cached_property
@@ -222,7 +224,9 @@ class DataModule(pl.LightningDataModule):
         for ds_name in self.dataset_names:
             name_to_index = self.data_readers[ds_name].name_to_index
             if "z" in name_to_index:
-                altitudes[ds_name] = self.data_readers[ds_name][0][name_to_index["z"], 0, :] / 9.81
+                altitudes[ds_name] = (
+                    self.data_readers[ds_name][0][name_to_index["z"], 0, :] / 9.81
+                )
             else:
                 altitudes[ds_name] = None
 
@@ -242,7 +246,7 @@ class DataModule(pl.LightningDataModule):
                     field_shape[decoder_name][dataset_index] = _field_shape
                 else:
                     field_shape[decoder_name][dataset_index] = (grid,)
-        
+
         return field_shape
 
     def _get_field_shape(self, decoder_name, dataset_index):
@@ -261,7 +265,7 @@ class DataModule(pl.LightningDataModule):
 
             if hasattr(dataset, "datasets"):
                 return dataset.datasets[dataset_index].field_shape
-        
+
             return dataset.field_shape
-        
+
         return data_reader.field_shape

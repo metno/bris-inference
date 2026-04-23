@@ -105,9 +105,11 @@ class BrisPredictor(BasePredictor):
         self.fcstep_const = fcstep_const
         if hasattr(checkpoint.model.model, "inputs"):
             self.dataset_names = checkpoint.model.model.inputs
-        elif hasattr(checkpoint.model.model, "dataset_names"): # Compatilbility with anemoi core main
+        elif hasattr(
+            checkpoint.model.model, "dataset_names"
+        ):  # Compatilbility with anemoi core main
             self.dataset_names = checkpoint.model.model.dataset_names
-        else: # Legacy compatibility
+        else:  # Legacy compatibility
             self.dataset_names = ["data"]
 
         assert self.dataset_names == datamodule.dataset_names, (
@@ -139,7 +141,9 @@ class BrisPredictor(BasePredictor):
 
         self.batch_info = {}
 
-    def set_static_forcings(self, data_readers: dict[str, Iterable], data_config: dict) -> None:
+    def set_static_forcings(
+        self, data_readers: dict[str, Iterable], data_config: dict
+    ) -> None:
         """
         Set static forcings for the model. Done by reading from the data reader, reshape, store as a tensor. Tensor is
         populated with prognostic and static forcing variables based on predefined indices. Then normalized.
@@ -169,7 +173,9 @@ class BrisPredictor(BasePredictor):
             self.static_forcings[ds] = get_model_static_forcings(
                 selection=data_config[ds]["forcing"],
                 data_reader=data_readers[ds],
-                data_normalized=self.model.pre_processors[ds](data_input, in_place=True),
+                data_normalized=self.model.pre_processors[ds](
+                    data_input, in_place=True
+                ),
                 internal_data=self.internal_data[ds],
             )
 
@@ -212,17 +218,30 @@ class BrisPredictor(BasePredictor):
             ]
 
             forcings = get_dynamic_forcings(
-                time, self.latitudes[ds], self.longitudes[ds], self.variables[ds]["dynamic_forcings"]
+                time,
+                self.latitudes[ds],
+                self.longitudes[ds],
+                self.variables[ds]["dynamic_forcings"],
             )
             forcings.update(self.static_forcings[ds])
 
             for forcing, value in forcings.items():
                 if isinstance(value, np.ndarray):
-                    _x[:, -1, :, :, self.internal_model[ds].input.name_to_index[forcing]] = (
-                        torch.from_numpy(value).to(dtype=_x.dtype)
-                    )
+                    _x[
+                        :,
+                        -1,
+                        :,
+                        :,
+                        self.internal_model[ds].input.name_to_index[forcing],
+                    ] = torch.from_numpy(value).to(dtype=_x.dtype)
                 else:
-                    _x[:, -1, :, :, self.internal_model[ds].input.name_to_index[forcing]] = value
+                    _x[
+                        :,
+                        -1,
+                        :,
+                        :,
+                        self.internal_model[ds].input.name_to_index[forcing],
+                    ] = value
 
             x[ds] = _x
         return x
@@ -276,11 +295,14 @@ class BrisPredictor(BasePredictor):
                 ..., self.indices[ds]["static_forcings_dataset"]
             ]
 
-        # Calculate dynamic forcings
+            # Calculate dynamic forcings
             for time_index in range(multistep):
                 toi = time - (multistep - 1 - time_index) * self.timestep
                 forcings = get_dynamic_forcings(
-                    toi, self.latitudes[ds], self.longitudes[ds], self.variables[ds]["dynamic_forcings"]
+                    toi,
+                    self.latitudes[ds],
+                    self.longitudes[ds],
+                    self.variables[ds]["dynamic_forcings"],
                 )
 
                 for forcing, value in forcings.items():
@@ -306,7 +328,9 @@ class BrisPredictor(BasePredictor):
             ].cpu()
 
             # Possibly have to extend this to handle imputer, see _step in forecaster.
-            data_input[ds] = self.model.pre_processors[ds](data_input[ds], in_place=True)
+            data_input[ds] = self.model.pre_processors[ds](
+                data_input[ds], in_place=True
+            )
             x[ds] = data_input[ds][..., self.internal_data[ds].input.full]
 
         with torch.autocast(device_type="cuda", dtype=torch.bfloat16):
@@ -314,7 +338,7 @@ class BrisPredictor(BasePredictor):
                 # TODO: Need backwards compatibility with models where batch is tensor
                 try:
                     if self.fcstep_const:
-                       y_pred = self(x, fcstep=0)
+                        y_pred = self(x, fcstep=0)
                     else:
                         y_pred = self(x, fcstep=forecast_step)
                 except TypeError:
@@ -323,7 +347,7 @@ class BrisPredictor(BasePredictor):
                 x = self.advance_input_predict(x, y_pred, time)
                 for ds in self.dataset_names:
                     y_preds[ds][:, forecast_step + 1] = self.model.post_processors[ds](
-                    y_pred[ds], in_place=True
+                        y_pred[ds], in_place=True
                     )[:, 0, :, self.indices[ds]["variables_output"]].cpu()
 
                 times.append(time)
@@ -333,7 +357,9 @@ class BrisPredictor(BasePredictor):
         self.update_batch_info(time)
         # Save info about which batches has been processed before, update ensemble member based on this.
         return {
-            "pred": {ds: y_pred.to(torch.float32).numpy() for ds, y_pred in y_preds.items()},
+            "pred": {
+                ds: y_pred.to(torch.float32).numpy() for ds, y_pred in y_preds.items()
+            },
             "times": times,
             "group_rank": self.model_comm_group_rank,
             "ensemble_member": self.member_id

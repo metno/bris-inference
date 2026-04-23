@@ -46,7 +46,7 @@ class NativeGridDataset(IterableDataset):
 
         Args:
         data_reader : dict[str, Callable]
-            dict containing the dataset name and a user function that opens and 
+            dict containing the dataset name and a user function that opens and
             returns the zarr array data
 
         grid_indices : dict[str, type[BaseGridIndices]]
@@ -103,13 +103,17 @@ class NativeGridDataset(IterableDataset):
         self.ensemble_dim: int = 2
 
         if init_ensemble_size:
-            self.ensemble_size = self.data[self.dataset_names[0]].shape[self.ensemble_dim]
+            self.ensemble_size = self.data[self.dataset_names[0]].shape[
+                self.ensemble_dim
+            ]
             for dataset_name in self.dataset_names:
-                assert self.data[dataset_name].shape[self.ensemble_dim] == self.ensemble_size, (
+                assert (
+                    self.data[dataset_name].shape[self.ensemble_dim]
+                    == self.ensemble_size
+                ), (
                     f"Ensemble size mismatch for dataset {dataset_name}: "
                     f"{self.data[dataset_name].shape[self.ensemble_dim]} != {self.ensemble_size}"
                 )
-        
 
     @cached_property
     def valid_date_indices(self) -> np.ndarray:
@@ -138,7 +142,7 @@ class NativeGridDataset(IterableDataset):
                 self.multi_step,
                 self.timeincrement,
             )
-        
+
         common_valid_indices = set(valid_indices[self.dataset_names[0]])
         for dataset_name in self.dataset_names[1:]:
             common_valid_indices &= set(valid_indices[dataset_name])
@@ -263,7 +267,6 @@ class NativeGridDataset(IterableDataset):
 
             batch = {}
             for dataset_name in self.dataset_names:
-                                
                 grid_shard_indices = self.grid_indices[dataset_name].get_shard_indices(
                     self.reader_group_rank
                 )
@@ -274,7 +277,7 @@ class NativeGridDataset(IterableDataset):
                     "dates variables ensemble gridpoints -> dates ensemble gridpoints variables",
                 )
                 batch[dataset_name] = torch.from_numpy(x)
-            
+
             self.ensemble_dim = 1
 
             yield (batch, str(self.data[self.dataset_names[0]].dates[i]))
