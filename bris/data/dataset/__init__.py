@@ -4,6 +4,7 @@ from torch.utils.data import get_worker_info
 
 # Make NativeGridDataset importable from bris.data.dataset:
 from .nativegrid import NativeGridDataset  # noqa
+from .sparse import SparseZarrDataset  # noqa
 
 LOGGER = logging.getLogger(__name__)
 

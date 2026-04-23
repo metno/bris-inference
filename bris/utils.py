@@ -6,12 +6,10 @@ import sys
 import time
 import uuid
 from argparse import ArgumentParser
-from collections.abc import Iterable
 from typing import Any
 
 import jsonschema
 import numpy as np
-import torch
 import yaml
 from anemoi.models.data_indices.index import DataIndex, ModelIndex
 from anemoi.utils.config import DotDict
@@ -329,15 +327,24 @@ def get_dataset_config(config: DictConfig) -> DictConfig:
     elif "datasets" in config:
         ds_cfg = {}
         for dataset_name, dataset_recipe in config.datasets.items():
+            start = config.start_date
+            end = config.end_date
+            frequency = config.frequency
+            recipe = dataset_recipe
+            if isinstance(dataset_recipe, (dict, DictConfig)):
+                recipe = OmegaConf.to_container(dataset_recipe, resolve=True)
+                start = recipe.pop("start", start)
+                end = recipe.pop("end", end)
+                frequency = recipe.pop("frequency", frequency)
+
             ds_cfg[dataset_name] = {
-                "dataset": dataset_recipe,
-                "start": config.start_date,
-                "end": config.end_date,
-                "frequency": config.frequency,
+                "dataset": recipe,
+                "start": start,
+                "end": end,
+                "frequency": frequency,
             }
     else:
         raise ValueError("Config must contain either 'dataset' or 'datasets' key.")
-
     return OmegaConf.create(ds_cfg)
 
 

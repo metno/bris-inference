@@ -17,6 +17,8 @@ def instantiate(name: str, predict_metadata: PredictMetadata, workdir: str, init
         init_args: Arguments to pass to Output constructor
     """
     if name == "verif":
+        from .verif import Verif
+
         # Parse obs sources
         obs_sources = []
 
@@ -29,15 +31,23 @@ def instantiate(name: str, predict_metadata: PredictMetadata, workdir: str, init
         return Verif(predict_metadata, workdir, **args)
 
     if name == "netcdf":
+        from .netcdf import Netcdf
+
         return Netcdf(predict_metadata, workdir, **init_args)
 
     if name == "grib":
+        from .grib import Grib
+
         return Grib(predict_metadata, workdir, **init_args)
 
     if name == "powerspectrum_global":
+        from .spatial import SHPowerSpectrum
+
         return SHPowerSpectrum(predict_metadata, workdir, **init_args)
 
     if name == "powerspectrum_gridded":
+        from .spatial import DCTPowerSpectrum
+
         return DCTPowerSpectrum(predict_metadata, workdir, **init_args)
 
     raise ValueError(f"Invalid output: {name}")
@@ -197,10 +207,3 @@ class Output:
         shape = [T, self.pm.field_shape[0] * self.pm.field_shape[1], V]
         pred = np.reshape(pred, shape)
         return pred
-
-
-from .grib import Grib
-from .intermediate import Intermediate
-from .netcdf import Netcdf
-from .spatial import DCTPowerSpectrum, SHPowerSpectrum
-from .verif import Verif

@@ -256,7 +256,8 @@ class DataModule(pl.LightningDataModule):
             data_reader = data_reader.dataset
         if hasattr(data_reader, "datasets"):
             dataset = data_reader.datasets[dataset_index]
-            while isinstance(data_reader, (Subset, Select)):
+            while isinstance(dataset, (Subset, Select)):
                 dataset = dataset.dataset
             return dataset.field_shape
+
         return data_reader.field_shape
