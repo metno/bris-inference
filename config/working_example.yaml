@@ -35,7 +35,7 @@ model:
   _convert_: all
 
 routing:
-  - decoder_index: 0
+  - decoder_name: data
     domain_index: 0
     outputs:
       - netcdf:

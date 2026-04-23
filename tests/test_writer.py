@@ -25,7 +25,7 @@ def prediction():
         "times": [np.datetime64("2024-01-01T00:00")],
         "ensemble_member": 0,
         "group_rank": 0,
-        "pred": [np.ones((1, 2, 3))],  # shape: (batch, grid, var)
+        "pred": {"data": np.ones((1, 2, 3))},  # shape: (batch, grid, var)
     }
 
 
@@ -36,7 +36,7 @@ def test_custom_writer_async(prediction):
     dummy_output = DummyOutput(calls)
     output_dict = [
         {
-            "decoder_index": 0,
+            "decoder_name": "data",
             "start_gridpoint": 0,
             "end_gridpoint": 2,
             "outputs": [dummy_output],
