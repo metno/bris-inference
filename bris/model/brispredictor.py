@@ -185,7 +185,7 @@ class BrisPredictor(BasePredictor):
         else:
             self.batch_info[time] += 1
 
-    def forward(self, x: torch.Tensor, **kwargs) -> torch.Tensor:
+    def forward(self, x: dict[str, torch.Tensor], **kwargs) -> torch.Tensor:
         """
         Perform a forward pass through the model.
         Args:
@@ -193,7 +193,17 @@ class BrisPredictor(BasePredictor):
         Returns:
             torch.Tensor: Output tensor after processing by the model.
         """
-        return self.model(x, model_comm_group=self.model_comm_group, **kwargs)
+        # Backward compatibility with models that take batch as tensor instead of dict of tensors.
+        try:
+            return self.model(x, model_comm_group=self.model_comm_group, **kwargs)
+        except AttributeError:
+            # Backward compatibility with models that do not use kwargs:
+            x = list(x.values())[0]
+            try:
+                # Get the first (and only) item in x
+                return self.model(x, model_comm_group=self.model_comm_group, **kwargs)
+            except TypeError:
+                return self.model(x, model_comm_group=self.model_comm_group)
 
     def advance_input_predict(
         self, x: torch.Tensor, y_pred: torch.Tensor, time: np.datetime64
@@ -295,7 +305,7 @@ class BrisPredictor(BasePredictor):
                 ..., self.indices[ds]["static_forcings_dataset"]
             ]
 
-            # Calculate dynamic forcings
+            # Calculate dynamic forcings# TODO: Implement backwards comp here
             for time_index in range(multistep):
                 toi = time - (multistep - 1 - time_index) * self.timestep
                 forcings = get_dynamic_forcings(
@@ -335,14 +345,14 @@ class BrisPredictor(BasePredictor):
 
         with torch.autocast(device_type="cuda", dtype=torch.bfloat16):
             for forecast_step in range(self.forecast_length - 1):
-                # TODO: Need backwards compatibility with models where batch is tensor
-                try:
-                    if self.fcstep_const:
-                        y_pred = self(x, fcstep=0)
-                    else:
-                        y_pred = self(x, fcstep=forecast_step)
-                except TypeError:
-                    y_pred = self(x)
+                if self.fcstep_const:
+                    y_pred = self(x, fcstep=0)
+                else:
+                    y_pred = self(x, fcstep=forecast_step)
+                # Backwards compatibility to models that return a tensor:
+                if isinstance(y_pred, torch.Tensor):
+                    y_pred = {self.dataset_names[0]: y_pred}
+
                 time += self.timestep
                 x = self.advance_input_predict(x, y_pred, time)
                 for ds in self.dataset_names:
