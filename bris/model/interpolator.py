@@ -162,8 +162,7 @@ class Interpolator(BasePredictor):
         self.interp_times = checkpoints[
             "interpolator"
         ].metadata.config.training.explicit_times.target
-        # temp:
-        # self.interp_times = self.interp_times[:-1]
+
         self.interpolator_steps = len(self.interp_times)
 
         self.reforcast_last = self.boundary_times[-1] == self.interp_times[-1]
