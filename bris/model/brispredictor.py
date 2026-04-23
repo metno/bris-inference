@@ -24,9 +24,9 @@ from ..utils import (
 )
 from .basepredictor import BasePredictor
 from .model_utils import (
-    get_data_config,
     get_model_static_forcings,
     get_variable_indices,
+    get_data_config,
 )
 
 
@@ -173,8 +173,8 @@ class BrisPredictor(BasePredictor):
             self.static_forcings[ds] = get_model_static_forcings(
                 selection=data_config[ds]["forcing"],
                 data_reader=data_readers[ds],
-                data_normalized=self.model.pre_processors[ds](
-                    data_input, in_place=True
+                data_normalized=self.pre_processors(
+                    data_input, dataset_name=ds, in_place=True
                 ),
                 internal_data=self.internal_data[ds],
             )
@@ -184,6 +184,20 @@ class BrisPredictor(BasePredictor):
             self.batch_info[time] = 1
         else:
             self.batch_info[time] += 1
+
+    def pre_processors(self, x: torch.Tensor, dataset_name: str, in_place=False) -> torch.Tensor:
+        # Backwards compatibility to single dataset models
+        try:
+            return self.model.pre_processors[dataset_name](x, in_place=in_place)
+        except TypeError:
+            return self.model.pre_processors(x, in_place=in_place)
+    
+    def post_processors(self, x: torch.Tensor, dataset_name: str, in_place=False) -> torch.Tensor:
+        # Backwards compatibilitpost_y to single dataset models
+        try:
+            return self.model.post_processors[dataset_name](x, in_place = in_place)
+        except TypeError:
+            return self.model.post_processors(x, in_place = in_place)
 
     def forward(self, x: dict[str, torch.Tensor], **kwargs) -> torch.Tensor:
         """
@@ -200,7 +214,6 @@ class BrisPredictor(BasePredictor):
             # Backward compatibility with models that do not use kwargs:
             x = list(x.values())[0]
             try:
-                # Get the first (and only) item in x
                 return self.model(x, model_comm_group=self.model_comm_group, **kwargs)
             except TypeError:
                 return self.model(x, model_comm_group=self.model_comm_group)
@@ -338,9 +351,7 @@ class BrisPredictor(BasePredictor):
             ].cpu()
 
             # Possibly have to extend this to handle imputer, see _step in forecaster.
-            data_input[ds] = self.model.pre_processors[ds](
-                data_input[ds], in_place=True
-            )
+            data_input[ds] = self.pre_processors(data_input[ds], dataset_name=ds, in_place=True)
             x[ds] = data_input[ds][..., self.internal_data[ds].input.full]
 
         with torch.autocast(device_type="cuda", dtype=torch.bfloat16):
@@ -356,8 +367,8 @@ class BrisPredictor(BasePredictor):
                 time += self.timestep
                 x = self.advance_input_predict(x, y_pred, time)
                 for ds in self.dataset_names:
-                    y_preds[ds][:, forecast_step + 1] = self.model.post_processors[ds](
-                        y_pred[ds], in_place=True
+                    y_preds[ds][:, forecast_step + 1] = self.post_processors(
+                        y_pred[ds], dataset_name=ds, in_place=True
                     )[:, 0, :, self.indices[ds]["variables_output"]].cpu()
 
                 times.append(time)
