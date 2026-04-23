@@ -75,7 +75,7 @@ class Intermediate(Output):
                 self.pm.num_variables,
                 self.pm.num_members,
             ]
-            pred = np.nan * np.zeros(shape)
+            pred = np.nan * np.zeros(shape, dtype=np.float32)
             for e in range(self.pm.num_members):
                 filename = self.get_filename(forecast_reference_time, e)
                 if os.path.exists(filename):
@@ -143,7 +143,7 @@ class IntermediateSpatial(Intermediate):
             shape = (
                 (self.pm.num_leadtimes,) + self.metric_shape + (self.pm.num_members,)
             )
-            pred = np.nan * np.zeros(shape)
+            pred = np.nan * np.zeros(shape, dtype=np.float32)
             for e in range(self.pm.num_members):
                 filename = self.get_filename(forecast_reference_time, e)
                 if os.path.exists(filename):
