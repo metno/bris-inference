@@ -185,19 +185,23 @@ class BrisPredictor(BasePredictor):
         else:
             self.batch_info[time] += 1
 
-    def pre_processors(self, x: torch.Tensor, dataset_name: str, in_place=False) -> torch.Tensor:
+    def pre_processors(
+        self, x: torch.Tensor, dataset_name: str, in_place=False
+    ) -> torch.Tensor:
         # Backwards compatibility to single dataset models
         try:
             return self.model.pre_processors[dataset_name](x, in_place=in_place)
         except TypeError:
             return self.model.pre_processors(x, in_place=in_place)
-    
-    def post_processors(self, x: torch.Tensor, dataset_name: str, in_place=False) -> torch.Tensor:
+
+    def post_processors(
+        self, x: torch.Tensor, dataset_name: str, in_place=False
+    ) -> torch.Tensor:
         # Backwards compatibilitpost_y to single dataset models
         try:
-            return self.model.post_processors[dataset_name](x, in_place = in_place)
+            return self.model.post_processors[dataset_name](x, in_place=in_place)
         except TypeError:
-            return self.model.post_processors(x, in_place = in_place)
+            return self.model.post_processors(x, in_place=in_place)
 
     def forward(self, x: dict[str, torch.Tensor], **kwargs) -> torch.Tensor:
         """
@@ -351,7 +355,9 @@ class BrisPredictor(BasePredictor):
             ].cpu()
 
             # Possibly have to extend this to handle imputer, see _step in forecaster.
-            data_input[ds] = self.pre_processors(data_input[ds], dataset_name=ds, in_place=True)
+            data_input[ds] = self.pre_processors(
+                data_input[ds], dataset_name=ds, in_place=True
+            )
             x[ds] = data_input[ds][..., self.internal_data[ds].input.full]
 
         with torch.autocast(device_type="cuda", dtype=torch.bfloat16):
