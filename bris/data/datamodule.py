@@ -2,15 +2,16 @@ import logging
 from functools import cached_property
 from typing import Any
 
+# Backward compatibility
 try:
-    import anemoi.datasets.data.select
+    from anemoi.datasets.data.select import Select
 except ImportError:
-    import anemoi.datasets.usage.gridded.select
+    from anemoi.datasets.usage.gridded.select import Select
 
 try:
-    import anemoi.datasets.data.subset
+    from anemoi.datasets.data.subset import Subset
 except ImportError:
-    import anemoi.datasets.usage.gridded.subset
+    from anemoi.datasets.usage.gridded.subset import Subset
 
 import numpy as np
 import pytorch_lightning as pl
@@ -176,7 +177,6 @@ class DataModule(pl.LightningDataModule):
     @cached_property
     def grid_indices(self) -> type[BaseGridIndices]:
         reader_group_size = 1
-        graph_cfg = self.checkpoint_object.config.graph
 
         grid_indices = {}
         for ds_name in self.dataset_names:
@@ -252,20 +252,11 @@ class DataModule(pl.LightningDataModule):
     def _get_field_shape(self, decoder_name, dataset_index):
         data_reader = self.data_readers[decoder_name]
 
+        while isinstance(data_reader, (Subset, Select)):
+            data_reader = data_reader.dataset
         if hasattr(data_reader, "datasets"):
-            dataset = data_reader.datasets[decoder_index]
-            while isinstance(
-                dataset,
-                (
-                    anemoi.datasets.data.subset.Subset,
-                    anemoi.datasets.data.select.Select,
-                ),
-            ):
+            dataset = data_reader.datasets[dataset_index]
+            while isinstance(data_reader, (Subset, Select)):
                 dataset = dataset.dataset
-
-            if hasattr(dataset, "datasets"):
-                return dataset.datasets[dataset_index].field_shape
-
             return dataset.field_shape
-
         return data_reader.field_shape

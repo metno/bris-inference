@@ -208,7 +208,7 @@ class BrisPredictor(BasePredictor):
             torch.Tensor: Advanced input tensor for the next prediction step.
         """
         # Shift the input tensor to the next time step
-        for ds in x.keys():
+        for ds in x:
             _x = x[ds]
             _x = _x.roll(-1, dims=1)
 
