@@ -24,9 +24,9 @@ from ..utils import (
 )
 from .basepredictor import BasePredictor
 from .model_utils import (
+    get_data_config,
     get_model_static_forcings,
     get_variable_indices,
-    get_data_config,
 )
 
 

@@ -1,8 +1,9 @@
+from collections.abc import Iterable
+
 import numpy as np
 import torch
 from anemoi.models.data_indices.index import DataIndex, ModelIndex
 from anemoi.utils.config import DotDict
-from collections.abc import Iterable
 
 from ..forcings import anemoi_dynamic_forcings, get_dynamic_forcings
 
