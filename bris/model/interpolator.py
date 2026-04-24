@@ -62,9 +62,14 @@ class Interpolator(BasePredictor):
         super().__init__(*args, checkpoints=checkpoints, **kwargs)
         self.forecaster = checkpoints["forecaster"].model
         self.interpolator = checkpoints["interpolator"].model
+        dataset_names = self._get_dataset_names(checkpoints["forecaster"])
+        assert len(dataset_names) == 1, (
+            "Interpolator is currently only compatible with single dataset checkpoints"
+        )
+        self.ds_name = dataset_names[0]
         self.data_indices = {
-            "forecaster": self.forecaster.data_indices,
-            "interpolator": self.interpolator.data_indices,
+            "forecaster": checkpoints["forecaster"].data_indices[self.ds_name],
+            "interpolator": checkpoints["interpolator"].data_indices[self.ds_name],
         }
 
         # Backwards compatibility fix
@@ -95,8 +100,8 @@ class Interpolator(BasePredictor):
             checkpoints_config["interpolator"]["leadtimes"],
             checkpoints_config["interpolator"]["timestep_seconds"],
         )
-        self.latitudes = datamodule.data_reader.latitudes
-        self.longitudes = datamodule.data_reader.longitudes
+        self.latitudes = datamodule.data_readers[self.ds_name].latitudes
+        self.longitudes = datamodule.data_readers[self.ds_name].longitudes
         self.forcing_dataset_interp = open_dataset(
             checkpoints_config["interpolator"]["static_forcings_dataset"]
         )
@@ -106,15 +111,15 @@ class Interpolator(BasePredictor):
         self.indices = {}
         self.variables = {}
         self.indices["forecaster"], self.variables["forecaster"] = get_variable_indices(
-            required_variables[0],  # Assume one decoder
-            datamodule.data_reader.variables,
+            required_variables[self.ds_name],  # Assume one decoder
+            datamodule.data_readers[self.ds_name].variables,
             self.data_indices["forecaster"].internal_data,
             self.data_indices["forecaster"].internal_model,
             0,
         )
         self.indices["interpolator"], self.variables["interpolator"] = (
             get_variable_indices(
-                required_variables[0],  # Assume one decoder
+                required_variables[self.ds_name],  # Assume one decoder
                 list(
                     self.data_indices[
                         "forecaster"
@@ -130,7 +135,7 @@ class Interpolator(BasePredictor):
             self.indices["interpolator_forcings"],
             self.variables["interpolator_forcings"],
         ) = get_variable_indices(
-            required_variables[0],
+            required_variables[self.ds_name],  # Assume one decoder
             self.forcing_dataset_interp.variables,
             self.data_indices["interpolator"].internal_data,
             self.data_indices["interpolator"].internal_model,
@@ -138,7 +143,7 @@ class Interpolator(BasePredictor):
         )
 
         self.static_forcings_forecaster = self.get_static_forcings(
-            datamodule.data_reader,
+            datamodule.data_readers[self.ds_name],  # Assume one decoder
             checkpoints["forecaster"].metadata["config"]["data"],
             self.forecaster,
             self.variables["forecaster"],
@@ -262,7 +267,12 @@ class Interpolator(BasePredictor):
         """
 
         batch = self.allgather_batch(batch)
+
         batch, time_stamp = batch
+        assert len(batch) == 1, (
+            "Interpolator is currently only compatible with single dataset checkpoints"
+        )
+        batch = batch[self.ds_name]
         time = np.datetime64(time_stamp[0])
         times = [time]
         y_preds = torch.empty(
@@ -456,7 +466,7 @@ class Interpolator(BasePredictor):
 
         self.update_batch_info(time)
         return {
-            "pred": [y_preds.to(torch.float32).numpy()],
+            "pred": {self.ds_name: y_preds.to(torch.float32).numpy()},
             "times": times,
             "group_rank": self.model_comm_group_rank,
             "ensemble_member": self.member_id
@@ -571,3 +581,13 @@ class Interpolator(BasePredictor):
 
     def allgather_batch(self, batch: torch.Tensor) -> torch.Tensor:
         return batch  # Not implemented
+
+    def _get_dataset_names(self, checkpoint: Checkpoint) -> list[str]:
+        if hasattr(checkpoint.model.model, "inputs"):
+            return checkpoint.model.model.inputs
+        elif hasattr(
+            checkpoint.model.model, "dataset_names"
+        ):  # Compatilbility with anemoi core main
+            return checkpoint.model.model.dataset_names
+        else:  # Legacy compatibility
+            return ["data"]
