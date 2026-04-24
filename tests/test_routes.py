@@ -1,9 +1,9 @@
 import os
 
+from anemoi.utils.config import DotDict
+
 import bris.routes
 from bris.checkpoint import Checkpoint
-
-from anemoi.utils.config import DotDict
 
 
 class FakeDataModule:
