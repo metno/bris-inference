@@ -15,7 +15,6 @@ from bris.utils import LOGGER, get_base_seed, get_usable_indices
 
 class NativeGridDataset(IterableDataset):
     """Iterable dataset for AnemoI data on the arbitrary grids.
-    Note that ZipDataset inherits from this.
 
     Methods
     -------
@@ -65,7 +64,7 @@ class NativeGridDataset(IterableDataset):
             label for the dataset, by default "generic"
 
         init_ensemble_size: bool, default True
-            In sub-classes this must be set to false and done in the sub-class instead. See ZipDataset for example.
+            In sub-classes this must be set to false and done in the sub-class instead.
 
         num_members_in_sequence : int, default 1
             Number of ensemble members in the sequence. This is used to repeat the indices
