@@ -47,7 +47,7 @@ def test_bris_predictor():
             },
             "datasets": {
                 "data": dataset_path,
-            }
+            },
         },
     )
 
