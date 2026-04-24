@@ -100,11 +100,13 @@ def test_bris_predictor():
             "%Y-%m-%dT%H:%M:%S",
         )
 
-    config.dataset = {
-        "dataset": config.dataset,
-        "start": config.start_date,
-        "end": config.end_date,
-        "frequency": config.frequency,
+    config.datasets = {
+        "data": {
+            "dataset": config.datasets.data,
+            "start": config.start_date,
+            "end": config.end_date,
+            "frequency": config.frequency,
+        }
     }
 
     datamodule = DataModule(
