@@ -152,10 +152,10 @@ diagnostics:
 
 system:
   input: 
-    graph: training-output/small_graph_20p0.pt
+    graph: training-output-multi/small_graph_20p0.pt
     dataset: ./bris_random_data.zarr
   output:
-    root: training-output/
+    root: training-output-multi/
   hardware:
     accelerator: auto
     num_gpus_per_ensemble: 1

@@ -21,6 +21,7 @@ from ..utils import (
     LOGGER,
     check_anemoi_training,
     timedelta64_from_timestep,
+    get_model_multistep_input,
 )
 from .basepredictor import BasePredictor
 from .model_utils import (
@@ -98,7 +99,8 @@ class BrisPredictor(BasePredictor):
         self.data_indices = checkpoint.data_indices
         self.metadata = checkpoint.metadata
 
-        self.timestep = timedelta64_from_timestep(self.metadata.config.data.timestep)
+        self.timestep = timedelta64_from_timestep(checkpoints_config["forecaster"]["timestep"])
+        self.multistep = get_model_multistep_input(checkpoints["forecaster"])
         self.forecast_length = checkpoints_config["forecaster"]["leadtimes"]
         self.latitudes = datamodule.latitudes
         self.longitudes = datamodule.longitudes
@@ -276,8 +278,6 @@ class BrisPredictor(BasePredictor):
         Returns:
             dict: Dictionary containing the predicted output, time stamps, group rank, and ensemble member.
         """
-        multistep = self.metadata.config.training.multistep_input
-
         batch = self.allgather_batch(batch)
 
         batch, time_stamp = batch
@@ -316,8 +316,8 @@ class BrisPredictor(BasePredictor):
             ]
 
             # Calculate dynamic forcings# TODO: Implement backwards comp here
-            for time_index in range(multistep):
-                toi = time - (multistep - 1 - time_index) * self.timestep
+            for time_index in range(self.multistep):
+                toi = time - (self.multistep - 1 - time_index) * self.timestep
                 forcings = get_dynamic_forcings(
                     toi,
                     self.latitudes[ds],
@@ -344,7 +344,7 @@ class BrisPredictor(BasePredictor):
                         ] = value
 
             y_preds[ds][:, 0, ...] = data_input[ds][
-                :, multistep - 1, ..., self.indices[ds]["variables_input"]
+                :, self.multistep - 1, ..., self.indices[ds]["variables_input"]
             ].cpu()
 
             # Possibly have to extend this to handle imputer, see _step in forecaster.
@@ -368,7 +368,7 @@ class BrisPredictor(BasePredictor):
                 for ds in self.dataset_names:
                     y_preds[ds][:, forecast_step + 1] = self.post_processors(
                         y_pred[ds], dataset_name=ds, in_place=True
-                    )[:, 0, :, self.indices[ds]["variables_output"]].cpu()
+                    )[:, 0, ..., self.indices[ds]["variables_output"]].cpu()
 
                 times.append(time)
                 if self.release_cache:

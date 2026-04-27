@@ -25,7 +25,7 @@ from torch.utils.data import DataLoader, IterableDataset
 from bris.checkpoint import Checkpoint
 from bris.data.dataset import worker_init_func
 from bris.data.grid_indices import BaseGridIndices, FullGrid
-from bris.utils import recursive_list_to_tuple
+from bris.utils import recursive_list_to_tuple, get_model_multistep_input
 
 LOGGER = logging.getLogger(__name__)
 
@@ -105,7 +105,7 @@ class DataModule(pl.LightningDataModule):
             config=self.config.dataloader.datamodule,
             data_readers=data_readers,
             rollout=0,
-            multistep=self.checkpoint_object.multistep,
+            multistep=get_model_multistep_input(self.checkpoint_object),
             timeincrement=self.timeincrement,
             grid_indices=self.grid_indices,
             label="predict",

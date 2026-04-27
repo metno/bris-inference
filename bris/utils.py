@@ -18,6 +18,7 @@ from anemoi.utils.config import DotDict
 from omegaconf import DictConfig, ListConfig, OmegaConf
 
 from .forcings import anemoi_dynamic_forcings, get_dynamic_forcings
+from .checkpoint import Checkpoint
 
 LOGGER = logging.getLogger("bris")
 
@@ -160,12 +161,24 @@ def unixtime_to_datetime(ut: int) -> np.datetime64:
 
 
 def timedelta64_from_timestep(timestep):
-    if isinstance(timestep, str) and timestep[-1] in ("h", "m", "s"):
-        return np.timedelta64(timestep[0:-1], timestep[-1])
+    if isinstance(timestep, str):
+        unit = timestep[-1]
 
-    LOGGER.warning(
-        "could not decode model timestep from checkpoint, trying to assume hours"
-    )
+        # Default in anemoi core uses H for hours. Map unambiguous units to lower case to 
+        # make it compatible with np.timedelta64.
+        mapping = {
+            "h": "h", "H": "h",
+            "m": "m", "M": None,  # explicitly reject months ambiguity
+            "s": "s", "S": "s",
+        }
+
+        if unit in mapping and mapping[unit] is not None:
+            return np.timedelta64(timestep[:-1], mapping[unit])
+
+        if unit == "M":
+            raise ValueError("Ambiguous unit 'M' (months). Use 'm' for minutes.")
+
+    LOGGER.warning("Could not decode timestep, assuming hours")
     return np.timedelta64(timestep, "h")
 
 
@@ -323,3 +336,34 @@ def get_dataset_config(config: DictConfig) -> DictConfig:
         raise ValueError("Config must contain either 'dataset' or 'datasets' key.")
 
     return OmegaConf.create(ds_cfg)
+
+def get_model_timestep(checkpoint: Checkpoint) -> str:
+    try:
+        return checkpoint.config.data.timestep
+    except AttributeError:
+        pass
+    
+    try:
+        return checkpoint.config.task.timestep
+    except AttributeError:
+        pass
+    
+    raise AttributeError(
+        "model timestep not found in checkpoint.config.data or checkpoint.config.task"
+    )
+
+def get_model_multistep_input(checkpoint: Checkpoint) -> int:
+    try:
+        return checkpoint.config.training.multistep_input
+    except AttributeError:
+        pass
+    
+    try:
+        return checkpoint.config.task.multistep_input
+    except AttributeError:
+        pass
+
+    LOGGER.warnig("Could not find multistep_input in checkpoint, defaulting to 2")
+    return 2
+
+

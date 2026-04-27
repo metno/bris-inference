@@ -20,6 +20,8 @@ from .utils import (
     set_base_seed,
     set_encoder_decoder_num_chunks,
     setup_logging,
+    get_model_timestep,
+    get_model_multistep_input,
 )
 from .writer import CustomWriter
 
@@ -48,9 +50,7 @@ def main(arg_list: list[str] | None = None):
     set_base_seed()
 
     # Compute timestep_seconds for each checkpoint
-    config.checkpoints.forecaster.timestep = checkpoints[
-        "forecaster"
-    ].config.data.timestep
+    config.checkpoints.forecaster.timestep = get_model_timestep(checkpoints["forecaster"])
     config.checkpoints.forecaster.timestep_seconds = frequency_to_seconds(
         config.checkpoints.forecaster.timestep
     )
@@ -91,11 +91,7 @@ def main(arg_list: list[str] | None = None):
         num_members_in_parallel = num_members
 
     # Get multistep. A default of 2 to ignore multistep in start_date calculation if not set.
-    multistep = 2
-    try:
-        multistep = checkpoints["forecaster"].config.training.multistep_input
-    except KeyError:
-        LOGGER.debug("Multistep not found in checkpoint")
+    multistep = get_model_multistep_input(checkpoints["forecaster"])
 
     # If no start_date given, calculate as end_date-((multistep-1)*timestep)
     if "start_date" not in config or config.start_date is None:
