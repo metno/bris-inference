@@ -5,14 +5,12 @@ end_date: 2022-01-02T00:00:00
 
 checkpoints:
   forecaster:
-    checkpoint_path: /home/havardhh/virtual_envs/test_bris_inference/bris-inference/.tox/training/tmp/training-output/checkpoint/991dbfb1-0ded-48e1-ae1c-995088e5e16c/inference-last.ckpt
+    checkpoint_path: ./inference-last.ckpt
     leadtimes: 3
 
 datasets:
   data: ./bris_random_data.zarr
-  data2: 
-    dataset: ./bris_random_data.zarr
-    area: [80, -5, 45, 40]    
+
 frequency: 6h
 workdir: /tmp/
 
