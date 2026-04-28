@@ -1,6 +1,7 @@
 import os
 import tempfile
 
+import netCDF4
 import numpy as np
 import pytest
 
@@ -157,7 +158,74 @@ def test_2():
 
             output.finalize()
 
+def test_aggregate():
+    filename = (
+        os.path.dirname(os.path.abspath(__file__)) + "/files/verif_input_with_units.nc"
+    )
+    sources = [VerifInput(filename)]
+
+    variables = ["u_800", "u_600", "2t", "v_500", "10u"]
+    lats = np.arange(50, 70)
+    lons = np.arange(5, 15)
+    leadtimes = np.arange(0, 3600 * 4 * 6, 3600 * 6)
+    num_members = 2
+    thresholds = [0.2, 0.5]
+    quantile_levels = [0.1, 0.9]
+
+    field_shape = [len(lats), len(lons)]
+
+    lats, lons = np.meshgrid(lats, lons)
+    lats = lats.flatten()
+    lons = lons.flatten()
+    altitudes = np.arange(len(lats))
+
+    # with tempfile.TemporaryDirectory() as temp_dir:
+    if 1:
+        temp_dir = "./"
+        workdir = os.path.join(temp_dir, "verif_workdir")
+        frt = 1672552800
+        pm = PredictMetadata(
+            variables, lats, lons, altitudes, leadtimes, num_members, field_shape
+        )
+        elev_gradient = None
+        times = frt + leadtimes
+        np.random.seed(1)
+        outputs = list()
+        for aggregation_step in [1, 2]:
+            ofilename = os.path.join(temp_dir, f"otest{aggregation_step}.nc")
+            output = Verif(
+                predict_metadata=pm,
+                workdir=workdir,
+                filename=ofilename,
+                variable="2t",
+                obs_sources=sources,
+                units="degC",
+                thresholds=thresholds,
+                quantile_levels=quantile_levels,
+                elev_gradient=elev_gradient,
+                aggregation_steps=aggregation_step,
+                aggregation_method="sum",
+            )
+
+            for member in range(num_members):
+                pred = np.random.rand(*pm.shape) + 273.15
+                output.add_forecast(times, member, pred)
+
+            output.finalize()
+
+        outputs = list()
+        for aggregation_steps in [1, 2]:
+            ofilename = os.path.join(temp_dir, f"otest{aggregation_step}.nc")
+            with netCDF4.Dataset(ofilename, "r") as ofile:
+                output = ofile.variables["fcst"][:].filled(np.nan)
+                outputs += [output]
+                print(output)
+
+        np.testing.assert_array_almost_equal(outputs[0], outputs[1])
+
+
 
 if __name__ == "__main__":
     test_1()
     test_2()
+    test_aggregate()

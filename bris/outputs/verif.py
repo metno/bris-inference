@@ -35,6 +35,8 @@ class Verif(Output):
         fair_crps: bool = True,
         remove_intermediate: bool = True,
         compression: bool = False,
+        aggregation_steps: int = 1,
+        aggregation_method: str = "sum",
     ) -> None:
         """
         Args:
@@ -49,6 +51,8 @@ class Verif(Output):
             fair_threshold: Whether or not threshold is adjusted for sampling error
             fair_crps: Whether or not to adjust crps for ensemble size
             compression: If True, write compressed output files
+            aggregation_steps: Aggregate forecasts across this many leadtime steps
+            aggregation_method: Use this function to aggregate the steps
         """
         if quantile_levels is None:
             quantile_levels = []
@@ -75,6 +79,8 @@ class Verif(Output):
         self.fair_quantile = fair_quantile
         self.fair_threshold = fair_threshold
         self.fair_crps = fair_crps
+        self.aggregation_steps = aggregation_steps
+        self.aggregation_method = aggregation_method
 
         if self.pm.altitudes is None and elev_gradient is not None:
             raise ValueError(
@@ -387,6 +393,15 @@ class Verif(Output):
 
         self.ds["obs"] = (["time", "leadtime", "location"], obs)
 
+
+        if self.aggregation_steps > 1:
+            for variable in ["obs", "fcst", "ensemble"]:
+                if variable in self.ds:
+                    input = self.ds[variable][:].values
+                    q = self.aggregate(input, axis=1)
+                    self.ds[variable][:, self.aggregation_steps-1:, ...] = q
+                    self.ds[variable][:, 0:(self.aggregation_steps-1), ...] = np.nan
+
         if self.num_members > 1:
             crps = self.compute_crps(ens, obs, self.fair_crps)
             self.ds["ensemble_crps"] = (["time", "leadtime", "location"], crps)
@@ -423,6 +438,41 @@ class Verif(Output):
 
         if self.remove_intermediate:
             self.intermediate.cleanup()
+
+    def aggregate(self, array, axis) -> np.ndarray:
+        num_leadtimes = array.shape[1]
+        s = np.copy(array)
+
+        # Brute force approach
+        for lt in range(self.aggregation_steps-1, num_leadtimes):
+            # Construct a window to apply aggregation on
+            a = array[:, lt-(self.aggregation_steps-1):lt+1, ...]
+            if self.aggregation_method == "sum":
+                s[:, lt, ...] = np.sum(a, axis=1)
+            elif self.aggregation_method == "mean":
+                s[:, lt, ...] = np.mean(a, axis=1)
+            elif self.aggregation_method == "min":
+                s[:, lt, ...] = np.min(a, axis=1)
+            elif self.aggregation_method == "max":
+                s[:, lt, ...] = np.max(a, axis=1)
+            else:
+                raise ValueError(f"Unknown aggregaton method {self.aggregation_method}")
+        return s[:, self.aggregation_steps-1:, ...]
+
+        # Alternate approach that is faster
+        """
+        d = self.aggregation_steps
+        if self.aggregation_method == "sum":
+            s = np.cumsum(array, axis=axis)
+            s[:, d:, ...] = s[:, d:, ...] - s[:, :-d, ...]
+            return s[:, (d-1):, ...]
+        elif self.aggregation_method == "mean":
+            s = np.cumsum(array, axis=axis)
+            s[:, d:, ...] = s[:, d:, ...] - s[:, :-d, ...]
+            return s[:, (d-1):, ...] / self.aggregation_steps
+        raise ValueError()
+       """
+
 
     def compute_consensus(self, pred) -> np.ndarray:
         assert len(pred.shape) == 3, pred.shape
