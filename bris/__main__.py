@@ -22,6 +22,7 @@ from .utils import (
     setup_logging,
     get_model_timestep,
     get_model_multistep_input,
+    get_interpolator_timestep_seconds,
 )
 from .writer import CustomWriter
 
@@ -50,26 +51,20 @@ def main(arg_list: list[str] | None = None):
     set_base_seed()
 
     # Compute timestep_seconds for each checkpoint
-    config.checkpoints.forecaster.timestep = get_model_timestep(checkpoints["forecaster"])
+    config.checkpoints.forecaster.timestep = get_model_timestep(
+        checkpoints["forecaster"]
+    )
     config.checkpoints.forecaster.timestep_seconds = frequency_to_seconds(
         config.checkpoints.forecaster.timestep
     )
 
     if "interpolator" in checkpoints:
-        target_times = checkpoints[
-            "interpolator"
-        ].metadata.config.training.explicit_times.target
-        input_times = checkpoints[
-            "interpolator"
-        ].metadata.config.training.explicit_times.input
-        if target_times[-1] == input_times[-1]:
-            config.checkpoints.interpolator.timestep_seconds = int(
-                config.checkpoints.forecaster.timestep_seconds / len(target_times)
+        config.checkpoints.interpolator.timestep_seconds = (
+            get_interpolator_timestep_seconds(
+                checkpoints["interpolator"],
+                config.checkpoints.forecaster.timestep_seconds,
             )
-        else:
-            config.checkpoints.interpolator.timestep_seconds = int(
-                config.checkpoints.forecaster.timestep_seconds / (len(target_times) + 1)
-            )
+        )
 
     num_members = config["hardware"].get("num_members", 1)
 

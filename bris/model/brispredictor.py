@@ -99,7 +99,9 @@ class BrisPredictor(BasePredictor):
         self.data_indices = checkpoint.data_indices
         self.metadata = checkpoint.metadata
 
-        self.timestep = timedelta64_from_timestep(checkpoints_config["forecaster"]["timestep"])
+        self.timestep = timedelta64_from_timestep(
+            checkpoints_config["forecaster"]["timestep"]
+        )
         self.multistep = get_model_multistep_input(checkpoints["forecaster"])
         self.forecast_length = checkpoints_config["forecaster"]["leadtimes"]
         self.latitudes = datamodule.latitudes

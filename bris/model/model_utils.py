@@ -6,6 +6,8 @@ from anemoi.models.data_indices.index import DataIndex, ModelIndex
 from anemoi.utils.config import DotDict
 
 from ..forcings import anemoi_dynamic_forcings
+from ..checkpoint import Checkpoint
+from ..utils import timedelta64_from_timestep
 
 
 def get_model_static_forcings(
@@ -205,3 +207,52 @@ def get_data_config(config: DotDict) -> DotDict:
 
     cfg = DotDict({"data": config.data})
     return cfg
+
+
+def get_interpolator_interp_times(checkpoint: Checkpoint) -> list[int]:
+    try:
+        return checkpoint.config.training.explicit_times.input
+    except AttributeError:
+        pass
+
+    try:
+        input_td = timedelta64_from_timestep(checkpoint.config.task.input_timestep)
+        output_td = timedelta64_from_timestep(checkpoint.config.task.output_timestep)
+        input_seconds = input_td / np.timedelta64(1, "s")
+        output_seconds = output_td / np.timedelta64(1, "s")
+
+        n = int(input_seconds // output_seconds)
+
+        indices = list(range(0, n + 1))
+
+        if not checkpoint.config.task.output_left_boundary:
+            indices = indices[1:]
+        if not checkpoint.config.task.output_right_boundary:
+            indices = indices[:-1]
+        return indices
+    except AttributeError:
+        pass
+
+    raise AttributeError("Could not find interp_times in Interpolator checkpoint.")
+
+
+def get_interpolator_boundary_times(checkpoint: Checkpoint) -> list[int]:
+    try:
+        return checkpoint.config.training.explicit_times.output
+    except AttributeError:
+        pass
+
+    try:
+        input_td = timedelta64_from_timestep(checkpoint.config.task.input_timestep)
+        output_td = timedelta64_from_timestep(checkpoint.config.task.output_timestep)
+        input_seconds = input_td / np.timedelta64(1, "s")
+        output_seconds = output_td / np.timedelta64(1, "s")
+
+        n = int(input_seconds // output_seconds)
+
+        return [0, n]
+
+    except AttributeError:
+        pass
+
+    raise AttributeError("Could not find boundary_times in Interpolator checkpoint.")

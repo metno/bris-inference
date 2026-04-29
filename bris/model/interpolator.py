@@ -11,9 +11,15 @@ from ..data.datamodule import DataModule
 from ..forcings import get_dynamic_forcings
 from ..utils import (
     get_all_leadtimes,
+    get_model_multistep_input,
 )
 from .basepredictor import BasePredictor
-from .model_utils import get_variable_indices
+from .model_utils import (
+    get_data_config,
+    get_variable_indices,
+    get_interpolator_interp_times,
+    get_interpolator_boundary_times,
+)
 
 
 class Interpolator(BasePredictor):
@@ -62,14 +68,21 @@ class Interpolator(BasePredictor):
         super().__init__(*args, checkpoints=checkpoints, **kwargs)
         self.forecaster = checkpoints["forecaster"].model
         self.interpolator = checkpoints["interpolator"].model
-        dataset_names = self._get_dataset_names(checkpoints["forecaster"])
-        assert len(dataset_names) == 1, (
+        dataset_names_fc = self._get_dataset_names(checkpoints["forecaster"])
+        dataset_names_interp = self._get_dataset_names(checkpoints["interpolator"])
+        assert len(dataset_names_fc) == 1, (
             "Interpolator is currently only compatible with single dataset checkpoints"
         )
-        self.ds_name = dataset_names[0]
+        assert len(dataset_names_interp) == 1, (
+            "Interpolator is currently only compatible with single dataset checkpoints"
+        )
+        self.ds_name_fc = dataset_names_fc[0]
+        self.ds_name_interp = dataset_names_interp[0]
         self.data_indices = {
-            "forecaster": checkpoints["forecaster"].data_indices[self.ds_name],
-            "interpolator": checkpoints["interpolator"].data_indices[self.ds_name],
+            "forecaster": checkpoints["forecaster"].data_indices[self.ds_name_fc],
+            "interpolator": checkpoints["interpolator"].data_indices[
+                self.ds_name_interp
+            ],
         }
 
         # Backwards compatibility fix
@@ -82,9 +95,7 @@ class Interpolator(BasePredictor):
                 data_indices.internal_data = data_indices.data
                 data_indices.internal_model = data_indices.model
 
-        self.multistep = checkpoints[
-            "forecaster"
-        ].metadata.config.training.multistep_input
+        self.multistep = get_model_multistep_input(checkpoints["forecaster"])
         self.timestep_forecaster = np.timedelta64(
             checkpoints_config["forecaster"]["timestep_seconds"], "s"
         )
@@ -100,8 +111,8 @@ class Interpolator(BasePredictor):
             checkpoints_config["interpolator"]["leadtimes"],
             checkpoints_config["interpolator"]["timestep_seconds"],
         )
-        self.latitudes = datamodule.data_readers[self.ds_name].latitudes
-        self.longitudes = datamodule.data_readers[self.ds_name].longitudes
+        self.latitudes = datamodule.data_readers[self.ds_name_fc].latitudes
+        self.longitudes = datamodule.data_readers[self.ds_name_fc].longitudes
         self.forcing_dataset_interp = open_dataset(
             checkpoints_config["interpolator"]["static_forcings_dataset"]
         )
@@ -111,15 +122,15 @@ class Interpolator(BasePredictor):
         self.indices = {}
         self.variables = {}
         self.indices["forecaster"], self.variables["forecaster"] = get_variable_indices(
-            required_variables[self.ds_name],  # Assume one decoder
-            datamodule.data_readers[self.ds_name].variables,
+            required_variables[self.ds_name_fc],  # Assume one decoder
+            datamodule.data_readers[self.ds_name_fc].variables,
             self.data_indices["forecaster"].internal_data,
             self.data_indices["forecaster"].internal_model,
             0,
         )
         self.indices["interpolator"], self.variables["interpolator"] = (
             get_variable_indices(
-                required_variables[self.ds_name],  # Assume one decoder
+                required_variables[self.ds_name_interp],  # Assume one decoder
                 list(
                     self.data_indices[
                         "forecaster"
@@ -135,38 +146,39 @@ class Interpolator(BasePredictor):
             self.indices["interpolator_forcings"],
             self.variables["interpolator_forcings"],
         ) = get_variable_indices(
-            required_variables[self.ds_name],  # Assume one decoder
+            required_variables[self.ds_name_interp],  # Assume one decoder
             self.forcing_dataset_interp.variables,
             self.data_indices["interpolator"].internal_data,
             self.data_indices["interpolator"].internal_model,
             0,
         )
-
+        data_cfg_fc = get_data_config(checkpoints["forecaster"].config)
+        data_cfg_interp = get_data_config(checkpoints["interpolator"].config)
         self.static_forcings_forecaster = self.get_static_forcings(
-            datamodule.data_readers[self.ds_name],  # Assume one decoder
-            checkpoints["forecaster"].metadata["config"]["data"],
+            datamodule.data_readers[self.ds_name_fc],  # Assume one decoder
+            data_cfg_fc,
             self.forecaster,
             self.variables["forecaster"],
             self.indices["forecaster"],
             self.data_indices["forecaster"].internal_data,
+            model_name="forecaster",
         )
 
         self.static_forcings_interpolator = self.get_static_forcings(
             self.forcing_dataset_interp,
-            checkpoints["interpolator"].metadata["config"]["data"],
+            data_cfg_interp,
             self.interpolator,
             self.variables["interpolator_forcings"],
             self.indices["interpolator_forcings"],
             self.data_indices["interpolator"].internal_data,
+            model_name="interpolator",
             normalize=False,
         )
 
-        self.boundary_times = checkpoints[
-            "interpolator"
-        ].metadata.config.training.explicit_times.input
-        self.interp_times = checkpoints[
-            "interpolator"
-        ].metadata.config.training.explicit_times.target
+        self.boundary_times = get_interpolator_boundary_times(
+            checkpoints["interpolator"]
+        )
+        self.interp_times = get_interpolator_interp_times(checkpoints["interpolator"])
 
         self.interpolator_steps = len(self.interp_times)
 
@@ -189,6 +201,7 @@ class Interpolator(BasePredictor):
         variables: dict,
         indices: dict,
         internal_data: DataIndex,
+        model_name: str = None,
         normalize: bool = True,
     ) -> dict:
         """
@@ -205,7 +218,7 @@ class Interpolator(BasePredictor):
         Returns:
             Dictionary of static forcings.
         """
-        selection = data_config["forcing"]
+        selection = data_config[self.ds_name_interp]["forcing"]
         data = torch.from_numpy(data_reader[0].squeeze(axis=1).swapaxes(0, 1))
         data_input = torch.full(
             data.shape[:-1] + (len(variables["all"]),),
@@ -218,7 +231,18 @@ class Interpolator(BasePredictor):
             ..., indices["static_forcings_dataset"]
         ]
         if normalize:
-            data_input = model.pre_processors(data_input, in_place=True)
+            if model_name == "forecaster":
+                data_input = self.pre_processors_fc(
+                    data_input, dataset_name=self.ds_name_fc, in_place=True
+                )
+            elif model_name == "interpolator":
+                data_input = self.pre_processors_interp(
+                    data_input, dataset_name=self.ds_name_interp, in_place=True
+                )
+            else:
+                raise ValueError(
+                    f"model_name must be either 'forecaster' or 'interpolator', got {model_name}"
+                )
 
         static_forcings = {}
         if "cos_latitude" in selection:
@@ -272,7 +296,7 @@ class Interpolator(BasePredictor):
         assert len(batch) == 1, (
             "Interpolator is currently only compatible with single dataset checkpoints"
         )
-        batch = batch[self.ds_name]
+        batch = batch[self.ds_name_fc]
         time = np.datetime64(time_stamp[0])
         times = [time]
         y_preds = torch.empty(
@@ -335,7 +359,9 @@ class Interpolator(BasePredictor):
             :, self.multistep - 1, ..., self.indices["forecaster"]["variables_input"]
         ].cpu()
 
-        x = self.forecaster.pre_processors(data_input, in_place=False)
+        x = self.pre_processors_fc(
+            data_input, dataset_name=self.ds_name_fc, in_place=False
+        )
         x = x[..., self.data_indices["forecaster"].internal_data.input.full]
 
         # Keep a non-normalized version of x for the interpolator - updated with output from forecaster (physical space) and interpolator forcings
@@ -347,24 +373,19 @@ class Interpolator(BasePredictor):
         fcast_index = 1
         with torch.autocast(device_type="cuda", dtype=torch.bfloat16):
             for fcast_step in range(self.forecast_length - 1):
-                try:
-                    if self.fcstep_const:
-                        y_pred = self.forecaster(
-                            x, model_comm_group=self.model_comm_group, fcstep=0
-                        )
-                    else:
-                        y_pred = self.forecaster(
-                            x, model_comm_group=self.model_comm_group, fcstep=fcast_step
-                        )
-                except TypeError:
-                    y_pred = self.forecaster(x, model_comm_group=self.model_comm_group)
+                if self.fcstep_const:
+                    y_pred = self.forward_fc(x, fcstep=0)
+                else:
+                    y_pred = self.forward_fc(x, fcstep=fcast_step)
 
                 x = self.advance_input_predict(
                     x, y_pred, time + self.timestep_forecaster
                 )
                 x_interp = self.advance_input_interpolator(
                     x_interp,
-                    self.forecaster.post_processors(y_pred, in_place=False),
+                    self.post_processors_fc(
+                        y_pred, dataset_name=self.ds_name_fc, in_place=False
+                    ),
                     time + self.timestep_forecaster,
                 )
 
@@ -425,16 +446,18 @@ class Interpolator(BasePredictor):
                                 ] = value
 
                     # Do interpolator predictions
-                    interpolator_input = self.interpolator.pre_processors(
-                        interpolator_input, in_place=True
+                    interpolator_input = self.pre_processors_interp(
+                        interpolator_input,
+                        dataset_name=self.ds_name_interp,
+                        in_place=True,
                     )
                     interpolator_input = interpolator_input[
                         ..., self.data_indices["interpolator"].internal_data.input.full
                     ]
 
-                    y_pred_interp = self.interpolator(
+                    y_pred_interp = self.forward_interp(
                         interpolator_input,
-                        model_comm_group=self.model_comm_group,
+                        fcstep=0,  # TODO: fcstep should always be 0 during training for the interpolator?
                     )
 
                     for interp_index, interp_step in enumerate(self.interp_times):
@@ -442,8 +465,10 @@ class Interpolator(BasePredictor):
 
                         y_pred_interp_step = y_pred_interp[:, interp_index]
                         y_preds[:, fcast_index + interp_index] = (
-                            self.interpolator.post_processors(
-                                y_pred_interp_step, in_place=True
+                            self.post_processors_interp(
+                                y_pred_interp_step,
+                                dataset_name=self.ds_name_interp,
+                                in_place=True,
                             )[
                                 :,
                                 0,
@@ -455,9 +480,9 @@ class Interpolator(BasePredictor):
 
                     fcast_index += self.interpolator_steps
                 if not self.reforcast_last:
-                    y_preds[:, fcast_index] = self.forecaster.post_processors(
-                        y_pred, in_place=True
-                    )[:, 0, :, self.indices["forecaster"]["variables_output"]].cpu()
+                    y_preds[:, fcast_index] = self.post_processors_fc(
+                        y_pred, dataset_name=self.ds_name_fc, in_place=True
+                    )[:, 0, ..., self.indices["forecaster"]["variables_output"]].cpu()
                     time += self.timestep_forecaster
                     times.append(time)
                     fcast_index += 1
@@ -466,7 +491,7 @@ class Interpolator(BasePredictor):
 
         self.update_batch_info(time)
         return {
-            "pred": {self.ds_name: y_preds.to(torch.float32).numpy()},
+            "pred": {self.ds_name_fc: y_preds.to(torch.float32).numpy()},
             "times": times,
             "group_rank": self.model_comm_group_rank,
             "ensemble_member": self.member_id
@@ -591,3 +616,86 @@ class Interpolator(BasePredictor):
             return checkpoint.model.model.dataset_names
         else:  # Legacy compatibility
             return ["data"]
+
+    def pre_processors_fc(
+        self, x: torch.Tensor, dataset_name: str, in_place=False
+    ) -> torch.Tensor:
+        # Backwards compatibility to single dataset models
+        try:
+            return self.forecaster.pre_processors[dataset_name](x, in_place=in_place)
+        except TypeError:
+            return self.forecaster.pre_processors(x, in_place=in_place)
+
+    def post_processors_fc(
+        self, x: torch.Tensor, dataset_name: str, in_place=False
+    ) -> torch.Tensor:
+        # Backwards compatibilitpost_y to single dataset models
+        try:
+            return self.forecaster.post_processors[dataset_name](x, in_place=in_place)
+        except TypeError:
+            return self.forecaster.post_processors(x, in_place=in_place)
+
+    def forward_fc(self, x: torch.Tensor, **kwargs) -> torch.Tensor:
+        """
+        Perform a forward pass through the model.
+        Args:
+            x (torch.Tensor): Input tensor to the model.
+        Returns:
+            torch.Tensor: Output tensor after processing by the model.
+        """
+        # Backward compatibility with models that take batch as tensor instead of dict of tensors.
+        try:
+            return self.forecaster(
+                {self.ds_name_fc: x}, model_comm_group=self.model_comm_group, **kwargs
+            )[self.ds_name_fc]
+        except AttributeError:
+            # Backward compatibility with models that do not use kwargs:
+            try:
+                return self.forecaster(
+                    x, model_comm_group=self.model_comm_group, **kwargs
+                )
+            except TypeError:
+                return self.forecaster(x, model_comm_group=self.model_comm_group)
+
+    def pre_processors_interp(
+        self, x: torch.Tensor, dataset_name: str, in_place=False
+    ) -> torch.Tensor:
+        # Backwards compatibility to single dataset models
+        try:
+            return self.interpolator.pre_processors[dataset_name](x, in_place=in_place)
+        except TypeError:
+            return self.interpolator.pre_processors(x, in_place=in_place)
+
+    def post_processors_interp(
+        self, x: torch.Tensor, dataset_name: str, in_place=False
+    ) -> torch.Tensor:
+        # Backwards compatibilitpost_y to single dataset models
+        try:
+            return self.interpolator.post_processors[dataset_name](x, in_place=in_place)
+        except TypeError:
+            return self.interpolator.post_processors(x, in_place=in_place)
+
+    def forward_interp(self, x: torch.Tensor, **kwargs) -> torch.Tensor:
+        """
+        Perform a forward pass through the model.
+        Args:
+            x (torch.Tensor): Input tensor to the model.
+        Returns:
+            torch.Tensor: Output tensor after processing by the model.
+        """
+        # Backward compatibility with models that take batch as tensor instead of dict of tensors.
+        try:
+            return self.interpolator(
+                {self.ds_name_interp: x},
+                model_comm_group=self.model_comm_group,
+                **kwargs,
+            )[self.ds_name_interp]
+        except AttributeError:
+            # Backward compatibility with models that do not use kwargs:
+            x = list(x.values())[0]
+            try:
+                return self.interpolator(
+                    x, model_comm_group=self.model_comm_group, **kwargs
+                )
+            except TypeError:
+                return self.interpolator(x, model_comm_group=self.model_comm_group)
