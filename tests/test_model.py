@@ -16,11 +16,11 @@ from bris.model.brispredictor import BrisPredictor
 from bris.utils import (
     create_config,
     get_all_leadtimes,
+    get_model_multistep_input,
     get_model_timestep,
     parse_args,
     set_base_seed,
     set_encoder_decoder_num_chunks,
-    get_model_multistep_input,
 )
 
 
