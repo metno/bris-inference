@@ -89,12 +89,12 @@ def get_required_variables(checkpoint: Checkpoint) -> dict:
         data_indices = checkpoint.data_indices["data"]
         required_prognostic_variables = [
             name
-            for name, index in data_indices.internal_model.input.name_to_index.items()
+            for name, index in data_indices.model.input.name_to_index.items()
             if index in data_indices.internal_model.input.prognostic
         ]
         required_forcings = [
             name
-            for name, index in data_indices.internal_model.input.name_to_index.items()
+            for name, index in data_indices.model.input.name_to_index.items()
             if index in data_indices.internal_model.input.forcing
         ]
         required_static_forcings = [
@@ -109,13 +109,13 @@ def get_required_variables(checkpoint: Checkpoint) -> dict:
     for i, data_indices in enumerate(checkpoint.data_indices):
         required_prognostic_variables = [
             name
-            for name, index in data_indices.internal_model.input.name_to_index.items()
-            if index in data_indices.internal_model.input.prognostic
+            for name, index in data_indices.model.input.name_to_index.items()
+            if index in data_indices.model.input.prognostic
         ]
         required_forcings = [
             name
-            for name, index in data_indices.internal_model.input.name_to_index.items()
-            if index in data_indices.internal_model.input.forcing
+            for name, index in data_indices.model.input.name_to_index.items()
+            if index in data_indices.model.input.forcing
         ]
         required_static_forcings = [
             forcing

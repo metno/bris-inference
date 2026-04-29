@@ -16,6 +16,7 @@ from bris.model.brispredictor import BrisPredictor
 from bris.utils import (
     create_config,
     get_all_leadtimes,
+    get_model_timestep,
     parse_args,
     set_base_seed,
     set_encoder_decoder_num_chunks,
@@ -67,13 +68,7 @@ def test_bris_predictor():
 
     # Get timestep from checkpoint. Also store a version in seconds for local use.
     for model in models:
-        config.checkpoints[model].timestep = None
-        try:
-            config.checkpoints[model].timestep = checkpoints[model].config.data.timestep
-        except KeyError as err:
-            raise RuntimeError(
-                f"Error getting timestep from {model} checkpoint (checkpoint.config.data.timestep)"
-            ) from err
+        config.checkpoints[model].timestep = get_model_timestep(checkpoints[model])
         config.checkpoints[model].timestep_seconds = frequency_to_seconds(
             config.checkpoints[model].timestep
         )
