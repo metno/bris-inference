@@ -90,12 +90,12 @@ def get_required_variables(checkpoint: Checkpoint) -> dict:
         required_prognostic_variables = [
             name
             for name, index in data_indices.model.input.name_to_index.items()
-            if index in data_indices.internal_model.input.prognostic
+            if index in data_indices.model.input.prognostic
         ]
         required_forcings = [
             name
             for name, index in data_indices.model.input.name_to_index.items()
-            if index in data_indices.internal_model.input.forcing
+            if index in data_indices.model.input.forcing
         ]
         required_static_forcings = [
             forcing

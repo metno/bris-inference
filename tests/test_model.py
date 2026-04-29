@@ -20,6 +20,7 @@ from bris.utils import (
     parse_args,
     set_base_seed,
     set_encoder_decoder_num_chunks,
+    get_model_multistep_input,
 )
 
 
@@ -74,8 +75,7 @@ def test_bris_predictor():
         )
 
     # Get multistep. A default of 2 to ignore multistep in start_date calculation if not set.
-    multistep = 2
-    multistep = checkpoints["forecaster"].config.training.multistep_input
+    multistep = get_model_multistep_input(checkpoints["forecaster"])
 
     # If no start_date given, calculate as end_date-((multistep-1)*timestep)
     if "start_date" not in config or config.start_date is None:

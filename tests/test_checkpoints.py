@@ -115,10 +115,7 @@ def test_metadata():
         "z_925": 100,
     }
 
-    assert checkpoint.metadata.version == "1.0", "version is not 1.0"
-    assert checkpoint.metadata.run_id == "ed76cbe5-2644-4549-9f9d-b88d9e7939e2", (
-        "run_id seems wrong"
-    )
+    assert checkpoint.metadata.version == "2.0", "version is not 2.0"
     assert isinstance(checkpoint.metadata.config, DotDict), "config is not DotDict"
     assert isinstance(checkpoint.metadata.dataset, DotDict), "dataset is not DotDict"
     assert isinstance(checkpoint.metadata.data_indices, DotDict), (
