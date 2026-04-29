@@ -692,7 +692,6 @@ class Interpolator(BasePredictor):
             )[self.ds_name_interp]
         except AttributeError:
             # Backward compatibility with models that do not use kwargs:
-            x = list(x.values())[0]
             try:
                 return self.interpolator(
                     x, model_comm_group=self.model_comm_group, **kwargs

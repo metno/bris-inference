@@ -144,6 +144,6 @@ def test_add_checkpoint_name_to_attrs():
             "variables": ["2t", "2d"],
         }
     }
-    test_ckpts = {"testchk": Checkpoint("./tests/files/checkpoint.ckpt")}
+    test_ckpts = {"testchk": Checkpoint("./tests/files/checkpoint_single.ckpt")}
     new_oc = bris.routes.add_checkpoint_name_to_attrs(test_oc, test_ckpts)
     assert "testchk" in new_oc["netcdf"]["global_attributes"]["source"]

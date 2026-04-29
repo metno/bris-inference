@@ -35,7 +35,7 @@ def test_bris_predictor():
         )
 
     checkpoint_path = (
-        os.path.dirname(os.path.abspath(__file__)) + "/files/checkpoint.ckpt"
+        os.path.dirname(os.path.abspath(__file__)) + "/files/checkpoint_single.ckpt"
     )
 
     # Create test config

@@ -115,7 +115,7 @@ def test_get_required_variables():
         "skt",
         "w_850",
     ]
-    checkpoint_simple = bris.checkpoint.Checkpoint("tests/files/checkpoint.ckpt")
+    checkpoint_simple = bris.checkpoint.Checkpoint("tests/files/checkpoint_single.ckpt")
     required_simple = bris.inspect.get_required_variables(checkpoint_simple)["data"]
     for var in expected_simple:
         assert var in required_simple, (
@@ -143,7 +143,7 @@ def test_get_required_variables():
 
 def test_check_module_versions():
     """This depends on the current venv, so just test it doesn't crash"""
-    checkpoint = bris.checkpoint.Checkpoint("tests/files/checkpoint.ckpt")
+    checkpoint = bris.checkpoint.Checkpoint("tests/files/checkpoint_single.ckpt")
     _bad = bris.inspect.check_module_versions(checkpoint)
 
     # assert "fsspec==2025.2.0" in bad
@@ -151,4 +151,4 @@ def test_check_module_versions():
 
 def manual_test_inspect():
     """This depends on the current venv, so just test it doesn't crash"""
-    _status = bris.inspect.inspect(checkpoint_path="tests/files/checkpoint.ckpt")
+    _status = bris.inspect.inspect(checkpoint_path="tests/files/checkpoint_single.ckpt")
