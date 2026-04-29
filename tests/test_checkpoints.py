@@ -6,7 +6,9 @@ import bris.checkpoint
 
 
 def test_metadata():
-    filename = os.path.dirname(os.path.abspath(__file__)) + "/files/checkpoint_single.ckpt"
+    filename = (
+        os.path.dirname(os.path.abspath(__file__)) + "/files/checkpoint_single.ckpt"
+    )
     checkpoint = bris.checkpoint.Checkpoint(path=filename)
 
     n2i = {
