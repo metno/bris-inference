@@ -16,9 +16,9 @@ from ..utils import (
 from .basepredictor import BasePredictor
 from .model_utils import (
     get_data_config,
-    get_variable_indices,
-    get_interpolator_interp_times,
     get_interpolator_boundary_times,
+    get_interpolator_interp_times,
+    get_variable_indices,
 )
 
 

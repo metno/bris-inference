@@ -17,8 +17,8 @@ from anemoi.models.data_indices.index import DataIndex, ModelIndex
 from anemoi.utils.config import DotDict
 from omegaconf import DictConfig, ListConfig, OmegaConf
 
-from .forcings import anemoi_dynamic_forcings, get_dynamic_forcings
 from .checkpoint import Checkpoint
+from .forcings import anemoi_dynamic_forcings, get_dynamic_forcings
 
 LOGGER = logging.getLogger("bris")
 

@@ -20,8 +20,8 @@ from ..forcings import (
 from ..utils import (
     LOGGER,
     check_anemoi_training,
-    timedelta64_from_timestep,
     get_model_multistep_input,
+    timedelta64_from_timestep,
 )
 from .basepredictor import BasePredictor
 from .model_utils import (

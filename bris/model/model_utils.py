@@ -5,8 +5,8 @@ import torch
 from anemoi.models.data_indices.index import DataIndex, ModelIndex
 from anemoi.utils.config import DotDict
 
-from ..forcings import anemoi_dynamic_forcings
 from ..checkpoint import Checkpoint
+from ..forcings import anemoi_dynamic_forcings
 from ..utils import timedelta64_from_timestep
 
 

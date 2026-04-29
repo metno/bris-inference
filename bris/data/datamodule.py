@@ -25,7 +25,7 @@ from torch.utils.data import DataLoader, IterableDataset
 from bris.checkpoint import Checkpoint
 from bris.data.dataset import worker_init_func
 from bris.data.grid_indices import BaseGridIndices, FullGrid
-from bris.utils import recursive_list_to_tuple, get_model_multistep_input
+from bris.utils import get_model_multistep_input, recursive_list_to_tuple
 
 LOGGER = logging.getLogger(__name__)
 
