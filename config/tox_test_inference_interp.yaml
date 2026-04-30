@@ -12,7 +12,8 @@ checkpoints:
     leadtimes: 2
     static_forcings_dataset: ${dataset}
 
-dataset: ./bris_random_data.zarr
+datasets:
+  data: ./bris_random_data.zarr
 frequency: 6h
 workdir: /tmp/
 

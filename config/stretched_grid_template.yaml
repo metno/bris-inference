@@ -8,12 +8,13 @@ checkpoints:
 
 frequency: 6h 
 
-dataset: 
-  cutout:
-    - dataset: PATH_TO_LAM_DATASET
-    - dataset: PATH_TO_GLOBAL_DATASET
-  min_distance_km: 0
-  adjust: all
+datasets:
+  data:
+    cutout:
+      - dataset: PATH_TO_LAM_DATASET
+      - dataset: PATH_TO_GLOBAL_DATASET
+    min_distance_km: 0
+    adjust: all
 
 workdir: PATH_TO_WORK_DIRECTORY #Used to store temporary files for verif output
 
