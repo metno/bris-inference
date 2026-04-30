@@ -164,7 +164,9 @@ class Checkpoint:
                 and module.graph_attention_backend == "triton"
             ):
                 module.graph_attention_backend = "pyg"
-                module.conv = GraphTransformerConv(out_channels=module.out_channels_conv)
+                module.conv = GraphTransformerConv(
+                    out_channels=module.out_channels_conv
+                )
                 patched += 1
 
         if patched:
