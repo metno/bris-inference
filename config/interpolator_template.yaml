@@ -13,12 +13,13 @@ checkpoints:
 
 frequency: 6h # Frequency of the starting states in the dataset (forecaster timestep)
 
-dataset:
-  cutout:
-    - dataset: PATH_TO_LAM_DATASET
-    - dataset: PATH_TO_GLOBAL_DATASET
-  adjust: all
-  min_distance_km: 0
+datasets:
+  data:
+    cutout:
+      - dataset: PATH_TO_LAM_DATASET
+      - dataset: PATH_TO_GLOBAL_DATASET
+    adjust: all
+    min_distance_km: 0
 
 workdir: PATH_TO_WORK_DIRECTORY # Used to store temporary files for ensemble members and verif output
 
@@ -48,7 +49,7 @@ model:
 output: PATH_TO_OUTPUT # Not a required field, used in output path in routing
 
 routing:
-  - decoder_index: 0
+  - decoder_name: data
     domain_index: 0
     outputs:
       - netcdf:
@@ -65,4 +66,3 @@ routing:
           obs_sources:
             - verif:
                 filename: PATH_TO_VERIF_FILE.nc #Verif file with observations
-
