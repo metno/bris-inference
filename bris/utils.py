@@ -368,7 +368,7 @@ def get_model_multistep_input(checkpoint: Checkpoint) -> int:
     except AttributeError:
         pass
 
-    LOGGER.warnig("Could not find multistep_input in checkpoint, defaulting to 2")
+    LOGGER.warning("Could not find multistep_input in checkpoint, defaulting to 2")
     return 2
 
 
