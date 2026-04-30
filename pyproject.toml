@@ -16,7 +16,7 @@ keywords = ["meteorology", "forecast", ]
 license = { file = "LICENSE" }
 readme = "README.md"
 
-requires-python = ">=3.11"
+requires-python = ">=3.11,<3.14"
 classifiers = [
     "Development Status :: 3 - Alpha",
     "License :: OSI Approved :: Apache Software License",
