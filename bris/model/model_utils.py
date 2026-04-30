@@ -70,7 +70,7 @@ def get_variable_indices(
     datamodule_variables: list,
     internal_data: DataIndex,
     internal_model: ModelIndex,
-    decoder_name: int,
+    decoder_name: str,
 ) -> tuple[dict, dict]:
     """
     Helper function for BrisPredictor, get indices for variables in input data and model. This is used to map the
