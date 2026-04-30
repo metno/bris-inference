@@ -211,7 +211,7 @@ def get_data_config(config: DotDict) -> DotDict:
 
 def get_interpolator_interp_times(checkpoint: Checkpoint) -> list[int]:
     try:
-        return checkpoint.config.training.explicit_times.input
+        return checkpoint.config.training.explicit_times.target
     except AttributeError:
         pass
 
@@ -238,7 +238,7 @@ def get_interpolator_interp_times(checkpoint: Checkpoint) -> list[int]:
 
 def get_interpolator_boundary_times(checkpoint: Checkpoint) -> list[int]:
     try:
-        return checkpoint.config.training.explicit_times.output
+        return checkpoint.config.training.explicit_times.input
     except AttributeError:
         pass
 
