@@ -107,7 +107,7 @@ def get_required_variables(checkpoint: Checkpoint) -> dict:
 
     # If Multiencdec checkpoint
     datasets = {}
-    for i, data_indices in enumerate(checkpoint.data_indices):
+    for ds_name, data_indices in checkpoint.data_indices.items():
         required_prognostic_variables = [
             name
             for name, index in data_indices.model.input.name_to_index.items()
@@ -123,7 +123,7 @@ def get_required_variables(checkpoint: Checkpoint) -> dict:
             for forcing in required_forcings
             if forcing not in anemoi_dynamic_forcings()
         ]
-        datasets[i] = required_prognostic_variables + required_static_forcings
+        datasets[ds_name] = required_prognostic_variables + required_static_forcings
     return datasets
 
 
