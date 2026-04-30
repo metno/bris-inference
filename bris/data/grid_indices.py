@@ -12,14 +12,13 @@ from __future__ import annotations
 import logging
 from abc import ABC, abstractmethod
 from collections.abc import Sequence
-from typing import Union
 
 import numpy as np
 from torch_geometric.data import HeteroData
 
 LOGGER = logging.getLogger(__name__)
 
-ArrayIndex = Union[slice, int, Sequence[int]]
+ArrayIndex = slice | int | Sequence[int]
 
 
 class BaseGridIndices(ABC):

@@ -2,7 +2,6 @@ import logging
 import os
 from copy import deepcopy
 from functools import cached_property
-from typing import Optional
 
 import torch
 from anemoi.utils.checkpoints import load_metadata
@@ -48,7 +47,7 @@ class Metadata(DotDict):
 class Checkpoint:
     """This class makes accessible various information stored in Anemoi checkpoints."""
 
-    def __init__(self, path: str, graph: Optional[str] = None):
+    def __init__(self, path: str, graph: str | None = None):
         assert os.path.exists(path), f"The given checkpoint {path} does not exist!"
 
         self.path = path
@@ -180,7 +179,7 @@ class Checkpoint:
     #     _model_params = self._model_instance.named_parameters()
     #     return deepcopy(dict(_model_params))
 
-    def update_graph(self, path: Optional[str] = None) -> HeteroData:
+    def update_graph(self, path: str | None = None) -> HeteroData:
         """
         Replaces existing graph object within model instance.
         The new graph is either provided as an torch file or

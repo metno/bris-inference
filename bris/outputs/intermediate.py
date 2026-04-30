@@ -1,7 +1,6 @@
 import glob
 import os
 import time
-from typing import Optional
 
 import numpy as np
 
@@ -20,7 +19,7 @@ class Intermediate(Output):
         self,
         predict_metadata: PredictMetadata,
         workdir: str,
-        extra_variables: Optional[list] = None,
+        extra_variables: list | None = None,
     ) -> None:
         super().__init__(predict_metadata, extra_variables)
         self.workdir = workdir
@@ -133,7 +132,7 @@ class IntermediateSpatial(Intermediate):
         predict_metadata: PredictMetadata,
         workdir: str,
         metric_shape: tuple,
-        extra_variables: Optional[list] = None,
+        extra_variables: list | None = None,
     ) -> None:
         super().__init__(predict_metadata, workdir, extra_variables)
         self.metric_shape = metric_shape

@@ -21,8 +21,8 @@ class Inference:
         callbacks: Any,
         datamodule: DataModule,
         num_gpus_per_ensemble,
-        precision: Optional[str] = None,
-        device: Optional[str] = None,
+        precision: str | None = None,
+        device: str | None = None,
     ) -> None:
         self.config = config
         self.model = model

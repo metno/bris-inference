@@ -1,7 +1,6 @@
 import copy
 import time
 from abc import abstractmethod
-from typing import Optional
 
 import numpy as np
 
@@ -87,7 +86,7 @@ class Output:
     """This class writes output for a specific part of the domain"""
 
     def __init__(
-        self, predict_metadata: PredictMetadata, extra_variables: Optional[list] = None
+        self, predict_metadata: PredictMetadata, extra_variables: list | None = None
     ):
         """Creates an object of type name with config
 
