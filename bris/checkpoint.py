@@ -132,7 +132,47 @@ class Checkpoint:
                     "check module versions."
                 ) from e
             raise e
+        if not torch.cuda.is_available():
+            self._apply_triton_cpu_fallback(inst)
         return inst
+
+    def _apply_triton_cpu_fallback(self, model: torch.nn.Module) -> None:
+        """Replace Triton graph attention with the PyG backend when running on CPU.
+
+        anemoi-models checks is_triton_available() at model construction time and falls
+        back to the PyG backend automatically. However, when a model is loaded from a
+        checkpoint via torch.load() (weights_only=False), __init__ is not called —
+        pickle restores __dict__ directly — so the Triton function reference is
+        preserved even when no GPU is available. This method applies the same fallback
+        after loading.
+
+        GraphTransformerConv has no trainable parameters, so the swap is safe.
+        """
+        try:
+            from anemoi.models.layers.block import GraphTransformerBaseBlock
+            from anemoi.models.layers.conv import GraphTransformerConv
+        except ImportError:
+            LOGGER.warning(
+                "Could not import anemoi.models layers to apply Triton->PyG CPU fallback."
+            )
+            return
+
+        patched = 0
+        for module in model.modules():
+            if (
+                isinstance(module, GraphTransformerBaseBlock)
+                and module.graph_attention_backend == "triton"
+            ):
+                module.graph_attention_backend = "pyg"
+                module.conv = GraphTransformerConv(out_channels=module.out_channels_conv)
+                patched += 1
+
+        if patched:
+            LOGGER.warning(
+                "Checkpoint was saved with the Triton graph attention backend but no GPU "
+                "is available. Fell back to the PyG backend for %d block(s).",
+                patched,
+            )
 
     @property
     def graph(self) -> HeteroData:
