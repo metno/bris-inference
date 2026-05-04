@@ -160,6 +160,7 @@ class BrisPredictor(BasePredictor):
                 dtype=data.dtype,
                 device=data.device,
             )
+            data_input = data_input[None, None, None, ...] # Add bs, time, ens dims needed by imputer
             data_input[..., self.indices[ds]["prognostic_input"]] = data[
                 ..., self.indices[ds]["prognostic_dataset"]
             ]
