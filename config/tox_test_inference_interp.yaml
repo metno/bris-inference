@@ -10,7 +10,10 @@ checkpoints:
   interpolator:
     checkpoint_path: ./checkpoint_interp.ckpt
     leadtimes: 2
-    static_forcings_dataset: ${dataset}
+    static_forcings_dataset:
+      dataset: ${datasets.data}
+      start: ${start_date}
+      end: ${end_date}
 
 datasets:
   data: ./bris_random_data.zarr
