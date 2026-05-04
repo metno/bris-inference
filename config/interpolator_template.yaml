@@ -9,7 +9,10 @@ checkpoints:
     checkpoint_path: PATH/TO/INTERPOLATOR_CHECKPOINT.ckpt # Full path to interpolator checkpoint
     leadtimes: 11 # Number of forecaster leadtime pairs to interpolate in between
                   # Max is forecaster leadtimes - 1
-    static_forcings_dataset: ${dataset} # Path to static forcings dataset
+    static_forcings_dataset: 
+      dataset: ${datasets.data} # Path to static forcings dataset
+      start: ${start_date}
+      end: ${end_date}
 
 frequency: 6h # Frequency of the starting states in the dataset (forecaster timestep)
 
