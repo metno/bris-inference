@@ -2,8 +2,10 @@ import numpy as np
 from functools import cached_property
 from abc import abstractmethod
 from scipy.fft import dctn
+import xarray as xr
+import datetime
 
-from bris import projections
+from bris import projections, utils
 from bris.conventions import cf
 from bris.outputs import Output
 from bris.predict_metadata import PredictMetadata
@@ -23,12 +25,18 @@ class SpectralSkillSpread():
         obs_dataset: str,
         remove_intermediate: bool = True,
         n_bins: int = None,
+        proj4_str: str | None = None,
+        domain_name: str | None = None,
     ) -> None:
         extra_variables = []
         if variable not in predict_metadata.variables:
             extra_variables += [variable]
         
         self.pm = predict_metadata
+        if domain_name is not None:
+            self.proj4_str = projections.get_proj4_str(domain_name)
+        else:
+            self.proj4_str = proj4_str
         self.variable = variable
         self.filename = filename
         shape = (predict_metadata.num_points)
@@ -44,15 +52,22 @@ class SpectralSkillSpread():
         self.obs_dataset = open_dataset(obs_dataset)
 
     def get_observations_for_valid_times(self, frt: np.datetime64) -> np.ndarray:
-        valid_times = [frts + np.timedelta64(lt, "s") for lt in self.pm.leadtimes]
+        valid_times = [frt + np.timedelta64(lt, "s") for lt in self.pm.leadtimes]
         time_indices = [np.argmin(np.abs(self.obs_dataset.dates - t)) for t in valid_times]
-        var_index = self.obs_dataset.name_to_index(self.variable)
+        if self.variable == "ws":
+            u_index = self.obs_dataset.name_to_index["10u"]
+            v_index = self.obs_dataset.name_to_index["10v"]
+            u = self.obs_dataset[time_indices, u_index, 0, ...]
+            v = self.obs_dataset[time_indices, v_index, 0, ...]
+            return np.sqrt(u**2 + v**2)
+
+        var_index = self.obs_dataset.name_to_index[self.variable]
         #Debug
         print("valid_times: ", valid_times)
-        print("time_indices: ", time_indeices)
+        print("time_indices: ", time_indices)
         return self.obs_dataset[time_indices, var_index, 0, ...]
 
-    def _add_forecast(
+    def add_forecast(
         self, times: list, ensemble_member: int, pred: np.ndarray
     ) -> None:
         if self.variable == "ws":
@@ -78,7 +93,7 @@ class SpectralSkillSpread():
         for frt in frts:
             pred = np.zeros((self.pm.num_leadtimes, self.pm.num_points, self.pm.num_members))
             for member in range(self.pm.num_members):
-                pred[..., member] = self.intermediate.get_forecast(frt, member)
+                pred[..., member] = self.intermediate.get_forecast(frt, member).squeeze(-1)
             
             # Calculate skill
             obs = self.get_observations_for_valid_times(frt) #(time, latlon)
@@ -96,14 +111,14 @@ class SpectralSkillSpread():
 
         skill = np.sqrt(_skill)
 
-        k_edges, k_bins, k = self.get_bins()
+        k_edges, k_bins, k = self.get_bins
         n_bins = k_bins.shape[0]
         digitized = np.digitize(k.flatten(), k_edges)
 
         skill_k = np.full((self.pm.num_leadtimes, n_bins), np.nan)
         spread_k = np.full((self.pm.num_leadtimes, n_bins), np.nan)
 
-        for lt in range(leadtimes):
+        for lt in range(self.pm.num_leadtimes):
             skill_k[lt] = np.array(
                 [
                     skill[lt].flatten()[digitized == i].mean() if np.any(digitized == i) else 0 
@@ -112,12 +127,12 @@ class SpectralSkillSpread():
             )
             spread_k[lt] = np.array(
                 [
-                    skill[lt].flatten()[digitized == i].mean() if np.any(digitized == i) else 0 
+                    spread[lt].flatten()[digitized == i].mean() if np.any(digitized == i) else 0 
                     for i in range(1, n_bins + 1)
                 ]
             )
 
-        self.write(spread_k, skill_k)
+        self.write(spread_k, skill_k, k_bins)
         if self.remove_intermediate:
             self.intermediate.cleanup()
 
@@ -135,6 +150,7 @@ class SpectralSkillSpread():
             k_bin,
             cf.get_attributes("k")
         )
+        #TODO: convert from k to wavelength and add wavelength as a coordinate
 
         ds = xr.Dataset(coords=coords)
 
@@ -145,8 +161,8 @@ class SpectralSkillSpread():
         datestr = datetime.datetime.now(datetime.timezone.utc).strftime(
             "%Y-%m-%d %H:%M:%S +00:00"
         )
-        self.ds.attrs["history"] = f"{datestr} Created by bris-inference"
-        self.ds.attrs["Convensions"] = "CF-1.6"
+        ds.attrs["history"] = f"{datestr} Created by bris-inference"
+        ds.attrs["Conventions"] = "CF-1.6"
 
         utils.create_directory(self.filename)
         ds.to_netcdf(self.filename, mode="w", engine="netcdf4")
