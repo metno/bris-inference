@@ -41,6 +41,9 @@ def instantiate(name: str, predict_metadata: PredictMetadata, workdir: str, init
     if name == "powerspectrum_gridded":
         return DCTPowerSpectrum(predict_metadata, workdir, **init_args)
 
+    if name == "spectral_spread_skill":
+        return SpectralSkillSpread(predict_metadata, workdir, **init_args)
+
     raise ValueError(f"Invalid output: {name}")
 
 
@@ -64,7 +67,7 @@ def get_required_variables(name, init_args):
             return variables
         return [None]
 
-    if name in ["verif", "powerspectrum_gridded", "powerspectrum_global"]:
+    if name in ["verif", "powerspectrum_gridded", "powerspectrum_global", "spectral_spread_skill"]:
         if init_args["variable"] == "ws":
             return ["10u", "10v"]
         return [init_args["variable"]]
@@ -199,4 +202,5 @@ from .grib import Grib
 from .intermediate import Intermediate
 from .netcdf import Netcdf
 from .spatial import DCTPowerSpectrum, SHPowerSpectrum
+from .spectral import SpectralSkillSpread
 from .verif import Verif
