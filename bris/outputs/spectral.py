@@ -1,16 +1,17 @@
-import numpy as np
-from functools import cached_property
-from abc import abstractmethod
-from scipy.fft import dctn
-import xarray as xr
 import datetime
+from abc import abstractmethod
+from functools import cached_property
+
+import numpy as np
+import xarray as xr
+from anemoi.datasets import open_dataset
+from scipy.fft import dctn
 
 from bris import projections, utils
 from bris.conventions import cf
 from bris.outputs import Output
-from bris.predict_metadata import PredictMetadata
 from bris.outputs.intermediate import IntermediateSpatial
-from anemoi.datasets import open_dataset
+from bris.predict_metadata import PredictMetadata
 
 
 class SpectralGridded:
@@ -89,14 +90,8 @@ class SpectralGridded:
         """Calculates skill, spread and spectra in spectral space and writes to file."""
         nx, ny = self.pm.field_shape
 
-        _skill = np.zeros((self.pm.num_leadtimes, nx, ny))
-        spread = np.zeros((self.pm.num_leadtimes, nx, ny))
-
         frts = self.intermediate.get_forecast_reference_times()
-        print("frts:", frts)
-        N_t = len(frts)
         N = self.pm.num_members
-        print("N_t:", N_t, "N:", N)
 
         k_edges, k_bins, k = self.get_bins
         n_bins = k_bins.shape[0]
