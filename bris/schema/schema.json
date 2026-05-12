@@ -183,11 +183,11 @@
             "required": ["powerspectrum_gridded"]
         },
 
-        "SpectralSpreadSkill": {
-            "description": "Spectral spread-skill output file",
+        "SpectralGridded": {
+            "description": "Spectral gridded output file",
             "type": "object",
             "properties": {
-                "spectral_spread_skill": {
+                "spectral_gridded": {
                     "type": "object",
                     "properties": {
                         "filename": {
@@ -195,7 +195,7 @@
                             "type": "string"
                         },
                         "variable": {
-                            "description": "What anemoi variable to compute spectral spread-skill for? Can include variables that can be diagnosed from other variables (e.g. 10si from 10u and 10v)",
+                            "description": "What anemoi variable to compute spectral gridded output for? Can include variables that can be diagnosed from other variables (e.g. 10si from 10u and 10v)",
                             "type": "string"
                         },
                         "obs_dataset": {
@@ -214,7 +214,7 @@
                     "required": ["filename", "variable", "obs_dataset"]
                 }
             },
-            "required": ["spectral_spread_skill"]
+            "required": ["spectral_gridded"]
         },
 
         "VerifSource": {
@@ -378,7 +378,7 @@
                                 {"$ref": "#/$defs/GribOutput"},
                                 {"$ref": "#/$defs/SHPowerSpectrumOutput"},
                                 {"$ref": "#/$defs/DCTPowerSpectrum"},
-                                {"$ref": "#/$defs/SpectralSpreadSkill"}
+                                {"$ref": "#/$defs/SpectralGridded"}
                             ]
                         }
                     }
