@@ -401,7 +401,9 @@ class Verif(Output):
 
             self.ds["analysis"] = (["time", "leadtime", "location"], analysis)
         else:
-            print("Not writing analysis to verif file. The first forecast leadtime isn't 0")
+            print(
+                "Not writing analysis to verif file. The first forecast leadtime isn't 0"
+            )
 
         if self.num_members > 1:
             crps = self.compute_crps(ens, obs, self.fair_crps)

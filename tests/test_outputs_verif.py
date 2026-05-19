@@ -94,9 +94,17 @@ def test_1():
             output.finalize()
             check_expected_variable(ofilename)
 
+
 def check_expected_variable(filename):
-    expected_variables = ["analysis", "fcst", "obs", "ensemble", "ensemble_mean",
-            "ensemble_variance", "ensemble_crps"]
+    expected_variables = [
+        "analysis",
+        "fcst",
+        "obs",
+        "ensemble",
+        "ensemble_mean",
+        "ensemble_variance",
+        "ensemble_crps",
+    ]
 
     with xr.open_dataset(filename) as file:
         for variable in expected_variables:
