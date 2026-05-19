@@ -225,11 +225,13 @@ class Verif(Output):
         frts = self.intermediate.get_forecast_reference_times()
         frts_unix = utils.datetime_to_unixtime(frts).astype(np.double)
 
+        leadtimes_seconds = self.intermediate.pm.leadtimes.astype(np.float32)
+
         coords = {}
         coords["time"] = (["time"], frts_unix, cf.get_attributes("time"))
         coords["leadtime"] = (
             ["leadtime"],
-            self.intermediate.pm.leadtimes.astype(np.float32) / 3600,
+            leadtimes_seconds / 3600,
             {"units": "hour"},
         )
         assert len(self.obs_ids) == len(self.opoints.get_lats()), (
@@ -345,15 +347,14 @@ class Verif(Output):
                         self.ds["x"] = (["time", "leadtime", "location", "quantile"], x)
 
         # Find which valid times we need observations for
-        frts_ut = utils.datetime_to_unixtime(frts)
-        a, b = np.meshgrid(frts_ut, np.array(self.intermediate.pm.leadtimes))
+        # Build a 2D array of valid times for (init_time, leadtime)
+        a, b = np.meshgrid(frts_unix, np.array(self.intermediate.pm.leadtimes))
         valid_times = a + b
         valid_times = valid_times.transpose()
         if len(valid_times) == 0:
             utils.LOGGER.warning("Could not finalize verif, no valid times")
             return
 
-        # valid_times = np.sort(np.unique(valid_times.flatten()))
         unique_valid_times = np.sort(np.unique(valid_times.flatten()))
 
         start_time = int(np.min(unique_valid_times))
@@ -387,6 +388,21 @@ class Verif(Output):
 
         self.ds["obs"] = (["time", "leadtime", "location"], obs)
 
+        if int(leadtimes_seconds[0]) == 0:
+            # Store the analysis state from "fcst", where it is available. Note: this picks the first
+            # forecast leadtime, which isn't necesssarily going to be an analysis.
+            analysis = self.create_nan_array(fcst_shape)
+            analysis_valid_times = frts_unix
+
+            for _t, valid_time in enumerate(frts_unix):
+                Itimes, Ileadtimes = np.where(valid_times == valid_time)
+                for i in range(len(Itimes)):
+                    analysis[Itimes[i], Ileadtimes[i], :] = fcst[_t, 0, :]
+
+            self.ds["analysis"] = (["time", "leadtime", "location"], analysis)
+        else:
+            print("Not writing analysis to verif file. The first forecast leadtime isn't 0")
+
         if self.num_members > 1:
             crps = self.compute_crps(ens, obs, self.fair_crps)
             self.ds["ensemble_crps"] = (["time", "leadtime", "location"], crps)
@@ -399,6 +415,7 @@ class Verif(Output):
 
         data_variables = [
             "obs",
+            "analysis",
             "fcst",
             "ensemble",
             "ensemble_mean",
