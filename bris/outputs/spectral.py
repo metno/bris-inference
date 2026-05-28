@@ -105,6 +105,31 @@ class SpectralGridded:
         spectrum_observation = np.full(
             (len(frts), self.pm.num_leadtimes, n_bins), np.nan
         )
+
+        # --- Precompute bin-averaging helpers (done once, outside the frt loop) ---
+        n_spatial = nx * ny
+        digitized_flat = digitized.flatten()
+        valid = (digitized_flat >= 1) & (digitized_flat <= n_bins)
+        bin_idx = digitized_flat - 1  # 0-indexed; only meaningful where valid
+
+        bin_counts = np.bincount(bin_idx[valid], minlength=n_bins).astype(float)
+        bin_counts[bin_counts == 0] = np.nan  # empty bins -> nan
+
+        # For the vectorised-over-leadtimes bincount trick:
+        # map point (lt, s) -> global bin  lt*n_bins + bin_idx[s]
+        lt_range = np.arange(self.pm.num_leadtimes)
+        # Materialise as a concrete array (not a lazy broadcast view) to avoid
+        # repeated realisation overhead inside _bin_mean_2d.
+        valid_2d = np.tile(valid[None, :], (self.pm.num_leadtimes, 1))
+        bin_idx_2d = bin_idx[None, :] + lt_range[:, None] * n_bins  # (lt, n_spatial)
+        bin_idx_flat = bin_idx_2d[valid_2d]  # 1-D index array, reused every frt
+        n_total_bins = self.pm.num_leadtimes * n_bins
+
+        def _bin_mean_2d(arr2d):
+            """arr2d: (lt, n_spatial) -> (lt, n_bins) bin means."""
+            sums = np.bincount(bin_idx_flat, weights=arr2d[valid_2d], minlength=n_total_bins)
+            return sums.reshape(self.pm.num_leadtimes, n_bins) / bin_counts
+
         for i, frt in enumerate(frts):
             pred = np.zeros(
                 (self.pm.num_leadtimes, self.pm.num_points, self.pm.num_members)
@@ -120,53 +145,29 @@ class SpectralGridded:
             obs = obs.reshape(obs.shape[0], nx, ny)  # (lt, x, y)
             pred = pred.reshape(pred.shape[0], nx, ny, pred.shape[2])  # (lt, x, y, ens)
 
-            obs_k = dctn(obs, axes=(1, 2), type=2, norm="ortho")  # time, kx, ky
-            pred_k = dctn(pred, axes=(1, 2), type=2, norm="ortho")  # time, kx, ky, ens
+            # Use workers=-1 to parallelise the DCT across all available CPU cores.
+            obs_k = dctn(obs, axes=(1, 2), type=2, norm="ortho", workers=-1)  # time, kx, ky
+            pred_k = dctn(pred, axes=(1, 2), type=2, norm="ortho", workers=-1)  # time, kx, ky, ens
 
-            P_obs = np.abs(obs_k) ** 2
-            P_pred = np.abs(pred_k) ** 2
+            # DCT output is purely real, so squaring directly avoids the cost of abs().
+            P_obs = obs_k ** 2
+            P_pred = pred_k ** 2
 
             ens_mean = pred_k.mean(axis=3)
 
-            spread_variance_k = ((pred_k - ens_mean[..., None]) ** 2).sum(axis=3) / (
-                N - 1
-            )  # time, kx, ky
+            # np.var avoids allocating the large (lt, nx, ny, N) deviation array.
+            spread_variance_k = np.var(pred_k, axis=3, ddof=1)  # time, kx, ky
             error_variance_k = (ens_mean - obs_k) ** 2  # time, kx, ky
 
-            # Bin average over k space
-            for lt in range(self.pm.num_leadtimes):
-                spread_variance[i, lt, :] = np.array(
-                    [
-                        spread_variance_k[lt].flatten()[digitized == j].mean()
-                        if np.any(digitized == j)
-                        else np.nan
-                        for j in range(1, n_bins + 1)
-                    ]
-                )
-                error_variance[i, lt, :] = np.array(
-                    [
-                        error_variance_k[lt].flatten()[digitized == j].mean()
-                        if np.any(digitized == j)
-                        else np.nan
-                        for j in range(1, n_bins + 1)
-                    ]
-                )
-                spectrum_forecast[i, lt, :, :] = np.array(
-                    [
-                        P_pred[lt].reshape(-1, N)[digitized == j, :].mean(axis=0)
-                        if np.any(digitized == j)
-                        else np.full(N, np.nan)
-                        for j in range(1, n_bins + 1)
-                    ]
-                )
-                spectrum_observation[i, lt, :] = np.array(
-                    [
-                        P_obs[lt].flatten()[digitized == j].mean()
-                        if np.any(digitized == j)
-                        else np.nan
-                        for j in range(1, n_bins + 1)
-                    ]
-                )
+            # Vectorised bin averaging via np.bincount
+            spread_variance[i] = _bin_mean_2d(spread_variance_k.reshape(self.pm.num_leadtimes, n_spatial))
+            error_variance[i] = _bin_mean_2d(error_variance_k.reshape(self.pm.num_leadtimes, n_spatial))
+            spectrum_observation[i] = _bin_mean_2d(P_obs.reshape(self.pm.num_leadtimes, n_spatial))
+
+            # spectrum_forecast has an extra ensemble dimension; loop over members (N is small)
+            pp_flat = P_pred.reshape(self.pm.num_leadtimes, n_spatial, N)
+            for m in range(N):
+                spectrum_forecast[i, :, :, m] = _bin_mean_2d(pp_flat[..., m])
 
         self.write(
             spread_variance,
