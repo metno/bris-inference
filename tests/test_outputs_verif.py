@@ -3,6 +3,7 @@ import tempfile
 
 import numpy as np
 import pytest
+import xarray as xr
 
 from bris.outputs import Verif
 from bris.predict_metadata import PredictMetadata
@@ -64,6 +65,7 @@ def test_1():
                     output.add_forecast(times, member, pred)
 
                 output.finalize()
+                check_expected_variable(ofilename)
 
         altitudes = np.arange(len(lats))
         pm = PredictMetadata(
@@ -90,6 +92,23 @@ def test_1():
                 output.add_forecast(times, member, pred)
 
             output.finalize()
+            check_expected_variable(ofilename)
+
+
+def check_expected_variable(filename):
+    expected_variables = [
+        "analysis",
+        "fcst",
+        "obs",
+        "ensemble",
+        "ensemble_mean",
+        "ensemble_variance",
+        "ensemble_crps",
+    ]
+
+    with xr.open_dataset(filename) as file:
+        for variable in expected_variables:
+            assert variable in file, variable
 
 
 def test_2():
