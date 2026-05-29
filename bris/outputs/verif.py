@@ -400,7 +400,7 @@ class Verif(Output):
 
             self.ds["analysis"] = (["time", "leadtime", "location"], analysis)
         else:
-            print(
+            utils.LOGGER.warning(
                 "Not writing analysis to verif file. The first forecast leadtime isn't 0"
             )
 
