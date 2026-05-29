@@ -392,7 +392,6 @@ class Verif(Output):
             # Store the analysis state from "fcst", where it is available. Note: this picks the first
             # forecast leadtime, which isn't necesssarily going to be an analysis.
             analysis = self.create_nan_array(fcst_shape)
-            analysis_valid_times = frts_unix
 
             for _t, valid_time in enumerate(frts_unix):
                 Itimes, Ileadtimes = np.where(valid_times == valid_time)
