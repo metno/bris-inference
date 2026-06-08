@@ -320,14 +320,18 @@
             "min_distance_km": {"type": "int", "minimum": 0},
             "adjust": {"type": "string"}
         },
+        "datasets": {
+            "description": "Dictionairy {dataset_name: dataset_recipe} where dataset_recipe is an anemoi-datasets open_dataset recipe",
+            "type": "object"
+        },
         "routing": {
             "type": "array",
             "items":  {
                 "type": "object",
                 "properties": {
-                    "decoder_index": {
-                        "type": "integer",
-                        "description": "Select this decoder. If model only has one decoder, use 0",
+                    "decoder_name": {
+                        "type": "string",
+                        "description": "Decoder name (decided by the dataset name used when training the model).",
                         "minimum": 0
                     },
                     "domain_index": {
@@ -348,9 +352,13 @@
                         }
                     }
                 },
-                "required": ["decoder_index", "outputs"]
+                "required": ["decoder_name", "outputs"]
             }
         }
     },
-    "required": ["checkpoints", "frequency", "dataset", "workdir"]
+    "required": ["checkpoints", "frequency", "workdir"],
+    "oneOf": [
+        { "required": ["dataset"] },
+        { "required": ["datasets"] }
+    ]
 }

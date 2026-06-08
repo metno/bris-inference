@@ -2,9 +2,8 @@ import logging
 
 from torch.utils.data import get_worker_info
 
-# Make NativeGridDataset and ZipDataset importable from bris.data.dataset:
+# Make NativeGridDataset importable from bris.data.dataset:
 from .nativegrid import NativeGridDataset  # noqa
-from .zip import ZipDataset  # noqa
 
 LOGGER = logging.getLogger(__name__)
 

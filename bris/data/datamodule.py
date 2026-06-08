@@ -2,8 +2,17 @@ import logging
 from functools import cached_property
 from typing import Any
 
-import anemoi.datasets.data.select
-import anemoi.datasets.data.subset
+# Backward compatibility
+try:
+    from anemoi.datasets.data.select import Select
+except ImportError:
+    from anemoi.datasets.usage.gridded.select import Select
+
+try:
+    from anemoi.datasets.data.subset import Subset
+except ImportError:
+    from anemoi.datasets.usage.gridded.subset import Subset
+
 import numpy as np
 import pytorch_lightning as pl
 from anemoi.datasets import open_dataset
@@ -16,7 +25,7 @@ from torch.utils.data import DataLoader, IterableDataset
 from bris.checkpoint import Checkpoint
 from bris.data.dataset import worker_init_func
 from bris.data.grid_indices import BaseGridIndices, FullGrid
-from bris.utils import recursive_list_to_tuple
+from bris.utils import get_model_multistep_input, recursive_list_to_tuple
 
 LOGGER = logging.getLogger(__name__)
 
@@ -50,6 +59,7 @@ class DataModule(pl.LightningDataModule):
         self.timestep = timestep
         self.frequency = frequency
         self.num_members_in_sequence = num_members_in_sequence
+        self.dataset_names = list(self.data_readers.keys())
 
     def predict_dataloader(self) -> DataLoader:
         """
@@ -85,17 +95,17 @@ class DataModule(pl.LightningDataModule):
         return:
             Anemoi dataset open_dataset object
         """
-        return self._get_dataset(self.data_reader)
+        return self._get_dataset(self.data_readers)
 
     def _get_dataset(
         self,
-        data_reader,
+        data_readers,
     ) -> IterableDataset:
         ds = instantiate(
             config=self.config.dataloader.datamodule,
-            data_reader=data_reader,
+            data_readers=data_readers,
             rollout=0,
-            multistep=self.checkpoint_object.multistep,
+            multistep=get_model_multistep_input(self.checkpoint_object),
             timeincrement=self.timeincrement,
             grid_indices=self.grid_indices,
             label="predict",
@@ -105,23 +115,25 @@ class DataModule(pl.LightningDataModule):
         return ds
 
     @cached_property
-    def data_reader(self):
+    def data_readers(self):
         """
-        Creates an anemoi open_dataset object for
-        a given dataset (or set of datasets). If the path
-        of the dataset(s) is given as command line args,
-        trailing '/' is removed and paths are added to
-        dataset key. The config.dataset is highly adjustable
+        Creates a dictionairy of open_dataset objects for
+        a given dataset (or set of datasets).
+        The config.dataset is highly adjustable
         and see: https://anemoi-datasets.readthedocs.io/en/latest/
         on how to open your dataset in various ways.
 
         args:
             None
         return:
-            An anemoi open_dataset object
+            A dictionary of dataset names and anemoi open_dataset objects
         """
-        base_loader = OmegaConf.to_container(self.config.dataset, resolve=True)
-        return open_dataset(base_loader)
+        ds_cfg = OmegaConf.to_container(self.config.datasets, resolve=True)
+        data_readers = {}
+        for dataset_name, dataset_recipe in ds_cfg.items():
+            data_readers[dataset_name] = open_dataset(dataset_recipe)
+
+        return data_readers
 
     @cached_property
     def timeincrement(self) -> int:
@@ -154,42 +166,23 @@ class DataModule(pl.LightningDataModule):
     @property
     def name_to_index(self):
         """
-        Returns a tuple of dictionaries, where each dict is:
-            variable_name -> index
+        Returns a dictionary of dataset names and their name_to_index mapping.
         """
-        if isinstance(self.data_reader.name_to_index, dict):
-            return (self.data_reader.name_to_index,)
-        return self.data_reader.name_to_index
+
+        return {
+            ds_name: self.data_readers[ds_name].name_to_index
+            for ds_name in self.dataset_names
+        }
 
     @cached_property
     def grid_indices(self) -> type[BaseGridIndices]:
-        # TODO: This currently only supports fullgrid for multi-encoder/decoder
-        reader_group_size = 1  # Generalize this later
-        graph_cfg = self.checkpoint_object.config.graph
+        reader_group_size = 1
 
-        # Multi_encoder/decoder
-        if "input_nodes" in graph_cfg:
-            grid_indices = []
-            for dset in graph_cfg.input_nodes.values():
-                gi = FullGrid(nodes_name=dset, reader_group_size=reader_group_size)
-                gi.setup(self.graph)
-                grid_indices.append(gi)
-        else:
-            if hasattr(self.config.dataloader, "grid_indices"):
-                grid_indices = instantiate(
-                    self.config.dataloader.grid_indices,
-                    reader_group_size=reader_group_size,
-                )
-                LOGGER.info("Using grid indices from dataloader config")
-            else:
-                grid_indices = FullGrid(
-                    nodes_name="data", reader_group_size=reader_group_size
-                )
-                LOGGER.info(
-                    "grid_indices not found in dataloader config, defaulting to FullGrid"
-                )
-            grid_indices.setup(self.graph)
-            grid_indices = [grid_indices]
+        grid_indices = {}
+        for ds_name in self.dataset_names:
+            gi = FullGrid(nodes_name=ds_name, reader_group_size=reader_group_size)
+            gi.setup(self.graph)
+            grid_indices[ds_name] = gi
 
         return grid_indices
 
@@ -198,46 +191,44 @@ class DataModule(pl.LightningDataModule):
         """
         Retrieves a tuple of flatten grid shape(s).
         """
-        if isinstance(self.data_reader.grids[0], (int, np.int32, np.int64)):
-            return (self.data_reader.grids,)
-        return self.data_reader.grids
+        return {
+            ds_name: self.data_readers[ds_name].grids for ds_name in self.dataset_names
+        }
 
     @cached_property
     def latitudes(self) -> tuple:
         """
         Retrieves latitude from data_reader method
         """
-        if isinstance(self.data_reader.latitudes, np.ndarray):
-            return (self.data_reader.latitudes,)
-        return self.data_reader.latitudes
+        return {
+            ds_name: self.data_readers[ds_name].latitudes
+            for ds_name in self.dataset_names
+        }
 
     @cached_property
     def longitudes(self) -> tuple:
         """
         Retrieves longitude from data_reader method
         """
-        if isinstance(self.data_reader.longitudes, np.ndarray):
-            return (self.data_reader.longitudes,)
-        return self.data_reader.longitudes
+        return {
+            ds_name: self.data_readers[ds_name].longitudes
+            for ds_name in self.dataset_names
+        }
 
     @cached_property
     def altitudes(self) -> tuple:
         """
         Retrives altitudes from geopotential height in the datasets
         """
-        name_to_index = self.data_reader.name_to_index
-        if isinstance(name_to_index, tuple):
-            altitudes = ()
-            for i, n2i in enumerate(name_to_index):
-                if "z" in n2i:
-                    altitudes += (self.data_reader[0][i][n2i["z"], 0, :] / 9.81,)
-                else:
-                    altitudes += (None,)
-        else:
+        altitudes = {}
+        for ds_name in self.dataset_names:
+            name_to_index = self.data_readers[ds_name].name_to_index
             if "z" in name_to_index:
-                altitudes = (self.data_reader[0][name_to_index["z"], 0, :] / 9.81,)
+                altitudes[ds_name] = (
+                    self.data_readers[ds_name][0][name_to_index["z"], 0, :] / 9.81
+                )
             else:
-                altitudes = (None,)
+                altitudes[ds_name] = None
 
         return altitudes
 
@@ -246,40 +237,26 @@ class DataModule(pl.LightningDataModule):
         """
         Retrieve field_shape of the datasets
         """
-        field_shape = [None] * len(self.grids)
-        for decoder_index, grids in enumerate(self.grids):
-            field_shape[decoder_index] = [None] * len(grids)
+        field_shape = {}
+        for decoder_name, grids in self.grids.items():
+            field_shape[decoder_name] = [None] * len(grids)
             for dataset_index, grid in enumerate(grids):
-                _field_shape = self._get_field_shape(decoder_index, dataset_index)
+                _field_shape = self._get_field_shape(decoder_name, dataset_index)
                 if np.prod(_field_shape) == grid:
-                    field_shape[decoder_index][dataset_index] = list(_field_shape)
+                    field_shape[decoder_name][dataset_index] = _field_shape
                 else:
-                    field_shape[decoder_index][dataset_index] = [
-                        grid,
-                    ]
-        return recursive_list_to_tuple(field_shape)
+                    field_shape[decoder_name][dataset_index] = (grid,)
 
-    def _get_field_shape(self, decoder_index, dataset_index):
-        data_reader = self.data_reader
-        while isinstance(
-            data_reader,
-            (anemoi.datasets.data.subset.Subset, anemoi.datasets.data.select.Select),
-        ):
+        return field_shape
+
+    def _get_field_shape(self, decoder_name, dataset_index):
+        data_reader = self.data_readers[decoder_name]
+
+        while isinstance(data_reader, (Subset, Select)):
             data_reader = data_reader.dataset
-
         if hasattr(data_reader, "datasets"):
-            dataset = data_reader.datasets[decoder_index]
-            while isinstance(
-                dataset,
-                (
-                    anemoi.datasets.data.subset.Subset,
-                    anemoi.datasets.data.select.Select,
-                ),
-            ):
+            dataset = data_reader.datasets[dataset_index]
+            while isinstance(data_reader, (Subset, Select)):
                 dataset = dataset.dataset
-
-            if hasattr(dataset, "datasets"):
-                return dataset.datasets[dataset_index].field_shape
             return dataset.field_shape
-        assert decoder_index == 0 and dataset_index == 0
         return data_reader.field_shape

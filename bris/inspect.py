@@ -5,6 +5,7 @@ from argparse import ArgumentParser
 
 from .checkpoint import Checkpoint
 from .forcings import anemoi_dynamic_forcings
+from .utils import get_model_multistep_input
 
 
 def clean_version_name(name: str) -> tuple[str, str]:
@@ -86,43 +87,43 @@ def get_required_variables(checkpoint: Checkpoint) -> dict:
 
     # If simple checkpoint
     if len(checkpoint.data_indices) == 1:
-        data_indices = checkpoint.data_indices[0]
+        data_indices = checkpoint.data_indices["data"]
         required_prognostic_variables = [
             name
-            for name, index in data_indices.internal_model.input.name_to_index.items()
-            if index in data_indices.internal_model.input.prognostic
+            for name, index in data_indices.model.input.name_to_index.items()
+            if index in data_indices.model.input.prognostic
         ]
         required_forcings = [
             name
-            for name, index in data_indices.internal_model.input.name_to_index.items()
-            if index in data_indices.internal_model.input.forcing
+            for name, index in data_indices.model.input.name_to_index.items()
+            if index in data_indices.model.input.forcing
         ]
         required_static_forcings = [
             forcing
             for forcing in required_forcings
             if forcing not in anemoi_dynamic_forcings()
         ]
-        return {0: required_prognostic_variables + required_static_forcings}
+        return {"data": required_prognostic_variables + required_static_forcings}
 
     # If Multiencdec checkpoint
     datasets = {}
-    for i, data_indices in enumerate(checkpoint.data_indices):
+    for ds_name, data_indices in checkpoint.data_indices.items():
         required_prognostic_variables = [
             name
-            for name, index in data_indices.internal_model.input.name_to_index.items()
-            if index in data_indices.internal_model.input.prognostic
+            for name, index in data_indices.model.input.name_to_index.items()
+            if index in data_indices.model.input.prognostic
         ]
         required_forcings = [
             name
-            for name, index in data_indices.internal_model.input.name_to_index.items()
-            if index in data_indices.internal_model.input.forcing
+            for name, index in data_indices.model.input.name_to_index.items()
+            if index in data_indices.model.input.forcing
         ]
         required_static_forcings = [
             forcing
             for forcing in required_forcings
             if forcing not in anemoi_dynamic_forcings()
         ]
-        datasets[i] = required_prognostic_variables + required_static_forcings
+        datasets[ds_name] = required_prognostic_variables + required_static_forcings
     return datasets
 
 
@@ -131,13 +132,13 @@ def inspect(checkpoint_path: str, debug: bool = False) -> int:
 
     # Load checkpoint
     checkpoint = Checkpoint(checkpoint_path)
-
+    multistep = get_model_multistep_input(checkpoint)
     print(
         f"Checkpoint created with\tPython {checkpoint.metadata.provenance_training.python}\n"
         f"Checkpoint version\t{checkpoint.metadata.version}\n"
         f"Checkpoint run_id\t{checkpoint.metadata.run_id}\n"
         f"Checkpoint timestamp\t{checkpoint.metadata.timestamp}\n"
-        f"Checkpoint multistep\t{checkpoint.multistep}\n"
+        f"Checkpoint multistep\t{multistep}\n"
         f"Checkpoint required variables:\t{json.dumps(get_required_variables(checkpoint), indent=4)}"
     )
 

@@ -21,7 +21,7 @@ def test_get_base_seed():
 
 
 def test_validate():
-    filenames = ["working_example.yaml"]
+    filenames = ["ensemble_stretched-grid.yaml", "interpolator_template.yaml"]
     for filename in filenames:
         full_filename = (
             os.path.dirname(os.path.abspath(__file__)) + "/../config/" + filename

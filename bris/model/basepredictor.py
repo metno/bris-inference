@@ -3,7 +3,7 @@ import math
 import os
 from abc import abstractmethod
 from collections.abc import Iterable
-from typing import Any, Union
+from typing import Any
 
 import numpy as np
 import pytorch_lightning as pl
@@ -157,14 +157,14 @@ class BasePredictor(pl.LightningModule):
     @abstractmethod
     def forward(
         self, x: torch.Tensor, **kwargs: Any
-    ) -> Union[torch.Tensor, list[torch.Tensor]]:
+    ) -> torch.Tensor | list[torch.Tensor]:
         pass
 
     @abstractmethod
     def advance_input_predict(
         self,
-        x: Union[torch.Tensor, list[torch.Tensor]],
-        y_pred: Union[torch.Tensor, list[torch.Tensor]],
+        x: torch.Tensor | list[torch.Tensor],
+        y_pred: torch.Tensor | list[torch.Tensor],
         time: np.datetime64,
     ) -> torch.Tensor:
         pass

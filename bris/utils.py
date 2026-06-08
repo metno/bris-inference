@@ -17,6 +17,7 @@ from anemoi.models.data_indices.index import DataIndex, ModelIndex
 from anemoi.utils.config import DotDict
 from omegaconf import DictConfig, ListConfig, OmegaConf
 
+from .checkpoint import Checkpoint
 from .forcings import anemoi_dynamic_forcings, get_dynamic_forcings
 
 LOGGER = logging.getLogger("bris")
@@ -81,18 +82,6 @@ def parse_args(arg_list: list[str] | None) -> ArgumentParser:
     parser = ArgumentParser()
     parser.add_argument("--debug", action="store_true")
     parser.add_argument("--config", type=str, required=True)
-    parser.add_argument(
-        "-p", type=str, dest="dataset_path", help="Path to dataset", default=None
-    )
-    parser.add_argument(
-        "-pc",
-        type=str,
-        dest="dataset_path_cutout",
-        nargs="*",
-        help="List of paths for the input datasets in a cutout dataset",
-        default=None,
-        const=None,
-    )
 
     parser.add_argument(
         "-sd",
@@ -172,12 +161,27 @@ def unixtime_to_datetime(ut: int) -> np.datetime64:
 
 
 def timedelta64_from_timestep(timestep):
-    if isinstance(timestep, str) and timestep[-1] in ("h", "m", "s"):
-        return np.timedelta64(timestep[0:-1], timestep[-1])
+    if isinstance(timestep, str):
+        unit = timestep[-1]
 
-    LOGGER.warning(
-        "could not decode model timestep from checkpoint, trying to assume hours"
-    )
+        # Default in anemoi core uses H for hours. Map unambiguous units to lower case to
+        # make it compatible with np.timedelta64.
+        mapping = {
+            "h": "h",
+            "H": "h",
+            "m": "m",
+            "M": None,  # explicitly reject months ambiguity
+            "s": "s",
+            "S": "s",
+        }
+
+        if unit in mapping and mapping[unit] is not None:
+            return np.timedelta64(timestep[:-1], mapping[unit])
+
+        if unit == "M":
+            raise ValueError("Ambiguous unit 'M' (months). Use 'm' for minutes.")
+
+    LOGGER.warning("Could not decode timestep, assuming hours")
     return np.timedelta64(timestep, "h")
 
 
@@ -309,3 +313,85 @@ def get_all_leadtimes(
     )
 
     return np.concatenate([high_res, low_res])
+
+
+def get_dataset_config(config: DictConfig) -> DictConfig:
+    """Convert dataset config to the correct format."""
+    if "dataset" in config:
+        ds_cfg = {
+            "data": {
+                "dataset": config.dataset,
+                "start": config.start_date,
+                "end": config.end_date,
+                "frequency": config.frequency,
+            }
+        }
+    elif "datasets" in config:
+        ds_cfg = {}
+        for dataset_name, dataset_recipe in config.datasets.items():
+            ds_cfg[dataset_name] = {
+                "dataset": dataset_recipe,
+                "start": config.start_date,
+                "end": config.end_date,
+                "frequency": config.frequency,
+            }
+    else:
+        raise ValueError("Config must contain either 'dataset' or 'datasets' key.")
+
+    return OmegaConf.create(ds_cfg)
+
+
+def get_model_timestep(checkpoint: Checkpoint) -> str:
+    try:
+        return checkpoint.config.data.timestep
+    except AttributeError:
+        pass
+
+    try:
+        return checkpoint.config.task.timestep
+    except AttributeError:
+        pass
+
+    raise AttributeError(
+        "model timestep not found in checkpoint.config.data or checkpoint.config.task"
+    )
+
+
+def get_model_multistep_input(checkpoint: Checkpoint) -> int:
+    try:
+        return checkpoint.config.training.multistep_input
+    except AttributeError:
+        pass
+
+    try:
+        return checkpoint.config.task.multistep_input
+    except AttributeError:
+        pass
+
+    LOGGER.warning("Could not find multistep_input in checkpoint, defaulting to 2")
+    return 2
+
+
+def get_interpolator_timestep_seconds(
+    checkpoint: Checkpoint, forecaster_timestep_seconds: int
+) -> int:
+    try:
+        target_times = checkpoint.config.training.explicit_times.target
+        input_times = checkpoint.config.training.explicit_times.input
+        if target_times[-1] == input_times[-1]:
+            return int(forecaster_timestep_seconds / len(target_times))
+        else:
+            return int(forecaster_timestep_seconds / (len(target_times) + 1))
+    except AttributeError:
+        pass
+
+    try:
+        timestep = checkpoint.config.task.output_timestep
+        td = timedelta64_from_timestep(timestep)
+        return int(td / np.timedelta64(1, "s"))
+    except AttributeError:
+        pass
+
+    raise AttributeError(
+        "Could not find interpolator timestep in checkpoint.config.training.explicit_times or checkpoint.config.task.output_timestep"
+    )

@@ -315,7 +315,7 @@ class Netcdf(Output):
         self._set_attrs()
         self._write_file(filename)
 
-    def _not_gridded_masked(self, spatial_dims: tuple, y, x):
+    def _not_gridded_masked(self, spatial_dims: tuple, x, y):
         t0 = pytime.perf_counter()
         if hasattr(self.ds_mask, "lat") and hasattr(self.ds_mask, "lon"):
             lat = self.ds_mask.lat.values
@@ -595,7 +595,7 @@ class Netcdf(Output):
 
     def _set_attrs(self) -> None:
         """Add global attributes"""
-        datestr = datetime.datetime.now(datetime.timezone.utc).strftime(
+        datestr = datetime.datetime.now(datetime.UTC).strftime(
             "%Y-%m-%d %H:%M:%S +00:00"
         )
         self.ds.attrs["history"] = f"{datestr} Created by bris-inference"

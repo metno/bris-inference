@@ -16,6 +16,8 @@ from bris.model.brispredictor import BrisPredictor
 from bris.utils import (
     create_config,
     get_all_leadtimes,
+    get_model_multistep_input,
+    get_model_timestep,
     parse_args,
     set_base_seed,
     set_encoder_decoder_num_chunks,
@@ -35,7 +37,7 @@ def test_bris_predictor():
         )
 
     checkpoint_path = (
-        os.path.dirname(os.path.abspath(__file__)) + "/files/checkpoint.ckpt"
+        os.path.dirname(os.path.abspath(__file__)) + "/files/checkpoint_single.ckpt"
     )
 
     # Create test config
@@ -45,7 +47,9 @@ def test_bris_predictor():
             "checkpoints": {
                 "forecaster": {"checkpoint_path": checkpoint_path, "leadtimes": 2}
             },
-            "dataset": dataset_path,
+            "datasets": {
+                "data": dataset_path,
+            },
         },
     )
 
@@ -65,20 +69,13 @@ def test_bris_predictor():
 
     # Get timestep from checkpoint. Also store a version in seconds for local use.
     for model in models:
-        config.checkpoints[model].timestep = None
-        try:
-            config.checkpoints[model].timestep = checkpoints[model].config.data.timestep
-        except KeyError as err:
-            raise RuntimeError(
-                f"Error getting timestep from {model} checkpoint (checkpoint.config.data.timestep)"
-            ) from err
+        config.checkpoints[model].timestep = get_model_timestep(checkpoints[model])
         config.checkpoints[model].timestep_seconds = frequency_to_seconds(
             config.checkpoints[model].timestep
         )
 
     # Get multistep. A default of 2 to ignore multistep in start_date calculation if not set.
-    multistep = 2
-    multistep = checkpoints["forecaster"].config.training.multistep_input
+    multistep = get_model_multistep_input(checkpoints["forecaster"])
 
     # If no start_date given, calculate as end_date-((multistep-1)*timestep)
     if "start_date" not in config or config.start_date is None:
@@ -98,11 +95,13 @@ def test_bris_predictor():
             "%Y-%m-%dT%H:%M:%S",
         )
 
-    config.dataset = {
-        "dataset": config.dataset,
-        "start": config.start_date,
-        "end": config.end_date,
-        "frequency": config.frequency,
+    config.datasets = {
+        "data": {
+            "dataset": config.datasets.data,
+            "start": config.start_date,
+            "end": config.end_date,
+            "frequency": config.frequency,
+        }
     }
 
     datamodule = DataModule(
@@ -137,134 +136,6 @@ def test_bris_predictor():
     )
 
     _bp = bris.model.brispredictor.BrisPredictor(
-        checkpoints=checkpoints,
-        datamodule=datamodule,
-        checkpoints_config=config.checkpoints,
-        required_variables=required_variables,
-        hardware_config=DotDict(config.hardware),
-        num_members_in_parallel=num_members_in_parallel,
-    )
-
-
-def test_multiencdec_predictor():
-    """Set up a configuration and do a simple test run of the MultiEncDecPredictor class.
-    Test will be skipped if the required dataset is not available."""
-    dataset_path = "./bris_random_data.zarr"
-    if os.environ.get("TOX_ENV_DIR"):
-        dataset_path = os.environ.get("TOX_ENV_DIR") + "/tmp/bris_random_data.zarr"
-    if not os.path.exists(dataset_path):
-        pytest.skip(
-            "Skipping test_multiencdec_predictor, as the required dataset is not available. Run `tox -e trainingdata`."
-        )
-
-    checkpoint_path = (
-        os.path.dirname(os.path.abspath(__file__)) + "/files/multiencdec.ckpt"
-    )
-
-    # Create test config
-    config = bris.utils.create_config(
-        "config/tox_test_inference_multi.yaml",
-        {
-            "checkpoints": {
-                "forecaster": {"checkpoint_path": checkpoint_path, "leadtimes": 2}
-            },
-            "dataset": {
-                "zip": [
-                    {"dataset": dataset_path},
-                    {"dataset": dataset_path, "select": ["tp", "2t"]},
-                ],
-                "adjust": ["start", "end"],
-            },
-        },
-    )
-    models = list(config.checkpoints.keys())
-    checkpoints = {
-        model: bris.checkpoint.Checkpoint(
-            config.checkpoints[model].checkpoint_path,
-            getattr(config.checkpoints[model], "switch_graph", None),
-        )
-        for model in models
-    }
-    set_encoder_decoder_num_chunks(getattr(config, "inference_num_chunks", 1))
-    if "release_cache" not in config or not isinstance(config["release_cache"], bool):
-        config["release_cache"] = False
-
-    set_base_seed()
-
-    # Get timestep from checkpoint. Also store a version in seconds for local use.
-    for model in models:
-        config.checkpoints[model].timestep = None
-        try:
-            config.checkpoints[model].timestep = checkpoints[model].config.data.timestep
-        except KeyError as err:
-            raise RuntimeError(
-                f"Error getting timestep from {model} checkpoint (checkpoint.config.data.timestep)"
-            ) from err
-        config.checkpoints[model].timestep_seconds = frequency_to_seconds(
-            config.checkpoints[model].timestep
-        )
-
-    # Get multistep. A default of 2 to ignore multistep in start_date calculation if not set.
-    multistep = 2
-    multistep = checkpoints["forecaster"].config.training.multistep_input
-
-    # If no start_date given, calculate as end_date-((multistep-1)*timestep)
-    if "start_date" not in config or config.start_date is None:
-        config.start_date = datetime.strftime(
-            datetime.strptime(config.end_date, "%Y-%m-%dT%H:%M:%S")
-            - timedelta(
-                seconds=(multistep - 1) * config.checkpoints.forecaster.timestep_seconds
-            ),
-            "%Y-%m-%dT%H:%M:%S",
-        )
-    else:
-        config.start_date = datetime.strftime(
-            datetime.strptime(config.start_date, "%Y-%m-%dT%H:%M:%S")
-            - timedelta(
-                seconds=(multistep - 1) * config.checkpoints.forecaster.timestep_seconds
-            ),
-            "%Y-%m-%dT%H:%M:%S",
-        )
-
-    config.dataset = {
-        "dataset": config.dataset,
-        "start": config.start_date,
-        "end": config.end_date,
-        "frequency": config.frequency,
-    }
-
-    datamodule = DataModule(
-        config=config,
-        checkpoint_object=checkpoints["forecaster"],
-        timestep="6h",
-        frequency=config.frequency,
-    )
-
-    required_variables = bris.routes.get_required_variables(
-        config["routing"], checkpoints
-    )
-
-    # Set hydra defaults
-    config.defaults = [
-        {"override hydra/job_logging": "none"},  # disable config parsing logs
-        {"override hydra/hydra_logging": "none"},  # disable config parsing logs
-        "_self_",
-    ]
-    num_members_in_parallel = 1
-
-    # Forecaster must know about what leadtimes to output
-    _model = instantiate(
-        config.model,
-        checkpoints=checkpoints,
-        hardware_config=config.hardware,
-        datamodule=datamodule,
-        checkpoints_config=config.checkpoints,
-        required_variables=required_variables,
-        release_cache=config.release_cache,
-        num_members_in_parallel=num_members_in_parallel,
-    )
-
-    _bp = bris.model.multiencdecpredictor.MultiEncDecPredictor(
         checkpoints=checkpoints,
         datamodule=datamodule,
         checkpoints_config=config.checkpoints,

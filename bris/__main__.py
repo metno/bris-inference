@@ -15,6 +15,10 @@ from .utils import (
     LOGGER,
     create_config,
     get_all_leadtimes,
+    get_dataset_config,
+    get_interpolator_timestep_seconds,
+    get_model_multistep_input,
+    get_model_timestep,
     parse_args,
     set_base_seed,
     set_encoder_decoder_num_chunks,
@@ -27,6 +31,7 @@ def main(arg_list: list[str] | None = None):
     t0 = time.perf_counter()
     args = parse_args(arg_list)
     config = create_config(args["config"], args)
+
     setup_logging(config)
 
     models = list(config.checkpoints.keys())
@@ -46,28 +51,20 @@ def main(arg_list: list[str] | None = None):
     set_base_seed()
 
     # Compute timestep_seconds for each checkpoint
-    config.checkpoints.forecaster.timestep = checkpoints[
-        "forecaster"
-    ].config.data.timestep
+    config.checkpoints.forecaster.timestep = get_model_timestep(
+        checkpoints["forecaster"]
+    )
     config.checkpoints.forecaster.timestep_seconds = frequency_to_seconds(
         config.checkpoints.forecaster.timestep
     )
 
     if "interpolator" in checkpoints:
-        target_times = checkpoints[
-            "interpolator"
-        ].metadata.config.training.explicit_times.target
-        input_times = checkpoints[
-            "interpolator"
-        ].metadata.config.training.explicit_times.input
-        if target_times[-1] == input_times[-1]:
-            config.checkpoints.interpolator.timestep_seconds = int(
-                config.checkpoints.forecaster.timestep_seconds / len(target_times)
+        config.checkpoints.interpolator.timestep_seconds = (
+            get_interpolator_timestep_seconds(
+                checkpoints["interpolator"],
+                config.checkpoints.forecaster.timestep_seconds,
             )
-        else:
-            config.checkpoints.interpolator.timestep_seconds = int(
-                config.checkpoints.forecaster.timestep_seconds / (len(target_times) + 1)
-            )
+        )
 
     num_members = config["hardware"].get("num_members", 1)
 
@@ -89,11 +86,7 @@ def main(arg_list: list[str] | None = None):
         num_members_in_parallel = num_members
 
     # Get multistep. A default of 2 to ignore multistep in start_date calculation if not set.
-    multistep = 2
-    try:
-        multistep = checkpoints["forecaster"].config.training.multistep_input
-    except KeyError:
-        LOGGER.debug("Multistep not found in checkpoint")
+    multistep = get_model_multistep_input(checkpoints["forecaster"])
 
     # If no start_date given, calculate as end_date-((multistep-1)*timestep)
     if "start_date" not in config or config.start_date is None:
@@ -116,13 +109,8 @@ def main(arg_list: list[str] | None = None):
             ),
             "%Y-%m-%dT%H:%M:%S",
         )
-
-    config.dataset = {
-        "dataset": config.dataset,
-        "start": config.start_date,
-        "end": config.end_date,
-        "frequency": config.frequency,
-    }
+    # Get dataset config with backwards comapatibility for single dataset config setup
+    config.datasets = get_dataset_config(config)
 
     datamodule = DataModule(
         config=config,

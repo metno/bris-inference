@@ -1,5 +1,4 @@
 from functools import cached_property
-from typing import Optional
 
 import numpy as np
 import xarray as xr
@@ -86,7 +85,7 @@ class Verif(Source):
         return np.sort(np.unique(self._all_times))
 
     @cached_property
-    def units(self) -> Optional[str]:
+    def units(self) -> str | None:
         if hasattr(self.file, "units"):
             return self.file.units
         return None

@@ -9,16 +9,20 @@ checkpoints:
     checkpoint_path: PATH/TO/INTERPOLATOR_CHECKPOINT.ckpt # Full path to interpolator checkpoint
     leadtimes: 11 # Number of forecaster leadtime pairs to interpolate in between
                   # Max is forecaster leadtimes - 1
-    static_forcings_dataset: ${dataset} # Path to static forcings dataset
+    static_forcings_dataset: 
+      dataset: ${datasets.data} # Path to static forcings dataset
+      start: ${start_date}
+      end: ${end_date}
 
 frequency: 6h # Frequency of the starting states in the dataset (forecaster timestep)
 
-dataset:
-  cutout:
-    - dataset: PATH_TO_LAM_DATASET
-    - dataset: PATH_TO_GLOBAL_DATASET
-  adjust: all
-  min_distance_km: 0
+datasets:
+  data:
+    cutout:
+      - dataset: PATH_TO_LAM_DATASET
+      - dataset: PATH_TO_GLOBAL_DATASET
+    adjust: all
+    min_distance_km: 0
 
 workdir: PATH_TO_WORK_DIRECTORY # Used to store temporary files for ensemble members and verif output
 
@@ -48,7 +52,7 @@ model:
 output: PATH_TO_OUTPUT # Not a required field, used in output path in routing
 
 routing:
-  - decoder_index: 0
+  - decoder_name: data
     domain_index: 0
     outputs:
       - netcdf:
@@ -65,4 +69,3 @@ routing:
           obs_sources:
             - verif:
                 filename: PATH_TO_VERIF_FILE.nc #Verif file with observations
-

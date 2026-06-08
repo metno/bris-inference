@@ -3,54 +3,63 @@
 defaults:
 - data: zarr
 - dataloader: native_grid
-- diagnostics: evaluation
-- hardware: example
+- diagnostics: evaluation_ens
+- system: example
 - graph: multi_scale
-- model: graphtransformer
-- training: default
+- model: graphtransformer_ens
+- task: forecaster
+- training: ensemble
 - _self_
-- override diagnostics/plot: none
+
 
 hydra:
   output_subdir: null
   run:
     dir: .
 
-data:
-  resolution: "20.0"
+config_validation: True
 
 dataloader:
-  dataset: ${hardware.paths.data}${hardware.files.dataset}
+  dataset: ${system.input.dataset}
 
   num_workers:
     training: 2
     validation: 2
     test: 2
-    predict: 2
 
   limit_batches:
     training: 100
     validation: 100
     test: null
-    predict: null
 
   batch_size:
     training: 1
     validation: 1
     test: 1
-    predict: 1
 
   training:
-    start: 2022-01-01
-    end: 2022-01-31
+    datasets:
+      data:
+        dataset_config:
+          dataset: ${dataloader.dataset}
+          frequency: ${data.frequency}
+          drop: []
+        start: 2022-01-01
+        end: 2022-01-31
+        trajectory: ${dataloader.model_run_info}
 
   validation:
-    start: 2022-02-01
-    end: 2022-02-28
+    datasets:
+      data:
+        dataset_config:
+          dataset: ${dataloader.dataset}
+          frequency: ${data.frequency}
+          drop: []
+        start: 2022-02-01
+        end: 2022-02-28
+        trajectory: ${dataloader.model_run_info}
 
-  test:
-    start: 2022-03-01
-    end: 2022-03-31
+  test: ${dataloader.validation}
 
 diagnostics:
   checkpoint:
@@ -59,45 +68,63 @@ diagnostics:
 
     every_n_epochs:
       num_models_saved: 2
+  plot:
+    callbacks: []
+  log:
+    mlflow:
+      tracking_uri: jajadingdong
 
-hardware:
-  num_gpus_per_node: 1
-  num_gpus_per_model: 1
-  paths:
-    data: ./
-    output: training-output/
-    graph: training-output/
-  files:
+system:
+  input: 
+    graph: training-output/small_graph_20p0.pt
     dataset: ./bris_random_data.zarr
-    graph: small_graph_20p0.pt
-  accelerator: cpu # Force training to CPU
+  output:
+    root: training-output/
+  hardware:
+    accelerator: auto
+    num_gpus_per_ensemble: 1
+    num_gpus_per_node: 1
+    num_nodes: 1
+    num_gpus_per_model: 1
+
 
 graph:
   overwrite: True
-
   nodes:
+    data:
+      node_builder:
+        _target_: anemoi.graphs.nodes.AnemoiDatasetNodes
+        dataset: ${dataloader.training.datasets.data.dataset_config}
     hidden:
      node_builder:
         resolution: 3
 
+
   edges:
-  - source_name: ${graph.data}
-    target_name: ${graph.hidden}
+  - source_name: "data"
+    target_name: "hidden"
     edge_builders:
     - _target_: anemoi.graphs.edges.KNNEdges # options: KNNEdges, CutOffEdges
       num_nearest_neighbours: 3 # only for cutoff method
+      source_mask_attr_name: null
+      target_mask_attr_name: null
     attributes: ${graph.attributes.edges}
-  - source_name: ${graph.hidden}
-    target_name: ${graph.hidden}
+  - source_name: "hidden"
+    target_name: "hidden"
     edge_builders:
     - _target_: anemoi.graphs.edges.MultiScaleEdges
       x_hops: 1
+      scale_resolutions: ${graph.nodes.hidden.node_builder.resolution}
+      source_mask_attr_name: null
+      target_mask_attr_name: null
     attributes: ${graph.attributes.edges}
-  - source_name: ${graph.hidden}
-    target_name: ${graph.data}
+  - source_name: "hidden"
+    target_name: "data"
     edge_builders:
     - _target_: anemoi.graphs.edges.KNNEdges # options: KNNEdges, CutOffEdges
       num_nearest_neighbours: 1 # only for knn method
+      source_mask_attr_name: null
+      target_mask_attr_name: null
     attributes: ${graph.attributes.edges}
 
   attributes:
@@ -127,6 +154,8 @@ training:
   transfer_learning: False
   max_epochs: null
   max_steps: 300
-  lr:
-    rate: 6.25e-05
-    min: 3e-7
+
+  optimization:
+    lr_scheduler:
+      warmup_t: 10
+    lr: 6.25e-05

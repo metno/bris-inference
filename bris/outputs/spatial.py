@@ -123,7 +123,7 @@ class Spatial(Output):
 
         self.ds[self.metric_name] = (dims, data)
 
-        datestr = datetime.datetime.now(datetime.timezone.utc).strftime(
+        datestr = datetime.datetime.now(datetime.UTC).strftime(
             "%Y-%m-%d %H:%M:%S +00:00"
         )
         self.ds.attrs["history"] = f"{datestr} Created by bris-inference"
