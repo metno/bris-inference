@@ -4,6 +4,7 @@ import numpy as np
 import torch
 
 from bris.utils import LOGGER
+from bris.utils import get_base_seed
 from bris.utils import timedelta64_from_timestep
 
 from .basepredictor import BasePredictor
@@ -20,6 +21,7 @@ class SparseForecasterPredictor(BasePredictor):
         checkpoints_config: dict,
         required_variables: dict[str, list[str]],
         release_cache: bool = False,
+        ensemble_seed: int | None = None,
         **kwargs: Any,
     ) -> None:
         super().__init__(*args, checkpoints=checkpoints, **kwargs)
@@ -59,6 +61,11 @@ class SparseForecasterPredictor(BasePredictor):
             dataset_name: [name for name, _ in pairs]
             for dataset_name, pairs in self.output_pairs_by_dataset.items()
         }
+        self.model_output_dataset_names = {
+            dataset_name
+            for dataset_name, pairs in self.output_pairs_by_dataset.items()
+            if pairs
+        }
 
         n_step_output = getattr(self.model, "n_step_output", None)
         if n_step_output is None:
@@ -69,6 +76,9 @@ class SparseForecasterPredictor(BasePredictor):
 
         self.model.eval()
         self.release_cache = release_cache
+        self.ensemble_seed = (
+            int(ensemble_seed) if ensemble_seed is not None else get_base_seed()
+        )
         self.batch_info: dict[np.datetime64, int] = {}
 
         LOGGER.info(
@@ -96,7 +106,42 @@ class SparseForecasterPredictor(BasePredictor):
         self.static_forcings = {}
 
     def forward(self, x: dict[str, torch.Tensor], **kwargs: Any) -> dict[str, torch.Tensor]:
-        return self.model(x, model_comm_group=self.model_comm_group, **kwargs)
+        fcstep = int(kwargs.get("fcstep", 0))
+        return self.predict_sparse_rollout_step(x, fcstep=fcstep)
+
+    def predict_sparse_rollout_step(
+        self,
+        batch: dict[str, torch.Tensor],
+        *,
+        fcstep: int,
+    ) -> dict[str, torch.Tensor]:
+        pre_processors = getattr(self.model, "pre_processors", None)
+        post_processors = getattr(self.model, "post_processors", None)
+        inner_model = getattr(self.model, "model", None)
+        if pre_processors is None or post_processors is None or inner_model is None:
+            raise RuntimeError(
+                "Sparse forecaster inference requires model.pre_processors, post_processors, and model.model."
+            )
+
+        x = {}
+        for dataset_name, tensor in batch.items():
+            if tensor.ndim == 4:
+                tensor = tensor.unsqueeze(2)
+            if tensor.ndim != 5:
+                raise ValueError(
+                    f"The {dataset_name} input tensor has an incorrect shape: "
+                    f"expected 4 or 5 dimensions, got {tensor.shape}."
+                )
+            x[dataset_name] = pre_processors[dataset_name](tensor, in_place=False)
+
+        y_hat = inner_model.forward(x, fcstep=fcstep, model_comm_group=self.model_comm_group)
+        if not isinstance(y_hat, dict):
+            raise TypeError(f"Expected sparse forecaster output dict, got {type(y_hat)!r}.")
+
+        for dataset_name, prediction in list(y_hat.items()):
+            if dataset_name in self.model_output_dataset_names:
+                y_hat[dataset_name] = post_processors[dataset_name](prediction, in_place=False)
+        return y_hat
 
     def prediction_as_time_ensemble_cell_variable(self, prediction: torch.Tensor) -> torch.Tensor:
         if prediction.ndim == 5:
@@ -114,6 +159,22 @@ class SparseForecasterPredictor(BasePredictor):
         frame = window[offset_index, 0]
         columns = [frame[:, self.variable_index(source_names, name)] for name in output_names]
         return torch.stack(columns, dim=-1)
+
+    def ensemble_member_for_forecast(self, forecast_reference_time: np.datetime64) -> int:
+        member_id = getattr(self, "member_id", 0)
+        occurrence = self.batch_info.get(forecast_reference_time, 0)
+        return member_id + self.num_members_in_parallel * occurrence
+
+    def seed_for_forecast_member(
+        self,
+        forecast_reference_time: np.datetime64,
+        ensemble_member: int,
+    ) -> int:
+        epoch = np.datetime64("1970-01-01T00:00:00", "m")
+        forecast_minutes = int(
+            (forecast_reference_time.astype("datetime64[m]") - epoch) / np.timedelta64(1, "m")
+        )
+        return int((self.ensemble_seed + forecast_minutes * 1000 + int(ensemble_member)) % (2**63 - 1))
 
     def advance_input_predict(
         self,
@@ -178,11 +239,20 @@ class SparseForecasterPredictor(BasePredictor):
         batch, time_stamp = batch
         forecast_reference_time = np.datetime64(time_stamp[0])
         self.forecast_reference_time = np.datetime64(forecast_reference_time, "ns")
+        ensemble_member = self.ensemble_member_for_forecast(self.forecast_reference_time)
+        self.batch_info[self.forecast_reference_time] = self.batch_info.get(self.forecast_reference_time, 0) + 1
+        seed = self.seed_for_forecast_member(self.forecast_reference_time, ensemble_member)
         times = [
             forecast_reference_time + step * self.timestep
             for step in range(self.forecast_length)
         ]
-        LOGGER.info("SparseForecasterPredictor batch=%s forecast_reference_time=%s", batch_idx, forecast_reference_time)
+        LOGGER.info(
+            "SparseForecasterPredictor batch=%s forecast_reference_time=%s ensemble_member=%s seed=%s",
+            batch_idx,
+            forecast_reference_time,
+            ensemble_member,
+            seed,
+        )
 
         current = {}
         self.source_frames = {}
@@ -201,7 +271,7 @@ class SparseForecasterPredictor(BasePredictor):
                 dim=0,
             )
 
-            if dataset_name in self.output_dataset_names:
+            if dataset_name in self.required_variables:
                 outputs[dataset_name] = torch.empty(
                     (1, self.forecast_length, window.shape[-2], len(self.required_variables[dataset_name])),
                     dtype=window.dtype,
@@ -212,49 +282,48 @@ class SparseForecasterPredictor(BasePredictor):
         self.steps_done = 0
         self.rollout_iter = 0
         horizon_steps = self.forecast_length - 1
-        while self.steps_done < horizon_steps:
-            model_batch = {
-                dataset_name: dataset_current.unsqueeze(0).unsqueeze(2)
-                for dataset_name, dataset_current in current.items()
-            }
-            try:
+        cuda_devices = list(range(torch.cuda.device_count())) if torch.cuda.is_available() else []
+        with torch.random.fork_rng(devices=cuda_devices):
+            torch.manual_seed(seed)
+            while self.steps_done < horizon_steps:
+                model_batch = {
+                    dataset_name: dataset_current.unsqueeze(0)
+                    for dataset_name, dataset_current in current.items()
+                }
                 raw_prediction = self(model_batch, fcstep=self.rollout_iter)
-            except TypeError as exc:
-                if not hasattr(self.model, "predict_step"):
-                    raise exc
-                raw_prediction = self.model.predict_step(batch=model_batch, fcstep=self.rollout_iter)
 
-            y_pred = {}
-            self.produced_steps = None
-            for dataset_name, prediction in raw_prediction.items():
-                prediction = self.prediction_as_time_ensemble_cell_variable(prediction)
-                y_pred[dataset_name] = prediction
-                take = min(horizon_steps - self.steps_done, prediction.shape[0])
-                self.produced_steps = take if self.produced_steps is None else min(self.produced_steps, take)
+                y_pred = {}
+                self.produced_steps = None
+                for dataset_name, prediction in raw_prediction.items():
+                    prediction = self.prediction_as_time_ensemble_cell_variable(prediction)
+                    y_pred[dataset_name] = prediction
+                    take = min(horizon_steps - self.steps_done, prediction.shape[0])
+                    self.produced_steps = take if self.produced_steps is None else min(self.produced_steps, take)
 
-                if dataset_name in outputs:
-                    selected = torch.stack(
-                        [
-                            prediction[:take, 0, :, self.variable_index(self.output_names_by_dataset[dataset_name], name)]
-                            for name in self.required_variables[dataset_name]
-                        ],
-                        dim=-1,
-                    )
-                    outputs[dataset_name][0, self.steps_done + 1 : self.steps_done + 1 + take] = selected.cpu()
+                    if dataset_name in outputs:
+                        selected = torch.stack(
+                            [
+                                prediction[
+                                    :take,
+                                    0,
+                                    :,
+                                    self.variable_index(self.output_names_by_dataset[dataset_name], name),
+                                ]
+                                for name in self.required_variables[dataset_name]
+                            ],
+                            dim=-1,
+                        )
+                        outputs[dataset_name][0, self.steps_done + 1 : self.steps_done + 1 + take] = selected.cpu()
 
-            if self.produced_steps is None or self.produced_steps < 1:
-                raise RuntimeError("Sparse forecaster produced no prediction frames.")
+                if self.produced_steps is None or self.produced_steps < 1:
+                    raise RuntimeError("Sparse forecaster produced no prediction frames.")
 
-            next_time = forecast_reference_time + (self.steps_done + self.produced_steps) * self.timestep
-            current = self.advance_input_predict(current, y_pred, next_time)
-            self.steps_done += self.produced_steps
-            self.rollout_iter += 1
-            if self.release_cache:
-                torch.cuda.empty_cache()
-
-        self.batch_info[forecast_reference_time] = self.batch_info.get(forecast_reference_time, 0) + 1
-        member_id = getattr(self, "member_id", 0)
-        ensemble_member = member_id + self.num_members_in_parallel * (self.batch_info[forecast_reference_time] - 1)
+                next_time = forecast_reference_time + (self.steps_done + self.produced_steps) * self.timestep
+                current = self.advance_input_predict(current, y_pred, next_time)
+                self.steps_done += self.produced_steps
+                self.rollout_iter += 1
+                if self.release_cache:
+                    torch.cuda.empty_cache()
 
         return {
             "pred": {dataset_name: prediction.to(torch.float32).numpy() for dataset_name, prediction in outputs.items()},
