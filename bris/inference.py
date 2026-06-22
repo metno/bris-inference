@@ -1,4 +1,5 @@
 import time
+import os
 from functools import cached_property
 from typing import Any, Optional
 
@@ -46,8 +47,15 @@ class Inference:
         LOGGER.info("Using specified device: %s", self._device)
         return self._device
 
+    @property
+    def force_single_process(self) -> bool:
+        return os.environ.get("BRIS_FORCE_SINGLE_PROCESS", "0") == "1"
+
     @cached_property
     def strategy(self):
+        if self.force_single_process:
+            LOGGER.info("Forcing single-process inference; disabling DDP strategy.")
+            return None
         return DDPGroupStrategy(
             num_gpus_per_model=self.config.hardware.num_gpus_per_model,
             num_gpus_per_ensemble=self.num_gpus_per_ensemble,
@@ -57,19 +65,25 @@ class Inference:
 
     @cached_property
     def trainer(self) -> pl.Trainer:
-        trainer = pl.Trainer(
+        accelerator = self.device
+        devices = 1 if self.force_single_process or accelerator == "cpu" else self.config.hardware.num_gpus_per_node
+        num_nodes = 1 if self.force_single_process or accelerator == "cpu" else self.config.hardware.num_nodes
+        precision = "32-true" if accelerator == "cpu" else "bf16"
+        trainer_kwargs = dict(
             logger=False,
-            accelerator=self.device,
+            accelerator=accelerator,
             deterministic=False,
             detect_anomaly=False,
-            strategy=self.strategy,
-            devices=self.config.hardware.num_gpus_per_node,
-            num_nodes=self.config.hardware.num_nodes,
-            precision="bf16",
+            devices=devices,
+            num_nodes=num_nodes,
+            precision=precision,
             inference_mode=True,
             use_distributed_sampler=False,
             callbacks=self.callbacks,
         )
+        if not self.force_single_process:
+            trainer_kwargs["strategy"] = self.strategy
+        trainer = pl.Trainer(**trainer_kwargs)
         return trainer
 
     def run(self):

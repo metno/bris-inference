@@ -254,6 +254,11 @@ class NativeGridDataset(IterableDataset):
         Currently it receives data with an ensemble dimension, which is discarded for
         now. (Until the code is "ensemble native".)
         """
+        if self.chunk_index_range is None:
+            self.chunk_index_range = np.tile(
+                np.arange(len(self.valid_date_indices), dtype=np.uint32),
+                self.num_members_in_sequence,
+            )
 
         shuffled_chunk_indices = self.valid_date_indices[self.chunk_index_range]
 

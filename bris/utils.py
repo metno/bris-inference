@@ -319,12 +319,13 @@ def get_dataset_config(config: DictConfig) -> DictConfig:
                 end = recipe.pop("end", end)
                 frequency = recipe.pop("frequency", frequency)
 
-            ds_cfg[dataset_name] = {
-                "dataset": recipe,
-                "start": start,
-                "end": end,
-                "frequency": frequency,
-            }
+            ds_cfg[dataset_name] = {"dataset": recipe}
+            if start is not None:
+                ds_cfg[dataset_name]["start"] = start
+            if end is not None:
+                ds_cfg[dataset_name]["end"] = end
+            if frequency is not None:
+                ds_cfg[dataset_name]["frequency"] = frequency
     else:
         raise ValueError("Config must contain either 'dataset' or 'datasets' key.")
     

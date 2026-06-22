@@ -192,7 +192,10 @@ class SparseZarrDataset(IterableDataset):
 
     def __iter__(self) -> Iterator[tuple[dict[str, torch.Tensor], str]]:
         if self.chunk_index_range is None:
-            self.chunk_index_range = np.arange(len(self.valid_date_indices), dtype=np.uint32)
+            self.chunk_index_range = np.tile(
+                np.arange(len(self.valid_date_indices), dtype=np.uint32),
+                self.num_members_in_sequence,
+            )
 
         base_dataset_name = sorted(self.output_dataset_names)[0]
         base_dates = np.asarray(self.data[base_dataset_name].dates, dtype="datetime64[ns]")
