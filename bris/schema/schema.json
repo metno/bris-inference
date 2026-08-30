@@ -183,6 +183,40 @@
             "required": ["powerspectrum_gridded"]
         },
 
+        "SpectralGridded": {
+            "description": "Spectral gridded output file",
+            "type": "object",
+            "properties": {
+                "spectral_gridded": {
+                    "type": "object",
+                    "properties": {
+                        "filename": {
+                            "description": "Where to write the output file. Use %R for run_name",
+                            "type": "string"
+                        },
+                        "variable": {
+                            "description": "What anemoi variable to compute spectral gridded output for? Can include variables that can be diagnosed from other variables (e.g. 10si from 10u and 10v)",
+                            "type": "string"
+                        },
+                        "obs_dataset": {
+                            "description": "Observations dataset to use for computing spectral spread-skill, in anemoi datasets open_dataset recipe format",
+                            "type": "object"
+                        },
+                        "proj4_str": {
+                            "description": "Assume this projection string when computing x/y coordinates",
+                            "type": "string"
+                        },
+                        "domain_name": {
+                            "description": "Retrieve projection from this predefined domain name (e.g. meps)",
+                            "type": "string"
+                        }
+                    },
+                    "required": ["filename", "variable", "obs_dataset"]
+                }
+            },
+            "required": ["spectral_gridded"]
+        },
+
         "VerifSource": {
             "description": "Observations stored in a Netcdf verif file",
             "type": "object",
@@ -347,7 +381,8 @@
                                 {"$ref": "#/$defs/VerifOutput"},
                                 {"$ref": "#/$defs/GribOutput"},
                                 {"$ref": "#/$defs/SHPowerSpectrumOutput"},
-                                {"$ref": "#/$defs/DCTPowerSpectrum"}
+                                {"$ref": "#/$defs/DCTPowerSpectrum"},
+                                {"$ref": "#/$defs/SpectralGridded"}
                             ]
                         }
                     }
