@@ -16,7 +16,7 @@ def instantiate(name: str, predict_metadata: PredictMetadata, workdir: str, init
         predict_metadata: Contains metadata about the bathc the output will recive
         init_args: Arguments to pass to Output constructor
     """
-    if name == "verif":
+    if name in ["verif", "aggregate_verif"]:
         # Parse obs sources
         obs_sources = []
 
@@ -26,7 +26,11 @@ def instantiate(name: str, predict_metadata: PredictMetadata, workdir: str, init
             for source_name, opts in source.items():
                 obs_sources += [sources.instantiate(source_name, opts)]
         args["obs_sources"] = obs_sources
-        return Verif(predict_metadata, workdir, **args)
+
+        if name == "verif":
+            return Verif(predict_metadata, workdir, **args)
+        else:
+            return AggregateVerif(predict_metadata, workdir, **args)
 
     if name == "netcdf":
         return Netcdf(predict_metadata, workdir, **init_args)
@@ -199,3 +203,4 @@ from .intermediate import Intermediate
 from .netcdf import Netcdf
 from .spatial import DCTPowerSpectrum, SHPowerSpectrum
 from .verif import Verif
+from .aggregate_verif import AggregateVerif
