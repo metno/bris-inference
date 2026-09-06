@@ -13,7 +13,7 @@ from bris.outputs.intermediate import Intermediate
 from bris.predict_metadata import PredictMetadata
 
 
-class AggregateVerif(Output):
+class AggregateVerif(Verif):
     """Writes verification files aggregated over locations in Verif format. See github.com/WFRT/verif."""
 
     def __init__(
@@ -74,16 +74,16 @@ class AggregateVerif(Output):
         _valid_matches = _indices < len(self.ipoints_array)
         _matching_indices = _indices[_valid_matches]
 
-        interpolate = True
+        self.matching_locations = False
         if len(_matching_indices) == len(self.opoints_array):
             self.verif_indices = _matching_indices
-            interpolate = False
+            self.matching_locations = True
 
         self.triangulation = self.ipoints_array
         if (
             not self._is_gridded_input
             and self.ipoints_array.shape[0] > 3
-            and interpolate
+            and not self.matching_locations
         ):
             # This speeds up interpolation from irregular points to observation points
             # but Delaunay needs enough points for this to work
@@ -157,7 +157,7 @@ class AggregateVerif(Output):
     def interpolate(self, pred):
         """Returns 2D array (leadtime, point)"""
         Iv = self.pm.variables.index(self.variable)
-        if not self.interpolate:
+        if self.matching_locations:
             interpolated_pred = pred[:, self.verif_indices, Iv]
         else:
             if self._is_gridded_input:

@@ -103,16 +103,16 @@ class Verif(Output):
         _valid_matches = _indices < len(self.ipoints_array)
         _matching_indices = _indices[_valid_matches]
 
-        self.interpolate = True
+        self.matching_locations = False
         if len(_matching_indices) == len(self.opoints_array):
             self.verif_indices = _matching_indices
-            self.interpolate = False
+            self.matching_locations = True
 
         self.triangulation = self.ipoints_array
         if (
             not self._is_gridded_input
             and self.ipoints_array.shape[0] > 3
-            and self.interpolate
+            and self.matching_locations
         ):
             # This speeds up interpolation from irregular points to observation points
             # but Delaunay needs enough points for this to work
@@ -139,9 +139,25 @@ class Verif(Output):
             pred: 3D array of forecasts with dimensions (time, points, variables)
         """
 
+        interpolated_pred = self.interpolate(pred)[:, :, np.newaxis]
+
+        anemoi_units = anemoi_conventions.get_units(self.variable)
+
+        if self.units is None:
+            # Update the units so they can be written out
+            self.units = anemoi_units
+        elif anemoi_units is not None and self.units != anemoi_units:
+            to_units = self.units
+            from_units = anemoi_units
+            bris.units.convert(interpolated_pred, from_units, to_units, inplace=True)
+
+        self.intermediate.add_forecast(times, ensemble_member, interpolated_pred)
+
+    def interpolate(self, pred):
+        """Returns 2D array (leadtime, point)"""
         Iv = self.pm.variables.index(self.variable)
-        if not self.interpolate:
-            interpolated_pred = pred[:, self.verif_indices, Iv][:, :, np.newaxis]
+        if self.matching_locations:
+            interpolated_pred = pred[:, self.verif_indices, Iv]
         else:
             if self._is_gridded_input:
                 pred = self.reshape_pred(pred)
@@ -154,9 +170,6 @@ class Verif(Output):
                     )
                     daltitude = self.opoints.get_elevs() - interpolated_altitudes
                     interpolated_pred += self.elev_gradient * daltitude
-                interpolated_pred = interpolated_pred[
-                    :, :, None
-                ]  # Add in variable dimension
             else:
                 pred = pred[..., [Iv]]
 
@@ -173,34 +186,17 @@ class Verif(Output):
                 num_leadtimes = pred.shape[0]
                 num_points = self.opoints.size()
 
-                interpolated_pred = np.nan * np.zeros(
-                    [num_leadtimes, num_points, 1], np.float32
-                )
+                interpolated_pred = np.nan * np.zeros([num_leadtimes, num_points], np.float32)
                 for lt in range(num_leadtimes):
                     interpolator = scipy.interpolate.LinearNDInterpolator(
                         self.triangulation, pred[lt, :, 0]
                     )
-                    interpolated_pred[lt, :, 0] = interpolator(self.opoints_array)
+                    interpolated_pred[lt, :] = interpolator(self.opoints_array)
                     if altitude_correction is not None:
-                        interpolated_pred[lt, :, 0] += (
+                        interpolated_pred[lt, :] += (
                             self.elev_gradient * altitude_correction
                         )
-
-            # Much faster, but not a linear interpolator
-            # interpolated_pred = gridpp.nearest(self.ipoints, self.opoints, pred[..., 0])
-            # interpolated_pred = interpolated_pred[:, :, None]
-
-        anemoi_units = anemoi_conventions.get_units(self.variable)
-
-        if self.units is None:
-            # Update the units so they can be written out
-            self.units = anemoi_units
-        elif anemoi_units is not None and self.units != anemoi_units:
-            to_units = self.units
-            from_units = anemoi_units
-            bris.units.convert(interpolated_pred, from_units, to_units, inplace=True)
-
-        self.intermediate.add_forecast(times, ensemble_member, interpolated_pred)
+        return interpolated_pred
 
     @property
     def _is_gridded_input(self) -> bool:
