@@ -10,7 +10,7 @@ from bris.conventions import anemoi as anemoi_conventions
 from bris.conventions import cf
 from bris.outputs import Output
 from bris.outputs.intermediate import Intermediate
-from bris.dict_metadata import PredictMetadata
+from bris.predict_metadata import PredictMetadata
 
 
 class AggregateVerif(Output):
@@ -24,7 +24,6 @@ class AggregateVerif(Output):
         variable: str = None,
         obs_sources: list = None,
         units: str = None,
-        thresholds: list = None,
         elev_gradient: float = None,
         max_distance: float = None,
         remove_intermediate: bool = True,
@@ -75,16 +74,16 @@ class AggregateVerif(Output):
         _valid_matches = _indices < len(self.ipoints_array)
         _matching_indices = _indices[_valid_matches]
 
-        self.interpolate = True
+        interpolate = True
         if len(_matching_indices) == len(self.opoints_array):
             self.verif_indices = _matching_indices
-            self.interpolate = False
+            interpolate = False
 
         self.triangulation = self.ipoints_array
         if (
             not self._is_gridded_input
             and self.ipoints_array.shape[0] > 3
-            and self.interpolate
+            and interpolate
         ):
             # This speeds up interpolation from irregular points to observation points
             # but Delaunay needs enough points for this to work
@@ -114,16 +113,24 @@ class AggregateVerif(Output):
         interpolated_pred = self.interpolate(pred)
         obs = self.get_obs(times)
 
-        scores = np.zeros(interpolated_pred.shape, np.float32)
+        shape = [pred.shape[0], len(self.locations), len(self.metrics)]
+        scores = np.nan * np.zeros(shape, np.float32)
 
-        for l, location in enumerate(locations):
+        for l, location in enumerate(self.locations):
             if location == "nhem":
-                point_indices = np.where(self.ipoints.lats() >= 0)[0]
+                point_indices = np.where(self.opoints.get_lats() >= 0)[0]
+            elif location == "shem":
+                # TODO: What to do about equator points
+                point_indices = np.where(self.opoints.get_lats() <= 0)[0]
             else:
                 raise NotImplementedError()
 
-            selected_pred = interpolated_pred[: point_indices, :]
-            selected_obs = obs[:, point_indices, :]
+            if len(point_indices) == 0:
+                print(f"Skipping, {location}")
+                continue
+
+            selected_pred = interpolated_pred[:, point_indices]
+            selected_obs = obs[:, point_indices]
 
             for m, metric in enumerate(self.metrics):
                 if metric == "fcst":
@@ -143,7 +150,7 @@ class AggregateVerif(Output):
                     to_units = self.units
                     from_units = anemoi_units
                     bris.units.convert(curr_scores, from_units, to_units, inplace=True)
-                scores[s, l, m] = curr_scores
+                scores[:, l, m] = curr_scores
 
         self.intermediate.add_forecast(times, ensemble_member, scores)
 
@@ -267,28 +274,6 @@ class AggregateVerif(Output):
         for m, metric in enumerate(self.metrics):
             self.ds[metric] = (["time", "leadtime", "location"], scores[..., m])
 
-        self.ds["obs"] = (["time", "leadtime", "location"], obs)
-
-        if int(leadtimes_seconds[0]) == 0:
-            # Store the analysis state from "fcst", where it is available. Note: this picks the first
-            # forecast leadtime, which isn't necesssarily going to be an analysis.
-            analysis = self.create_nan_array(fcst_shape)
-
-            for _t, valid_time in enumerate(frts_unix):
-                Itimes, Ileadtimes = np.where(valid_times == valid_time)
-                for i in range(len(Itimes)):
-                    analysis[Itimes[i], Ileadtimes[i], :] = fcst[_t, 0, :]
-
-            self.ds["analysis"] = (["time", "leadtime", "location"], analysis)
-        else:
-            utils.LOGGER.warning(
-                "Not writing analysis to verif file. The first forecast leadtime isn't 0"
-            )
-
-        if self.num_members > 1:
-            crps = self.compute_crps(ens, obs, self.fair_crps)
-            self.ds["ensemble_crps"] = (["time", "leadtime", "location"], crps)
-
         self.ds.attrs["units"] = self.units
         self.ds.attrs["verif_version"] = "1.0.0"
         self.ds.attrs["standard_name"] = cf.get_metadata(self.variable)["cfname"]
@@ -297,11 +282,9 @@ class AggregateVerif(Output):
 
         data_variables = [
             "obs",
-            "analysis",
             "fcst",
-            "ensemble",
-            "ensemble_mean",
-            "ensemble_variance",
+            "rmse",
+            "crps",
             "cdf",
             "x",
             "ensemble_crps",
