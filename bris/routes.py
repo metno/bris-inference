@@ -1,6 +1,6 @@
 import os
 from collections import defaultdict
-from typing import Any, Literal
+from typing import Any
 
 import numpy as np
 
@@ -63,8 +63,9 @@ def get(
         outputs = []
         for oc in config["outputs"]:
             # If outputing netcdf, add global_attributes with checkpoint name
-            if "netcdf" in oc:
-                oc = add_checkpoint_name_to_attrs(oc, checkpoints)
+            for output_type in ["netcdf", "ensemble_statistics"]:
+                if output_type in oc:
+                    oc = add_checkpoint_name_to_attrs(oc, checkpoints, output_type)
 
             lats = data_module.latitudes[decoder_name][start_gridpoint:end_gridpoint]
             lons = data_module.longitudes[decoder_name][start_gridpoint:end_gridpoint]
@@ -160,17 +161,19 @@ def expand_variable(string: str, variable: str) -> str:
 
 
 def add_checkpoint_name_to_attrs(
-    oc: dict[Literal["netcdf"], dict[str, Any]], checkpoints: dict[str, Checkpoint]
-) -> dict[Literal["netcdf"], dict[str, Any]]:
+    oc: dict[str, dict[str, Any]],
+    checkpoints: dict[str, Checkpoint],
+    output_type: str = "netcdf",
+) -> dict[str, dict[str, Any]]:
     """Add checkpoint name"""
     # oc {'netcdf': {'filename_pattern': './tox_test_inference.nc', 'variables': ['2t', '2d']}}
     ckpt_str = "Checkpoints used: "
-    if "global_attributes" not in oc["netcdf"]:
-        oc["netcdf"]["global_attributes"] = {}
-    if "source" in oc["netcdf"]["global_attributes"]:
-        ckpt_str = f"{oc['netcdf']['global_attributes']['source']} {ckpt_str}"
+    if "global_attributes" not in oc[output_type]:
+        oc[output_type]["global_attributes"] = {}
+    if "source" in oc[output_type]["global_attributes"]:
+        ckpt_str = f"{oc[output_type]['global_attributes']['source']} {ckpt_str}"
     for type, checkpoint in checkpoints.items():
         ckpt_path = os.path.abspath(checkpoint.path)
         ckpt_str += f"{type}:{ckpt_path}, "
-    oc["netcdf"]["global_attributes"]["source"] = f"{ckpt_str}"
+    oc[output_type]["global_attributes"]["source"] = f"{ckpt_str}"
     return oc

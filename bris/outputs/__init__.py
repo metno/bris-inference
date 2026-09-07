@@ -40,6 +40,9 @@ def instantiate(name: str, predict_metadata: PredictMetadata, workdir: str, init
     if name == "powerspectrum_gridded":
         return DCTPowerSpectrum(predict_metadata, workdir, **init_args)
 
+    if name == "ensemble_statistics":
+        return EnsembleStatistics(predict_metadata, workdir, **init_args)
+
     raise ValueError(f"Invalid output: {name}")
 
 
@@ -48,7 +51,7 @@ def get_required_variables(name, init_args):
     provided
     """
 
-    if name == "netcdf":
+    if name in ["netcdf", "ensemble_statistics"]:
         if "variables" in init_args:
             variables = list(init_args["variables"])
             if "extra_variables" in init_args:
@@ -83,7 +86,25 @@ def get_required_variables(name, init_args):
 
 
 class Output:
-    """This class writes output for a specific part of the domain"""
+    """This class writes output for a specific part of the domain
+
+    Outputs receive one ensemble member at a time through add_forecast, since members are run
+    data-parallel (on different ranks) and/or in sequence. Outputs that only need quantities that
+    are summed/averaged across the ensemble (e.g. ensemble mean and spread) can instead opt in to
+    the ensemble-reduction protocol by setting reduce_across_members = True and implementing
+    _member_contribution and add_reduced_forecast. The writer then reduces the contributions from
+    all members that run in parallel across ranks, and only the ensemble-root rank receives the
+    reduced result. Members that run in sequence arrive as separate add_reduced_forecast calls
+    for the same forecast reference time and must be accumulated by the output (see
+    bris.outputs.intermediate.IntermediateEnsembleAccumulator).
+    """
+
+    # Set to True in subclasses that implement the ensemble-reduction protocol
+    reduce_across_members: bool = False
+
+    # For ensemble-reduced outputs: name of each contribution -> reduction operation
+    # ("sum", "min" or "max"). The names must match the keys returned by _member_contribution.
+    ensemble_reductions: dict[str, str] = {}
 
     def __init__(
         self, predict_metadata: PredictMetadata, extra_variables: list | None = None
@@ -112,6 +133,60 @@ class Output:
             ensemble_member: Which ensemble member is this?
             pred: 3D numpy array with dimensions (leadtime, location, variable)
         """
+        pred = self._prepare_pred(ensemble_member, pred)
+
+        t1 = time.perf_counter()
+        self._add_forecast(times, ensemble_member, pred)
+        LOGGER.debug(
+            f"outputs.add_forecast called _add_forecast in {time.perf_counter() - t1:.1f}s"
+        )
+
+    def member_contribution(
+        self, times: list, ensemble_member: int, pred: np.ndarray
+    ) -> dict[str, np.ndarray]:
+        """Computes this member's contribution to the ensemble reductions (see
+        ensemble_reductions). Only used by outputs with reduce_across_members = True.
+
+        Args:
+            times: List of np.datetime64 objects
+            ensemble_member: Which ensemble member is this?
+            pred: 3D numpy array with dimensions (leadtime, location, variable)
+
+        Returns:
+            dict with one numpy array for each key in ensemble_reductions
+        """
+        assert self.reduce_across_members
+        pred = self._prepare_pred(ensemble_member, pred)
+        contributions = self._member_contribution(times, ensemble_member, pred)
+        assert set(contributions.keys()) == set(self.ensemble_reductions.keys()), (
+            sorted(contributions.keys()),
+            sorted(self.ensemble_reductions.keys()),
+        )
+        return contributions
+
+    def _member_contribution(
+        self, times: list, ensemble_member: int, pred: np.ndarray
+    ) -> dict[str, np.ndarray]:
+        """Subclasses with reduce_across_members = True should implement this"""
+        raise NotImplementedError()
+
+    def add_reduced_forecast(
+        self, times: list, contributions: dict[str, np.ndarray], num_members: int
+    ) -> None:
+        """Registers contributions that have already been reduced across num_members ensemble
+        members. Can be called several times for the same forecast reference time (when members
+        run in sequence), in which case the output must accumulate the contributions.
+
+        Args:
+            times: List of np.datetime64 objects
+            contributions: dict with one numpy array for each key in ensemble_reductions
+            num_members: How many ensemble members have been reduced into contributions
+        """
+        raise NotImplementedError()
+
+    def _prepare_pred(self, ensemble_member: int, pred: np.ndarray) -> np.ndarray:
+        """Appends extra variables to the prediction and checks that its shape matches the
+        predict metadata."""
 
         # Append extra variables to prediction
         for name in self.extra_variables:
@@ -146,11 +221,7 @@ class Output:
         assert ensemble_member >= 0
         assert ensemble_member < self.pm.num_members
 
-        t1 = time.perf_counter()
-        self._add_forecast(times, ensemble_member, pred)
-        LOGGER.debug(
-            f"outputs.add_forecast called _add_forecast in {time.perf_counter() - t1:.1f}s"
-        )
+        return pred
 
     @abstractmethod
     def _add_forecast(self, times: list, ensemble_member: int, pred: np.ndarray):
@@ -194,6 +265,7 @@ class Output:
         return pred
 
 
+from .ensemble_statistics import EnsembleStatistics
 from .grib import Grib
 from .intermediate import Intermediate
 from .netcdf import Netcdf
