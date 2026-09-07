@@ -111,7 +111,9 @@ class Checkpoint:
         if hasattr(self._metadata.config.training, "multistep_input"):
             return self._metadata.config.training.multistep_input
         # anemoi-core >= 0.16 task refactor: multistep_input moved to config.task
-        if hasattr(self._metadata.config, "task") and hasattr(self._metadata.config.task, "multistep_input"):
+        if hasattr(self._metadata.config, "task") and hasattr(
+            self._metadata.config.task, "multistep_input"
+        ):
             return self._metadata.config.task.multistep_input
         raise RuntimeError("Cannot find multistep")
 
