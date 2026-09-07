@@ -39,6 +39,7 @@ class NativeGridDataset(IterableDataset):
         label: str = "generic",
         init_ensemble_size: bool = True,
         num_members_in_sequence: int = 1,
+        init_stride: int = 1,
     ) -> None:
         """Initialize (part of) the dataset state.
 
@@ -68,6 +69,11 @@ class NativeGridDataset(IterableDataset):
         num_members_in_sequence : int, default 1
             Number of ensemble members in the sequence. This is used to repeat the indices
             for each member in the sequence.
+
+        init_stride : int, default 1
+            Keep only every init_stride-th valid initialization time (units of the data
+            frequency; e.g. 3 with 6h data = 18h init spacing, cycling through all four
+            times of day).
         """
         self.label = label
         self.data = data_readers
@@ -77,6 +83,8 @@ class NativeGridDataset(IterableDataset):
         self.timeincrement = timeincrement
         self.grid_indices = grid_indices
         self.num_members_in_sequence = num_members_in_sequence
+        self.init_stride = int(init_stride)
+        assert self.init_stride >= 1, "init_stride must be >= 1"
 
         # Lazy init
         self.n_samples_per_epoch_total: int = 0
@@ -145,6 +153,9 @@ class NativeGridDataset(IterableDataset):
         for dataset_name in self.dataset_names[1:]:
             common_valid_indices &= set(valid_indices[dataset_name])
         common_valid_indices = np.array(sorted(common_valid_indices), dtype=np.uint32)
+
+        if self.init_stride > 1:
+            common_valid_indices = common_valid_indices[:: self.init_stride]
 
         return common_valid_indices
 
