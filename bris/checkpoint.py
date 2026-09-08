@@ -139,7 +139,34 @@ class Checkpoint:
             raise e
         if not torch.cuda.is_available():
             self._apply_triton_cpu_fallback(inst)
+        self._clear_sharding_caches(inst)
         return inst
+
+    # Attributes anemoi-models processor blocks use to cache per-rank halo exchange
+    # metadata when the model is sharded across GPUs. They are plain attributes
+    # (not registered buffers), so torch.load restores them on CPU and .to(device)
+    # does not move them.
+    _SHARDING_CACHE_ATTRS = (
+        "_cached_halo_info",
+        "_cached_partition",
+        "_cached_halo_cache_specs",
+    )
+
+    def _clear_sharding_caches(self, model: torch.nn.Module) -> None:
+        """Drop halo/partition caches that were pickled into the checkpoint."""
+        cleared = 0
+        for module in model.modules():
+            for attr in self._SHARDING_CACHE_ATTRS:
+                if getattr(module, attr, None) is not None:
+                    setattr(module, attr, None)
+                    cleared += 1
+
+        if cleared:
+            LOGGER.info(
+                "Cleared %d cached sharding attribute(s) restored from the checkpoint; "
+                "they will be rebuilt on the inference device.",
+                cleared,
+            )
 
     def _apply_triton_cpu_fallback(self, model: torch.nn.Module) -> None:
         """Replace Triton graph attention with the PyG backend when running on CPU.
