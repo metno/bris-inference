@@ -11,10 +11,11 @@ from bris.predict_metadata import PredictMetadata
 
 
 class GriddedObservationSource:
-    def __init__(self, lats, lons, times, values):
+    def __init__(self, lats, lons, times, values, units="Mg/m^2"):
         self.locations = [Location(lat, lon) for lat, lon in zip(lats, lons)]
         self.times = times
         self.values = values
+        self.units = units
 
     def get(self, variable, start_time, end_time, frequency):
         requested_times = np.arange(start_time, end_time + 1, frequency)
@@ -172,10 +173,10 @@ def test_FractionsSkillScore():
     frt = 1672552800
     times = frt + leadtimes
     observations = np.zeros((2, len(lats)), dtype=np.float32)
-    observations[:, 5] = 2
+    observations[:, 5] = 0.002
     source = GriddedObservationSource(lats, lons, times, observations)
     prediction = np.zeros(pm.shape, dtype=np.float32)
-    prediction[:, 5, 0] = 2
+    prediction[:, 5, 0] = 0.002
 
     with tempfile.TemporaryDirectory() as temp_dir:
         filename = os.path.join(temp_dir, "fss.nc")

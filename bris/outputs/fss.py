@@ -9,7 +9,9 @@ import xarray as xr
 from scipy.ndimage import uniform_filter
 from scipy.spatial import cKDTree
 
+import bris.units
 from bris import utils
+from bris.conventions import anemoi as anemoi_conventions
 from bris.conventions import cf
 from bris.outputs import Output
 from bris.outputs.intermediate import Intermediate
@@ -56,7 +58,7 @@ class FractionsSkillScore(Output):
         self.obs_source = obs_source
         self.thresholds = np.asarray(thresholds, dtype=np.float32)
         self.neighbourhood_sizes = np.asarray(neighbourhood_sizes, dtype=np.int32)
-        self.units = units
+        self.units = units or anemoi_conventions.get_units(variable)
         self.filename = filename
         self.remove_intermediate = remove_intermediate
         self.intermediate = Intermediate(self.pm, workdir)
@@ -83,7 +85,14 @@ class FractionsSkillScore(Output):
     def _add_forecast(
         self, times: list, ensemble_member: int, pred: np.ndarray
     ) -> None:
-        self.intermediate._add_forecast(times, ensemble_member, pred)
+        forecast = pred.copy()
+        forecast_units = anemoi_conventions.get_units(self.variable)
+        if forecast_units is not None and self.units != forecast_units:
+            variable_index = self.pm.variables.index(self.variable)
+            bris.units.convert(
+                forecast[..., variable_index], forecast_units, self.units, inplace=True
+            )
+        self.intermediate._add_forecast(times, ensemble_member, forecast)
 
     @staticmethod
     def _fraction(field: np.ndarray, size: int) -> np.ndarray:
@@ -178,6 +187,12 @@ class FractionsSkillScore(Output):
                 observation = observations.get_data(self.variable, valid_time)
                 if observation is None:
                     continue
+                observation = observation.copy()
+                observation_units = self.obs_source.units
+                if observation_units is not None and self.units != observation_units:
+                    bris.units.convert(
+                        observation, observation_units, self.units, inplace=True
+                    )
                 observation = observation[self.observation_indices].reshape(ny, nx)
                 for member in range(self.pm.num_members):
                     field = forecast[leadtime_index, :, variable_index, member].reshape(ny, nx)
