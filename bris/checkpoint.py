@@ -148,21 +148,7 @@ class Checkpoint:
     )
 
     def _clear_sharding_caches(self, model: torch.nn.Module) -> None:
-        """Drop halo/partition caches that were pickled into the checkpoint.
-
-        When a model is trained with model sharding (num_gpus_per_model > 1), the
-        GraphTransformer processor blocks cache halo exchange metadata (edge indices,
-        send indices, ...) as plain attributes. Saving the model with torch.save()
-        pickles these caches, and torch.load(map_location="cpu") restores them on
-        CPU. Because they are not registered buffers, moving the model to the GPU
-        leaves them behind. If the inference sharding layout matches the training
-        layout, the cache key matches and the CPU tensors are fed to the Triton
-        attention kernel, which fails with
-        "Pointer argument cannot be accessed from Triton (cpu tensor?)".
-
-        The caches are pure derived state, so dropping them is safe: they are
-        rebuilt on the correct device on the first forward pass.
-        """
+        """Drop halo/partition caches that were pickled into the checkpoint."""
         cleared = 0
         for module in model.modules():
             for attr in self._SHARDING_CACHE_ATTRS:
