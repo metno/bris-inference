@@ -28,6 +28,15 @@ def instantiate(name: str, predict_metadata: PredictMetadata, workdir: str, init
         args["obs_sources"] = obs_sources
         return Verif(predict_metadata, workdir, **args)
 
+    if name == "fss":
+        args = {**init_args}
+        source_config = args.pop("obs_source")
+        if len(source_config) != 1:
+            raise ValueError("fss.obs_source must contain exactly one source")
+        source_name, source_args = next(iter(source_config.items()))
+        args["obs_source"] = sources.instantiate(source_name, source_args)
+        return FractionsSkillScore(predict_metadata, workdir, **args)
+
     if name == "netcdf":
         return Netcdf(predict_metadata, workdir, **init_args)
 
@@ -63,7 +72,7 @@ def get_required_variables(name, init_args):
             return variables
         return [None]
 
-    if name in ["verif", "powerspectrum_gridded", "powerspectrum_global"]:
+    if name in ["verif", "fss", "powerspectrum_gridded", "powerspectrum_global"]:
         if init_args["variable"] == "ws":
             return ["10u", "10v"]
         return [init_args["variable"]]
@@ -195,6 +204,7 @@ class Output:
 
 
 from .grib import Grib
+from .fss import FractionsSkillScore
 from .intermediate import Intermediate
 from .netcdf import Netcdf
 from .spatial import DCTPowerSpectrum, SHPowerSpectrum

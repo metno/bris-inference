@@ -4,8 +4,26 @@ import tempfile
 import numpy as np
 import xarray as xr
 
+from bris.observations import Location, Observations
+from bris.outputs.fss import FractionsSkillScore
 from bris.outputs.spatial import DCTPowerSpectrum, SHPowerSpectrum
 from bris.predict_metadata import PredictMetadata
+
+
+class GriddedObservationSource:
+    def __init__(self, lats, lons, times, values):
+        self.locations = [Location(lat, lon) for lat, lon in zip(lats, lons)]
+        self.times = times
+        self.values = values
+
+    def get(self, variable, start_time, end_time, frequency):
+        requested_times = np.arange(start_time, end_time + 1, frequency)
+        data = np.full((len(requested_times), len(self.locations)), np.nan)
+        for index, time in enumerate(requested_times):
+            matches = np.where(self.times == time)[0]
+            if len(matches):
+                data[index] = self.values[matches[0]]
+        return Observations(self.locations, requested_times, {variable: data})
 
 
 def test_SHPowerSpectrum():
@@ -144,6 +162,68 @@ def test_DCTPowerSpectrum():
                 assert dim in file.coords, dim
 
             assert len(file["k"]) == n_bins
+
+
+def test_FractionsSkillScore():
+    variables = ["precip"]
+    lats, lons, field_shape = get_test_regular_latlons()
+    leadtimes = np.array([0, 3600])
+    pm = PredictMetadata(variables, lats, lons, None, leadtimes, 2, field_shape)
+    frt = 1672552800
+    times = frt + leadtimes
+    observations = np.zeros((2, len(lats)), dtype=np.float32)
+    observations[:, 5] = 2
+    source = GriddedObservationSource(lats, lons, times, observations)
+    prediction = np.zeros(pm.shape, dtype=np.float32)
+    prediction[:, 5, 0] = 2
+
+    with tempfile.TemporaryDirectory() as temp_dir:
+        filename = os.path.join(temp_dir, "fss.nc")
+        output = FractionsSkillScore(
+            pm,
+            os.path.join(temp_dir, "fss"),
+            filename,
+            "precip",
+            source,
+            thresholds=[1],
+            neighbourhood_sizes=[1, 3],
+            units="mm",
+        )
+        for member in range(pm.num_members):
+            output.add_forecast(times, member, prediction)
+        output.finalize()
+
+        with xr.open_dataset(filename) as file:
+            score = file["fss_precip"]
+            assert score.dims == (
+                "time",
+                "leadtime",
+                "threshold",
+                "neighbourhood_size",
+                "ensemble_member",
+            )
+            np.testing.assert_allclose(score.values, 1)
+            assert file["neighbourhood_size"].attrs["units"] == "grid_cells"
+
+
+def test_FractionsSkillScore_requires_grid():
+    pm = PredictMetadata(["precip"], [60], [10], None, [0], 1)
+    source = GriddedObservationSource([60], [10], [0], np.array([[0]]))
+    with tempfile.TemporaryDirectory() as temp_dir:
+        try:
+            FractionsSkillScore(
+                pm,
+                temp_dir,
+                os.path.join(temp_dir, "fss.nc"),
+                "precip",
+                source,
+                thresholds=[1],
+                neighbourhood_sizes=[1],
+            )
+        except ValueError as error:
+            assert str(error) == "FractionsSkillScore only supports gridded data"
+        else:
+            raise AssertionError("Expected gridded-data validation to fail")
 
 
 if __name__ == "__main__":
