@@ -1,54 +1,11 @@
-"""Create Verif observation files from anemoi-datasets zarr stores.
-
-    bris-obs --config obs.yaml
-
-Extracts a set of grid points from an analysis dataset over a period and writes one
-Verif file per variable (dimensions ``time`` and ``location``), which the ``verif``
-observation source of the ``verif`` output can read. This makes it possible to verify
-forecasts against analyses at a subset of points without reading the full dataset at
-inference time.
-
-Example config::
-
-    start_date: 2023-01-01T00:00:00
-    end_date: 2023-12-31T18:00:00
-    output: /path/to/verification/{name}/analysis.nc   # {name} is replaced per output
-    workers: 16                                        # parallel readers (1 = in-process)
-
-    points:
-      area: [40, -25, -40, 55]   # N, W, S, E (optional, whole grid if omitted)
-      spacing: 2.5               # nearest grid point to each node of a regular lat/lon grid
-      # every: 1000              # alternative: every n-th grid point (index stride)
-
-    datasets:                    # zarr paths; the first defines grid, dates and altitudes (z)
-      - /path/to/analysis.zarr
-      - /path/to/analysis-extra-variables.zarr   # same grid and dates, e.g. cloud variables
-
-    outputs:
-      - {name: t2m, variable: 2t, units: degC}
-      - {name: mslp, variable: msl, units: hPa}
-      - {name: precip6h, variable: tp, units: mm}
-      - {name: ws10m, variable: ws}             # derived from 10u/10v; anemoi units kept
-      - {name: tcc, variable: tcc}
-
-The zarr stores are read directly (one chunk decompression per timestep and chunk of
-variables), which is orders of magnitude faster than going through
-``anemoi.datasets.open_dataset`` with an ``area`` crop for point subsets. Only plain zarr
-stores are supported for that reason, not open_dataset recipes.
-
-Point selection: ``spacing`` picks, for each node of a regular latitude/longitude grid
-over the area, the nearest dataset grid point (even coverage, every point is a real grid
-point). ``every`` keeps every n-th point in storage order; on reduced Gaussian grids this
-aliases with the row length and gives very uneven coverage, so ``spacing`` is preferred.
-The ``location`` id is the index of the point in the (area-cropped) grid.
-"""
+"""Create Verif observation files from anemoi-datasets zarr stores (bris-obs --config obs.yaml)."""
 
 import json
 import logging
 import sys
 import time
 from argparse import ArgumentParser
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from multiprocessing import Pool
 from pathlib import Path
 
@@ -108,7 +65,9 @@ def _wrap_longitudes(lon: np.ndarray) -> np.ndarray:
 
 def _xyz(lat_deg: np.ndarray, lon_deg: np.ndarray) -> np.ndarray:
     la, lo = np.deg2rad(lat_deg), np.deg2rad(lon_deg)
-    return np.column_stack([np.cos(la) * np.cos(lo), np.cos(la) * np.sin(lo), np.sin(la)])
+    return np.column_stack(
+        [np.cos(la) * np.cos(lo), np.cos(la) * np.sin(lo), np.sin(la)]
+    )
 
 
 def select_points(
@@ -191,13 +150,21 @@ def select_points(
 
 def _unixtime(dates: np.ndarray) -> np.ndarray:
     dates = np.asarray(dates).astype("datetime64[s]")
-    return (dates - np.datetime64("1970-01-01T00:00:00", "s")).astype(np.int64).astype(np.float64)
+    return (
+        (dates - np.datetime64("1970-01-01T00:00:00", "s"))
+        .astype(np.int64)
+        .astype(np.float64)
+    )
 
 
 def run(config) -> list[Path]:
     """Create the observation files described by ``config``. Returns the written paths."""
     t0 = time.perf_counter()
-    config = OmegaConf.to_container(config, resolve=True) if not isinstance(config, dict) else config
+    config = (
+        OmegaConf.to_container(config, resolve=True)
+        if not isinstance(config, dict)
+        else config
+    )
 
     # ---- datasets: plain zarr paths, the first one is the reference grid -------------------
     paths = []
@@ -220,20 +187,33 @@ def run(config) -> list[Path]:
     for path in paths[1:]:
         for key, ref in (("latitudes", lat), ("longitudes", lon), ("dates", dates)):
             if not np.array_equal(stores[path][key][:].astype(ref.dtype), ref):
-                raise ValueError(f"dataset {path}: '{key}' differs from the first dataset {paths[0]}")
+                raise ValueError(
+                    f"dataset {path}: '{key}' differs from the first dataset {paths[0]}"
+                )
 
     # ---- period ---------------------------------------------------------------------------
     start = np.datetime64(str(config["start_date"]), "s")
     end = np.datetime64(str(config["end_date"]), "s")
     t_indices = np.flatnonzero((dates >= start) & (dates <= end))
     if len(t_indices) == 0:
-        raise ValueError(f"no dates in [{start}, {end}]; dataset covers {dates[0]} .. {dates[-1]}")
-    LOGGER.info("%d timesteps: %s .. %s", len(t_indices), dates[t_indices[0]], dates[t_indices[-1]])
+        raise ValueError(
+            f"no dates in [{start}, {end}]; dataset covers {dates[0]} .. {dates[-1]}"
+        )
+    LOGGER.info(
+        "%d timesteps: %s .. %s",
+        len(t_indices),
+        dates[t_indices[0]],
+        dates[t_indices[-1]],
+    )
 
     # ---- points ---------------------------------------------------------------------------
     points_cfg = config.get("points") or {}
     global_index, location_id = select_points(
-        lat, lon, points_cfg.get("area"), points_cfg.get("spacing"), points_cfg.get("every")
+        lat,
+        lon,
+        points_cfg.get("area"),
+        points_cfg.get("spacing"),
+        points_cfg.get("every"),
     )
     LOGGER.info("%d points selected (%s)", len(global_index), json.dumps(points_cfg))
 
@@ -265,7 +245,9 @@ def run(config) -> list[Path]:
 
     # ---- read ----------------------------------------------------------------------------------
     jobs = [(int(t), plan, global_index) for t in t_indices]
-    values = np.full((len(t_indices), len(needed), len(global_index)), np.nan, dtype=np.float32)
+    values = np.full(
+        (len(t_indices), len(needed), len(global_index)), np.nan, dtype=np.float32
+    )
     position = {int(t): k for k, t in enumerate(t_indices)}
     workers = int(config.get("workers", 1))
     if workers > 1:
@@ -274,16 +256,30 @@ def run(config) -> list[Path]:
             for k, (t_index, out) in enumerate(results):
                 values[position[t_index]] = out
                 if (k + 1) % 100 == 0 or k + 1 == len(jobs):
-                    LOGGER.info("read %d/%d timesteps (%.0f s)", k + 1, len(jobs), time.perf_counter() - t0)
+                    LOGGER.info(
+                        "read %d/%d timesteps (%.0f s)",
+                        k + 1,
+                        len(jobs),
+                        time.perf_counter() - t0,
+                    )
     else:
         _worker_init(paths)
         for k, job in enumerate(jobs):
             t_index, out = _read_step(job)
             values[position[t_index]] = out
             if (k + 1) % 100 == 0 or k + 1 == len(jobs):
-                LOGGER.info("read %d/%d timesteps (%.0f s)", k + 1, len(jobs), time.perf_counter() - t0)
+                LOGGER.info(
+                    "read %d/%d timesteps (%.0f s)",
+                    k + 1,
+                    len(jobs),
+                    time.perf_counter() - t0,
+                )
 
-    altitude = values[0, row_of["z"]] / GRAVITY if has_altitude else np.zeros(len(global_index), np.float32)
+    altitude = (
+        values[0, row_of["z"]] / GRAVITY
+        if has_altitude
+        else np.zeros(len(global_index), np.float32)
+    )
     unixtime = _unixtime(dates[t_indices])
     lon180 = _wrap_longitudes(lon[global_index])
 
@@ -295,11 +291,13 @@ def run(config) -> list[Path]:
         "points": points_cfg,
         "start_date": str(dates[t_indices[0]]),
         "end_date": str(dates[t_indices[-1]]),
-        "created": datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
+        "created": datetime.now(UTC).strftime("%Y-%m-%dT%H:%M:%SZ"),
     }
     pattern = config["output"]
     if "{name}" not in pattern and len(outputs) > 1:
-        raise ValueError("'output' must contain '{name}' when there is more than one output")
+        raise ValueError(
+            "'output' must contain '{name}' when there is more than one output"
+        )
 
     written = []
     for out in outputs:
@@ -316,7 +314,11 @@ def run(config) -> list[Path]:
         if units is not None and from_units is not None and units != from_units:
             obs, units = bris_units.convert(obs, from_units, units)
         elif units is not None and from_units is None:
-            LOGGER.warning("%s: anemoi units unknown, writing values unchanged with units '%s'", variable, units)
+            LOGGER.warning(
+                "%s: anemoi units unknown, writing values unchanged with units '%s'",
+                variable,
+                units,
+            )
 
         cfname = cf.get_metadata(variable)["cfname"]
         ds = xr.Dataset(
@@ -343,7 +345,12 @@ def run(config) -> list[Path]:
         ds.to_netcdf(filename, encoding={"obs": {"zlib": True, "complevel": 4}})
         LOGGER.info(
             "%-10s %s  range %.3g .. %.3g %s  nan=%d",
-            name, filename, np.nanmin(obs), np.nanmax(obs), units or "", int(np.isnan(obs).sum()),
+            name,
+            filename,
+            np.nanmin(obs),
+            np.nanmax(obs),
+            units or "",
+            int(np.isnan(obs).sum()),
         )
         written.append(filename)
 
@@ -352,7 +359,9 @@ def run(config) -> list[Path]:
 
 
 def parse_args(arg_list: list[str] | None) -> dict:
-    parser = ArgumentParser(description="Create Verif observation files from anemoi-datasets zarr stores")
+    parser = ArgumentParser(
+        description="Create Verif observation files from anemoi-datasets zarr stores"
+    )
     parser.add_argument("--config", type=str, required=True)
     parser.add_argument("--debug", action="store_true")
     parser.add_argument("-sd", type=str, dest="start_date", required=False)

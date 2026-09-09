@@ -9,7 +9,11 @@ from bris import obs, sources
 def _make_zarr(path, variables, lat, lon, dates, values):
     """Write a minimal anemoi-datasets-like zarr store."""
     z = zarr.open(str(path), mode="w")
-    z.create_dataset("data", data=values.astype(np.float32), chunks=(1, values.shape[1], 1, values.shape[3]))
+    z.create_dataset(
+        "data",
+        data=values.astype(np.float32),
+        chunks=(1, values.shape[1], 1, values.shape[3]),
+    )
     z.create_dataset("latitudes", data=lat.astype(np.float64))
     z.create_dataset("longitudes", data=lon.astype(np.float64))
     z.create_dataset("dates", data=dates.astype("datetime64[s]"))
@@ -19,7 +23,9 @@ def _make_zarr(path, variables, lat, lon, dates, values):
 
 @pytest.fixture
 def grid():
-    lat, lon = np.meshgrid(np.arange(-10, 10.01, 1.0), np.arange(0, 20.01, 1.0), indexing="ij")
+    lat, lon = np.meshgrid(
+        np.arange(-10, 10.01, 1.0), np.arange(0, 20.01, 1.0), indexing="ij"
+    )
     return lat.ravel(), lon.ravel()
 
 
@@ -27,7 +33,10 @@ def grid():
 def stores(tmp_path, grid):
     lat, lon = grid
     n = len(lat)
-    dates = np.array(["2023-01-01T00", "2023-01-01T06", "2023-01-01T12", "2023-01-01T18"], dtype="datetime64[s]")
+    dates = np.array(
+        ["2023-01-01T00", "2023-01-01T06", "2023-01-01T12", "2023-01-01T18"],
+        dtype="datetime64[s]",
+    )
     idx = np.arange(n, dtype=np.float32)
     t = np.arange(len(dates), dtype=np.float32)[:, None]
     main_vars = ["2t", "10u", "10v", "tp", "z"]
@@ -52,7 +61,9 @@ def stores(tmp_path, grid):
 
 def test_select_points_spacing(grid):
     lat, lon = grid
-    global_index, location_id = obs.select_points(lat, lon, area=[5, 2, -5, 12], spacing=2.5)
+    global_index, location_id = obs.select_points(
+        lat, lon, area=[5, 2, -5, 12], spacing=2.5
+    )
     assert len(global_index) == 25  # 5 x 5 target nodes, all distinct nearest points
     assert len(np.unique(location_id)) == 25
     assert np.all(lat[global_index] <= 5) and np.all(lat[global_index] >= -5)
@@ -114,31 +125,49 @@ def test_run_writes_verif_files(tmp_path, stores):
     lon = np.array([loc.lon for loc in locations])
     gi = (np.round(lat + 10) * 21 + np.round(lon)).astype(int)
     np.testing.assert_allclose(data, 273.15 + 0.01 * gi + 1.0 - 273.15, atol=1e-3)
-    np.testing.assert_allclose([loc.elev for loc in locations], 100.0 * (gi % 7), atol=1e-3)
+    np.testing.assert_allclose(
+        [loc.elev for loc in locations], 100.0 * (gi % 7), atol=1e-3
+    )
 
     tp = sources.Verif(str(tmp_path / "out" / "precip6h" / "analysis.nc"))
     assert tp.units == "mm"
-    np.testing.assert_allclose(tp.get("tp", start, start, 3600).get_data("tp", start), 1.0 * (gi % 5), atol=1e-3)
+    np.testing.assert_allclose(
+        tp.get("tp", start, start, 3600).get_data("tp", start),
+        1.0 * (gi % 5),
+        atol=1e-3,
+    )
 
     ws = sources.Verif(str(tmp_path / "out" / "ws10m" / "analysis.nc"))
     assert ws.units == "m/s"
-    np.testing.assert_allclose(ws.get("ws", start, start, 3600).get_data("ws", start), np.hypot(4.0, 4.0), atol=1e-3)
+    np.testing.assert_allclose(
+        ws.get("ws", start, start, 3600).get_data("ws", start),
+        np.hypot(4.0, 4.0),
+        atol=1e-3,
+    )
 
     tcc = sources.Verif(str(tmp_path / "out" / "tcc" / "analysis.nc"))
-    np.testing.assert_allclose(tcc.get("tcc", start, start, 3600).get_data("tcc", start), 0.6, atol=1e-3)
+    np.testing.assert_allclose(
+        tcc.get("tcc", start, start, 3600).get_data("tcc", start), 0.6, atol=1e-3
+    )
     assert len(tcc.file["time"]) == 3
 
 
 def test_run_rejects_mismatched_grid(tmp_path, stores, grid):
     lat, lon = grid
     other = _make_zarr(
-        tmp_path / "other.zarr", ["tcc"], lat + 1.0, lon, stores["dates"],
+        tmp_path / "other.zarr",
+        ["tcc"],
+        lat + 1.0,
+        lon,
+        stores["dates"],
         np.zeros((len(stores["dates"]), 1, 1, len(lat)), np.float32),
     )
     config = OmegaConf.create(
         {
-            "start_date": "2023-01-01T00:00:00", "end_date": "2023-01-01T18:00:00",
-            "output": str(tmp_path / "{name}.nc"), "datasets": [stores["main"], other],
+            "start_date": "2023-01-01T00:00:00",
+            "end_date": "2023-01-01T18:00:00",
+            "output": str(tmp_path / "{name}.nc"),
+            "datasets": [stores["main"], other],
             "outputs": [{"name": "tcc", "variable": "tcc"}],
         }
     )
