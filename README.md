@@ -9,10 +9,19 @@ the [Anemoi framework](https://github.com/ecmwf/anemoi-training).
 - Multi encoder/decoder
 - Time interpolation
 - Ensembles
+- Verification observation files from analysis datasets (`bris-obs`)
 
 ## Documentation
 
 See [Wiki](https://github.com/metno/bris-inference/wiki)
+
+## Verifying against an analysis dataset
+
+`bris-obs --config obs.yaml` extracts a subset of points from an anemoi-datasets zarr
+store over a period and writes one Verif observation file per variable. Point the
+`verif` observation source of the `verif` output at these files to verify forecasts
+against the analysis. See `config/verif_obs_template.yaml` and the docstring of
+`bris/obs.py` for the config format.
 
 ## Requirements
 
