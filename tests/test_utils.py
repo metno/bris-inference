@@ -59,3 +59,10 @@ def test_create_config():
     assert config is not None
     assert hasattr(config, "start_date")
     assert config["start_date"] == "2022-01-01T12:34:56"
+
+    # Dotted override (as produced by `bris -l 3`) must reach the nested key
+    config = bris.utils.create_config(
+        "config/tox_test_inference.yaml", {"checkpoints.forecaster.leadtimes": 3}
+    )
+    assert config.checkpoints.forecaster.leadtimes == 3
+    assert "checkpoints.forecaster.leadtimes" not in config
