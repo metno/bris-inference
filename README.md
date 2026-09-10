@@ -20,8 +20,10 @@ See [Wiki](https://github.com/metno/bris-inference/wiki)
 `bris-obs --config obs.yaml` extracts a subset of points from an anemoi-datasets zarr
 store over a period and writes one Verif observation file per variable. Point the
 `verif` observation source of the `verif` output at these files to verify forecasts
-against the analysis. See `config/verif_obs_template.yaml` and the docstring of
-`bris/obs.py` for the config format.
+against the analysis. The config takes an open_dataset-style `dataset` recipe (a
+path, `join` of stores on the same grid, `area`, `every_loc` or `spacing`) and a list of
+`verif` outputs (`filename`, `variable`, `units`); see `config/verif_obs_template.yaml`.
+The stores are read directly, so other open_dataset operations are not supported.
 
 ## Requirements
 

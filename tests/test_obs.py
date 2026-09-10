@@ -91,20 +91,60 @@ def test_select_points_errors(grid):
         obs.select_points(lat, lon, spacing=1.0, every=2)
 
 
+def _verif(filename, variable, units=None):
+    entry = {"filename": str(filename), "variable": variable}
+    if units:
+        entry["units"] = units
+    return {"verif": entry}
+
+
+def test_parse_recipe():
+    r = obs.parse_recipe("/a.zarr")
+    assert r["paths"] == ["/a.zarr"] and r["area"] is None
+    r = obs.parse_recipe(
+        {
+            "dataset": {"join": [{"dataset": "/a.zarr"}, "/b.zarr"]},
+            "area": [5, 2, -5, 12],
+            "every_loc": 10,
+            "start": "2023-01-01",
+        }
+    )
+    assert r["paths"] == ["/a.zarr", "/b.zarr"]
+    assert (
+        r["area"] == [5, 2, -5, 12] and r["every"] == 10 and r["start"] == "2023-01-01"
+    )
+    with pytest.raises(ValueError, match="unsupported keys"):
+        obs.parse_recipe({"dataset": "/a.zarr", "select": ["2t"]})
+    with pytest.raises(ValueError, match="conflicting"):
+        obs.parse_recipe(
+            {
+                "dataset": {"dataset": "/a.zarr", "area": [1, 0, 0, 1]},
+                "area": [2, 0, 0, 2],
+            }
+        )
+    with pytest.raises(ValueError, match="either"):
+        obs.parse_recipe({"dataset": "/a.zarr", "every_loc": 2, "spacing": 1.0})
+
+
 def test_run_writes_verif_files(tmp_path, stores):
+    out = tmp_path / "out"
     config = OmegaConf.create(
         {
             "start_date": "2023-01-01T06:00:00",
             "end_date": "2023-01-01T18:00:00",
-            "output": str(tmp_path / "out" / "{name}" / "analysis.nc"),
             "workers": 1,
-            "points": {"area": [5, 2, -5, 12], "spacing": 2.5},
-            "datasets": [stores["main"], stores["extra"]],
+            "dataset": {
+                "dataset": {
+                    "join": [{"dataset": stores["main"]}, {"dataset": stores["extra"]}]
+                },
+                "area": [5, 2, -5, 12],
+                "spacing": 2.5,
+            },
             "outputs": [
-                {"name": "t2m", "variable": "2t", "units": "degC"},
-                {"name": "precip6h", "variable": "tp", "units": "mm"},
-                {"name": "ws10m", "variable": "ws"},
-                {"name": "tcc", "variable": "tcc"},
+                _verif(out / "t2m" / "analysis.nc", "2t", "degC"),
+                _verif(out / "precip6h" / "analysis.nc", "tp", "mm"),
+                _verif(out / "ws10m" / "analysis.nc", "ws"),
+                _verif(out / "tcc" / "analysis.nc", "tcc"),
             ],
         }
     )
@@ -113,7 +153,7 @@ def test_run_writes_verif_files(tmp_path, stores):
     assert {p.parent.name for p in written} == {"t2m", "precip6h", "ws10m", "tcc"}
 
     # Readable by the bris verif source, with the expected values and units
-    src = sources.Verif(str(tmp_path / "out" / "t2m" / "analysis.nc"))
+    src = sources.Verif(str(out / "t2m" / "analysis.nc"))
     locations = src.locations
     assert len(locations) == 25
     assert src.units == "degC"
@@ -129,7 +169,7 @@ def test_run_writes_verif_files(tmp_path, stores):
         [loc.elev for loc in locations], 100.0 * (gi % 7), atol=1e-3
     )
 
-    tp = sources.Verif(str(tmp_path / "out" / "precip6h" / "analysis.nc"))
+    tp = sources.Verif(str(out / "precip6h" / "analysis.nc"))
     assert tp.units == "mm"
     np.testing.assert_allclose(
         tp.get("tp", start, start, 3600).get_data("tp", start),
@@ -137,7 +177,7 @@ def test_run_writes_verif_files(tmp_path, stores):
         atol=1e-3,
     )
 
-    ws = sources.Verif(str(tmp_path / "out" / "ws10m" / "analysis.nc"))
+    ws = sources.Verif(str(out / "ws10m" / "analysis.nc"))
     assert ws.units == "m/s"
     np.testing.assert_allclose(
         ws.get("ws", start, start, 3600).get_data("ws", start),
@@ -145,7 +185,7 @@ def test_run_writes_verif_files(tmp_path, stores):
         atol=1e-3,
     )
 
-    tcc = sources.Verif(str(tmp_path / "out" / "tcc" / "analysis.nc"))
+    tcc = sources.Verif(str(out / "tcc" / "analysis.nc"))
     np.testing.assert_allclose(
         tcc.get("tcc", start, start, 3600).get_data("tcc", start), 0.6, atol=1e-3
     )
@@ -166,9 +206,8 @@ def test_run_rejects_mismatched_grid(tmp_path, stores, grid):
         {
             "start_date": "2023-01-01T00:00:00",
             "end_date": "2023-01-01T18:00:00",
-            "output": str(tmp_path / "{name}.nc"),
-            "datasets": [stores["main"], other],
-            "outputs": [{"name": "tcc", "variable": "tcc"}],
+            "dataset": {"join": [stores["main"], other]},
+            "outputs": [_verif(tmp_path / "tcc.nc", "tcc")],
         }
     )
     with pytest.raises(ValueError, match="latitudes"):
@@ -180,17 +219,34 @@ def test_main_cli(tmp_path, stores):
     OmegaConf.save(
         OmegaConf.create(
             {
+                "dataset": {
+                    "dataset": stores["main"],
+                    "start": "2023-01-01T00:00:00",
+                    "end": "2023-01-01T18:00:00",
+                    "every_loc": 50,
+                },
+                "outputs": [_verif(tmp_path / "cli" / "t2m.nc", "2t", "degC")],
+            }
+        ),
+        cfg,
+    )
+    assert obs.main(["--config", str(cfg)]) == 0
+    src = sources.Verif(str(tmp_path / "cli" / "t2m.nc"))
+    assert len(src.file["time"]) == 4  # period from the recipe's start/end
+    assert len(src.locations) == stores["n"] // 50 + 1
+
+    # top-level start_date/end_date apply when the recipe has none; -sd overrides them
+    OmegaConf.save(
+        OmegaConf.create(
+            {
                 "start_date": "2023-01-01T00:00:00",
                 "end_date": "2023-01-01T18:00:00",
-                "output": str(tmp_path / "cli" / "{name}.nc"),
-                "points": {"every": 50},
-                "datasets": [stores["main"]],
-                "outputs": [{"name": "t2m", "variable": "2t", "units": "degC"}],
+                "dataset": {"dataset": stores["main"], "every_loc": 50},
+                "outputs": [_verif(tmp_path / "cli2" / "t2m.nc", "2t", "degC")],
             }
         ),
         cfg,
     )
     assert obs.main(["--config", str(cfg), "-sd", "2023-01-01T12:00:00"]) == 0
-    src = sources.Verif(str(tmp_path / "cli" / "t2m.nc"))
-    assert len(src.file["time"]) == 2  # start override applied: 12 and 18 UTC
-    assert len(src.locations) == stores["n"] // 50 + 1
+    src = sources.Verif(str(tmp_path / "cli2" / "t2m.nc"))
+    assert len(src.file["time"]) == 2

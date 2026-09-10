@@ -157,6 +157,79 @@ def _unixtime(dates: np.ndarray) -> np.ndarray:
     )
 
 
+RECIPE_KEYS = {
+    "dataset",
+    "join",
+    "area",
+    "start",
+    "end",
+    "every_loc",
+    "every",
+    "spacing",
+}
+
+
+def parse_recipe(recipe) -> dict:
+    """Parse an open_dataset-like recipe into zarr paths and point-selection options.
+
+    Supported: a zarr path, ``{dataset: <recipe>}``, ``{join: [<recipe>, ...]}`` (stores on the
+    same grid and dates), and the options ``area`` [N, W, S, E], ``start``, ``end``,
+    ``every_loc`` (index stride) and ``spacing`` (degrees), at any level. Other open_dataset
+    operations are not supported, since the stores are read directly.
+    """
+    result = {
+        "paths": [],
+        "area": None,
+        "start": None,
+        "end": None,
+        "every": None,
+        "spacing": None,
+    }
+
+    def merge(key, value):
+        if value is None:
+            return
+        if result[key] is not None and result[key] != value:
+            raise ValueError(
+                f"recipe: conflicting values for '{key}': {result[key]} and {value}"
+            )
+        result[key] = value
+
+    def walk(node):
+        if isinstance(node, str):
+            result["paths"].append(node)
+            return
+        if not isinstance(node, dict):
+            raise ValueError(
+                f"recipe: expected a path or a mapping, got {type(node).__name__}"
+            )
+        unknown = set(node) - RECIPE_KEYS
+        if unknown:
+            raise ValueError(
+                f"recipe: unsupported keys {sorted(unknown)}; bris-obs reads zarr stores directly and "
+                f"supports only {sorted(RECIPE_KEYS)}"
+            )
+        if "dataset" in node and "join" in node:
+            raise ValueError("recipe: give either 'dataset' or 'join', not both")
+        if "dataset" in node:
+            walk(node["dataset"])
+        elif "join" in node:
+            for member in node["join"]:
+                walk(member)
+        merge("area", node.get("area"))
+        merge("start", node.get("start"))
+        merge("end", node.get("end"))
+        merge("every", node.get("every_loc", node.get("every")))
+        merge("spacing", node.get("spacing"))
+
+    walk(recipe)
+    if not result["paths"]:
+        raise ValueError("recipe: no dataset path found")
+    if result["every"] is not None and result["spacing"] is not None:
+        raise ValueError("recipe: give either 'every_loc' or 'spacing', not both")
+    return result
+
+
 def run(config) -> list[Path]:
     """Create the observation files described by ``config``. Returns the written paths."""
     t0 = time.perf_counter()
@@ -166,18 +239,9 @@ def run(config) -> list[Path]:
         else config
     )
 
-    # ---- datasets: plain zarr paths, the first one is the reference grid -------------------
-    paths = []
-    for entry in config["datasets"]:
-        path = entry["dataset"] if isinstance(entry, dict) else entry
-        if not isinstance(path, str):
-            raise ValueError(
-                "bris-obs reads zarr stores directly: 'datasets' entries must be paths, not open_dataset recipes"
-            )
-        paths.append(path)
-    if not paths:
-        raise ValueError("config needs at least one entry in 'datasets'")
-
+    # ---- dataset recipe: zarr paths, the first one is the reference grid -------------------
+    recipe = parse_recipe(config["dataset"])
+    paths = recipe["paths"]
     stores = {path: _open_zarr(path) for path in paths}
     names = {path: list(stores[path].attrs["variables"]) for path in paths}
     primary = stores[paths[0]]
@@ -191,9 +255,15 @@ def run(config) -> list[Path]:
                     f"dataset {path}: '{key}' differs from the first dataset {paths[0]}"
                 )
 
-    # ---- period ---------------------------------------------------------------------------
-    start = np.datetime64(str(config["start_date"]), "s")
-    end = np.datetime64(str(config["end_date"]), "s")
+    # ---- period: recipe start/end, else the config's start_date/end_date ------------------
+    start = recipe["start"] or config.get("start_date")
+    end = recipe["end"] or config.get("end_date")
+    if start is None or end is None:
+        raise ValueError(
+            "period not set: give start_date/end_date or start/end in the dataset recipe"
+        )
+    start = np.datetime64(str(start), "s")
+    end = np.datetime64(str(end), "s")
     t_indices = np.flatnonzero((dates >= start) & (dates <= end))
     if len(t_indices) == 0:
         raise ValueError(
@@ -207,20 +277,30 @@ def run(config) -> list[Path]:
     )
 
     # ---- points ---------------------------------------------------------------------------
-    points_cfg = config.get("points") or {}
     global_index, location_id = select_points(
-        lat,
-        lon,
-        points_cfg.get("area"),
-        points_cfg.get("spacing"),
-        points_cfg.get("every"),
+        lat, lon, recipe["area"], recipe["spacing"], recipe["every"]
     )
-    LOGGER.info("%d points selected (%s)", len(global_index), json.dumps(points_cfg))
+    LOGGER.info(
+        "%d points selected (area=%s spacing=%s every=%s)",
+        len(global_index),
+        recipe["area"],
+        recipe["spacing"],
+        recipe["every"],
+    )
 
-    # ---- read plan: which (store, variable) rows to read ------------------------------------
-    outputs = config["outputs"]
+    # ---- outputs: verif entries like in the bris verif output ---------------------------------
+    outputs = []
+    for entry in config.get("outputs") or []:
+        out = entry.get("verif", entry) if isinstance(entry, dict) else None
+        if not out or "filename" not in out or "variable" not in out:
+            raise ValueError(
+                "each output must be a 'verif' entry with 'filename' and 'variable'"
+            )
+        outputs.append(out)
     if not outputs:
         raise ValueError("config needs at least one entry in 'outputs'")
+
+    # ---- read plan: which (store, variable) rows to read ------------------------------------
     needed = []  # source variable names, in row order
     for out in outputs:
         for var in DERIVED_VARIABLES.get(out["variable"], (out["variable"],)):
@@ -287,22 +367,15 @@ def run(config) -> list[Path]:
     import xarray as xr
 
     provenance = {
-        "datasets": paths,
-        "points": points_cfg,
+        "dataset": config["dataset"],
         "start_date": str(dates[t_indices[0]]),
         "end_date": str(dates[t_indices[-1]]),
         "created": datetime.now(UTC).strftime("%Y-%m-%dT%H:%M:%SZ"),
     }
-    pattern = config["output"]
-    if "{name}" not in pattern and len(outputs) > 1:
-        raise ValueError(
-            "'output' must contain '{name}' when there is more than one output"
-        )
 
     written = []
     for out in outputs:
         variable = out["variable"]
-        name = out.get("name", variable)
         if variable in DERIVED_VARIABLES:
             u, v = (values[:, row_of[c]] for c in DERIVED_VARIABLES[variable])
             obs = np.sqrt(u**2 + v**2)
@@ -340,12 +413,12 @@ def run(config) -> list[Path]:
         )
         ds["time"].attrs["units"] = "seconds since 1970-01-01 00:00:00 +00:00"
 
-        filename = Path(out.get("filename") or pattern.format(name=name))
+        filename = Path(out["filename"])
         filename.parent.mkdir(parents=True, exist_ok=True)
         ds.to_netcdf(filename, encoding={"obs": {"zlib": True, "complevel": 4}})
         LOGGER.info(
-            "%-10s %s  range %.3g .. %.3g %s  nan=%d",
-            name,
+            "%-6s %s  range %.3g .. %.3g %s  nan=%d",
+            variable,
             filename,
             np.nanmin(obs),
             np.nanmax(obs),
