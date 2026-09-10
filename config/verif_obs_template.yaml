@@ -7,7 +7,8 @@ workers: 16
 
 # open_dataset-style recipe, as for the anemoidataset obs source. The zarr stores are read
 # directly, so only these keys are supported: dataset, join (stores on the same grid and
-# dates), area [N, W, S, E], start/end, and one of every_loc (index stride) or spacing
+# dates), area [N, W, S, E], start/end, frequency (e.g. 6h to subsample an hourly dataset;
+# default: the dataset's own step), and one of every_loc (index stride) or spacing
 # (degrees: nearest grid point to each node of a regular lat/lon grid, even coverage).
 dataset:
   dataset:
@@ -16,6 +17,7 @@ dataset:
       - dataset: /PATH/TO/analysis-extra-variables.zarr   # e.g. cloud variables
   area: [40, -25, -40, 55]
   spacing: 2.5  # degrees
+  # frequency: 6h
   # every_loc: 1000
 
 # One Verif file per entry, like the verif output: filename, variable, units (anemoi units if omitted)

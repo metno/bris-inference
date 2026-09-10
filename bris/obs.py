@@ -10,6 +10,7 @@ from multiprocessing import Pool
 from pathlib import Path
 
 import numpy as np
+from anemoi.utils.dates import frequency_to_seconds
 from omegaconf import OmegaConf
 
 from bris import units as bris_units
@@ -163,6 +164,7 @@ RECIPE_KEYS = {
     "area",
     "start",
     "end",
+    "frequency",
     "every_loc",
     "every",
     "spacing",
@@ -174,14 +176,16 @@ def parse_recipe(recipe) -> dict:
 
     Supported: a zarr path, ``{dataset: <recipe>}``, ``{join: [<recipe>, ...]}`` (stores on the
     same grid and dates), and the options ``area`` [N, W, S, E], ``start``, ``end``,
-    ``every_loc`` (index stride) and ``spacing`` (degrees), at any level. Other open_dataset
-    operations are not supported, since the stores are read directly.
+    ``frequency`` (e.g. "6h", a multiple of the dataset's own step), ``every_loc`` (index
+    stride) and ``spacing`` (degrees), at any level. Other open_dataset operations are not
+    supported, since the stores are read directly.
     """
     result = {
         "paths": [],
         "area": None,
         "start": None,
         "end": None,
+        "frequency": None,
         "every": None,
         "spacing": None,
     }
@@ -219,6 +223,7 @@ def parse_recipe(recipe) -> dict:
         merge("area", node.get("area"))
         merge("start", node.get("start"))
         merge("end", node.get("end"))
+        merge("frequency", node.get("frequency"))
         merge("every", node.get("every_loc", node.get("every")))
         merge("spacing", node.get("spacing"))
 
@@ -255,25 +260,38 @@ def run(config) -> list[Path]:
                     f"dataset {path}: '{key}' differs from the first dataset {paths[0]}"
                 )
 
-    # ---- period: recipe start/end, else the config's start_date/end_date ------------------
+    # ---- period: recipe start/end, else the config's start_date/end_date, else all dates ---
     start = recipe["start"] or config.get("start_date")
     end = recipe["end"] or config.get("end_date")
-    if start is None or end is None:
-        raise ValueError(
-            "period not set: give start_date/end_date or start/end in the dataset recipe"
-        )
-    start = np.datetime64(str(start), "s")
-    end = np.datetime64(str(end), "s")
+    start = np.datetime64(str(start), "s") if start is not None else dates[0]
+    end = np.datetime64(str(end), "s") if end is not None else dates[-1]
     t_indices = np.flatnonzero((dates >= start) & (dates <= end))
     if len(t_indices) == 0:
         raise ValueError(
             f"no dates in [{start}, {end}]; dataset covers {dates[0]} .. {dates[-1]}"
         )
+
+    # ---- frequency: subsample the dataset's dates (default: keep them all) ---------------
+    frequency = recipe["frequency"] or config.get("frequency")
+    if frequency is not None:
+        step = frequency_to_seconds(frequency)
+        seconds = (
+            (dates[t_indices] - dates[t_indices[0]])
+            .astype("timedelta64[s]")
+            .astype(np.int64)
+        )
+        native = int(np.min(np.diff(seconds))) if len(seconds) > 1 else step
+        if step < native or step % native != 0:
+            raise ValueError(
+                f"frequency {frequency} is not a multiple of the dataset frequency ({native} s)"
+            )
+        t_indices = t_indices[seconds % step == 0]
     LOGGER.info(
-        "%d timesteps: %s .. %s",
+        "%d timesteps: %s .. %s%s",
         len(t_indices),
         dates[t_indices[0]],
         dates[t_indices[-1]],
+        f" (every {frequency})" if frequency is not None else "",
     )
 
     # ---- points ---------------------------------------------------------------------------

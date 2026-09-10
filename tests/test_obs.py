@@ -192,6 +192,35 @@ def test_run_writes_verif_files(tmp_path, stores):
     assert len(tcc.file["time"]) == 3
 
 
+def test_frequency_subsamples_dates(tmp_path, grid):
+    lat, lon = grid
+    dates = np.arange("2023-01-01T00", "2023-01-01T13", dtype="datetime64[h]").astype(
+        "datetime64[s]"
+    )  # 13 hourly steps
+    values = (
+        np.zeros((len(dates), 1, 1, len(lat)), np.float32)
+        + np.arange(len(dates), dtype=np.float32)[:, None, None, None]
+    )
+    store = _make_zarr(tmp_path / "hourly.zarr", ["2t"], lat, lon, dates, values)
+
+    def run(**extra):
+        config = OmegaConf.create(
+            {
+                "dataset": {"dataset": store, "every_loc": 50, **extra},
+                "outputs": [_verif(tmp_path / "freq" / "t2m.nc", "2t")],
+            }
+        )
+        obs.run(config)
+        return sources.Verif(str(tmp_path / "freq" / "t2m.nc")).file["time"].values
+
+    assert len(run()) == 13  # default: the dataset's own hourly step
+    times = run(frequency="6h")
+    assert len(times) == 3 and np.all(np.diff(times) == 6 * 3600)
+    assert len(run(frequency="6h", start="2023-01-01T02:00:00")) == 2  # 02 and 08 UTC
+    with pytest.raises(ValueError, match="not a multiple"):
+        run(frequency="90m")
+
+
 def test_run_rejects_mismatched_grid(tmp_path, stores, grid):
     lat, lon = grid
     other = _make_zarr(
