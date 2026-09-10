@@ -122,7 +122,12 @@ def create_config(config_path: str, overrides: dict) -> DictConfig | ListConfig:
         {"override hydra/hydra_logging": "none"},  # disable config parsing logs
         "_self_",
     ]
-    return OmegaConf.merge(config, OmegaConf.create(overrides))
+    # Dotted keys (e.g. "checkpoints.forecaster.leadtimes" from -l) must become nested
+    # entries; OmegaConf.create would keep them as one flat key that overrides nothing.
+    # OmegaConf.update keeps the values' Python types (no YAML re-parsing of strings).
+    for key, value in overrides.items():
+        OmegaConf.update(config, key, value, merge=True)
+    return config
 
 
 def setup_logging(config: DotDict) -> None:
