@@ -176,6 +176,14 @@ def get_attributes(cfname: str) -> dict[str, str] | dict:
             "long_name": "Surface (skin) temperature (SKT)",
             "units": "K",
         },
+        "k": {
+            "long_name": "Wavenumber",
+            "units": "1/m",
+        },
+        "wavelength": {
+            "long_name": "Wavelength",
+            "units": "m",
+        },
     }
 
     # Return empty dictionary if unknown
