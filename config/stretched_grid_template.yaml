@@ -51,7 +51,7 @@ routing:
       - netcdf:
           filename_pattern: ${output}/pred_%Y%m%dT%HZ.nc
           variables: [2t, msl]
-          extra_variables: [ws] #Compute wind speed from 10u and 10v
+          extra_variables: [ws] # Derived variables: ws (10 m wind speed from 10u/10v), wz_<level> (geometric vertical velocity in m/s from omega w_<level>, t_<level> and q_<level>)
       # Verification against observatins (stored in a verif netcdf file)
       - verif:
           filename: ${output}/verif/t2m/VERIF_FILENAME.nc 

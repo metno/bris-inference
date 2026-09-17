@@ -25,3 +25,19 @@ def test_get_attributes():
 
     attr = cf.get_attributes("thunder_event")
     assert attr["standard_name"] == "thunderstorm_probability"
+
+
+def test_vertical_velocity():
+    # Anemoi "w" on pressure levels is omega (Pa/s), not a geometric velocity
+    md = cf.get_metadata("w_500")
+    assert md["cfname"] == "lagrangian_tendency_of_air_pressure"
+    assert md["leveltype"] == "air_pressure"
+    assert md["level"] == 500
+    assert cf.get_attributes(md["cfname"])["units"] == "Pa/s"
+
+    # wz_<level> is the derived geometric vertical velocity
+    md = cf.get_metadata("wz_50")
+    assert md["cfname"] == "upward_air_velocity"
+    assert md["leveltype"] == "air_pressure"
+    assert md["level"] == 50
+    assert cf.get_attributes(md["cfname"])["units"] == "m/s"

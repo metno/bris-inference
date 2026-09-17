@@ -53,14 +53,17 @@ def get_metadata(anemoi_variable: str) -> dict:
         cfname, leveltype, level = variable_mapping[anemoi_variable]
     else:
         words = anemoi_variable.split("_")
-        if len(words) == 2 and words[0] in ["t", "u", "v", "z", "q", "w"]:
+        if len(words) == 2 and words[0] in ["t", "u", "v", "z", "q", "w", "wz"]:
             name, level = words[0], int(words[1])
             cfname = {  # noqa: SIM910 - None is explicitly handled in the following code block
                 "t": "air_temperature",
                 "u": "x_wind",
                 "v": "y_wind",
                 "z": "geopotential",
-                "w": "vertical_velocity",
+                # Anemoi/IFS "w" on pressure levels is omega (Pa/s), not a geometric velocity
+                "w": "lagrangian_tendency_of_air_pressure",
+                # wz_<level> is derived from w, t and q (see bris.derived)
+                "wz": "upward_air_velocity",
                 "q": "specific_humidity",
             }.get(name, "unknown")
             if cfname == "unknown":
@@ -140,7 +143,8 @@ def get_attributes(cfname: str) -> dict[str, str] | dict:
         "y_wind": {"units": "m/s"},
         "wind_speed": {"units": "m/s"},
         "wind_speed_of_gust": {"units": "m/s"},
-        "vertical_velocity": {"units": "m/s"},
+        "upward_air_velocity": {"units": "m/s"},
+        "lagrangian_tendency_of_air_pressure": {"units": "Pa/s"},
         "air_temperature": {"units": "K"},
         "dew_point_temperature": {"units": "K"},
         "land_sea_mask": {"units": "1"},

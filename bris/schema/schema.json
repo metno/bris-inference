@@ -67,7 +67,7 @@
                             "items": {"type": "string"}
                         },
                         "extra_variables": {
-                            "description": "Derive these extra variables (use GRIB short names)",
+                            "description": "Derive these extra variables from the model output: ws (10 m wind speed from 10u/10v) or wz_<level> (geometric vertical velocity in m/s on pressure level <level> hPa, from omega w_<level>, t_<level> and q_<level>), e.g. [ws, wz_500]",
                             "type": "array",
                             "items": {"type": "string"}
                         },
@@ -107,7 +107,7 @@
                             "items": {"type": "string"}
                         },
                         "extra_variables": {
-                            "description": "Derive these extra variables (use GRIB short names)",
+                            "description": "Derive these extra variables from the model output: ws (10 m wind speed from 10u/10v) or wz_<level> (geometric vertical velocity in m/s on pressure level <level> hPa, from omega w_<level>, t_<level> and q_<level>), e.g. [ws, wz_500]",
                             "type": "array",
                             "items": {"type": "string"}
                         },
