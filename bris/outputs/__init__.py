@@ -4,7 +4,7 @@ from abc import abstractmethod
 
 import numpy as np
 
-from bris import sources
+from bris import derived, sources
 from bris.predict_metadata import PredictMetadata
 from bris.utils import LOGGER
 
@@ -51,10 +51,7 @@ def get_required_variables(name, init_args):
     if name == "netcdf":
         if "variables" in init_args:
             variables = list(init_args["variables"])
-            if "extra_variables" in init_args:
-                for var_name in init_args["extra_variables"]:
-                    if var_name == "ws":
-                        variables += ["10u", "10v"]
+            variables += _required_inputs(init_args.get("extra_variables", []))
             if "accumulated_variables" in init_args:
                 for var_name in init_args["accumulated_variables"]:
                     if var_name not in variables:
@@ -64,22 +61,31 @@ def get_required_variables(name, init_args):
         return [None]
 
     if name in ["verif", "powerspectrum_gridded", "powerspectrum_global"]:
-        if init_args["variable"] == "ws":
-            return ["10u", "10v"]
-        return [init_args["variable"]]
+        variable = init_args["variable"]
+        if derived.is_derived(variable):
+            return derived.get_required_inputs(variable)
+        return [variable]
 
     if name == "grib":
         if "variables" in init_args:
             variables = list(init_args["variables"])
-            if "extra_variables" in init_args:
-                for name in init_args["extra_variables"]:
-                    if name == "ws":
-                        variables += ["10u", "10v"]
+            variables += _required_inputs(init_args.get("extra_variables", []))
             variables = sorted(set(variables))
             return variables
         return [None]
 
     raise ValueError(f"Invalid output: {name}")
+
+
+def _required_inputs(extra_variables) -> list[str]:
+    """The model variables needed to compute a list of extra (derived) variables"""
+    variables = []
+    for name in extra_variables:
+        inputs = derived.get_required_inputs(name)
+        if inputs is None:
+            raise ValueError(f"No recipe to compute extra variable '{name}'")
+        variables += inputs
+    return variables
 
 
 class Output:
@@ -122,19 +128,18 @@ class Output:
         t0 = time.perf_counter()
         if pred.shape[2] != len(self.pm.variables):
             # Append extra variables to prediction
-            extra_pred = []
-            for name in self.extra_variables:
-                if name == "ws":
-                    Ix = self.pm.variables.index("10u")
-                    Iy = self.pm.variables.index("10v")
-                    curr = np.sqrt(pred[..., [Ix]] ** 2 + pred[..., [Iy]] ** 2)
-                    extra_pred += [curr]
-                else:
-                    raise ValueError(f"No recipe to compute {name}")
 
+            def get(variable: str) -> np.ndarray:
+                if variable not in self.pm.variables:
+                    raise ValueError(
+                        f"Cannot compute extra variable: '{variable}' is not available"
+                    )
+                return pred[..., [self.pm.variables.index(variable)]]
+
+            extra_pred = [derived.compute(name, get) for name in self.extra_variables]
             pred = np.concatenate([pred] + extra_pred, axis=2)
         LOGGER.debug(
-            f"outputs.add_forecast Calculate ws in {time.perf_counter() - t0:.1f}s"
+            f"outputs.add_forecast Calculate extra variables {self.extra_variables} in {time.perf_counter() - t0:.1f}s"
         )
 
         assert pred.shape[0] == self.pm.num_leadtimes

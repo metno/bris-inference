@@ -3,6 +3,7 @@ from functools import cached_property
 import numpy as np
 from anemoi.datasets import open_dataset
 
+from bris import derived
 from bris.conventions.anemoi import get_units as get_anemoi_units
 from bris.observations import Location, Observations
 from bris.sources import Source
@@ -25,10 +26,12 @@ class AnemoiDataset(Source):
 
         self.dataset = open_dataset(dataset_dict)
         self.variable = variable
-        if variable == "ws":
-            self.variable_index = [
-                self.dataset.name_to_index[v] for v in ["10u", "10v"]
-            ]
+        if derived.is_derived(variable):
+            # e.g. ws (from 10u, 10v) or wz_500 (from w_500, t_500, q_500)
+            self.variable_index = {
+                v: self.dataset.name_to_index[v]
+                for v in derived.get_required_inputs(variable)
+            }
         else:
             self.variable_index = self.dataset.name_to_index[variable]
         self.every_loc = every_loc
@@ -70,14 +73,14 @@ class AnemoiDataset(Source):
                         f"Date {self.dataset.dates[int(i[0])]} missing from verif dataset"
                     )
                 else:
-                    if self.variable == "ws":
-                        data_u = self.dataset[
-                            int(i[0]), self.variable_index[0], 0, :: self.every_loc
-                        ]
-                        data_v = self.dataset[
-                            int(i[0]), self.variable_index[1], 0, :: self.every_loc
-                        ]
-                        data[t, :] = (data_u**2 + data_v**2) ** 0.5
+                    if isinstance(self.variable_index, dict):
+
+                        def get(v, _i=int(i[0])):
+                            return self.dataset[
+                                _i, self.variable_index[v], 0, :: self.every_loc
+                            ]
+
+                        data[t, :] = derived.compute(self.variable, get)
                     else:
                         data[t, :] = self.dataset[
                             int(i[0]), self.variable_index, 0, :: self.every_loc
