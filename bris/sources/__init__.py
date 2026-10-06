@@ -1,3 +1,6 @@
+from bris import sources
+
+
 def instantiate(name: str, init_args: dict):
     """Creates an object of type name with config
 
@@ -6,19 +9,13 @@ def instantiate(name: str, init_args: dict):
         init_args: Arguments to pass to Output constructor
     """
     if name == "frost":
-        from .frost import Frost
-
-        return Frost(init_args["frost_variable_name"])
+        return sources.frost.Frost(init_args["frost_variable_name"])
     if name == "verif":
-        from .verif import Verif
-
-        return Verif(**init_args)
+        return sources.verif.Verif(**init_args)
     if name == "anemoidataset":
-        from .anemoidataset import AnemoiDataset
-
         if "every_loc" not in init_args:
             init_args["every_loc"] = 1
-        return AnemoiDataset(
+        return sources.anemoidataset.AnemoiDataset(
             init_args["dataset"], init_args["variable"], init_args["every_loc"]
         )
     raise ValueError(f"Invalid source: {name}")
@@ -49,3 +46,8 @@ class Source:
     @property
     def units(self) -> str:
         raise NotImplementedError()
+
+
+from .anemoidataset import AnemoiDataset
+from .frost import Frost
+from .verif import Verif

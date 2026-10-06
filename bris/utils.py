@@ -6,10 +6,12 @@ import sys
 import time
 import uuid
 from argparse import ArgumentParser
+from collections.abc import Iterable
 from typing import Any
 
 import jsonschema
 import numpy as np
+import torch
 import yaml
 from anemoi.models.data_indices.index import DataIndex, ModelIndex
 from anemoi.utils.config import DotDict
@@ -345,6 +347,7 @@ def get_dataset_config(config: DictConfig) -> DictConfig:
             }
     else:
         raise ValueError("Config must contain either 'dataset' or 'datasets' key.")
+
     return OmegaConf.create(ds_cfg)
 
 
@@ -356,6 +359,11 @@ def get_model_timestep(checkpoint: Checkpoint) -> str:
 
     try:
         return checkpoint.config.task.timestep
+    except AttributeError:
+        pass
+
+    try:
+        return checkpoint.config.data.frequency
     except AttributeError:
         pass
 

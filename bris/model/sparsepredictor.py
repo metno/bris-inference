@@ -5,6 +5,7 @@ import torch
 
 from bris.utils import LOGGER
 from bris.utils import get_base_seed
+from bris.utils import get_model_timestep
 from bris.utils import timedelta64_from_timestep
 
 from .basepredictor import BasePredictor
@@ -20,7 +21,6 @@ class SparseForecasterPredictor(BasePredictor):
         datamodule: Any,
         checkpoints_config: dict,
         required_variables: dict[str, list[str]],
-        decode_dataset_names: list[str] | None = None,
         release_cache: bool = False,
         ensemble_seed: int | None = None,
         **kwargs: Any,
@@ -31,7 +31,7 @@ class SparseForecasterPredictor(BasePredictor):
         self.model = checkpoint.model
         self.metadata = checkpoint.metadata
         self.data_indices = checkpoint.data_indices
-        self.timestep = timedelta64_from_timestep(self.metadata.config.data.timestep)
+        self.timestep = timedelta64_from_timestep(get_model_timestep(checkpoint))
         self.dataset_names = list(datamodule.dataset_names)
         self.forecast_length = int(checkpoints_config["forecaster"]["leadtimes"])
         self.required_variables = {
@@ -67,46 +67,23 @@ class SparseForecasterPredictor(BasePredictor):
             for dataset_name, pairs in self.output_pairs_by_dataset.items()
             if pairs
         }
-        self.decode_dataset_names = None
-        if decode_dataset_names is not None:
-            self.decode_dataset_names = tuple(str(dataset_name) for dataset_name in decode_dataset_names)
-            unknown_dataset_names = sorted(set(self.decode_dataset_names).difference(self.dataset_names))
-            if unknown_dataset_names:
-                raise ValueError(
-                    f"decode_dataset_names contains unknown datasets: {unknown_dataset_names}. "
-                    f"Known datasets: {self.dataset_names}"
-                )
-            missing_required_dataset_names = sorted(set(self.required_variables).difference(self.decode_dataset_names))
-            if missing_required_dataset_names:
-                raise ValueError(
-                    "decode_dataset_names must include all routed output datasets: "
-                    f"{missing_required_dataset_names}"
-                )
-
-            inner_model = getattr(self.model, "model", None)
-            decoder_provider_by_dataset = getattr(inner_model, "decoder_provider_by_dataset", None)
-            if decoder_provider_by_dataset is None:
-                raise ValueError("decode_dataset_names requires model.model.decoder_provider_by_dataset.")
-            missing_decoder_dataset_names = sorted(set(self.decode_dataset_names).difference(decoder_provider_by_dataset))
-            if missing_decoder_dataset_names:
-                raise ValueError(
-                    "decode_dataset_names contains datasets without a decoder provider in the checkpoint: "
-                    f"{missing_decoder_dataset_names}"
-                )
-
-            inner_model.decoder_provider_by_dataset = {
-                dataset_name: provider_name
-                for dataset_name, provider_name in decoder_provider_by_dataset.items()
-                if dataset_name in self.decode_dataset_names
-            }
-            if hasattr(inner_model, "decoder_target_dataset_names"):
-                inner_model.decoder_target_dataset_names = tuple(inner_model.decoder_provider_by_dataset)
-
         n_step_output = getattr(self.model, "n_step_output", None)
         if n_step_output is None:
             n_step_output = getattr(getattr(self.model, "model", None), "n_step_output", None)
         if n_step_output is None:
             raise ValueError("Could not infer n_step_output from sparse forecaster checkpoint.")
+        if isinstance(n_step_output, dict):
+            output_steps = {
+                int(n_step_output[dataset_name])
+                for dataset_name in self.model_output_dataset_names
+                if int(n_step_output[dataset_name]) > 0
+            }
+            if len(output_steps) != 1:
+                raise ValueError(
+                    "Sparse forecaster output datasets must have one common positive output length, "
+                    f"got {n_step_output}."
+                )
+            n_step_output = output_steps.pop()
         self.step_size = int(n_step_output)
 
         self.model.eval()
@@ -117,12 +94,10 @@ class SparseForecasterPredictor(BasePredictor):
         self.batch_info: dict[np.datetime64, int] = {}
 
         LOGGER.info(
-            "SparseForecasterPredictor: forecast_length=%s step_size=%s output_datasets=%s "
-            "decode_datasets=%s input_offsets=%s",
+            "SparseForecasterPredictor: forecast_length=%s step_size=%s output_datasets=%s input_offsets=%s",
             self.forecast_length,
             self.step_size,
             sorted(self.output_dataset_names),
-            self.decode_dataset_names,
             self.dataset_input_offsets,
         )
 
@@ -171,7 +146,10 @@ class SparseForecasterPredictor(BasePredictor):
                 )
             x[dataset_name] = pre_processors[dataset_name](tensor, in_place=False)
 
-        y_hat = inner_model.forward(x, fcstep=fcstep, model_comm_group=self.model_comm_group)
+        model_comm_group = self.model_comm_group
+        if model_comm_group is not None and model_comm_group.size() == 1:
+            model_comm_group = None
+        y_hat = inner_model.forward(x, fcstep=fcstep, model_comm_group=model_comm_group)
         if not isinstance(y_hat, dict):
             raise TypeError(f"Expected sparse forecaster output dict, got {type(y_hat)!r}.")
 

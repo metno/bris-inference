@@ -1,18 +1,14 @@
-from __future__ import annotations
-
 import os
 from collections import defaultdict
-from typing import Any, Literal, TYPE_CHECKING
+from typing import Any, Literal
 
 import numpy as np
 
 import bris.outputs
 from bris import utils
+from bris.checkpoint import Checkpoint
+from bris.data.datamodule import DataModule
 from bris.predict_metadata import PredictMetadata
-
-if TYPE_CHECKING:
-    from bris.checkpoint import Checkpoint
-    from bris.data.datamodule import DataModule
 
 
 def get(

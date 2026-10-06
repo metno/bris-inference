@@ -259,5 +259,4 @@ class DataModule(pl.LightningDataModule):
             while isinstance(dataset, (Subset, Select)):
                 dataset = dataset.dataset
             return dataset.field_shape
-
         return data_reader.field_shape

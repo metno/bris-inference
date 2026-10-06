@@ -3,6 +3,14 @@ import time
 from concurrent.futures import Future
 from datetime import datetime, timedelta
 
+from anemoi.utils.dates import frequency_to_seconds
+from hydra.utils import instantiate
+
+import bris.routes
+from bris.data.datamodule import DataModule
+
+from .checkpoint import Checkpoint
+from .inference import Inference
 from .utils import (
     LOGGER,
     create_config,
@@ -16,6 +24,7 @@ from .utils import (
     set_encoder_decoder_num_chunks,
     setup_logging,
 )
+from .writer import CustomWriter
 
 
 def main(arg_list: list[str] | None = None):
@@ -26,51 +35,16 @@ def main(arg_list: list[str] | None = None):
     requested_forecast_end_date = config.get("end_date", None)
 
     setup_logging(config)
-    LOGGER.info("Bris startup: config loaded in %.1fs.", time.perf_counter() - t0)
-
-    LOGGER.info("Importing runtime modules.")
-    t_import = time.perf_counter()
-    t_step = time.perf_counter()
-    from anemoi.utils.dates import frequency_to_seconds
-    LOGGER.info("Imported anemoi.utils.dates in %.1fs.", time.perf_counter() - t_step)
-
-    t_step = time.perf_counter()
-    from hydra.utils import instantiate
-    LOGGER.info("Imported hydra.utils in %.1fs.", time.perf_counter() - t_step)
-
-    t_step = time.perf_counter()
-    import bris.routes
-    LOGGER.info("Imported bris.routes in %.1fs.", time.perf_counter() - t_step)
-
-    t_step = time.perf_counter()
-    from bris.data.datamodule import DataModule
-    LOGGER.info("Imported bris.data.datamodule in %.1fs.", time.perf_counter() - t_step)
-
-    t_step = time.perf_counter()
-    from .checkpoint import Checkpoint
-    LOGGER.info("Imported bris.checkpoint in %.1fs.", time.perf_counter() - t_step)
-
-    t_step = time.perf_counter()
-    from .inference import Inference
-    LOGGER.info("Imported bris.inference in %.1fs.", time.perf_counter() - t_step)
-
-    t_step = time.perf_counter()
-    from .writer import CustomWriter
-    LOGGER.info("Imported bris.writer in %.1fs.", time.perf_counter() - t_step)
-
-    LOGGER.info("Imported runtime modules in %.1fs.", time.perf_counter() - t_import)
 
     models = list(config.checkpoints.keys())
 
-    checkpoints = {}
-    for model in models:
-        LOGGER.info("Loading %s checkpoint from %s.", model, config.checkpoints[model].checkpoint_path)
-        t_checkpoint = time.perf_counter()
-        checkpoints[model] = Checkpoint(
+    checkpoints = {
+        model: Checkpoint(
             config.checkpoints[model].checkpoint_path,
             getattr(config.checkpoints[model], "switch_graph", None),
         )
-        LOGGER.info("Loaded %s checkpoint in %.1fs.", model, time.perf_counter() - t_checkpoint)
+        for model in models
+    }
 
     set_encoder_decoder_num_chunks(getattr(config, "inference_num_chunks", 1))
     if "release_cache" not in config or not isinstance(config["release_cache"], bool):
@@ -117,24 +91,13 @@ def main(arg_list: list[str] | None = None):
     multistep = get_model_multistep_input(checkpoints["forecaster"])
 
     history_steps = multistep - 1
-    dataset_input_time_indices = getattr(
-        getattr(checkpoints["forecaster"].model, "model", None),
-        "dataset_input_time_indices",
-        None,
-    )
-    sparse_forecaster_history = False
-    if isinstance(dataset_input_time_indices, dict):
-        output_dataset_names = [
-            route["decoder_name"]
-            for route in config.get("routing", [])
-            if route.get("decoder_name") in dataset_input_time_indices
-        ]
-        if output_dataset_names:
-            sparse_forecaster_history = True
-            history_steps = max(
-                max(int(offset) for offset in dataset_input_time_indices[dataset_name])
-                for dataset_name in output_dataset_names
-            )
+    datamodule_target = config.dataloader.datamodule.get("_target_", "")
+    sparse_forecaster_history = datamodule_target.endswith("SparseZarrDataset")
+    if sparse_forecaster_history:
+        history_steps = max(
+            max(int(offset) for offset in offsets)
+            for offsets in config.dataloader.datamodule.dataset_input_offsets.values()
+        )
 
     if sparse_forecaster_history:
         if requested_forecast_start_date is None:
@@ -168,8 +131,6 @@ def main(arg_list: list[str] | None = None):
     # Get dataset config with backwards comapatibility for single dataset config setup
     config.datasets = get_dataset_config(config)
 
-    LOGGER.info("Building datamodule.")
-    t_datamodule = time.perf_counter()
     datamodule = DataModule(
         config=config,
         checkpoint_object=checkpoints["forecaster"],
@@ -177,8 +138,6 @@ def main(arg_list: list[str] | None = None):
         frequency=config.frequency,
         num_members_in_sequence=num_members_in_sequence,
     )
-    LOGGER.info("Built datamodule in %.1fs.", time.perf_counter() - t_datamodule)
-
     # Get outputs and required_variables of each decoder
     if hasattr(config.checkpoints, "interpolator"):
         leadtimes = get_all_leadtimes(
@@ -193,8 +152,6 @@ def main(arg_list: list[str] | None = None):
             config.checkpoints.forecaster.timestep_seconds,
         )
 
-    LOGGER.info("Resolving routing and output writers.")
-    t_routes = time.perf_counter()
     decoder_outputs = bris.routes.get(
         config["routing"],
         leadtimes,
@@ -206,7 +163,6 @@ def main(arg_list: list[str] | None = None):
     required_variables = bris.routes.get_required_variables_all_checkpoints(
         config["routing"], checkpoints
     )
-    LOGGER.info("Resolved routing and output writers in %.1fs.", time.perf_counter() - t_routes)
 
     # List of background write processes
     write_process_list: list[Future] | None = []
@@ -224,8 +180,6 @@ def main(arg_list: list[str] | None = None):
         max_processes=max_processes,
     )
 
-    LOGGER.info("Instantiating predictor model.")
-    t_model = time.perf_counter()
     model = instantiate(
         config.model,
         checkpoints=checkpoints,
@@ -236,11 +190,9 @@ def main(arg_list: list[str] | None = None):
         release_cache=config.release_cache,
         num_members_in_parallel=num_members_in_parallel,
     )
-    LOGGER.info("Instantiated predictor model in %.1fs.", time.perf_counter() - t_model)
 
     callbacks = [writer]
 
-    LOGGER.info("Starting inference run.")
     inference = Inference(
         config=config,
         model=model,

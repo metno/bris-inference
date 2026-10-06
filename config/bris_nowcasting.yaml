@@ -1,0 +1,75 @@
+start_date: 2024-11-14T12:00:00
+end_date: 2024-11-14T12:00:00
+
+checkpoints:
+  forecaster:
+    checkpoint_path: ${oc.env:BRIS_NOWCAST_CHECKPOINT,/scratch/project_465002688/omiralle/bris_multisource/checkpoint/c8_cont10_main_port/attempt_005/inference-anemoi-by_step-epoch_004-step_000160.ckpt}
+    leadtimes: 25
+
+frequency: 5m
+workdir: ${oc.env:BRIS_NOWCAST_WORKDIR,/tmp/bris-nowcasting}
+
+datasets:
+  meps:
+    dataset: ${oc.env:BRIS_NOWCAST_MEPS_DATASET,/scratch/project_465002688/datasets/meps-continuous-hourly-20200415-20251011-2p5km-1h.zarr}
+    frequency: 1h
+    select: [t2m, tp, lcc, lsm, mcc, msl, z, u10, v10, cape, cin, d2m, wind_gust_10m]
+    rename: {t2m: 2t, u10: 10u, v10: 10v}
+  nordic_radar:
+    dataset: ${oc.env:BRIS_NOWCAST_RADAR_DATASET,/scratch/project_465002688/datasets/radar-postprocessed-netatmo-20200415-20251231-5m.zarr}
+    select: [lwe_precipitation_rate]
+  netatmo:
+    dataset: ${oc.env:BRIS_NOWCAST_NETATMO_DATASET,/scratch/project_465002688/datasets/netatmo-qc-2020-2025-5m.zarr}
+    select: [ff, fg, dd, pr, ta, rr, rr_hourly, uu]
+  lightning:
+    dataset: ${oc.env:BRIS_NOWCAST_LIGHTNING_DATASET,/scratch/project_465002688/datasets/lightning_5m_2020_2025.zarr}
+    select: [thunder_count]
+  rainbow:
+    dataset: ${oc.env:BRIS_NOWCAST_RAINBOW_DATASET,/scratch/project_465002688/datasets/rainbow-column-products-20200415-20251231-5m.zarr}
+    select: [czc, ezc20, ezc45, hzc]
+
+dataloader:
+  datamodule:
+    _target_: bris.data.dataset.SparseZarrDataset
+    _convert_: all
+    dataset_input_offsets:
+      meps: [0]
+      nordic_radar: [3, 4, 5, 6, 7, 8, 9, 10, 11, 12]
+      netatmo: [8, 9, 10, 11, 12]
+      lightning: [8, 9, 10, 11, 12]
+      rainbow: [7, 8, 9, 10, 11, 12]
+    output_dataset_names: [nordic_radar, lightning]
+    forecast_reference_frequency: 5m
+  num_workers: 1
+  prefetch_factor: 2
+  pin_memory: true
+
+hardware:
+  num_gpus_per_node: 1
+  num_gpus_per_model: 1
+  num_nodes: 1
+  num_members: 10
+
+model:
+  _target_: bris.model.SparseForecasterPredictor
+  _convert_: all
+  ensemble_seed: 2023
+
+routing:
+  - decoder_name: nordic_radar
+    outputs:
+      - netcdf:
+          filename_pattern: ${oc.env:BRIS_NOWCAST_OUTPUT,/tmp/bris-nowcasting-output}/precipitation_%Y%m%dT%H%MZ.nc
+          variables: [lwe_precipitation_rate]
+          global_attributes:
+            title: BRIS multisource ensemble precipitation nowcast
+  - decoder_name: lightning
+    outputs:
+      - netcdf:
+          filename_pattern: ${oc.env:BRIS_NOWCAST_OUTPUT,/tmp/bris-nowcasting-output}/lightning_logits_%Y%m%dT%H%MZ.nc
+          variables: [thunder_count]
+          global_attributes:
+            title: BRIS multisource ensemble lightning logits
+
+background_write: false
+loglevel: info
