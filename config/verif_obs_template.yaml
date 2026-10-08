@@ -1,0 +1,42 @@
+# bris-obs --config verif_obs_template.yaml
+# Extract analysis "observations" at a subset of points into Verif files, one per variable,
+# for use as obs_sources (verif) in the verif output of a bris inference config.
+start_date: 2023-01-01T00:00:00
+end_date: 2023-12-31T18:00:00
+workers: 16
+
+# open_dataset-style recipe, as for the anemoidataset obs source. The zarr stores are read
+# directly, so only these keys are supported: dataset, join (stores on the same grid and
+# dates), area [N, W, S, E], start/end, frequency (e.g. 6h to subsample an hourly dataset;
+# default: the dataset's own step), and one of every_loc (index stride) or spacing
+# (degrees: nearest grid point to each node of a regular lat/lon grid, even coverage).
+dataset:
+  dataset:
+    join:
+      - dataset: /PATH/TO/analysis.zarr
+      - dataset: /PATH/TO/analysis-extra-variables.zarr   # e.g. cloud variables
+  area: [40, -25, -40, 55]
+  spacing: 2.5  # degrees
+  # frequency: 6h
+  # every_loc: 1000
+
+# One Verif file per entry, like the verif output: filename, variable, units (anemoi units if omitted)
+outputs:
+  - verif:
+      filename: /PATH/TO/verification/t2m/analysis.nc
+      variable: 2t
+      units: degC
+  - verif:
+      filename: /PATH/TO/verification/mslp/analysis.nc
+      variable: msl
+      units: hPa
+  - verif:
+      filename: /PATH/TO/verification/precip6h/analysis.nc
+      variable: tp
+      units: mm
+  - verif:
+      filename: /PATH/TO/verification/ws10m/analysis.nc
+      variable: ws          # derived from 10u/10v
+  - verif:
+      filename: /PATH/TO/verification/tcc/analysis.nc
+      variable: tcc

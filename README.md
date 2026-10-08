@@ -9,6 +9,7 @@ the [Anemoi framework](https://github.com/ecmwf/anemoi-training).
 - Multi encoder/decoder
 - Time interpolation
 - Ensembles
+- Verification observation files from analysis datasets (`bris-obs`)
 
 ## Documentation
 
