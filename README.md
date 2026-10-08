@@ -9,6 +9,42 @@ the [Anemoi framework](https://github.com/ecmwf/anemoi-training).
 - Multi encoder/decoder
 - Time interpolation
 - Ensembles
+- Multisource nowcast input preparation and packaged inference configuration
+- Calibrated lightning postprocessing and evolution plots
+- Precipitation member-evolution plots and GIF previews
+
+## Operational nowcasting
+
+The `nowcasting` branch packages the Python side of the operational pipeline:
+
+- `bris-nowcast-helper`: resolves cycles, loads the launcher config, renders the
+  four-source BRIS config, and validates it against the checkpoint contract.
+- `bris-nowcast-inputs`: prepares raw Nordic radar, latest-valid-time MEPS,
+  Netatmo, and lightning inputs through Weathermart.
+- `bris-lightning-postprocess`: converts decoder output into the fixed-grid,
+  calibrated +5-to-+30-minute lightning product and operational plot.
+- `bris-lightning-evolution`: creates the selected-window lightning product and
+  evolution plot.
+- `plot_nowcast`: creates the precipitation member-evolution plot and GIF.
+
+The inference template, Netatmo station list, and fixed lightning-grid
+definition are package data under `bris/schema`. The current checkpoint uses
+the four sources above and has no Rainbow dataset.
+
+## Plotting a nowcast
+
+The branch installs one precipitation plotting command:
+
+```bash
+plot_nowcast precipitation.nc precipitation_member_evolution.png \
+  --lead-minutes 5 10 20 60 90 120 \
+  --animation precipitation_members_median.gif
+```
+
+Unless four member IDs are supplied with `--members`, the plotter selects the
+four ensemble members with the greatest spatial diversity. The static plot
+shows those members at six lead times; the GIF shows the same four members
+around the ensemble median.
 
 ## Documentation
 

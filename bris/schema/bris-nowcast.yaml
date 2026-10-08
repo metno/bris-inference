@@ -1,30 +1,32 @@
-start_date: 2024-11-14T12:00:00
-end_date: 2024-11-14T12:00:00
+start_date: ${run_iso}
+end_date: ${run_iso}
 
 checkpoints:
   forecaster:
-    checkpoint_path: ${oc.env:BRIS_NOWCAST_CHECKPOINT,/scratch/project_465002688/omiralle/bris_multisource/checkpoint/c8_cont10_main_port/attempt_005/inference-anemoi-by_step-epoch_004-step_000160.ckpt}
+    checkpoint_path: ${checkpoint}
     leadtimes: 25
 
 frequency: 5m
-workdir: ${oc.env:BRIS_NOWCAST_WORKDIR,/tmp/bris-nowcasting}
+inference_num_chunks: ${inference_num_chunks}
+workdir: ${workdir}
 
 datasets:
   meps:
-    dataset: ${oc.env:BRIS_NOWCAST_MEPS_DATASET,/scratch/project_465002688/datasets/meps-continuous-hourly-20200415-20251011-2p5km-1h.zarr}
+    dataset: ${meps_zarr}
+    start: ${meps_start_iso}
+    end: ${meps_end_iso}
     frequency: 1h
     select: [t2m, tp, lcc, lsm, mcc, msl, z, u10, v10, cape, cin, d2m, wind_gust_10m]
     rename: {t2m: 2t, u10: 10u, v10: 10v}
   nordic_radar:
-    dataset: ${oc.env:BRIS_NOWCAST_RADAR_DATASET,/scratch/project_465002688/datasets/radar-postprocessed-netatmo-20200415-20251231-5m.zarr}
+    dataset: ${radar_dataset}
     select: [lwe_precipitation_rate]
   netatmo:
-    dataset: ${oc.env:BRIS_NOWCAST_NETATMO_DATASET,/scratch/project_465002688/datasets/netatmo-qc-2020-2025-5m.zarr}
+    dataset: ${netatmo_dataset}
     select: [ff, fg, dd, pr, ta, rr, rr_hourly, uu]
   lightning:
-    dataset: ${oc.env:BRIS_NOWCAST_LIGHTNING_DATASET,/scratch/project_465002688/datasets/lightning_5m_2020_2025.zarr}
+    dataset: ${lightning_dataset}
     select: [thunder_count]
-
 dataloader:
   datamodule:
     _target_: bris.data.dataset.SparseZarrDataset
@@ -36,15 +38,16 @@ dataloader:
       lightning: [8, 9, 10, 11, 12]
     output_dataset_names: [nordic_radar, lightning]
     forecast_reference_frequency: 5m
-  num_workers: 1
-  prefetch_factor: 2
-  pin_memory: true
+  num_workers: ${dataloader_num_workers}
+  prefetch_factor: ${dataloader_prefetch_factor}
+  pin_memory: ${dataloader_pin_memory}
+  persistent_workers: ${dataloader_persistent_workers}
 
 hardware:
   num_gpus_per_node: 1
   num_gpus_per_model: 1
   num_nodes: 1
-  num_members: 10
+  num_members: ${num_members}
 
 model:
   _target_: bris.model.SparseForecasterPredictor
@@ -55,17 +58,16 @@ routing:
   - decoder_name: nordic_radar
     outputs:
       - netcdf:
-          filename_pattern: ${oc.env:BRIS_NOWCAST_OUTPUT,/tmp/bris-nowcasting-output}/precipitation_%Y%m%dT%H%MZ.nc
+          filename_pattern: ${workdir}/precipitation_%Y%m%dT%H%MZ.nc
           variables: [lwe_precipitation_rate]
           global_attributes:
             title: BRIS multisource ensemble precipitation nowcast
   - decoder_name: lightning
     outputs:
       - netcdf:
-          filename_pattern: ${oc.env:BRIS_NOWCAST_OUTPUT,/tmp/bris-nowcasting-output}/lightning_logits_%Y%m%dT%H%MZ.nc
+          filename_pattern: ${workdir}/lightning_logits_%Y%m%dT%H%MZ.nc
           variables: [thunder_count]
           global_attributes:
             title: BRIS multisource ensemble lightning logits
-
 background_write: false
 loglevel: info

@@ -1,0 +1,11 @@
+{
+  "coordinate_sha256": "31462a583ea446db19ba2c622beca441866b0dc13193e1fd5fbd7268cbd1ba9b",
+  "crs": "+proj=laea +lat_0=63.5 +lon_0=18.5 +x_0=0 +y_0=0 +datum=WGS84 +units=m +no_defs +type=crs",
+  "grid_spacing_metres": 8000.0,
+  "origin_x": -1296000.0,
+  "origin_y": -1416000.0,
+  "shape": [
+    350,
+    312
+  ]
+}
