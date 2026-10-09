@@ -60,6 +60,10 @@ class BasePredictor(pl.LightningModule):
         super().__init__(*args, **kwargs)
         self.num_members_in_parallel = num_members_in_parallel
 
+        # Process group of the ranks that write output (rank 0 of each model group) within an
+        # ensemble group. Used to reduce output quantities across ensemble members.
+        self.ens_output_comm_group = None
+
         if check_anemoi_training(checkpoints["forecaster"].metadata):
             self.legacy = False
 
@@ -134,6 +138,9 @@ class BasePredictor(pl.LightningModule):
             self.ens_comm_num_groups = ens_comm_num_groups
             self.ens_comm_group_size = ens_comm_group_size
             self.member_id = member_id
+
+    def set_ens_output_comm_group(self, ens_output_comm_group: ProcessGroup) -> None:
+        self.ens_output_comm_group = ens_output_comm_group
 
     def set_reader_groups(
         self,

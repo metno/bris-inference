@@ -90,6 +90,56 @@
             "required": ["netcdf"]
         },
 
+        "EnsembleStatisticsOutput": {
+            "description": "Ensemble statistics (mean, std, min, max) to Netcdf, computed by reducing across members batch by batch without storing individual members",
+            "type": "object",
+            "properties": {
+                "ensemble_statistics": {
+                    "type": "object",
+                    "properties": {
+                        "filename_pattern": {
+                            "description": "Where to write the output file. Time tokens allowed (e.g. %Y%m%d). Must contain {statistic} (replaced by e.g. mean) when more than one statistic is written",
+                            "type": "string"
+                        },
+                        "variables": {
+                            "description": "What variables to output? Leave empty to write all",
+                            "type": "array",
+                            "items": {"type": "string"}
+                        },
+                        "extra_variables": {
+                            "description": "Derive these extra variables (use GRIB short names)",
+                            "type": "array",
+                            "items": {"type": "string"}
+                        },
+                        "statistics": {
+                            "description": "Which statistics across the ensemble to write (default: mean and std)",
+                            "type": "array",
+                            "items": {"type": "string", "enum": ["mean", "std", "min", "max"]}
+                        },
+                        "ddof": {
+                            "description": "Delta degrees of freedom for std (0: population, 1: sample). Default 0",
+                            "type": "integer",
+                            "minimum": 0
+                        },
+                        "proj4_str": {
+                            "description": "Assume this projection string when computing x/y coordinates",
+                            "type": "string"
+                        },
+                        "domain_name": {
+                            "description": "Retrieve projection from this predefined domain name (e.g. meps)",
+                            "type": "string"
+                        },
+                        "global_attributes": {
+                            "description": "Dictionary of global attributes to write to each output file",
+                            "type": "object"
+                        }
+                    },
+                    "required": ["filename_pattern"]
+                }
+            },
+            "required": ["ensemble_statistics"]
+        },
+
         "GribOutput": {
             "description": "Grib output file",
             "type": "object",
@@ -347,7 +397,8 @@
                                 {"$ref": "#/$defs/VerifOutput"},
                                 {"$ref": "#/$defs/GribOutput"},
                                 {"$ref": "#/$defs/SHPowerSpectrumOutput"},
-                                {"$ref": "#/$defs/DCTPowerSpectrum"}
+                                {"$ref": "#/$defs/DCTPowerSpectrum"},
+                                {"$ref": "#/$defs/EnsembleStatisticsOutput"}
                             ]
                         }
                     }

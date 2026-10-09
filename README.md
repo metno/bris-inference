@@ -9,6 +9,7 @@ the [Anemoi framework](https://github.com/ecmwf/anemoi-training).
 - Multi encoder/decoder
 - Time interpolation
 - Ensembles
+- Ensemble statistics (mean, spread, min, max) computed batch by batch without storing individual members (`ensemble_statistics` output)
 
 ## Documentation
 

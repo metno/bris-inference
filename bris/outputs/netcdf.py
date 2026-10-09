@@ -575,7 +575,7 @@ class Netcdf(Output):
             from_units = anemoi_conventions.get_units(variable)
             if "units" in attrs:
                 to_units = attrs["units"]
-                ar, _ = bris.units.convert(ar, from_units, to_units, inplace=False)
+                ar = self._convert_units(ar, from_units, to_units)
 
             if level_index is not None:
                 self.ds[ncname][:, level_index, ...] = ar
@@ -585,6 +585,7 @@ class Netcdf(Output):
             # Add variable attributes
             attrs["grid_mapping"] = "projection"
             attrs["coordinates"] = "latitude longitude"
+            attrs.update(self._extra_variable_attrs())
             self.ds[ncname].attrs = attrs
             utils.LOGGER.debug(
                 f"netcdf._setup_prediction_vars variable <{variable}> in {pytime.perf_counter() - t1:.1f}s"
@@ -592,6 +593,18 @@ class Netcdf(Output):
         utils.LOGGER.debug(
             f"netcdf._setup_prediction_vars done in {pytime.perf_counter() - t0:.1f}s"
         )
+
+    def _convert_units(
+        self, ar: np.ndarray, from_units: str, to_units: str
+    ) -> np.ndarray:
+        """Convert a prediction array from anemoi units to output units. Subclasses can
+        override this, e.g. for quantities where only the scale should be converted."""
+        ar, _ = bris.units.convert(ar, from_units, to_units, inplace=False)
+        return ar
+
+    def _extra_variable_attrs(self) -> dict:
+        """Extra attributes to add to every prediction variable. Subclasses can override."""
+        return {}
 
     def _set_attrs(self) -> None:
         """Add global attributes"""
