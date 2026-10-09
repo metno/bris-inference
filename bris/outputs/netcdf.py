@@ -36,6 +36,7 @@ class Netcdf(Output):
         predict_metadata: PredictMetadata,
         workdir: str,
         filename_pattern: str,
+        num_members: int | None = None,
         variables=None,
         interp_res=None,
         latrange=None,
@@ -73,6 +74,9 @@ class Netcdf(Output):
         else:
             self.accumulated_variables = [v + "_acc" for v in accumulated_variables]
             self.extract_variables += self.accumulated_variables
+
+        if num_members is not None:
+            self.pm.num_members = num_members
 
         self.intermediate = None
         if self.pm.num_members > 1:
@@ -116,12 +120,16 @@ class Netcdf(Output):
     ) -> None:
         t0 = pytime.perf_counter()
         if self.pm.num_members > 1 and self.intermediate is not None:
-            # Cache data with intermediate
-            utils.LOGGER.debug(
-                "Netcdf._add_forecast calling intermediate.add_forecast for ensemble_member 0."
-            )
-            self.intermediate.add_forecast(times, ensemble_member, pred)
-            return
+            if ensemble_member < self.pm.num_members:
+                # Cache data with intermediate
+                utils.LOGGER.debug(
+                    "Netcdf._add_forecast calling intermediate.add_forecast for ensemble_member 0."
+                )
+                self.intermediate.add_forecast(times, ensemble_member, pred)
+                return
+            else:
+                return
+
         assert ensemble_member == 0
 
         forecast_reference_time = times[0].astype("datetime64[s]").astype("int")
