@@ -40,7 +40,8 @@ class BrisPredictor(BasePredictor):
 
     __init__
 
-    set_static_forcings: Set static forcings for the model.
+    set_static_forcings: Initialise the static forcings (set per forecast by update_static_forcings).
+    update_static_forcings: Set the static forcings from the starting state of a forecast.
 
     forward: Forward pass through the model.
 
@@ -142,42 +143,36 @@ class BrisPredictor(BasePredictor):
         self, data_readers: dict[str, Iterable], data_config: dict
     ) -> None:
         """
-        Set static forcings for the model. Done by reading from the data reader, reshape, store as a tensor. Tensor is
-        populated with prognostic and static forcing variables based on predefined indices. Then normalized.
+        Initialise the static forcings. Their values are set per forecast by update_static_forcings, from the
+        starting state (the batch) of that forecast in predict_step, like the prognostic variables; only the
+        dynamic forcings (julian day, local time, insolation) are computed on the fly.
 
-        The static forcings are the variables that are not prognostic and not dynamic forcings, e.g., cos_latitude,
-        sin_latitude, cos_longitude, sin_longitude, lsm, z
+        The static forcings are the model's forcing inputs that are not dynamic forcings, e.g. cos_latitude,
+        sin_latitude, cos_longitude, sin_longitude, lsm, z (see get_variable_indices). They used to be read from
+        the first time step of the dataset; that is inaccurate for long datasets, where z changes with model updates.
 
         Args:
-            data_readers (dict[str: Iterable]): Dictionary with data readers for the datasets.
-            data_config (dict): Configuration dictionary containing forcing information.
+            data_readers (dict[str: Iterable]): Dictionary with data readers for the datasets (unused, kept
+                for the interface).
+            data_config (dict): Configuration dictionary containing forcing information (unused).
         """
-        self.static_forcings = {}
-        for ds in self.dataset_names:
-            data = torch.from_numpy(data_readers[ds][0].squeeze(axis=1).swapaxes(0, 1))
-            data_input = torch.zeros(
-                data.shape[:-1] + (len(self.variables[ds]["all"]),),
-                dtype=data.dtype,
-                device=data.device,
-            )
-            data_input = data_input[
-                None, None, None, ...
-            ]  # Add bs, time, ens dims needed by imputer
-            data_input[..., self.indices[ds]["prognostic_input"]] = data[
-                ..., self.indices[ds]["prognostic_dataset"]
-            ]
-            data_input[..., self.indices[ds]["static_forcings_input"]] = data[
-                ..., self.indices[ds]["static_forcings_dataset"]
-            ]
+        del data_readers, data_config
+        self.static_forcings = {ds: {} for ds in self.dataset_names}
 
-            self.static_forcings[ds] = get_model_static_forcings(
-                selection=data_config[ds]["forcing"],
-                data_reader=data_readers[ds],
-                data_normalized=self.pre_processors(
-                    data_input, dataset_name=ds, in_place=True
-                ),
-                internal_data=self.internal_data[ds],
-            )
+    def update_static_forcings(self, ds: str, data_normalized: torch.Tensor) -> None:
+        """
+        Set the static forcings of dataset ``ds`` used by advance_input_predict from a normalized state.
+
+        Args:
+            ds (str): Dataset name.
+            data_normalized (torch.Tensor): Normalized starting state of the forecast in the data-index
+                variable order, shape (batch, ensemble, points, variables).
+        """
+        self.static_forcings[ds] = get_model_static_forcings(
+            selection=self.variables[ds]["static_forcings"],
+            data_normalized=data_normalized,
+            internal_data=self.internal_data[ds],
+        )
 
     def update_batch_info(self, time):
         if time not in self.batch_info:
@@ -356,6 +351,8 @@ class BrisPredictor(BasePredictor):
             data_input[ds] = self.pre_processors(
                 data_input[ds], dataset_name=ds, in_place=True
             )
+            # Static forcings for the rollout (lsm, z, ...) from the starting state of this forecast
+            self.update_static_forcings(ds, data_input[ds][:, self.multistep - 1])
             x[ds] = data_input[ds][..., self.internal_data[ds].input.full]
 
         with torch.autocast(device_type="cuda", dtype=torch.bfloat16):

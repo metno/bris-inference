@@ -10,6 +10,7 @@ from ..checkpoint import Checkpoint
 from ..data.datamodule import DataModule
 from ..forcings import get_dynamic_forcings
 from ..utils import (
+    LOGGER,
     get_all_leadtimes,
     get_model_multistep_input,
 )
@@ -18,7 +19,9 @@ from .model_utils import (
     get_data_config,
     get_interpolator_boundary_times,
     get_interpolator_interp_times,
+    get_model_static_forcings,
     get_variable_indices,
+    static_forcing_time_index,
 )
 
 
@@ -154,26 +157,14 @@ class Interpolator(BasePredictor):
         )
         data_cfg_fc = get_data_config(checkpoints["forecaster"].config)
         data_cfg_interp = get_data_config(checkpoints["interpolator"].config)
-        self.static_forcings_forecaster = self.get_static_forcings(
-            datamodule.data_readers[self.ds_name_fc],  # Assume one decoder
-            data_cfg_fc,
-            self.forecaster,
-            self.variables["forecaster"],
-            self.indices["forecaster"],
-            self.data_indices["forecaster"].internal_data,
-            model_name="forecaster",
-        )
-
-        self.static_forcings_interpolator = self.get_static_forcings(
-            self.forcing_dataset_interp,
-            data_cfg_interp,
-            self.interpolator,
-            self.variables["interpolator_forcings"],
-            self.indices["interpolator_forcings"],
-            self.data_indices["interpolator"].internal_data,
-            model_name="interpolator",
-            normalize=False,
-        )
+        # Static forcings are set per forecast (predict_step): the forecaster's from the starting
+        # state of the forecast (the batch), the interpolator's from the time step of
+        # static_forcings_dataset valid at the start time. z changes with model updates in long
+        # datasets, so the first time step of a dataset is not representative.
+        del data_cfg_fc, data_cfg_interp
+        self.static_forcings_forecaster = {}
+        self.static_forcings_interpolator = {}
+        self._static_forcings_interpolator_index = None
 
         self.boundary_times = get_interpolator_boundary_times(
             checkpoints["interpolator"]
@@ -196,30 +187,28 @@ class Interpolator(BasePredictor):
     def get_static_forcings(
         self,
         data_reader: Iterable,
-        data_config: dict,
-        model: torch.nn.Module,
         variables: dict,
         indices: dict,
         internal_data: DataIndex,
         model_name: str = None,
         normalize: bool = True,
+        time_index: int = 0,
     ) -> dict:
         """
-        Get static forcings for the model.
+        Get static forcings for a model from one time step of a dataset.
 
         Args:
             data_reader: Data reader or dataset to extract static forcings from.
-            data_config: Configuration dictionary for data.
-            model: The model for which static forcings are being retrieved.
-            variables: Dictionary of variables required by the model.
+            variables: Dictionary of variables required by the model (from get_variable_indices).
             indices: Dictionary of indices mapping variables to their positions.
             internal_data: Internal data index for the model.
+            model_name: "forecaster" or "interpolator", selects the pre-processors used for normalization.
             normalize: Boolean flag to indicate if normalization is needed (default: True).
+            time_index: Time step of the dataset to read (default: 0).
         Returns:
             Dictionary of static forcings.
         """
-        selection = data_config[self.ds_name_interp]["forcing"]
-        data = torch.from_numpy(data_reader[0].squeeze(axis=1).swapaxes(0, 1))
+        data = torch.from_numpy(data_reader[time_index].squeeze(axis=1).swapaxes(0, 1))
         data_input = torch.full(
             data.shape[:-1] + (len(variables["all"]),),
             float("nan"),
@@ -244,38 +233,51 @@ class Interpolator(BasePredictor):
                     f"model_name must be either 'forecaster' or 'interpolator', got {model_name}"
                 )
 
-        static_forcings = {}
-        if "cos_latitude" in selection:
-            static_forcings["cos_latitude"] = torch.from_numpy(
-                np.cos(data_reader.latitudes * np.pi / 180.0)
-            ).float()
+        return get_model_static_forcings(
+            selection=variables["static_forcings"],
+            data_normalized=data_input,
+            internal_data=internal_data,
+        )
 
-        if "sin_latitude" in selection:
-            static_forcings["sin_latitude"] = torch.from_numpy(
-                np.sin(data_reader.latitudes * np.pi / 180.0)
-            ).float()
+    def update_static_forcings(
+        self, time: np.datetime64, x_normalized: torch.Tensor
+    ) -> None:
+        """
+        Set the static forcings of both models for a forecast starting at ``time``.
 
-        if "cos_longitude" in selection:
-            static_forcings["cos_longitude"] = torch.from_numpy(
-                np.cos(data_reader.longitudes * np.pi / 180.0)
-            ).float()
+        The forecaster's come from the normalized starting state of the forecast, the
+        interpolator's from the time step of static_forcings_dataset valid at ``time`` (the
+        latest date <= time), cached between forecasts that map to the same time step.
 
-        if "sin_longitude" in selection:
-            static_forcings["sin_longitude"] = torch.from_numpy(
-                np.sin(data_reader.longitudes * np.pi / 180.0)
-            ).float()
+        Args:
+            time: Start time of the forecast.
+            x_normalized: Normalized forecaster input in the data-index variable order,
+                shape (batch, multistep, ensemble, points, variables).
+        """
+        self.static_forcings_forecaster = get_model_static_forcings(
+            selection=self.variables["forecaster"]["static_forcings"],
+            data_normalized=x_normalized[:, self.multistep - 1],
+            internal_data=self.data_indices["forecaster"].internal_data,
+        )
 
-        if "lsm" in selection:
-            static_forcings["lsm"] = data_input[
-                ..., internal_data.input.name_to_index["lsm"]
-            ].float()
-
-        if "z" in selection:
-            static_forcings["z"] = data_input[
-                ..., internal_data.input.name_to_index["z"]
-            ].float()
-
-        return static_forcings
+        index = static_forcing_time_index(self.forcing_dataset_interp.dates, time)
+        if index != self._static_forcings_interpolator_index:
+            LOGGER.info(
+                "Interpolator static forcings from %s (time step %d of static_forcings_dataset) for forecasts from %s",
+                self.forcing_dataset_interp.dates[index],
+                index,
+                time,
+            )
+            self.static_forcings_interpolator = self.get_static_forcings(
+                self.forcing_dataset_interp,
+                self.variables["interpolator_forcings"],
+                self.indices["interpolator_forcings"],
+                self.data_indices["interpolator"].internal_data,
+                model_name="interpolator",
+                normalize=False,
+                time_index=index,
+            )
+            self._static_forcings_interpolator_index = index
 
     @torch.inference_mode
     def predict_step(self, batch: tuple, batch_idx: int) -> dict:
@@ -362,6 +364,8 @@ class Interpolator(BasePredictor):
         x = self.pre_processors_fc(
             data_input, dataset_name=self.ds_name_fc, in_place=False
         )
+        # Static forcings for the rollout from the starting state of this forecast
+        self.update_static_forcings(time, x)
         x = x[..., self.data_indices["forecaster"].internal_data.input.full]
 
         # Keep a non-normalized version of x for the interpolator - updated with output from forecaster (physical space) and interpolator forcings

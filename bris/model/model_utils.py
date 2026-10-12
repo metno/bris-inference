@@ -12,57 +12,54 @@ from ..utils import timedelta64_from_timestep
 
 def get_model_static_forcings(
     selection: list,
-    data_reader: Iterable,
-    data_normalized,
+    data_normalized: torch.Tensor,
     internal_data: DataIndex,
 ) -> dict:
-    """Get static forcings from the model.
+    """Static forcings of a model, taken from a state.
+
+    Every forcing in ``selection`` that is not computed on the fly (see
+    :func:`bris.forcings.anemoi_dynamic_forcings`) is read from ``data_normalized`` as it is:
+    cos/sin of latitude/longitude, lsm, z and any other time-constant input of the model (e.g.
+    physiography fields). ``data_normalized`` should be the starting state of the forecast, not
+    the first time step of the dataset: z (and in principle the other fields) change with model
+    updates in long datasets.
 
     Args:
-        selection (list): List of static forcings to get.
+        selection (list): Forcing names of the model (the dynamic ones are skipped).
 
-        data_reader (Dataset): Data reader object.
-
-        data_normalized: Normalized data.
+        data_normalized (torch.Tensor): Normalized state in the data-index variable order,
+            shape (..., points, variables); leading dimensions (e.g. batch, ensemble) are kept.
 
         internal_data (DataIndex): Data index object, from checkpoint.data_indices
 
+    Returns:
+        dict: forcing name -> tensor of shape (..., points), a compact copy of the state values
     """
-    static_forcings = {}
     if selection is None:
-        return
+        return None
+    dynamic = anemoi_dynamic_forcings()
+    return {
+        name: data_normalized[..., internal_data.input.name_to_index[name]]
+        .contiguous()
+        .float()
+        for name in selection
+        if name not in dynamic
+    }
 
-    if "cos_latitude" in selection:
-        static_forcings["cos_latitude"] = torch.from_numpy(
-            np.cos(data_reader.latitudes * np.pi / 180.0)
-        ).float()
 
-    if "sin_latitude" in selection:
-        static_forcings["sin_latitude"] = torch.from_numpy(
-            np.sin(data_reader.latitudes * np.pi / 180.0)
-        ).float()
+def static_forcing_time_index(dates: np.ndarray, time: np.datetime64) -> int:
+    """Index of the time step of a dataset whose static forcings are valid at ``time``.
 
-    if "cos_longitude" in selection:
-        static_forcings["cos_longitude"] = torch.from_numpy(
-            np.cos(data_reader.longitudes * np.pi / 180.0)
-        ).float()
+    That is the latest date <= time (static fields change at model updates and stay valid
+    until the next one), or 0 if time is before the first date.
 
-    if "sin_longitude" in selection:
-        static_forcings["sin_longitude"] = torch.from_numpy(
-            np.sin(data_reader.longitudes * np.pi / 180.0)
-        ).float()
-
-    if "lsm" in selection:
-        static_forcings["lsm"] = (
-            data_normalized[..., internal_data.input.name_to_index["lsm"]]
-        ).float()
-
-    if "z" in selection:
-        static_forcings["z"] = data_normalized[
-            ..., internal_data.input.name_to_index["z"]
-        ].float()
-
-    return static_forcings
+    Args:
+        dates (np.ndarray): The dataset dates (datetime64), sorted.
+        time (np.datetime64): Start time of the forecast.
+    """
+    dates = np.asarray(dates, dtype="datetime64[s]")
+    index = int(np.searchsorted(dates, np.datetime64(time, "s"), side="right")) - 1
+    return max(index, 0)
 
 
 def get_variable_indices(
@@ -185,6 +182,7 @@ def get_variable_indices(
     variables = {
         "all": full_ordered_variable_list,
         "dynamic_forcings": required_dynamic_forcings,
+        "static_forcings": required_static_forcings,
     }
 
     return indices, variables
