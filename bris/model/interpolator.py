@@ -10,7 +10,7 @@ from .model_utils import (
     get_interpolator_boundary_times,
     get_interpolator_interp_times,
 )
-from .wrapper import ModelWrapper, interpolate
+from .wrapper import ModelWrapper
 
 
 class Interpolator(BasePredictor):
@@ -197,8 +197,7 @@ class Interpolator(BasePredictor):
                 if interpolated:
                     outputs += [
                         (output_time, {ds: output})
-                        for output_time, output in interpolate(
-                            self.interpolator,
+                        for output_time, output in self.interpolator.predict_from_states(
                             self.ds_name_interp,
                             x_physical[:, -n_boundary:],
                             time,

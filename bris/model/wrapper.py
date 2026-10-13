@@ -246,6 +246,8 @@ class ModelWrapper(nn.Module):
 
     forward: Forward pass; takes and returns a dict of tensors keyed by dataset name, for models
     of any vintage.
+
+    predict_from_states: One model call from physical states, outputs per output time.
     """
 
     def __init__(
@@ -360,48 +362,48 @@ class ModelWrapper(nn.Module):
             y = {self.dataset_names[0]: y}
         return y
 
+    def predict_from_states(
+        self,
+        dataset_name: str,
+        states: torch.Tensor,
+        time: np.datetime64,
+        model_comm_group=None,
+        static_forcings_from_source: bool = False,
+    ) -> list[tuple[np.datetime64, torch.Tensor]]:
+        """
+        One model call from physical states: build the input at the input times, run the model
+        and return its outputs at the output times. This is how an interpolator is run between
+        boundary states; for a forecaster it is one forecast step.
 
-def interpolate(
-    model: ModelWrapper,
-    dataset_name: str,
-    states: torch.Tensor,
-    time: np.datetime64,
-    model_comm_group=None,
-    static_forcings_from_source: bool = False,
-) -> list[tuple[np.datetime64, torch.Tensor]]:
-    """
-    One call of a temporal interpolator between boundary states.
+        Args:
+            dataset_name (str): Dataset of the model to run.
+            states (torch.Tensor): The input states in physical units, shape
+                (batch, len(input_steps), ensemble, points, variables) in the dataset variable
+                order of the model's input builder (e.g. a forecaster's model input, or a data
+                reader).
+            time (np.datetime64): Reference time of the states (input step 0).
+            model_comm_group: Process group of the model shards.
+            static_forcings_from_source (bool): Take the static forcings from ``states`` instead
+                of those held by the input builder (see InputBuilder.build_state).
+        Returns:
+            list: (valid time, output) per output step; output as InputBuilder.output.
+        """
+        builder = self.input_builders[dataset_name]
+        x = builder.build_state(
+            states,
+            self.input_times(time),
+            static_forcings_from_source=static_forcings_from_source,
+        )
+        x = self.pre_process(x, dataset_name, in_place=True)
+        x = builder.to_model_order(x)
 
-    Args:
-        model (ModelWrapper): The interpolator; its input_steps are the boundary times and its
-            output_steps the interpolation times, in interpolator time steps.
-        dataset_name (str): Dataset of ``model`` to interpolate.
-        states (torch.Tensor): The boundary states in physical units, shape
-            (batch, len(model.input_steps), ensemble, points, variables) in the dataset variable
-            order of the model's input builder (e.g. a forecaster's model input, or a data reader).
-        time (np.datetime64): Reference time of the boundary states (input step 0).
-        model_comm_group: Process group of the model shards.
-        static_forcings_from_source (bool): Take the static forcings from ``states`` instead of
-            from the input builder (see InputBuilder.build_state).
-    Returns:
-        list: (valid time, output) per interpolation time; output as InputBuilder.output.
-    """
-    builder = model.input_builders[dataset_name]
-    x = builder.build_state(
-        states,
-        model.input_times(time),
-        static_forcings_from_source=static_forcings_from_source,
-    )
-    x = model.pre_process(x, dataset_name, in_place=True)
-    x = builder.to_model_order(x)
+        # fcstep is always 0 for an interpolator
+        y_pred = self({dataset_name: x}, model_comm_group=model_comm_group, fcstep=0)[
+            dataset_name
+        ]
 
-    # fcstep is always 0 for the interpolator
-    y_pred = model({dataset_name: x}, model_comm_group=model_comm_group, fcstep=0)[
-        dataset_name
-    ]
-
-    outputs = []
-    for index, output_time in enumerate(model.output_times(time)):
-        y = model.post_process(y_pred[:, index], dataset_name, in_place=True)
-        outputs.append((output_time, builder.output(y)))
-    return outputs
+        outputs = []
+        for index, output_time in enumerate(self.output_times(time)):
+            y = self.post_process(y_pred[:, index], dataset_name, in_place=True)
+            outputs.append((output_time, builder.output(y)))
+        return outputs

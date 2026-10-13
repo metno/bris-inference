@@ -12,7 +12,7 @@ from bris.model.model_utils import (
     get_variable_indices,
     insert_forcings,
 )
-from bris.model.wrapper import InputBuilder, ModelWrapper, interpolate
+from bris.model.wrapper import InputBuilder, ModelWrapper
 
 
 class _Index:
@@ -366,8 +366,8 @@ def test_output_shapes(input_builder):
     assert torch.equal(out4[0, :, 0], y4[0, 0, :, 1])
 
 
-def test_interpolate_window():
-    """interpolate() builds the boundary input from physical states and maps the model output
+def test_predict_from_states():
+    """predict_from_states() builds the boundary input from physical states and maps the model output
     to (time, output) pairs."""
     checkpoint = _Checkpoint(NAMES, FORCING, DIAGNOSTIC)
     model = ModelWrapper(
@@ -402,7 +402,7 @@ def test_interpolate_window():
     states = torch.zeros((1, 2, 1, points, len(DATASET_VARIABLES)))
     states[:, 1, ..., DATASET_VARIABLES.index("2t")] = 5.0
     time = np.datetime64("2022-06-21T00")
-    outputs = interpolate(model, "data", states, time)
+    outputs = model.predict_from_states("data", states, time)
 
     assert [t for t, _ in outputs] == [
         np.datetime64("2022-06-21T03"),
