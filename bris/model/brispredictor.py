@@ -74,12 +74,14 @@ class BrisPredictor(BasePredictor):
         )
 
         checkpoint = checkpoints["forecaster"]
-        self.model = ModelWrapper(checkpoint)
-        self.metadata = checkpoint.metadata
-
-        self.timestep = timedelta64_from_timestep(
-            checkpoints_config["forecaster"]["timestep"]
+        self.model = ModelWrapper(
+            checkpoint,
+            timestep=timedelta64_from_timestep(
+                checkpoints_config["forecaster"]["timestep"]
+            ),
         )
+        self.metadata = checkpoint.metadata
+        self.timestep = self.model.timestep
         self.multistep = self.model.multistep
         self.forecast_length = checkpoints_config["forecaster"]["leadtimes"]
         self.dataset_names = self.model.dataset_names
@@ -96,12 +98,6 @@ class BrisPredictor(BasePredictor):
                 latitudes=datamodule.latitudes[ds],
                 longitudes=datamodule.longitudes[ds],
             )
-
-        # Set per forecast in predict_step, from the starting state of the forecast (the batch),
-        # like the prognostic variables; only the dynamic forcings are computed on the fly. The
-        # first time step of the dataset is not representative for long datasets, where z changes
-        # with model updates.
-        self.static_forcings = {ds: {} for ds in self.dataset_names}
 
     def forward(self, x: dict[str, torch.Tensor], **kwargs) -> dict[str, torch.Tensor]:
         """
@@ -125,11 +121,9 @@ class BrisPredictor(BasePredictor):
             batch (torch.Tensor): Input states, shape (batch, multistep, ensemble, points, variables).
             time (np.datetime64): Time of the last input state (the start of the forecast).
         """
-        times = [
-            time - (self.multistep - 1 - time_index) * self.timestep
-            for time_index in range(self.multistep)
-        ]
-        return self.model.inputs[dataset_name].build_state(batch, times)
+        return self.model.inputs[dataset_name].build_state(
+            batch, self.model.input_times(time)
+        )
 
     @torch.inference_mode
     def predict_step(self, batch: tuple, batch_idx: int) -> dict:
@@ -145,31 +139,20 @@ class BrisPredictor(BasePredictor):
 
         batch, time_stamp = batch
         time = np.datetime64(time_stamp[0])
-        times = [time]
 
-        y_preds = {}
+        # (valid time, {dataset: output}) per lead time
+        outputs = [(time, {})]
         x = {}
         for ds in self.dataset_names:
             inputs = self.model.inputs[ds]
-            y_preds[ds] = torch.empty(
-                (
-                    batch[ds].shape[0],
-                    self.forecast_length,
-                    batch[ds].shape[-2],
-                    len(inputs.mapping.variables_output),
-                ),
-                dtype=batch[ds].dtype,
-                device="cpu",
-            )
-
             state = self.initial_state(ds, batch[ds], time)
-            y_preds[ds][:, 0] = inputs.initial_output(state, self.multistep - 1)
+            outputs[0][1][ds] = inputs.initial_output(state, -1)
 
             # Possibly have to extend this to handle imputer, see _step in forecaster.
             state = self.model.pre_process(state, ds, in_place=True)
-            self.static_forcings[ds] = inputs.static_forcings(
-                state[:, self.multistep - 1]
-            )
+            # Static forcings of this forecast (lsm, z, ...) from its starting state, like the
+            # prognostic variables; only the dynamic forcings are computed on the fly.
+            inputs.set_static_forcings_from_state(state[:, -1])
             x[ds] = inputs.to_model_order(state)
 
         with torch.autocast(device_type="cuda", dtype=torch.bfloat16):
@@ -177,18 +160,17 @@ class BrisPredictor(BasePredictor):
                 y_pred = self(x, fcstep=self.fcstep(forecast_step))
 
                 time += self.timestep
+                output = {}
                 for ds in self.dataset_names:
                     inputs = self.model.inputs[ds]
-                    x[ds] = inputs.advance(
-                        x[ds], y_pred[ds], time, self.static_forcings[ds]
-                    )
-                    y_preds[ds][:, forecast_step + 1] = inputs.output(
+                    x[ds] = inputs.advance(x[ds], y_pred[ds], time)
+                    output[ds] = inputs.output(
                         self.model.post_process(y_pred[ds], ds, in_place=True)
                     )
+                outputs.append((time, output))
 
-                times.append(time)
                 if self.release_cache:
                     del y_pred
                     torch.cuda.empty_cache()
 
-        return self.prediction(y_preds, times)
+        return self.prediction(outputs)

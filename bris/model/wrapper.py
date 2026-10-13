@@ -4,19 +4,21 @@ from torch import nn
 
 from ..checkpoint import Checkpoint
 from ..forcings import get_dynamic_forcings
-from ..utils import get_model_multistep_input
+from ..utils import LOGGER, get_model_multistep_input
 from .model_utils import (
     VariableMapping,
     get_dataset_names,
     get_internal_indices,
     get_model_static_forcings,
     insert_forcings,
+    static_forcing_time_index,
 )
 
 
 class DatasetInputs:
     """
-    Assembles and advances the input of a model for one of its datasets.
+    Assembles and advances the input of a model for one of its datasets, and holds the static
+    forcings of the current forecast.
 
     A state is a tensor of shape (batch, time, ensemble, points, variables). A state "in data
     order" holds the model's input variables in data-index order (``mapping.all``, the order
@@ -30,7 +32,8 @@ class DatasetInputs:
 
     build_state: Model input in data order (physical units) from dataset states.
 
-    static_forcings: The static forcings of the model, from a normalized state.
+    set_static_forcings_from_state / set_static_forcings_from_dataset: Set the static forcings
+    of the current forecast.
 
     to_model_order: Select the model input variables of a state in data order.
 
@@ -61,6 +64,11 @@ class DatasetInputs:
         self.model_index = model_index
         self.latitudes = latitudes
         self.longitudes = longitudes
+        # Static forcings (cos/sin lat/lon, lsm, z, ...) of the current forecast, name -> tensor.
+        # They change between forecasts (z changes with model updates in long datasets), so
+        # they are set per forecast, from the starting state or from a dataset.
+        self.static_forcings = {}
+        self._static_forcings_dataset_index = None
 
     def dynamic_forcings(self, time: np.datetime64) -> dict:
         return get_dynamic_forcings(
@@ -71,20 +79,21 @@ class DatasetInputs:
         self,
         source: torch.Tensor,
         times: list[np.datetime64],
-        static_forcings: dict | None = None,
+        static_forcings_from_source: bool = True,
     ) -> torch.Tensor:
         """
         Model input in data order (physical units) from dataset states.
 
         Prognostic variables come from ``source``, dynamic forcings are computed for each time and
-        diagnostic variables are left NaN. The static forcings are copied from ``source`` unless
-        given explicitly (an interpolator takes them from its own dataset).
+        diagnostic variables are left NaN. The static forcings are copied from ``source`` or, if
+        ``static_forcings_from_source`` is False, taken from ``self.static_forcings`` (an
+        interpolator takes them from its own dataset).
 
         Args:
             source (torch.Tensor): States in the dataset variable order of the mapping, shape
                 (batch, len(times), ensemble, points, dataset variables).
             times (list): Valid time of each time step of ``source``.
-            static_forcings (dict | None): Static forcings to insert instead of those of ``source``.
+            static_forcings_from_source (bool): Where the static forcings come from.
         """
         x = torch.full(
             source.shape[:-1] + (len(self.mapping.all),),
@@ -95,27 +104,59 @@ class DatasetInputs:
         x[..., self.mapping.prognostic_input] = source[
             ..., self.mapping.prognostic_dataset
         ]
-        if static_forcings is None:
+        if static_forcings_from_source:
             x[..., self.mapping.static_forcings_input] = source[
                 ..., self.mapping.static_forcings_dataset
             ]
         for time_index, time in enumerate(times):
             forcings = self.dynamic_forcings(time)
-            if static_forcings is not None:
-                forcings.update(static_forcings)
+            if not static_forcings_from_source:
+                forcings.update(self.static_forcings)
             insert_forcings(
                 x, forcings, self.data_index.input.name_to_index, time_index
             )
         return x
 
-    def static_forcings(self, state_normalized: torch.Tensor) -> dict:
+    def set_static_forcings_from_state(self, state_normalized: torch.Tensor) -> None:
         """
-        The static forcings of the model (cos/sin lat/lon, lsm, z, ...) from a normalized state
-        in data order, shape (..., points, variables), e.g. the starting state of a forecast.
+        Set the static forcings from a normalized state in data order, shape
+        (..., points, variables), e.g. the starting state of a forecast.
         """
-        return get_model_static_forcings(
+        self.static_forcings = get_model_static_forcings(
             self.mapping.static_forcings, state_normalized, self.data_index
         )
+
+    def set_static_forcings_from_dataset(self, dataset, time: np.datetime64) -> None:
+        """
+        Set the static forcings (physical units) from the time step of an anemoi dataset valid
+        at ``time``: the latest date <= time. Cached between calls that map to the same time step.
+
+        Args:
+            dataset: An open anemoi dataset holding the static forcings.
+            time (np.datetime64): Start time of the forecast.
+        """
+        index = static_forcing_time_index(dataset.dates, time)
+        if index == self._static_forcings_dataset_index:
+            return
+        missing = [
+            v for v in self.mapping.static_forcings if v not in dataset.variables
+        ]
+        if len(missing) > 0:
+            raise ValueError(
+                f"Missing the following static forcings in the static forcings dataset: {missing}"
+            )
+        LOGGER.info(
+            "Static forcings from %s (time step %d of the static forcings dataset) for forecasts from %s",
+            dataset.dates[index],
+            index,
+            time,
+        )
+        data = torch.from_numpy(dataset[index].squeeze(axis=1).swapaxes(0, 1))
+        self.static_forcings = {
+            name: data[..., dataset.variables.index(name)].contiguous().float()
+            for name in self.mapping.static_forcings
+        }
+        self._static_forcings_dataset_index = index
 
     def to_model_order(self, state: torch.Tensor) -> torch.Tensor:
         return state[..., self.data_index.input.full]
@@ -135,39 +176,68 @@ class DatasetInputs:
         return x
 
     def advance(
-        self,
-        x: torch.Tensor,
-        y_pred: torch.Tensor,
-        time: np.datetime64,
-        static_forcings: dict,
+        self, x: torch.Tensor, y_pred: torch.Tensor, time: np.datetime64
     ) -> torch.Tensor:
         """
         Advance a model-order input to the next step: roll in the prediction and insert the
-        dynamic forcings valid at ``time`` and the static forcings.
+        dynamic forcings valid at ``time`` and the static forcings of the forecast.
         """
         x = self.roll(x, y_pred)
         forcings = self.dynamic_forcings(time)
-        forcings.update(static_forcings)
+        forcings.update(self.static_forcings)
         insert_forcings(x, forcings, self.model_index.input.name_to_index, -1)
         return x
 
     def initial_output(self, state: torch.Tensor, time_index: int) -> torch.Tensor:
-        """The required output variables of one time step of a state in data order, on CPU."""
-        return state[:, time_index, ..., self.mapping.variables_input].cpu()
+        """
+        The required output variables of one time step of a state in data order, as ``output``.
+        """
+        return self.output(state[:, time_index], self.mapping.variables_input)
 
-    def output(self, y_pred: torch.Tensor) -> torch.Tensor:
-        """The required output variables of a post-processed prediction (first ensemble member), on CPU."""
-        return y_pred[:, 0, ..., self.mapping.variables_output].cpu()
+    def output(
+        self, y_pred: torch.Tensor, variables: list[int] | None = None
+    ) -> torch.Tensor:
+        """
+        The required output variables of a post-processed prediction, shape
+        (batch, points, variables), float32 on CPU.
+
+        Args:
+            y_pred (torch.Tensor): Prediction of shape (batch, ..., points, variables); any
+                dimensions between batch and points (ensemble, time) are singletons in inference
+                and the first entry is taken.
+            variables (list | None): Positions in the last dimension; default the model-output
+                positions of the required variables.
+        """
+        y = y_pred[
+            ..., self.mapping.variables_output if variables is None else variables
+        ]
+        while y.ndim > 3:
+            y = y[:, 0]
+        return y.to(torch.float32).cpu()
 
 
 class ModelWrapper(nn.Module):
     """
-    A checkpoint's model with its per-dataset inputs and the compatibility shims for calling it.
+    A checkpoint's model with its time geometry, its per-dataset inputs and the compatibility
+    shims for calling it.
 
     Registered as a submodule of the predictor, so Lightning moves the model to the device.
 
+    Attributes
+    ----------
+
+    timestep: The model's time step.
+
+    input_steps: The input times of one model call, in time steps relative to the reference
+    time: -(multistep - 1) .. 0 for a forecaster, the boundary times for an interpolator.
+
+    output_steps: The output times of one model call, likewise: [1] for a forecaster, the
+    interpolation times for an interpolator.
+
     Methods
     -------
+
+    input_times / output_times: The valid times of the inputs / outputs of a call at a reference time.
 
     add_dataset: Set up the inputs (variable mapping, coordinates) of one dataset of the model.
 
@@ -178,12 +248,32 @@ class ModelWrapper(nn.Module):
     of any vintage.
     """
 
-    def __init__(self, checkpoint: Checkpoint) -> None:
+    def __init__(
+        self,
+        checkpoint: Checkpoint,
+        timestep: np.timedelta64,
+        input_steps: list[int] | None = None,
+        output_steps: list[int] | None = None,
+    ) -> None:
+        """
+        Args:
+            checkpoint (Checkpoint): The checkpoint.
+            timestep (np.timedelta64): The model's time step.
+            input_steps (list | None): See the class docstring; default from the checkpoint's multistep.
+            output_steps (list | None): See the class docstring; default [1].
+        """
         super().__init__()
         self.model = checkpoint.model
         self.model.eval()
         self.dataset_names = get_dataset_names(checkpoint)
         self.multistep = get_model_multistep_input(checkpoint)
+        self.timestep = timestep
+        self.input_steps = (
+            list(range(1 - self.multistep, 1))
+            if input_steps is None
+            else list(input_steps)
+        )
+        self.output_steps = [1] if output_steps is None else list(output_steps)
         self.data_index = {}
         self.model_index = {}
         for ds in self.dataset_names:
@@ -191,6 +281,12 @@ class ModelWrapper(nn.Module):
                 checkpoint.data_indices[ds]
             )
         self.inputs: dict[str, DatasetInputs] = {}
+
+    def input_times(self, time: np.datetime64) -> list[np.datetime64]:
+        return [time + step * self.timestep for step in self.input_steps]
+
+    def output_times(self, time: np.datetime64) -> list[np.datetime64]:
+        return [time + step * self.timestep for step in self.output_steps]
 
     def add_dataset(
         self,
@@ -263,3 +359,49 @@ class ModelWrapper(nn.Module):
         if isinstance(y, torch.Tensor):
             y = {self.dataset_names[0]: y}
         return y
+
+
+def interpolate(
+    model: ModelWrapper,
+    dataset_name: str,
+    states: torch.Tensor,
+    time: np.datetime64,
+    model_comm_group=None,
+    static_forcings_from_source: bool = False,
+) -> list[tuple[np.datetime64, torch.Tensor]]:
+    """
+    One call of a temporal interpolator between boundary states.
+
+    Args:
+        model (ModelWrapper): The interpolator; its input_steps are the boundary times and its
+            output_steps the interpolation times, in interpolator time steps.
+        dataset_name (str): Dataset of ``model`` to interpolate.
+        states (torch.Tensor): The boundary states in physical units, shape
+            (batch, len(model.input_steps), ensemble, points, variables) in the dataset variable
+            order of the model's inputs (e.g. a forecaster's model input, or a data reader).
+        time (np.datetime64): Reference time of the boundary states (input step 0).
+        model_comm_group: Process group of the model shards.
+        static_forcings_from_source (bool): Take the static forcings from ``states`` instead of
+            from the dataset inputs (see DatasetInputs.build_state).
+    Returns:
+        list: (valid time, output) per interpolation time; output as DatasetInputs.output.
+    """
+    inputs = model.inputs[dataset_name]
+    x = inputs.build_state(
+        states,
+        model.input_times(time),
+        static_forcings_from_source=static_forcings_from_source,
+    )
+    x = model.pre_process(x, dataset_name, in_place=True)
+    x = inputs.to_model_order(x)
+
+    # fcstep is always 0 for the interpolator
+    y_pred = model({dataset_name: x}, model_comm_group=model_comm_group, fcstep=0)[
+        dataset_name
+    ]
+
+    outputs = []
+    for index, output_time in enumerate(model.output_times(time)):
+        y = model.post_process(y_pred[:, index], dataset_name, in_place=True)
+        outputs.append((output_time, inputs.output(y)))
+    return outputs

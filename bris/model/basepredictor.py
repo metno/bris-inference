@@ -172,19 +172,27 @@ class BasePredictor(pl.LightningModule):
         self.batch_info[time] = self.batch_info.get(time, 0) + 1
 
     def prediction(
-        self, pred: dict[str, torch.Tensor], times: list[np.datetime64]
+        self, outputs: list[tuple[np.datetime64, dict[str, torch.Tensor]]]
     ) -> dict:
         """
         The return value of predict_step, as the writer expects it.
 
         Args:
-            pred (dict): Dataset name -> predictions, shape (batch, leadtimes, points, variables).
-            times (list): Valid time of each lead time.
+            outputs (list): (valid time, {dataset name: output}) per lead time, in order; each
+                output of shape (batch, points, variables) as DatasetInputs.output.
         """
+        times = [time for time, _ in outputs]
+        dataset_names = list(outputs[0][1].keys())
+        pred = {
+            ds: torch.stack([output[ds] for _, output in outputs], dim=1)
+            .to(torch.float32)
+            .numpy()
+            for ds in dataset_names
+        }
         end_time = times[-1]
         self.update_batch_info(end_time)
         return {
-            "pred": {ds: y.to(torch.float32).numpy() for ds, y in pred.items()},
+            "pred": pred,
             "times": times,
             "group_rank": self.model_comm_group_rank,
             "ensemble_member": self.member_id
