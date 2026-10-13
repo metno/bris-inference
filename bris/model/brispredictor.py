@@ -121,7 +121,7 @@ class BrisPredictor(BasePredictor):
             batch (torch.Tensor): Input states, shape (batch, multistep, ensemble, points, variables).
             time (np.datetime64): Time of the last input state (the start of the forecast).
         """
-        return self.model.inputs[dataset_name].build_state(
+        return self.model.input_builders[dataset_name].build_state(
             batch, self.model.input_times(time)
         )
 
@@ -144,16 +144,16 @@ class BrisPredictor(BasePredictor):
         outputs = [(time, {})]
         x = {}
         for ds in self.dataset_names:
-            inputs = self.model.inputs[ds]
+            builder = self.model.input_builders[ds]
             state = self.initial_state(ds, batch[ds], time)
-            outputs[0][1][ds] = inputs.initial_output(state, -1)
+            outputs[0][1][ds] = builder.initial_output(state, -1)
 
             # Possibly have to extend this to handle imputer, see _step in forecaster.
             state = self.model.pre_process(state, ds, in_place=True)
             # Static forcings of this forecast (lsm, z, ...) from its starting state, like the
             # prognostic variables; only the dynamic forcings are computed on the fly.
-            inputs.set_static_forcings_from_state(state[:, -1])
-            x[ds] = inputs.to_model_order(state)
+            builder.set_static_forcings_from_state(state[:, -1])
+            x[ds] = builder.to_model_order(state)
 
         with torch.autocast(device_type="cuda", dtype=torch.bfloat16):
             for forecast_step in range(self.forecast_length - 1):
@@ -162,9 +162,9 @@ class BrisPredictor(BasePredictor):
                 time += self.timestep
                 output = {}
                 for ds in self.dataset_names:
-                    inputs = self.model.inputs[ds]
-                    x[ds] = inputs.advance(x[ds], y_pred[ds], time)
-                    output[ds] = inputs.output(
+                    builder = self.model.input_builders[ds]
+                    x[ds] = builder.advance(x[ds], y_pred[ds], time)
+                    output[ds] = builder.output(
                         self.model.post_process(y_pred[ds], ds, in_place=True)
                     )
                 outputs.append((time, output))

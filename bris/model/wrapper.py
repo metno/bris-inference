@@ -15,7 +15,7 @@ from .model_utils import (
 )
 
 
-class DatasetInputs:
+class InputBuilder:
     """
     Assembles and advances the input of a model for one of its datasets, and holds the static
     forcings of the current forecast.
@@ -218,7 +218,7 @@ class DatasetInputs:
 
 class ModelWrapper(nn.Module):
     """
-    A checkpoint's model with its time geometry, its per-dataset inputs and the compatibility
+    A checkpoint's model with its time geometry, its per-dataset input builders and the compatibility
     shims for calling it.
 
     Registered as a submodule of the predictor, so Lightning moves the model to the device.
@@ -239,7 +239,7 @@ class ModelWrapper(nn.Module):
 
     input_times / output_times: The valid times of the inputs / outputs of a call at a reference time.
 
-    add_dataset: Set up the inputs (variable mapping, coordinates) of one dataset of the model.
+    add_dataset: Set up the input builder (variable mapping, coordinates) of one dataset of the model.
 
     pre_process / post_process: The model's processors of a dataset, for both single and multi
     dataset models.
@@ -280,7 +280,7 @@ class ModelWrapper(nn.Module):
             self.data_index[ds], self.model_index[ds] = get_internal_indices(
                 checkpoint.data_indices[ds]
             )
-        self.inputs: dict[str, DatasetInputs] = {}
+        self.input_builders: dict[str, InputBuilder] = {}
 
     def input_times(self, time: np.datetime64) -> list[np.datetime64]:
         return [time + step * self.timestep for step in self.input_steps]
@@ -295,7 +295,7 @@ class ModelWrapper(nn.Module):
         dataset_variables: list,
         latitudes: np.ndarray,
         longitudes: np.ndarray,
-    ) -> DatasetInputs:
+    ) -> InputBuilder:
         """
         Args:
             dataset_name (str): One of ``dataset_names``.
@@ -310,14 +310,14 @@ class ModelWrapper(nn.Module):
             self.model_index[dataset_name],
             dataset_name,
         )
-        self.inputs[dataset_name] = DatasetInputs(
+        self.input_builders[dataset_name] = InputBuilder(
             mapping,
             self.data_index[dataset_name],
             self.model_index[dataset_name],
             latitudes,
             longitudes,
         )
-        return self.inputs[dataset_name]
+        return self.input_builders[dataset_name]
 
     def pre_process(
         self, x: torch.Tensor, dataset_name: str, in_place: bool = False
@@ -378,22 +378,22 @@ def interpolate(
         dataset_name (str): Dataset of ``model`` to interpolate.
         states (torch.Tensor): The boundary states in physical units, shape
             (batch, len(model.input_steps), ensemble, points, variables) in the dataset variable
-            order of the model's inputs (e.g. a forecaster's model input, or a data reader).
+            order of the model's input builder (e.g. a forecaster's model input, or a data reader).
         time (np.datetime64): Reference time of the boundary states (input step 0).
         model_comm_group: Process group of the model shards.
         static_forcings_from_source (bool): Take the static forcings from ``states`` instead of
-            from the dataset inputs (see DatasetInputs.build_state).
+            from the input builder (see InputBuilder.build_state).
     Returns:
-        list: (valid time, output) per interpolation time; output as DatasetInputs.output.
+        list: (valid time, output) per interpolation time; output as InputBuilder.output.
     """
-    inputs = model.inputs[dataset_name]
-    x = inputs.build_state(
+    builder = model.input_builders[dataset_name]
+    x = builder.build_state(
         states,
         model.input_times(time),
         static_forcings_from_source=static_forcings_from_source,
     )
     x = model.pre_process(x, dataset_name, in_place=True)
-    x = inputs.to_model_order(x)
+    x = builder.to_model_order(x)
 
     # fcstep is always 0 for the interpolator
     y_pred = model({dataset_name: x}, model_comm_group=model_comm_group, fcstep=0)[
@@ -403,5 +403,5 @@ def interpolate(
     outputs = []
     for index, output_time in enumerate(model.output_times(time)):
         y = model.post_process(y_pred[:, index], dataset_name, in_place=True)
-        outputs.append((output_time, inputs.output(y)))
+        outputs.append((output_time, builder.output(y)))
     return outputs

@@ -95,7 +95,7 @@ class Interpolator(BasePredictor):
         )
 
         data_reader = datamodule.data_readers[self.ds_name_fc]
-        self.forecaster_inputs = self.forecaster.add_dataset(
+        self.forecaster_builder = self.forecaster.add_dataset(
             self.ds_name_fc,
             required_variables=required_variables[self.ds_name_fc],
             dataset_variables=data_reader.variables,
@@ -103,7 +103,7 @@ class Interpolator(BasePredictor):
             longitudes=data_reader.longitudes,
         )
         # The interpolator input is assembled from the forecaster's model input (physical units)
-        self.interpolator_inputs = self.interpolator.add_dataset(
+        self.interpolator_builder = self.interpolator.add_dataset(
             self.ds_name_interp,
             required_variables=required_variables[self.ds_name_interp],
             dataset_variables=list(
@@ -138,8 +138,8 @@ class Interpolator(BasePredictor):
             state_normalized: Normalized forecaster input in data order,
                 shape (batch, multistep, ensemble, points, variables).
         """
-        self.forecaster_inputs.set_static_forcings_from_state(state_normalized[:, -1])
-        self.interpolator_inputs.set_static_forcings_from_dataset(
+        self.forecaster_builder.set_static_forcings_from_state(state_normalized[:, -1])
+        self.interpolator_builder.set_static_forcings_from_dataset(
             self.forcing_dataset_interp, time
         )
 
@@ -165,20 +165,20 @@ class Interpolator(BasePredictor):
         batch = batch[self.ds_name_fc]
         time = np.datetime64(time_stamp[0])
 
-        inputs = self.forecaster_inputs
+        builder = self.forecaster_builder
         ds = self.ds_name_fc
         n_boundary = len(self.interpolator.input_steps)
 
-        state = inputs.build_state(batch, self.forecaster.input_times(time))
+        state = builder.build_state(batch, self.forecaster.input_times(time))
         # (valid time, {dataset: output}) per lead time
-        outputs = [(time, {ds: inputs.initial_output(state, -1)})]
+        outputs = [(time, {ds: builder.initial_output(state, -1)})]
 
         # Forecaster states in physical units: the boundary values of the interpolator
-        x_physical = inputs.to_model_order(state)
+        x_physical = builder.to_model_order(state)
 
         state = self.forecaster.pre_process(state, ds, in_place=True)
         self.update_static_forcings(time, state)
-        x = inputs.to_model_order(state)
+        x = builder.to_model_order(state)
 
         with torch.autocast(device_type="cuda", dtype=torch.bfloat16):
             for forecast_step in range(self.forecast_length - 1):
@@ -190,8 +190,8 @@ class Interpolator(BasePredictor):
                 y_physical = self.forecaster.post_process(y_pred, ds, in_place=False)
 
                 next_time = time + self.forecaster.timestep
-                x = inputs.advance(x, y_pred, next_time)
-                x_physical = inputs.roll(x_physical, y_physical)
+                x = builder.advance(x, y_pred, next_time)
+                x_physical = builder.roll(x_physical, y_physical)
 
                 interpolated = forecast_step < self.interpolation_length
                 if interpolated:
@@ -206,7 +206,7 @@ class Interpolator(BasePredictor):
                         )
                     ]
                 if not (interpolated and self.reforcast_last):
-                    outputs.append((next_time, {ds: inputs.output(y_physical)}))
+                    outputs.append((next_time, {ds: builder.output(y_physical)}))
                 time = next_time
 
                 if self.release_cache:

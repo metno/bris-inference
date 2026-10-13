@@ -179,7 +179,7 @@ class BasePredictor(pl.LightningModule):
 
         Args:
             outputs (list): (valid time, {dataset name: output}) per lead time, in order; each
-                output of shape (batch, points, variables) as DatasetInputs.output.
+                output of shape (batch, points, variables) as InputBuilder.output.
         """
         times = [time for time, _ in outputs]
         dataset_names = list(outputs[0][1].keys())
