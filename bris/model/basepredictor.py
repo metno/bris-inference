@@ -168,7 +168,7 @@ class BasePredictor(pl.LightningModule):
         return batch  # Not implemented properly, https://github.com/metno/bris-inference/issues/123
 
     def update_batch_info(self, time: np.datetime64) -> None:
-        """Count the forecasts ending at ``time`` seen so far, to number the ensemble members."""
+        """Count the forecasts initialised at ``time`` seen so far, to number the ensemble members run in sequence."""
         self.batch_info[time] = self.batch_info.get(time, 0) + 1
 
     def prediction(
@@ -189,14 +189,14 @@ class BasePredictor(pl.LightningModule):
             .numpy()
             for ds in dataset_names
         }
-        end_time = times[-1]
-        self.update_batch_info(end_time)
+        init_time = times[0]
+        self.update_batch_info(init_time)
         return {
             "pred": pred,
             "times": times,
             "group_rank": self.model_comm_group_rank,
             "ensemble_member": self.member_id
-            + self.num_members_in_parallel * (self.batch_info[end_time] - 1),
+            + self.num_members_in_parallel * (self.batch_info[init_time] - 1),
         }
 
     @abstractmethod
