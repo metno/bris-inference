@@ -4,7 +4,7 @@ import torch
 from ..checkpoint import Checkpoint
 from ..data.datamodule import DataModule
 from ..utils import timedelta64_from_timestep
-from .basepredictor import BasePredictor
+from .basepredictor import BasePredictor, ForecastOutputs
 from .wrapper import ModelWrapper
 
 
@@ -21,7 +21,7 @@ class BrisPredictor(BasePredictor):
 
     initial_state: The model input (data order, physical units) from a batch.
 
-    predict_step: Run the rollout for one batch.
+    forecast: Run the rollout for one batch.
     """
 
     def __init__(
@@ -125,21 +125,12 @@ class BrisPredictor(BasePredictor):
             batch, self.model.input_times(time)
         )
 
-    @torch.inference_mode
-    def predict_step(self, batch: tuple, batch_idx: int) -> dict:
+    def forecast(
+        self, batch: dict[str, torch.Tensor], time: np.datetime64
+    ) -> ForecastOutputs:
         """
-        Perform a prediction step using the model.
-        Args:
-            batch (tuple): Input batch containing the data.
-            batch_idx (int): Index of the batch.
-        Returns:
-            dict: Dictionary containing the predicted output, time stamps, group rank, and ensemble member.
+        The rollout of the forecaster from one batch, see BasePredictor.forecast.
         """
-        batch = self.allgather_batch(batch)
-
-        batch, time_stamp = batch
-        time = np.datetime64(time_stamp[0])
-
         # (valid time, {dataset: output}) per lead time
         outputs = [(time, {})]
         x = {}
@@ -173,4 +164,4 @@ class BrisPredictor(BasePredictor):
                     del y_pred
                     torch.cuda.empty_cache()
 
-        return self.prediction(outputs)
+        return outputs

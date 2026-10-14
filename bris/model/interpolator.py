@@ -5,7 +5,7 @@ from anemoi.datasets import open_dataset
 from ..checkpoint import Checkpoint
 from ..data.datamodule import DataModule
 from ..utils import get_all_leadtimes
-from .basepredictor import BasePredictor
+from .basepredictor import BasePredictor, ForecastOutputs
 from .model_utils import (
     get_interpolator_boundary_times,
     get_interpolator_interp_times,
@@ -28,7 +28,7 @@ class Interpolator(BasePredictor):
 
     update_static_forcings: Set the static forcings of both models for a forecast.
 
-    predict_step: Perform prediction step combining forecaster and interpolator.
+    forecast: The forecaster rollout with the interpolator filling in between its steps.
     """
 
     def __init__(
@@ -143,27 +143,17 @@ class Interpolator(BasePredictor):
             self.forcing_dataset_interp, time
         )
 
-    @torch.inference_mode
-    def predict_step(self, batch: tuple, batch_idx: int) -> dict:
+    def forecast(
+        self, batch: dict[str, torch.Tensor], time: np.datetime64
+    ) -> ForecastOutputs:
         """
-        Perform prediction step combining forecaster and interpolator.
-
-        Args:
-            batch: Input batch for prediction.
-            batch_idx: Index of the batch.
-
-        Returns:
-            Dictionary containing predictions, times, group rank, and ensemble member.
+        The forecaster rollout with the interpolator filling in between its first
+        ``interpolation_length`` steps, see BasePredictor.forecast.
         """
-
-        batch = self.allgather_batch(batch)
-
-        batch, time_stamp = batch
         assert len(batch) == 1, (
             "Interpolator is currently only compatible with single dataset checkpoints"
         )
         batch = batch[self.ds_name_fc]
-        time = np.datetime64(time_stamp[0])
 
         builder = self.forecaster_builder
         ds = self.ds_name_fc
@@ -212,4 +202,4 @@ class Interpolator(BasePredictor):
                     del y_pred, y_physical
                     torch.cuda.empty_cache()
 
-        return self.prediction(outputs)
+        return outputs

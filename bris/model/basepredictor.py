@@ -14,14 +14,19 @@ from ..utils import check_anemoi_training
 
 LOGGER = logging.getLogger(__name__)
 
+# What a predictor's forecast returns: (valid time, {dataset name: output}) per lead time, in
+# order, each output of shape (batch, points, variables) as InputBuilder.output.
+ForecastOutputs = list[tuple[np.datetime64, dict[str, torch.Tensor]]]
+
 
 class BasePredictor(pl.LightningModule):
     """
     An abstract class for implementing custom predictors.
 
     Holds the communication groups (set by the DDP strategy) and what every predictor shares:
-    the ensemble member bookkeeping and the assembly of the prediction dict that the writer
-    consumes. Subclasses implement predict_step.
+    predict_step (the Lightning entry point: unpacks the batch, runs ``forecast`` and builds the
+    prediction dict that the writer consumes) and the ensemble member bookkeeping. Subclasses
+    implement ``forecast``, which returns ForecastOutputs.
 
     Methods
     -------
@@ -32,9 +37,9 @@ class BasePredictor(pl.LightningModule):
 
     fcstep: The forecast step passed to the model.
 
-    prediction: Build the return value of predict_step.
+    forecast (abstract): The forecast of one batch, as ForecastOutputs.
 
-    predict_step (abstract)
+    predict_step: Run ``forecast`` on a batch and return the prediction dict.
     """
 
     def __init__(
@@ -171,15 +176,43 @@ class BasePredictor(pl.LightningModule):
         """Count the forecasts initialised at ``time`` seen so far, to number the ensemble members run in sequence."""
         self.batch_info[time] = self.batch_info.get(time, 0) + 1
 
-    def prediction(
-        self, outputs: list[tuple[np.datetime64, dict[str, torch.Tensor]]]
-    ) -> dict:
+    @abstractmethod
+    def forecast(
+        self, batch: dict[str, torch.Tensor], time: np.datetime64
+    ) -> ForecastOutputs:
+        """
+        The forecast of one batch.
+
+        Args:
+            batch (dict): Input states per dataset, shape (batch, time, ensemble, points, variables).
+            time (np.datetime64): Time of the last input state (the start of the forecast).
+        Returns:
+            ForecastOutputs: (valid time, {dataset name: output}) per lead time, in order; each
+                output of shape (batch, points, variables) as InputBuilder.output.
+        """
+
+    @torch.inference_mode
+    def predict_step(self, batch: tuple, batch_idx: int) -> dict:
+        """
+        Perform a prediction step: run ``forecast`` on the batch and build its prediction dict.
+
+        Args:
+            batch (tuple): (input states per dataset, time stamps) from the dataloader.
+            batch_idx (int): Index of the batch.
+        Returns:
+            dict: The predictions, times, group rank and ensemble member, as the writer expects.
+        """
+        batch = self.allgather_batch(batch)
+        batch, time_stamp = batch
+        time = np.datetime64(time_stamp[0])
+        return self._prediction(self.forecast(batch, time))
+
+    def _prediction(self, outputs: ForecastOutputs) -> dict:
         """
         The return value of predict_step, as the writer expects it.
 
         Args:
-            outputs (list): (valid time, {dataset name: output}) per lead time, in order; each
-                output of shape (batch, points, variables) as InputBuilder.output.
+            outputs (ForecastOutputs): The forecast, see ``forecast``.
         """
         times = [time for time, _ in outputs]
         dataset_names = list(outputs[0][1].keys())
@@ -198,7 +231,3 @@ class BasePredictor(pl.LightningModule):
             "ensemble_member": self.member_id
             + self.num_members_in_parallel * (self.batch_info[init_time] - 1),
         }
-
-    @abstractmethod
-    def predict_step(self, batch: tuple, batch_idx: int) -> dict:
-        pass
