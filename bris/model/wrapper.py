@@ -221,7 +221,10 @@ class ModelWrapper(nn.Module):
     A checkpoint's model with its time geometry, its per-dataset input builders and the compatibility
     shims for calling it.
 
-    Registered as a submodule of the predictor, so Lightning moves the model to the device.
+    Everything that is a property of the checkpoint belongs here (time step, input and output
+    steps, dataset names, data and model indices, processors, forward); the predictors hold
+    the run configuration and the rollout. Registered as a submodule of the predictor, so
+    Lightning moves the model to the device.
 
     Attributes
     ----------

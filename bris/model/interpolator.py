@@ -21,6 +21,11 @@ class Interpolator(BasePredictor):
     ``interpolation_length`` forecaster steps the interpolator fills in the lead times between
     the boundary states (the last forecaster states, in physical units).
 
+    The checkpoints' properties (time steps, input/output steps, dataset names, indices,
+    processors) live on ``self.forecaster`` and ``self.interpolator`` (ModelWrappers); this
+    class holds the run configuration (forecast and interpolation length, release_cache,
+    fcstep_const) and the combined rollout.
+
     Methods
     -------
 

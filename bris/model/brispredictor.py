@@ -12,6 +12,10 @@ class BrisPredictor(BasePredictor):
     """
     Custom Bris predictor: autoregressive rollout of a forecaster over one or more datasets.
 
+    The checkpoint's properties (time step, input steps, dataset names, indices, processors)
+    live on ``self.model`` (a ModelWrapper); this class holds the run configuration (forecast
+    length, release_cache, fcstep_const) and the rollout.
+
     Methods
     -------
 
@@ -80,17 +84,13 @@ class BrisPredictor(BasePredictor):
                 checkpoints_config["forecaster"]["timestep"]
             ),
         )
-        self.metadata = checkpoint.metadata
-        self.timestep = self.model.timestep
-        self.multistep = self.model.multistep
         self.forecast_length = checkpoints_config["forecaster"]["leadtimes"]
-        self.dataset_names = self.model.dataset_names
 
-        assert self.dataset_names == datamodule.dataset_names, (
-            f" Dataset names of the input data {datamodule.dataset_names} do not match expected dataset names {self.dataset_names} of the model."
+        assert self.model.dataset_names == datamodule.dataset_names, (
+            f" Dataset names of the input data {datamodule.dataset_names} do not match expected dataset names {self.model.dataset_names} of the model."
         )
 
-        for ds in self.dataset_names:
+        for ds in self.model.dataset_names:
             self.model.add_dataset(
                 ds,
                 required_variables=required_variables.get(ds, []),
@@ -134,7 +134,7 @@ class BrisPredictor(BasePredictor):
         # (valid time, {dataset: output}) per lead time
         outputs = [(time, {})]
         x = {}
-        for ds in self.dataset_names:
+        for ds in self.model.dataset_names:
             builder = self.model.input_builders[ds]
             state = self.initial_state(ds, batch[ds], time)
             outputs[0][1][ds] = builder.initial_output(state, -1)
@@ -150,9 +150,9 @@ class BrisPredictor(BasePredictor):
             for forecast_step in range(self.forecast_length - 1):
                 y_pred = self(x, fcstep=self.fcstep(forecast_step))
 
-                time += self.timestep
+                time += self.model.timestep
                 output = {}
-                for ds in self.dataset_names:
+                for ds in self.model.dataset_names:
                     builder = self.model.input_builders[ds]
                     x[ds] = builder.advance(x[ds], y_pred[ds], time)
                     output[ds] = builder.output(
