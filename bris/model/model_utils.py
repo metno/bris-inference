@@ -96,7 +96,7 @@ class VariableMapping:
     @classmethod
     def build(
         cls,
-        required_variables: list,
+        output_variables: list,
         dataset_variables: list,
         internal_data: DataIndex,
         internal_model: ModelIndex,
@@ -104,17 +104,17 @@ class VariableMapping:
     ) -> "VariableMapping":
         """
         Args:
-            required_variables (list): Variables to output (must exist in the model output).
+            output_variables (list): Variables to output, i.e. those the outputs require (must exist in the model output).
             dataset_variables (list): Variable order of the source the model input is built from.
             internal_data (DataIndex): Data index object, from checkpoint.data_indices
             internal_model (ModelIndex): Model index object, from checkpoint.data_indices.model
             decoder_name (str): Name of the dataset, for error messages.
         """
         variables_input = [
-            internal_data.input.name_to_index[name] for name in required_variables
+            internal_data.input.name_to_index[name] for name in output_variables
         ]
         variables_output = [
-            internal_model.output.name_to_index[name] for name in required_variables
+            internal_model.output.name_to_index[name] for name in output_variables
         ]
 
         all_variables = [

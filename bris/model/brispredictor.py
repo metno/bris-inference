@@ -93,7 +93,7 @@ class BrisPredictor(BasePredictor):
         for ds in self.model.dataset_names:
             self.model.add_dataset(
                 ds,
-                required_variables=required_variables.get(ds, []),
+                output_variables=required_variables.get(ds, []),
                 dataset_variables=datamodule.data_readers[ds].variables,
                 latitudes=datamodule.latitudes[ds],
                 longitudes=datamodule.longitudes[ds],

@@ -321,7 +321,7 @@ class ModelRunner(nn.Module):
     def add_dataset(
         self,
         dataset_name: str,
-        required_variables: list,
+        output_variables: list,
         dataset_variables: list,
         latitudes: np.ndarray,
         longitudes: np.ndarray,
@@ -329,12 +329,12 @@ class ModelRunner(nn.Module):
         """
         Args:
             dataset_name (str): One of ``dataset_names``.
-            required_variables (list): Variables to output for this dataset.
+            output_variables (list): Variables to output for this dataset (those the outputs require).
             dataset_variables (list): Variable order of the states the input is built from.
             latitudes, longitudes: Grid coordinates of the dataset.
         """
         mapping = VariableMapping.build(
-            required_variables,
+            output_variables,
             dataset_variables,
             self.data_index[dataset_name],
             self.model_index[dataset_name],

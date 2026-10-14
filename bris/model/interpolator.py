@@ -54,7 +54,7 @@ class Interpolator(BasePredictor):
             datamodule: DataModule object for data handling.
             checkpoints_config: config.checkpoints; both models need "timestep_seconds" and "leadtimes",
                 the interpolator also "static_forcings_dataset".
-            required_variables: Required variables per dataset.
+            required_variables: Variables the outputs require, per dataset.
             release_cache: Boolean flag to release cache (default: False).
             fcstep_const: Boolean flag for constant forecast step (default: False).
         """
@@ -95,7 +95,7 @@ class Interpolator(BasePredictor):
         data_reader = datamodule.data_readers[self.ds_name_fc]
         self.forecaster_builder = self.forecaster.add_dataset(
             self.ds_name_fc,
-            required_variables=required_variables[self.ds_name_fc],
+            output_variables=required_variables[self.ds_name_fc],
             dataset_variables=data_reader.variables,
             latitudes=data_reader.latitudes,
             longitudes=data_reader.longitudes,
@@ -103,7 +103,7 @@ class Interpolator(BasePredictor):
         # The interpolator input is assembled from the forecaster's model input (physical units)
         self.interpolator_builder = self.interpolator.add_dataset(
             self.ds_name_interp,
-            required_variables=required_variables[self.ds_name_interp],
+            output_variables=required_variables[self.ds_name_interp],
             dataset_variables=list(
                 self.forecaster.model_index[self.ds_name_fc].input.name_to_index.keys()
             ),
