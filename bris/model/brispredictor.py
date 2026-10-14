@@ -58,7 +58,7 @@ class BrisPredictor(BasePredictor):
                 config.checkpoints; "forecaster" needs "timestep" and "leadtimes" (the forecast length).
 
             required_variables
-                Dictionary of datasets with list of required variables for each dataset. Example:
+                The variables the configured outputs require, per dataset (see bris.routes). Example:
                     {"data": ['2d', '2t']}
 
             release_cache
