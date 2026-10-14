@@ -95,6 +95,16 @@ class InputBuilder:
             times (list): Valid time of each time step of ``source``.
             static_forcings_from_source (bool): Where the static forcings come from.
         """
+        if not static_forcings_from_source:
+            missing = [
+                v for v in self.mapping.static_forcings if v not in self.static_forcings
+            ]
+            if len(missing) > 0:
+                raise ValueError(
+                    f"Static forcings {missing} have not been set; call set_static_forcings_from_state "
+                    "or set_static_forcings_from_dataset first, or build the state with "
+                    "static_forcings_from_source=True"
+                )
         x = torch.full(
             source.shape[:-1] + (len(self.mapping.all),),
             float("nan"),

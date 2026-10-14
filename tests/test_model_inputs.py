@@ -197,6 +197,19 @@ def test_build_state_and_static_forcings(input_builder):
     assert torch.equal(out0[0, :, 0], source[0, 1, 0, :, DATASET_VARIABLES.index("2t")])
 
 
+def test_build_state_requires_static_forcings(input_builder):
+    """Without owned static forcings the state cannot be built from them."""
+    source = torch.zeros((1, 1, 1, 3, len(DATASET_VARIABLES)))
+    times = [np.datetime64("2022-06-21T06")]
+    with pytest.raises(
+        ValueError,
+        match="Static forcings \\['cos_latitude', 'lsm', 'z'\\] have not been set",
+    ):
+        input_builder.build_state(source, times, static_forcings_from_source=False)
+    # from the source it works regardless
+    assert input_builder.build_state(source, times).shape[-1] == len(NAMES)
+
+
 def test_roll_and_advance(input_builder):
     points = 3
     n_input = len(NAMES) - len(DIAGNOSTIC)
