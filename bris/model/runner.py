@@ -372,6 +372,7 @@ class ModelRunner(nn.Module):
         time: np.datetime64,
         model_comm_group=None,
         static_forcings_from_source: bool = False,
+        fcstep: int = 0,
     ) -> list[tuple[np.datetime64, torch.Tensor]]:
         """
         One model call from physical states: build the input at the input times, run the model
@@ -388,6 +389,7 @@ class ModelRunner(nn.Module):
             model_comm_group: Process group of the model shards.
             static_forcings_from_source (bool): Take the static forcings from ``states`` instead
                 of those held by the input builder (see InputBuilder.build_state).
+            fcstep (int): The forecast step passed to the model; always 0 for an interpolator.
         Returns:
             list: (valid time, output) per output step; output as InputBuilder.output.
         """
@@ -400,10 +402,9 @@ class ModelRunner(nn.Module):
         x = self.pre_process(x, dataset_name, in_place=True)
         x = builder.to_model_order(x)
 
-        # fcstep is always 0 for an interpolator
-        y_pred = self({dataset_name: x}, model_comm_group=model_comm_group, fcstep=0)[
-            dataset_name
-        ]
+        y_pred = self(
+            {dataset_name: x}, model_comm_group=model_comm_group, fcstep=fcstep
+        )[dataset_name]
 
         outputs = []
         for index, output_time in enumerate(self.output_times(time)):
