@@ -5,7 +5,7 @@ from ..checkpoint import Checkpoint
 from ..data.datamodule import DataModule
 from ..utils import timedelta64_from_timestep
 from .basepredictor import BasePredictor, ForecastOutputs
-from .wrapper import ModelWrapper
+from .runner import ModelRunner
 
 
 class BrisPredictor(BasePredictor):
@@ -13,7 +13,7 @@ class BrisPredictor(BasePredictor):
     Custom Bris predictor: autoregressive rollout of a forecaster over one or more datasets.
 
     The checkpoint's properties (time step, input steps, dataset names, indices, processors)
-    live on ``self.model`` (a ModelWrapper); this class holds the run configuration (forecast
+    live on ``self.model`` (a ModelRunner); this class holds the run configuration (forecast
     length, release_cache, fcstep_const) and the rollout.
 
     Methods
@@ -78,7 +78,7 @@ class BrisPredictor(BasePredictor):
         )
 
         checkpoint = checkpoints["forecaster"]
-        self.model = ModelWrapper(
+        self.model = ModelRunner(
             checkpoint,
             timestep=timedelta64_from_timestep(
                 checkpoints_config["forecaster"]["timestep"]

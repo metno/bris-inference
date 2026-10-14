@@ -12,7 +12,7 @@ from bris.model.model_utils import (
     get_variable_indices,
     insert_forcings,
 )
-from bris.model.wrapper import InputBuilder, ModelWrapper
+from bris.model.runner import InputBuilder, ModelRunner
 
 
 class _Index:
@@ -319,11 +319,11 @@ class _Checkpoint:
         )
 
 
-def test_model_wrapper_time_geometry():
+def test_model_runner_time_geometry():
     checkpoint = _Checkpoint(NAMES, FORCING, DIAGNOSTIC, multistep=3)
     time = np.datetime64("2022-06-21T12")
 
-    forecaster = ModelWrapper(checkpoint, timestep=np.timedelta64(6, "h"))
+    forecaster = ModelRunner(checkpoint, timestep=np.timedelta64(6, "h"))
     assert forecaster.dataset_names == ["data"]
     assert forecaster.input_steps == [-2, -1, 0] and forecaster.output_steps == [1]
     assert forecaster.input_times(time) == [
@@ -333,7 +333,7 @@ def test_model_wrapper_time_geometry():
     ]
     assert forecaster.output_times(time) == [np.datetime64("2022-06-21T18")]
 
-    interpolator = ModelWrapper(
+    interpolator = ModelRunner(
         checkpoint,
         timestep=np.timedelta64(1, "h"),
         input_steps=[0, 6],
@@ -370,7 +370,7 @@ def test_predict_from_states():
     """predict_from_states() builds the boundary input from physical states and maps the model output
     to (time, output) pairs."""
     checkpoint = _Checkpoint(NAMES, FORCING, DIAGNOSTIC)
-    model = ModelWrapper(
+    model = ModelRunner(
         checkpoint,
         timestep=np.timedelta64(3, "h"),
         input_steps=[0, 2],

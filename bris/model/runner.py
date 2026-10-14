@@ -216,7 +216,7 @@ class InputBuilder:
         return y.to(torch.float32).cpu()
 
 
-class ModelWrapper(nn.Module):
+class ModelRunner(nn.Module):
     """
     A checkpoint's model with its time geometry, its per-dataset input builders and the compatibility
     shims for calling it.

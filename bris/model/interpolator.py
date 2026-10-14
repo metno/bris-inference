@@ -10,7 +10,7 @@ from .model_utils import (
     get_interpolator_boundary_times,
     get_interpolator_interp_times,
 )
-from .wrapper import ModelWrapper
+from .runner import ModelRunner
 
 
 class Interpolator(BasePredictor):
@@ -22,7 +22,7 @@ class Interpolator(BasePredictor):
     the boundary states (the last forecaster states, in physical units).
 
     The checkpoints' properties (time steps, input/output steps, dataset names, indices,
-    processors) live on ``self.forecaster`` and ``self.interpolator`` (ModelWrappers); this
+    processors) live on ``self.forecaster`` and ``self.interpolator`` (ModelRunners); this
     class holds the run configuration (forecast and interpolation length, release_cache,
     fcstep_const) and the combined rollout.
 
@@ -67,13 +67,13 @@ class Interpolator(BasePredictor):
             fcstep_const=fcstep_const,
             **kwargs,
         )
-        self.forecaster = ModelWrapper(
+        self.forecaster = ModelRunner(
             checkpoints["forecaster"],
             timestep=np.timedelta64(
                 checkpoints_config["forecaster"]["timestep_seconds"], "s"
             ),
         )
-        self.interpolator = ModelWrapper(
+        self.interpolator = ModelRunner(
             checkpoints["interpolator"],
             timestep=np.timedelta64(
                 checkpoints_config["interpolator"]["timestep_seconds"], "s"
