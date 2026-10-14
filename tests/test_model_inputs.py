@@ -9,7 +9,6 @@ import torch
 from bris.forcings import anemoi_dynamic_forcings
 from bris.model.model_utils import (
     VariableMapping,
-    get_variable_indices,
     insert_forcings,
 )
 from bris.model.runner import InputBuilder, ModelRunner
@@ -93,18 +92,6 @@ def test_variable_mapping(indices):
     assert m.static_forcings_input.tolist() == [6, 4, 2]
     assert m.dynamic_forcings_input.tolist() == [3]
     assert all(f in anemoi_dynamic_forcings() for f in m.dynamic_forcings)
-
-    # the dictionaries of the former interface carry the same values
-    idx, var = get_variable_indices(
-        ["2t"], DATASET_VARIABLES, data_index, model_index, "data"
-    )
-    assert var == {
-        "all": NAMES,
-        "dynamic_forcings": ["insolation"],
-        "static_forcings": m.static_forcings,
-    }
-    assert torch.equal(idx["prognostic_input"], m.prognostic_input)
-    assert idx["variables_output"] == [1]
 
 
 def test_variable_mapping_missing_variable(indices):

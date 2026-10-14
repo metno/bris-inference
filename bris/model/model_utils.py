@@ -171,44 +171,6 @@ class VariableMapping:
             dynamic_forcings_input=input_positions(dynamic_forcings),
         )
 
-    def as_dicts(self) -> tuple[dict, dict]:
-        """The (indices, variables) dictionaries of the former get_variable_indices."""
-        indices = {
-            "variables_input": self.variables_input,
-            "variables_output": self.variables_output,
-            "prognostic_dataset": self.prognostic_dataset,
-            "static_forcings_dataset": self.static_forcings_dataset,
-            "prognostic_input": self.prognostic_input,
-            "static_forcings_input": self.static_forcings_input,
-            "dynamic_forcings_input": self.dynamic_forcings_input,
-        }
-        variables = {
-            "all": self.all,
-            "dynamic_forcings": self.dynamic_forcings,
-            "static_forcings": self.static_forcings,
-        }
-        return indices, variables
-
-
-def get_variable_indices(
-    required_variables: list,
-    datamodule_variables: list,
-    internal_data: DataIndex,
-    internal_model: ModelIndex,
-    decoder_name: str,
-) -> tuple[dict, dict]:
-    """Indices mapping the variables of a dataset to the variables of a model, as dictionaries.
-
-    Kept for backwards compatibility, see :class:`VariableMapping` for the fields.
-    """
-    return VariableMapping.build(
-        required_variables,
-        datamodule_variables,
-        internal_data,
-        internal_model,
-        decoder_name,
-    ).as_dicts()
-
 
 def insert_forcings(
     x: torch.Tensor, forcings: dict, name_to_index: dict, time_index: int
