@@ -3,7 +3,6 @@ import torch
 
 from ..checkpoint import Checkpoint
 from ..data.datamodule import DataModule
-from ..utils import timedelta64_from_timestep
 from .basepredictor import BasePredictor, ForecastOutputs
 from .runner import ModelRunner
 
@@ -53,7 +52,7 @@ class BrisPredictor(BasePredictor):
                             _target_: bris.data.dataset.NativeGridDataset
 
             checkpoints_config
-                config.checkpoints; "forecaster" needs "timestep" and "leadtimes" (the forecast length).
+                config.checkpoints; "forecaster" needs "timestep_seconds" and "leadtimes" (the forecast length).
 
             required_variables
                 The variables the configured outputs require, per dataset (see bris.routes). Example:
@@ -78,8 +77,8 @@ class BrisPredictor(BasePredictor):
         checkpoint = checkpoints["forecaster"]
         self.model = ModelRunner(
             checkpoint,
-            timestep=timedelta64_from_timestep(
-                checkpoints_config["forecaster"]["timestep"]
+            timestep=np.timedelta64(
+                checkpoints_config["forecaster"]["timestep_seconds"], "s"
             ),
         )
         self.forecast_length = checkpoints_config["forecaster"]["leadtimes"]
