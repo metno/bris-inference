@@ -53,7 +53,7 @@ class BasePredictor(pl.LightningModule):
         **kwargs: Any,
     ):
         """
-        Init model_comm* variables for distributed training.
+        Set up the communication group variables (filled in by the DDP strategy) and the run options.
 
         Args:
             checkpoints {"forecaster": checkpoint_object}
@@ -172,7 +172,7 @@ class BasePredictor(pl.LightningModule):
         """
         return batch  # Not implemented properly, https://github.com/metno/bris-inference/issues/123
 
-    def update_batch_info(self, time: np.datetime64) -> None:
+    def _update_batch_info(self, time: np.datetime64) -> None:
         """Count the forecasts initialised at ``time`` seen so far, to number the ensemble members run in sequence."""
         self.batch_info[time] = self.batch_info.get(time, 0) + 1
 
@@ -223,7 +223,7 @@ class BasePredictor(pl.LightningModule):
             for ds in dataset_names
         }
         init_time = times[0]
-        self.update_batch_info(init_time)
+        self._update_batch_info(init_time)
         return {
             "pred": pred,
             "times": times,
