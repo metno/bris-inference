@@ -3,7 +3,6 @@ from dataclasses import dataclass
 import numpy as np
 import torch
 from anemoi.models.data_indices.index import DataIndex, ModelIndex
-from anemoi.utils.config import DotDict
 
 from ..checkpoint import Checkpoint
 from ..forcings import anemoi_dynamic_forcings
@@ -254,25 +253,6 @@ def get_internal_indices(data_indices) -> tuple[DataIndex, ModelIndex]:
     ):
         return data_indices.internal_data, data_indices.internal_model
     return data_indices.data, data_indices.model
-
-
-def get_data_config(config: DotDict) -> DotDict:
-    """Get data configuration from the model configuration.
-    Backwards compatibility to checkpoints with old data config structure.
-
-    Args:
-        config (DotDict): Model configuration.
-    Returns:
-        DotDict: Data configuration.
-    """
-
-    if "dataset_specific" in config.data:
-        return config.data.dataset_specific.datasets
-    elif "datasets" in config.data:
-        return config.data.datasets
-
-    cfg = DotDict({"data": config.data})
-    return cfg
 
 
 def get_interpolator_interp_times(checkpoint: Checkpoint) -> list[int]:
