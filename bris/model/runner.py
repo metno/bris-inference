@@ -121,7 +121,7 @@ class InputBuilder:
         for time_index, time in enumerate(times):
             forcings = self.dynamic_forcings(time)
             if not static_forcings_from_source:
-                forcings.update(self.static_forcings)
+                forcings.update(self._static_forcings_on(x.device))
             insert_forcings(
                 x, forcings, self.data_index.input.name_to_index, time_index
             )
@@ -194,9 +194,24 @@ class InputBuilder:
         """
         x = self.roll(x, y_pred)
         forcings = self.dynamic_forcings(time)
-        forcings.update(self.static_forcings)
+        forcings.update(self._static_forcings_on(x.device))
         insert_forcings(x, forcings, self.model_index.input.name_to_index, -1)
         return x
+
+    def _static_forcings_on(self, device: torch.device) -> dict:
+        """
+        The owned static forcings on ``device``, moved there once on first use (those read from
+        a dataset start on the CPU, those taken from a state are already on the model's device).
+        """
+        if any(
+            isinstance(v, torch.Tensor) and v.device != device
+            for v in self.static_forcings.values()
+        ):
+            self.static_forcings = {
+                name: value.to(device) if isinstance(value, torch.Tensor) else value
+                for name, value in self.static_forcings.items()
+            }
+        return self.static_forcings
 
     def initial_output(self, state: torch.Tensor, time_index: int) -> torch.Tensor:
         """
