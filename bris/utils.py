@@ -358,18 +358,13 @@ def get_model_timestep(checkpoint: Checkpoint) -> str:
 
 
 def get_model_multistep_input(checkpoint: Checkpoint) -> int:
+    """The model's number of input time steps (Checkpoint.multistep), defaulting to 2 with a
+    warning when the checkpoint config does not say."""
     try:
-        return checkpoint.config.training.multistep_input
-    except AttributeError:
-        pass
-
-    try:
-        return checkpoint.config.task.multistep_input
-    except AttributeError:
-        pass
-
-    LOGGER.warning("Could not find multistep_input in checkpoint, defaulting to 2")
-    return 2
+        return checkpoint.multistep
+    except RuntimeError:
+        LOGGER.warning("Could not find multistep_input in checkpoint, defaulting to 2")
+        return 2
 
 
 def get_interpolator_timestep_seconds(

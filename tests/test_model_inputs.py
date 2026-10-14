@@ -317,6 +317,7 @@ class _Checkpoint:
         self.config = SimpleNamespace(
             training=SimpleNamespace(multistep_input=multistep)
         )
+        self.multistep = multistep
 
 
 def test_model_runner_time_geometry():

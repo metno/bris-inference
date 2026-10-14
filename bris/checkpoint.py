@@ -104,18 +104,23 @@ class Checkpoint:
     @property
     def multistep(self) -> int:
         """
-        Fetches multistep from metadata
+        The number of input time steps of the model, from the training config: training.multistep,
+        training.multistep_input or (since the anemoi-core task refactor) task.multistep_input.
         """
-        if hasattr(self._metadata.config.training, "multistep"):
-            return self._metadata.config.training.multistep
-        if hasattr(self._metadata.config.training, "multistep_input"):
-            return self._metadata.config.training.multistep_input
-        # anemoi-core >= 0.16 task refactor: multistep_input moved to config.task
-        if hasattr(self._metadata.config, "task") and hasattr(
-            self._metadata.config.task, "multistep_input"
+        config = self._metadata.config
+        for section, key in (
+            ("training", "multistep"),
+            ("training", "multistep_input"),
+            ("task", "multistep_input"),
         ):
-            return self._metadata.config.task.multistep_input
-        raise RuntimeError("Cannot find multistep")
+            try:
+                return getattr(getattr(config, section), key)
+            except AttributeError:
+                continue
+        raise RuntimeError(
+            "Cannot find multistep in the checkpoint config (training.multistep, "
+            "training.multistep_input or task.multistep_input)"
+        )
 
     @property
     def model(self) -> torch.nn.Module:
