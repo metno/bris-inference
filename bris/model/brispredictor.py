@@ -23,8 +23,6 @@ class BrisPredictor(BasePredictor):
 
     forward: Forward pass through the model.
 
-    initial_state: The model input (data order, physical units) from a batch.
-
     forecast: Run the rollout for one batch.
     """
 
@@ -109,22 +107,6 @@ class BrisPredictor(BasePredictor):
         """
         return self.model(x, model_comm_group=self.model_comm_group, **kwargs)
 
-    def initial_state(
-        self, dataset_name: str, batch: torch.Tensor, time: np.datetime64
-    ) -> torch.Tensor:
-        """
-        The model input of a dataset in data order (physical units) from a batch: prognostic
-        variables and static forcings from the batch, dynamic forcings for each input time.
-
-        Args:
-            dataset_name (str): Dataset name.
-            batch (torch.Tensor): Input states, shape (batch, multistep, ensemble, points, variables).
-            time (np.datetime64): Time of the last input state (the start of the forecast).
-        """
-        return self.model.input_builders[dataset_name].build_state(
-            batch, self.model.input_times(time)
-        )
-
     def forecast(
         self, batch: dict[str, torch.Tensor], time: np.datetime64
     ) -> ForecastOutputs:
@@ -136,7 +118,7 @@ class BrisPredictor(BasePredictor):
         x = {}
         for ds in self.model.dataset_names:
             builder = self.model.input_builders[ds]
-            state = self.initial_state(ds, batch[ds], time)
+            state = builder.build_state(batch[ds], self.model.input_times(time))
             outputs[0][1][ds] = builder.initial_output(state, -1)
 
             # Possibly have to extend this to handle imputer, see _step in forecaster.
