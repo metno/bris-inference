@@ -4,7 +4,6 @@ from anemoi.datasets import open_dataset
 
 from ..checkpoint import Checkpoint
 from ..data.datamodule import DataModule
-from ..utils import get_all_leadtimes
 from .basepredictor import BasePredictor, ForecastOutputs
 from .model_utils import (
     get_interpolator_boundary_times,
@@ -92,12 +91,6 @@ class Interpolator(BasePredictor):
 
         self.forecast_length = checkpoints_config["forecaster"]["leadtimes"]
         self.interpolation_length = checkpoints_config["interpolator"]["leadtimes"]
-        self.leadtimes = get_all_leadtimes(
-            checkpoints_config["forecaster"]["leadtimes"],
-            checkpoints_config["forecaster"]["timestep_seconds"],
-            checkpoints_config["interpolator"]["leadtimes"],
-            checkpoints_config["interpolator"]["timestep_seconds"],
-        )
 
         data_reader = datamodule.data_readers[self.ds_name_fc]
         self.forecaster_builder = self.forecaster.add_dataset(
