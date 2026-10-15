@@ -2,7 +2,6 @@ import logging
 import math
 import os
 from abc import abstractmethod
-from collections.abc import Iterable
 from typing import Any
 
 import numpy as np
@@ -15,27 +14,32 @@ from ..utils import check_anemoi_training
 
 LOGGER = logging.getLogger(__name__)
 
+# What a predictor's forecast returns: (valid time, {dataset name: output}) per lead time, in
+# order, each output of shape (batch, points, variables) as InputBuilder.output.
+ForecastOutputs = list[tuple[np.datetime64, dict[str, torch.Tensor]]]
+
 
 class BasePredictor(pl.LightningModule):
     """
     An abstract class for implementing custom predictors.
+
+    Holds the communication groups (set by the DDP strategy) and what every predictor shares:
+    predict_step (the Lightning entry point: unpacks the batch, runs ``forecast`` and builds the
+    prediction dict that the writer consumes) and the ensemble member bookkeeping. Subclasses
+    implement ``forecast``, which returns ForecastOutputs.
 
     Methods
     -------
 
     __init__
 
-    set_model_comm_group
+    set_model_comm_group, set_ens_comm_group, set_reader_groups
 
-    set_reader_groups
+    fcstep: The forecast step passed to the model.
 
-    set_static_forcings (abstract)
+    forecast (abstract): The forecast of one batch, as ForecastOutputs.
 
-    forward (abstract)
-
-    advance_input_predict (abstract)
-
-    predict_step (abstract)
+    predict_step: Run ``forecast`` on a batch and return the prediction dict.
     """
 
     def __init__(
@@ -44,10 +48,12 @@ class BasePredictor(pl.LightningModule):
         checkpoints: dict[str, Checkpoint],
         hardware_config: dict,
         num_members_in_parallel: int,
+        release_cache: bool = False,
+        fcstep_const: bool = False,
         **kwargs: Any,
     ):
         """
-        Init model_comm* variables for distributed training.
+        Set up the communication group variables (filled in by the DDP strategy) and the run options.
 
         Args:
             checkpoints {"forecaster": checkpoint_object}
@@ -55,10 +61,19 @@ class BasePredictor(pl.LightningModule):
             num_members_in_parallel: int
                 Number of ensemble members in parallel. Used to track ensemble_id of each model when running
                 ensemble members in sequence.
+            release_cache
+                Release cache (torch.cuda.empty_cache()) after each prediction step. This is useful for large
+                models, but may slow down the prediction.
+            fcstep_const
+                For inference on non-rollout trained ensemble models. Keep fcstep constant at 0 as in training
+                if True.
         """
 
         super().__init__(*args, **kwargs)
         self.num_members_in_parallel = num_members_in_parallel
+        self.release_cache = release_cache
+        self.fcstep_const = fcstep_const
+        self.batch_info = {}
 
         if check_anemoi_training(checkpoints["forecaster"].metadata):
             self.legacy = False
@@ -147,28 +162,72 @@ class BasePredictor(pl.LightningModule):
         self.reader_group_rank = reader_group_rank
         self.reader_group_size = reader_group_size
 
-    @abstractmethod
-    def set_static_forcings(
-        self,
-        datareader: Iterable,
-    ) -> None:
-        pass
+    def fcstep(self, forecast_step: int) -> int:
+        """The forecast step passed to the model: 0 for all steps if fcstep_const."""
+        return 0 if self.fcstep_const else forecast_step
+
+    def allgather_batch(self, batch: tuple) -> tuple:
+        """
+        Allgather the batch-shards across the reader group.
+        """
+        return batch  # Not implemented properly, https://github.com/metno/bris-inference/issues/123
+
+    def _update_batch_info(self, time: np.datetime64) -> None:
+        """Count the forecasts initialised at ``time`` seen so far, to number the ensemble members run in sequence."""
+        self.batch_info[time] = self.batch_info.get(time, 0) + 1
 
     @abstractmethod
-    def forward(
-        self, x: torch.Tensor, **kwargs: Any
-    ) -> torch.Tensor | list[torch.Tensor]:
-        pass
+    def forecast(
+        self, batch: dict[str, torch.Tensor], time: np.datetime64
+    ) -> ForecastOutputs:
+        """
+        The forecast of one batch.
 
-    @abstractmethod
-    def advance_input_predict(
-        self,
-        x: torch.Tensor | list[torch.Tensor],
-        y_pred: torch.Tensor | list[torch.Tensor],
-        time: np.datetime64,
-    ) -> torch.Tensor:
-        pass
+        Args:
+            batch (dict): Input states per dataset, shape (batch, time, ensemble, points, variables).
+            time (np.datetime64): Time of the last input state (the start of the forecast).
+        Returns:
+            ForecastOutputs: (valid time, {dataset name: output}) per lead time, in order; each
+                output of shape (batch, points, variables) as InputBuilder.output.
+        """
 
-    @abstractmethod
+    @torch.inference_mode
     def predict_step(self, batch: tuple, batch_idx: int) -> dict:
-        pass
+        """
+        Perform a prediction step: run ``forecast`` on the batch and build its prediction dict.
+
+        Args:
+            batch (tuple): (input states per dataset, time stamps) from the dataloader.
+            batch_idx (int): Index of the batch.
+        Returns:
+            dict: The predictions, times, group rank and ensemble member, as the writer expects.
+        """
+        batch = self.allgather_batch(batch)
+        batch, time_stamp = batch
+        time = np.datetime64(time_stamp[0])
+        return self._prediction(self.forecast(batch, time))
+
+    def _prediction(self, outputs: ForecastOutputs) -> dict:
+        """
+        The return value of predict_step, as the writer expects it.
+
+        Args:
+            outputs (ForecastOutputs): The forecast, see ``forecast``.
+        """
+        times = [time for time, _ in outputs]
+        dataset_names = list(outputs[0][1].keys())
+        pred = {
+            ds: torch.stack([output[ds] for _, output in outputs], dim=1)
+            .to(torch.float32)
+            .numpy()
+            for ds in dataset_names
+        }
+        init_time = times[0]
+        self._update_batch_info(init_time)
+        return {
+            "pred": pred,
+            "times": times,
+            "group_rank": self.model_comm_group_rank,
+            "ensemble_member": self.member_id
+            + self.num_members_in_parallel * (self.batch_info[init_time] - 1),
+        }
