@@ -59,3 +59,36 @@ def test_create_config():
     assert config is not None
     assert hasattr(config, "start_date")
     assert config["start_date"] == "2022-01-01T12:34:56"
+
+
+def test_shift_date():
+    assert (
+        bris.utils.shift_date("2022-01-01T00:00:00", 6 * 3600) == "2022-01-01T06:00:00"
+    )
+    assert (
+        bris.utils.shift_date("2022-01-01T00:00:00", -6 * 3600) == "2021-12-31T18:00:00"
+    )
+    assert bris.utils.shift_date("2022-01-01T00:00:00", 0) == "2022-01-01T00:00:00"
+
+
+def test_get_interpolator_boundary_timestep_seconds():
+    from types import SimpleNamespace
+
+    with_task = SimpleNamespace(
+        config=SimpleNamespace(task=SimpleNamespace(input_timestep="6h"))
+    )
+    assert bris.utils.get_interpolator_boundary_timestep_seconds(with_task) == 21600
+    # the configured value wins
+    assert (
+        bris.utils.get_interpolator_boundary_timestep_seconds(with_task, 3600) == 3600
+    )
+
+    explicit_times = SimpleNamespace(config=SimpleNamespace(training=SimpleNamespace()))
+    assert (
+        bris.utils.get_interpolator_boundary_timestep_seconds(explicit_times, 21600)
+        == 21600
+    )
+    import pytest
+
+    with pytest.raises(ValueError, match="boundary_timestep_seconds"):
+        bris.utils.get_interpolator_boundary_timestep_seconds(explicit_times)
