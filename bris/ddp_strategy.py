@@ -174,6 +174,27 @@ class DDPGroupStrategy(DDPStrategy):
             self.ens_comm_group_size,
         )
 
+        # Set up groups of the output-writing ranks (rank 0 of each model group) within each
+        # ensemble group. These are used by the writer to reduce quantities across the ensemble
+        # members that run in parallel.
+        ens_output_group_ranks = [
+            ranks[:: self.model_comm_group_size] for ranks in ens_comm_group_ranks
+        ]
+        ens_output_groups = [
+            torch.distributed.new_group(x) for x in ens_output_group_ranks
+        ]
+        if hasattr(self.model, "set_ens_output_comm_group"):
+            self.model.set_ens_output_comm_group(ens_output_groups[ens_comm_group_id])
+        LOGGER.debug(
+            "Rank %d ens_comm_group_id: %d ens_comm_group: %s ens_comm_group_rank: %d member_id: %d ens_output_group: %s",
+            self.global_rank,
+            ens_comm_group_id,
+            str(ens_comm_group_ranks[ens_comm_group_id]),
+            ens_comm_group_rank,
+            member_id,
+            str(ens_output_group_ranks[ens_comm_group_id]),
+        )
+
         # register hooks for correct gradient reduction
         self.register_parameter_hooks()
 
