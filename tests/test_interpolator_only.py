@@ -20,7 +20,12 @@ from bris.model.runner import ModelRunner
 OUTPUT_VARIABLES = ["2t", "tp"]
 
 
-def make_predictor(interp_output_steps, interpolation_length=2, boundary_hours=6):
+def make_predictor(
+    interp_output_steps,
+    interpolation_length=2,
+    boundary_hours=6,
+    boundary_from_dataset=False,
+):
     """An InterpolatorOnly with a fake 1 h interpolator (input steps 0 and 6), built without checkpoints."""
     predictor = InterpolatorOnly.__new__(InterpolatorOnly)
     pl.LightningModule.__init__(predictor)
@@ -57,6 +62,7 @@ def make_predictor(interp_output_steps, interpolation_length=2, boundary_hours=6
         [T0 - np.timedelta64(1, "D")], ["lsm", "z", "cos_latitude"], POINTS
     )
     predictor.reforcast_last = interp_output_steps[-1] == 6
+    predictor.boundary_from_dataset = boundary_from_dataset
     return predictor
 
 
@@ -91,6 +97,19 @@ def test_interpolator_reforecasts_last():
     assert list(values[0]) == [0, 0]
     assert list(values[1:7, 0]) == [1001, 1002, 1003, 1004, 1005, 1006]
     assert list(values[7:13, 0]) == [1001, 1002, 1003, 1004, 1005, 1006]
+
+
+def test_boundary_from_dataset_replaces_the_reforecast():
+    """Output steps 1..6 with boundary_from_dataset: the right boundary comes from the dataset
+    instead of the interpolator, the other lead times are unchanged."""
+    times, values = run(
+        make_predictor([1, 2, 3, 4, 5, 6], boundary_from_dataset=True), 3
+    )
+    assert times == list(range(13))
+    assert list(values[[0, 6, 12], 0]) == [0, 10, 20]
+    assert list(values[[0, 6, 12], 1]) == [0, 5, 10]
+    assert list(values[1:6, 0]) == [1001, 1002, 1003, 1004, 1005]
+    assert list(values[7:12, 0]) == [1001, 1002, 1003, 1004, 1005]
 
 
 def test_output_variable_missing_from_dataset_is_nan():

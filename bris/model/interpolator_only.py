@@ -24,7 +24,9 @@ class InterpolatorOnly(BasePredictor):
 
     Output: lead time 0 is the first boundary state (the output variables the dataset holds, NaN
     for the others); each interval then contributes the interpolator's outputs and, unless the
-    interpolator re-forecasts the right boundary, that boundary state from the dataset.
+    interpolator re-forecasts the right boundary, that boundary state from the dataset. With
+    ``boundary_from_dataset`` the dataset state is written at the right boundary even then, in
+    place of the interpolator's re-forecast.
 
     Methods
     -------
@@ -54,7 +56,8 @@ class InterpolatorOnly(BasePredictor):
             datamodule: DataModule object for data handling.
             checkpoints_config: config.checkpoints; the interpolator needs "timestep_seconds",
                 "boundary_timestep_seconds", "leadtimes" (the number of boundary intervals
-                interpolated per forecast) and "static_forcings_dataset".
+                interpolated per forecast) and "static_forcings_dataset"; optionally
+                "boundary_from_dataset" (default False, see the class docstring).
             required_variables: Variables the outputs require, per dataset.
             release_cache: Boolean flag to release cache (default: False).
         """
@@ -98,10 +101,11 @@ class InterpolatorOnly(BasePredictor):
         self.forcing_dataset = open_dataset(config["static_forcings_dataset"])
 
         # Whether the interpolator also outputs the right boundary (then the boundary state is
-        # not written)
+        # not written, unless boundary_from_dataset)
         self.reforcast_last = (
             self.interpolator.input_steps[-1] == self.interpolator.output_steps[-1]
         )
+        self.boundary_from_dataset = bool(config.get("boundary_from_dataset", False))
 
     @staticmethod
     def _boundary_positions(
@@ -169,9 +173,11 @@ class InterpolatorOnly(BasePredictor):
         # (valid time, {dataset: output}) per lead time
         outputs = [(time, {ds: self.boundary_output(states[:, 0])})]
 
+        write_boundary = not self.reforcast_last or self.boundary_from_dataset
         with torch.autocast(device_type="cuda", dtype=torch.bfloat16):
             for interval in range(self.interpolation_length):
                 boundary_time = time + interval * self.boundary_timestep
+                right_boundary_time = boundary_time + self.boundary_timestep
                 outputs += [
                     (output_time, {ds: output})
                     for output_time, output in self.interpolator.predict_from_states(
@@ -180,11 +186,12 @@ class InterpolatorOnly(BasePredictor):
                         boundary_time,
                         model_comm_group=self.model_comm_group,
                     )
+                    if not (write_boundary and output_time == right_boundary_time)
                 ]
-                if not self.reforcast_last:
+                if write_boundary:
                     outputs.append(
                         (
-                            boundary_time + self.boundary_timestep,
+                            right_boundary_time,
                             {ds: self.boundary_output(states[:, interval + 1])},
                         )
                     )
