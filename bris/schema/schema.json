@@ -277,8 +277,8 @@
                 "static_forcings_dataset": {
                     "description": "Anemoi datasets open_dataset recipe for dataset with static forcings (e.g. z, lsm). Not required if these forcings are in the main dataset"                  
                 },
-                "boundary_from_dataset": {
-                    "description": "Interpolator run from the dataset only (no forecaster): write the dataset state at the right boundary of each interval even when the interpolator re-forecasts it (default false: the interpolator's re-forecast is used when it has one).",
+                "reforecast_boundary": {
+                    "description": "Whether an interpolator that outputs the right boundary of each interval provides that lead time (default true). false: the forecaster's output (or, without a forecaster, the dataset state) is written there and the interpolator's is dropped.",
                     "type": "boolean"
                 },
                 "boundary_timestep_seconds": {

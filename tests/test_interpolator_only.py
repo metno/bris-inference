@@ -24,7 +24,7 @@ def make_predictor(
     interp_output_steps,
     interpolation_length=2,
     boundary_hours=6,
-    boundary_from_dataset=False,
+    reforecast_boundary=True,
 ):
     """An InterpolatorOnly with a fake 1 h interpolator (input steps 0 and 6), built without checkpoints."""
     predictor = InterpolatorOnly.__new__(InterpolatorOnly)
@@ -61,8 +61,7 @@ def make_predictor(
     predictor.forcing_dataset = _Dataset(
         [T0 - np.timedelta64(1, "D")], ["lsm", "z", "cos_latitude"], POINTS
     )
-    predictor.reforcast_last = interp_output_steps[-1] == 6
-    predictor.boundary_from_dataset = boundary_from_dataset
+    predictor.reforcast_last = interp_output_steps[-1] == 6 and reforecast_boundary
     return predictor
 
 
@@ -99,11 +98,11 @@ def test_interpolator_reforecasts_last():
     assert list(values[7:13, 0]) == [1001, 1002, 1003, 1004, 1005, 1006]
 
 
-def test_boundary_from_dataset_replaces_the_reforecast():
-    """Output steps 1..6 with boundary_from_dataset: the right boundary comes from the dataset
-    instead of the interpolator, the other lead times are unchanged."""
+def test_reforecast_boundary_off_writes_the_dataset():
+    """Output steps 1..6 with reforecast_boundary False: the right boundary comes from the
+    dataset instead of the interpolator, the other lead times are unchanged."""
     times, values = run(
-        make_predictor([1, 2, 3, 4, 5, 6], boundary_from_dataset=True), 3
+        make_predictor([1, 2, 3, 4, 5, 6], reforecast_boundary=False), 3
     )
     assert times == list(range(13))
     assert list(values[[0, 6, 12], 0]) == [0, 10, 20]

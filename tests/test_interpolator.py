@@ -52,7 +52,12 @@ def _fake_interpolator(runner):
     return forward
 
 
-def make_interpolator(interp_output_steps, forecast_length=4, interpolation_length=2):
+def make_interpolator(
+    interp_output_steps,
+    forecast_length=4,
+    interpolation_length=2,
+    reforecast_boundary=True,
+):
     """An Interpolator with fake 6 h forecaster and 1 h interpolator, built without checkpoints."""
     predictor = Interpolator.__new__(Interpolator)
     pl.LightningModule.__init__(predictor)
@@ -94,7 +99,7 @@ def make_interpolator(interp_output_steps, forecast_length=4, interpolation_leng
     predictor.forcing_dataset_interp = _Dataset(
         [T0 - np.timedelta64(1, "D")], ["lsm", "z", "cos_latitude"], POINTS
     )
-    predictor.reforcast_last = interp_output_steps[-1] == 6
+    predictor.reforcast_last = interp_output_steps[-1] == 6 and reforecast_boundary
     return predictor
 
 
@@ -129,6 +134,20 @@ def test_interpolator_reforecasts_last():
     assert values[0] == 1
     assert list(values[1:7]) == [1001, 1002, 1003, 1004, 1005, 1006]
     assert list(values[7:13]) == [1001, 1002, 1003, 1004, 1005, 1006]
+    assert values[13] == 102
+
+
+def test_reforecast_boundary_off_writes_the_forecaster():
+    """Output steps 1..6 with reforecast_boundary False: the forecaster provides the right
+    boundary, the interpolator's output there is dropped."""
+    times, values = run(
+        make_interpolator([1, 2, 3, 4, 5, 6], reforecast_boundary=False)
+    )
+    assert times == [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 18]
+    assert list(values[1:6]) == [1001, 1002, 1003, 1004, 1005]
+    assert values[6] == 100
+    assert list(values[7:12]) == [1001, 1002, 1003, 1004, 1005]
+    assert values[12] == 101
     assert values[13] == 102
 
 
