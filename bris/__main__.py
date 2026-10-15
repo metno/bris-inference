@@ -1,7 +1,6 @@
 import os
 import time
 from concurrent.futures import Future
-from datetime import datetime, timedelta
 
 from anemoi.utils.dates import frequency_to_seconds
 from hydra.utils import instantiate
@@ -11,11 +10,13 @@ from bris.data.datamodule import DataModule
 
 from .checkpoint import Checkpoint
 from .inference import Inference
+from .model.interpolator_only import InterpolatorOnly
 from .utils import (
     LOGGER,
     create_config,
     get_all_leadtimes,
     get_dataset_config,
+    get_interpolator_boundary_timestep_seconds,
     get_interpolator_timestep_seconds,
     get_model_multistep_input,
     get_model_timestep,
@@ -23,6 +24,7 @@ from .utils import (
     set_base_seed,
     set_encoder_decoder_num_chunks,
     setup_logging,
+    shift_date,
 )
 from .writer import CustomWriter
 
@@ -50,21 +52,79 @@ def main(arg_list: list[str] | None = None):
 
     set_base_seed()
 
-    # Compute timestep_seconds for each checkpoint
-    config.checkpoints.forecaster.timestep = get_model_timestep(
-        checkpoints["forecaster"]
-    )
-    config.checkpoints.forecaster.timestep_seconds = frequency_to_seconds(
-        config.checkpoints.forecaster.timestep
-    )
+    if "forecaster" not in checkpoints and "interpolator" not in checkpoints:
+        raise ValueError(
+            "config.checkpoints must contain a forecaster and/or an interpolator"
+        )
+    interpolator_only = "forecaster" not in checkpoints
 
-    if "interpolator" in checkpoints:
-        config.checkpoints.interpolator.timestep_seconds = (
-            get_interpolator_timestep_seconds(
+    # The time step and the dataset window of a forecast: the forecaster's multistep input
+    # states up to the initialisation time, or, for an interpolator run from the dataset
+    # (InterpolatorOnly), the boundary states from the initialisation time on.
+    if interpolator_only:
+        interp_config = config.checkpoints.interpolator
+        interp_config.boundary_timestep_seconds = (
+            get_interpolator_boundary_timestep_seconds(
                 checkpoints["interpolator"],
-                config.checkpoints.forecaster.timestep_seconds,
+                interp_config.get("boundary_timestep_seconds"),
             )
         )
+        interp_config.timestep_seconds = get_interpolator_timestep_seconds(
+            checkpoints["interpolator"], interp_config.boundary_timestep_seconds
+        )
+        primary_checkpoint = checkpoints["interpolator"]
+        primary_timestep_seconds = interp_config.boundary_timestep_seconds
+        primary_timestep = f"{primary_timestep_seconds}s"
+        multistep = 1
+        rollout = (
+            InterpolatorOnly.num_boundary_states(
+                checkpoints["interpolator"], interp_config.leadtimes
+            )
+            - 1
+        )
+        leadtimes = get_all_leadtimes(
+            interp_config.leadtimes + 1,
+            interp_config.boundary_timestep_seconds,
+            interp_config.leadtimes,
+            interp_config.timestep_seconds,
+        )
+        LOGGER.info(
+            "Interpolator run from the dataset: %d boundary states %d s apart per forecast",
+            rollout + 1,
+            primary_timestep_seconds,
+        )
+    else:
+        config.checkpoints.forecaster.timestep = get_model_timestep(
+            checkpoints["forecaster"]
+        )
+        config.checkpoints.forecaster.timestep_seconds = frequency_to_seconds(
+            config.checkpoints.forecaster.timestep
+        )
+        if "interpolator" in checkpoints:
+            config.checkpoints.interpolator.timestep_seconds = (
+                get_interpolator_timestep_seconds(
+                    checkpoints["interpolator"],
+                    config.checkpoints.forecaster.timestep_seconds,
+                )
+            )
+        primary_checkpoint = checkpoints["forecaster"]
+        primary_timestep_seconds = config.checkpoints.forecaster.timestep_seconds
+        primary_timestep = config.checkpoints.forecaster.timestep
+        # A default of 2 to ignore multistep in start_date calculation if not set.
+        multistep = get_model_multistep_input(checkpoints["forecaster"])
+        rollout = 0
+        if "interpolator" in checkpoints:
+            leadtimes = get_all_leadtimes(
+                config.checkpoints.forecaster.leadtimes,
+                config.checkpoints.forecaster.timestep_seconds,
+                config.checkpoints.interpolator.leadtimes,
+                config.checkpoints.interpolator.timestep_seconds,
+            )
+        else:
+            leadtimes = get_all_leadtimes(
+                config.checkpoints.forecaster.leadtimes,
+                config.checkpoints.forecaster.timestep_seconds,
+            )
 
     num_members = config["hardware"].get("num_members", 1)
 
@@ -85,54 +145,35 @@ def main(arg_list: list[str] | None = None):
         num_members_in_sequence = 1
         num_members_in_parallel = num_members
 
-    # Get multistep. A default of 2 to ignore multistep in start_date calculation if not set.
-    multistep = get_model_multistep_input(checkpoints["forecaster"])
-
+    # The dataset must cover the window of every forecast: the (multistep - 1) states before
+    # the first initialisation and the rollout states after the last one.
     # If no start_date given, calculate as end_date-((multistep-1)*timestep)
     if "start_date" not in config or config.start_date is None:
-        config.start_date = datetime.strftime(
-            datetime.strptime(config.end_date, "%Y-%m-%dT%H:%M:%S")
-            - timedelta(
-                seconds=(multistep - 1) * config.checkpoints.forecaster.timestep_seconds
-            ),
-            "%Y-%m-%dT%H:%M:%S",
+        config.start_date = shift_date(
+            config.end_date, -(multistep - 1) * primary_timestep_seconds
         )
         LOGGER.warning(
             "No start_date given, setting %s based on end_date and timestep.",
             config.start_date,
         )
     else:
-        config.start_date = datetime.strftime(
-            datetime.strptime(config.start_date, "%Y-%m-%dT%H:%M:%S")
-            - timedelta(
-                seconds=(multistep - 1) * config.checkpoints.forecaster.timestep_seconds
-            ),
-            "%Y-%m-%dT%H:%M:%S",
+        config.start_date = shift_date(
+            config.start_date, -(multistep - 1) * primary_timestep_seconds
         )
+    config.end_date = shift_date(config.end_date, rollout * primary_timestep_seconds)
     # Get dataset config with backwards comapatibility for single dataset config setup
     config.datasets = get_dataset_config(config)
 
     datamodule = DataModule(
         config=config,
-        checkpoint_object=checkpoints["forecaster"],
-        timestep=config.checkpoints.forecaster.timestep,
+        checkpoint_object=primary_checkpoint,
+        timestep=primary_timestep,
         frequency=config.frequency,
         num_members_in_sequence=num_members_in_sequence,
+        multistep=multistep,
+        rollout=rollout,
     )
     # Get outputs and required_variables of each decoder
-    if hasattr(config.checkpoints, "interpolator"):
-        leadtimes = get_all_leadtimes(
-            config.checkpoints.forecaster.leadtimes,
-            config.checkpoints.forecaster.timestep_seconds,
-            config.checkpoints.interpolator.leadtimes,
-            config.checkpoints.interpolator.timestep_seconds,
-        )
-    else:
-        leadtimes = get_all_leadtimes(
-            config.checkpoints.forecaster.leadtimes,
-            config.checkpoints.forecaster.timestep_seconds,
-        )
-
     decoder_outputs = bris.routes.get(
         config["routing"],
         leadtimes,

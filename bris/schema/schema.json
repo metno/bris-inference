@@ -271,11 +271,16 @@
                     "type": "string"
                 },
                 "leadtimes": {
-                    "description": "How many leadtimes (number of forecaster rollout steps) should be interpolated in the output? Must be lower than or equal to forecaster leadtimes.",
+                    "description": "How many leadtimes (number of forecaster rollout steps) should be interpolated in the output? Must be lower than or equal to forecaster leadtimes. Without a forecaster: the number of boundary intervals (of boundary_timestep_seconds) interpolated per forecast.",
                     "type": "integer"
                 },
                 "static_forcings_dataset": {
                     "description": "Anemoi datasets open_dataset recipe for dataset with static forcings (e.g. z, lsm). Not required if these forcings are in the main dataset"                  
+                },
+                "boundary_timestep_seconds": {
+                    "description": "Interpolator run from the dataset only (no forecaster): time in seconds between the boundary states read from the dataset, e.g. 21600 for 6 h. Default: the checkpoint's task.input_timestep.",
+                    "type": "integer",
+                    "minimum": 1
                 },
                 "switch_graph":{
                     "description": "Optional, full path to graph file (.pt). Used to run inference for a different graph than the one used to train the model.",
@@ -295,7 +300,7 @@
             "format": "date-time"
         },
         "checkpoints": {
-            "description": "Dictionairy with checkpoints for different tasks.",
+            "description": "Dictionary with checkpoints for different tasks: a forecaster (optionally with an interpolator), or an interpolator alone, run between boundary states read from the dataset (bris.model.InterpolatorOnly).",
             "type": "object",
             "properties": {
                 "forecaster": {
@@ -304,8 +309,7 @@
                 "interpolator": {
                     "$ref": "#/$defs/Interpolator"
                 }
-            },
-            "required": ["forecaster"]
+            }
         },
         "frequency": {
             "description": "How often to make forecast runs? E.g. 6h",

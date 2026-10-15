@@ -7,6 +7,7 @@ import time
 import uuid
 from argparse import ArgumentParser
 from collections.abc import Iterable
+from datetime import datetime, timedelta
 from typing import Any
 
 import jsonschema
@@ -389,4 +390,39 @@ def get_interpolator_timestep_seconds(
 
     raise AttributeError(
         "Could not find interpolator timestep in checkpoint.config.training.explicit_times or checkpoint.config.task.output_timestep"
+    )
+
+
+DATE_FORMAT = "%Y-%m-%dT%H:%M:%S"
+
+
+def shift_date(date: str, seconds: int) -> str:
+    """``date`` (YYYY-mm-ddTHH:MM:SS) shifted by ``seconds``, in the same format."""
+    return datetime.strftime(
+        datetime.strptime(date, DATE_FORMAT) + timedelta(seconds=seconds), DATE_FORMAT
+    )
+
+
+def get_interpolator_boundary_timestep_seconds(
+    checkpoint: Checkpoint, configured: int | None = None
+) -> int:
+    """
+    The time between the boundary states an interpolator is run between when they are read
+    from a dataset (bris.model.InterpolatorOnly): the configured value
+    (checkpoints.interpolator.boundary_timestep_seconds) or, for a checkpoint trained with an
+    input time step (checkpoint.config.task.input_timestep), that.
+    """
+    if configured is not None:
+        return int(configured)
+
+    try:
+        td = timedelta64_from_timestep(checkpoint.config.task.input_timestep)
+        return int(td / np.timedelta64(1, "s"))
+    except AttributeError:
+        pass
+
+    raise ValueError(
+        "Set checkpoints.interpolator.boundary_timestep_seconds, the time between the boundary "
+        "states read from the dataset (e.g. 21600 for 6 h): the checkpoint has no "
+        "task.input_timestep to take it from"
     )
