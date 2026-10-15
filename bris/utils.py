@@ -8,7 +8,7 @@ import uuid
 from argparse import ArgumentParser
 from collections.abc import Iterable
 from datetime import datetime, timedelta
-from typing import Any
+from typing import Any, NamedTuple
 
 import jsonschema
 import numpy as np
@@ -16,6 +16,7 @@ import torch
 import yaml
 from anemoi.models.data_indices.index import DataIndex, ModelIndex
 from anemoi.utils.config import DotDict
+from anemoi.utils.dates import frequency_to_seconds
 from omegaconf import DictConfig, ListConfig, OmegaConf
 
 from .checkpoint import Checkpoint
@@ -425,4 +426,160 @@ def get_interpolator_boundary_timestep_seconds(
         "Set checkpoints.interpolator.boundary_timestep_seconds, the time between the boundary "
         "states read from the dataset (e.g. 21600 for 6 h): the checkpoint has no "
         "task.input_timestep to take it from"
+    )
+
+
+def get_interpolator_interp_times(checkpoint: Checkpoint) -> list[int]:
+    try:
+        return checkpoint.config.training.explicit_times.target
+    except AttributeError:
+        pass
+
+    try:
+        input_td = timedelta64_from_timestep(checkpoint.config.task.input_timestep)
+        output_td = timedelta64_from_timestep(checkpoint.config.task.output_timestep)
+        input_seconds = input_td / np.timedelta64(1, "s")
+        output_seconds = output_td / np.timedelta64(1, "s")
+
+        n = int(input_seconds // output_seconds)
+
+        indices = list(range(0, n + 1))
+
+        if not checkpoint.config.task.output_left_boundary:
+            indices = indices[1:]
+        if not checkpoint.config.task.output_right_boundary:
+            indices = indices[:-1]
+        return indices
+    except AttributeError:
+        pass
+
+    raise AttributeError("Could not find interp_times in Interpolator checkpoint.")
+
+
+def get_interpolator_boundary_times(checkpoint: Checkpoint) -> list[int]:
+    try:
+        return checkpoint.config.training.explicit_times.input
+    except AttributeError:
+        pass
+
+    try:
+        input_td = timedelta64_from_timestep(checkpoint.config.task.input_timestep)
+        output_td = timedelta64_from_timestep(checkpoint.config.task.output_timestep)
+        input_seconds = input_td / np.timedelta64(1, "s")
+        output_seconds = output_td / np.timedelta64(1, "s")
+
+        n = int(input_seconds // output_seconds)
+
+        return [0, n]
+
+    except AttributeError:
+        pass
+
+    raise AttributeError("Could not find boundary_times in Interpolator checkpoint.")
+
+
+def get_interpolator_boundary_states(
+    checkpoint: Checkpoint, interpolation_length: int
+) -> int:
+    """
+    The boundary states an interpolator run from the dataset (bris.model.InterpolatorOnly)
+    needs per forecast of ``interpolation_length`` intervals: the input states of one call for
+    the first interval, then one more per further interval.
+    """
+    return interpolation_length + len(get_interpolator_boundary_times(checkpoint)) - 1
+
+
+class RunWindow(NamedTuple):
+    """
+    The dataset window of a forecast and the output lead times, set by the forecaster or,
+    without one, by the interpolator run from the dataset (bris.model.InterpolatorOnly).
+    """
+
+    checkpoint: Checkpoint
+    """The primary checkpoint: its graph defines the grid of the batches."""
+    timestep: str
+    """Time between the states of a batch (frequency string)."""
+    timestep_seconds: int
+    multistep: int
+    """States up to and including the initialisation time."""
+    rollout: int
+    """States after the initialisation time."""
+    leadtimes: np.ndarray
+    """Output lead times in seconds."""
+
+
+def get_run_window(config: DictConfig, checkpoints: dict[str, Checkpoint]) -> RunWindow:
+    """
+    The RunWindow of a run from its checkpoints. Also fills in the derived time steps of
+    ``config.checkpoints`` that the predictors read: the forecaster's ``timestep`` and
+    ``timestep_seconds``, the interpolator's ``timestep_seconds`` and, without a forecaster,
+    ``boundary_timestep_seconds``.
+    """
+    if "forecaster" in checkpoints:
+        forecaster = config.checkpoints.forecaster
+        forecaster.timestep = get_model_timestep(checkpoints["forecaster"])
+        forecaster.timestep_seconds = frequency_to_seconds(forecaster.timestep)
+        checkpoint = checkpoints["forecaster"]
+        timestep, timestep_seconds = forecaster.timestep, forecaster.timestep_seconds
+        multistep, rollout = get_model_multistep_input(checkpoint), 0
+        steps = forecaster.leadtimes
+    elif "interpolator" in checkpoints:
+        # The boundary states read from the dataset take the forecaster steps' place
+        interpolator = config.checkpoints.interpolator
+        interpolator.boundary_timestep_seconds = (
+            get_interpolator_boundary_timestep_seconds(
+                checkpoints["interpolator"],
+                interpolator.get("boundary_timestep_seconds"),
+            )
+        )
+        checkpoint = checkpoints["interpolator"]
+        timestep_seconds = interpolator.boundary_timestep_seconds
+        timestep = f"{timestep_seconds}s"
+        multistep = 1
+        rollout = (
+            get_interpolator_boundary_states(checkpoint, interpolator.leadtimes) - 1
+        )
+        steps = interpolator.leadtimes + 1
+    else:
+        raise ValueError(
+            "config.checkpoints must contain a forecaster and/or an interpolator"
+        )
+
+    if "interpolator" in checkpoints:
+        interpolator = config.checkpoints.interpolator
+        interpolator.timestep_seconds = get_interpolator_timestep_seconds(
+            checkpoints["interpolator"], timestep_seconds
+        )
+        leadtimes = get_all_leadtimes(
+            steps,
+            timestep_seconds,
+            interpolator.leadtimes,
+            interpolator.timestep_seconds,
+        )
+    else:
+        leadtimes = get_all_leadtimes(steps, timestep_seconds)
+
+    return RunWindow(
+        checkpoint, timestep, timestep_seconds, multistep, rollout, leadtimes
+    )
+
+
+def set_dataset_dates(config: DictConfig, window: RunWindow) -> None:
+    """
+    Widen ``config.start_date`` and ``config.end_date`` (the first and last initialisation,
+    start_date defaulting to end_date) to the dataset window of every forecast: the
+    ``multistep - 1`` states before the first initialisation and the ``rollout`` states
+    after the last one.
+    """
+    if "start_date" not in config or config.start_date is None:
+        config.start_date = config.end_date
+        LOGGER.warning(
+            "No start_date given, using end_date %s (a single initialisation).",
+            config.end_date,
+        )
+    config.start_date = shift_date(
+        config.start_date, -(window.multistep - 1) * window.timestep_seconds
+    )
+    config.end_date = shift_date(
+        config.end_date, window.rollout * window.timestep_seconds
     )

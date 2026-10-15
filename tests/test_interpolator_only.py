@@ -1,7 +1,5 @@
 """InterpolatorOnly.forecast: the interpolator between boundary states read from the dataset, with a fake model."""
 
-from types import SimpleNamespace
-
 import numpy as np
 import pytest
 import pytorch_lightning as pl
@@ -113,15 +111,3 @@ def test_wrong_number_of_boundary_states():
 def test_boundary_timestep_must_match_input_steps():
     with pytest.raises(ValueError, match="boundary_timestep_seconds"):
         make_predictor([1, 2, 3, 4, 5], boundary_hours=3)
-
-
-def test_num_boundary_states():
-    checkpoint = SimpleNamespace(
-        config=SimpleNamespace(
-            training=SimpleNamespace(
-                explicit_times=SimpleNamespace(input=[0, 6], target=[1, 2, 3, 4, 5, 6])
-            )
-        )
-    )
-    assert InterpolatorOnly.num_boundary_states(checkpoint, 5) == 6
-    assert InterpolatorOnly.num_boundary_states(checkpoint, 1) == 2

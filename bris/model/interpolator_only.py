@@ -17,8 +17,8 @@ class InterpolatorOnly(BasePredictor):
     Temporal interpolator run between boundary states read from the dataset, without a forecaster.
 
     Each batch holds the boundary states of one forecast: the dataset state at the initialisation
-    time and the following ones, ``boundary_timestep`` apart (``num_boundary_states`` of them,
-    the DataModule's window). The interpolator is run between consecutive boundary states exactly
+    time and the following ones, ``boundary_timestep`` apart (the DataModule's window,
+    utils.get_interpolator_boundary_states of them). The interpolator is run between consecutive boundary states exactly
     as in Interpolator, where they are the forecaster's states. This evaluates the interpolator on
     its own, e.g. from an analysis.
 
@@ -30,8 +30,6 @@ class InterpolatorOnly(BasePredictor):
     -------
 
     __init__
-
-    num_boundary_states: The dataset states one forecast needs (for the DataModule's window).
 
     boundary_output: The required output variables of a dataset state.
 
@@ -106,17 +104,6 @@ class InterpolatorOnly(BasePredictor):
         )
 
     @staticmethod
-    def num_boundary_states(checkpoint: Checkpoint, interpolation_length: int) -> int:
-        """
-        The boundary states one forecast of ``interpolation_length`` intervals needs from the
-        dataset: the input states of one interpolator call for the first interval, then one more
-        per further interval.
-        """
-        return (
-            interpolation_length + len(get_interpolator_boundary_times(checkpoint)) - 1
-        )
-
-    @staticmethod
     def _boundary_positions(
         output_variables: list, dataset_variables: list
     ) -> tuple[list[int], list[int]]:
@@ -175,7 +162,7 @@ class InterpolatorOnly(BasePredictor):
         if states.shape[1] != expected:
             raise ValueError(
                 f"Expected {expected} boundary states per batch, got {states.shape[1]}: the "
-                "DataModule window must be InterpolatorOnly.num_boundary_states"
+                "DataModule window must be get_interpolator_boundary_states"
             )
 
         self.builder.set_static_forcings_from_dataset(self.forcing_dataset, time)
