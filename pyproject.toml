@@ -41,7 +41,8 @@ dependencies = [
     "torch_geometric>=2.3.1", # Same as anemoi-core
     "torchinfo>=1.8.0",
     "tqdm>=4.67.1",
-    "zarr>=2.14.2",
+    "zarr<=2.18.7",
+    "numcodecs<0.16",
     "pyshtools>=4.13.0"
 ]
 

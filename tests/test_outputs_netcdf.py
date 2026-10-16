@@ -196,6 +196,49 @@ def test_ensemble():
             assert "altitude" in file.variables
 
 
+def test_ensemble_streaming():
+    """Members are written one at a time from the intermediate files; a member that was
+    never added stays missing and the others keep their values"""
+    variables = ["2t", "10u", "10v", "tp"]
+    lats = np.array([59.0, 59.0, 60.0, 60.0])
+    lons = np.array([10.0, 11.0, 10.0, 11.0])
+    altitudes = np.array([10.0, 20.0, 30.0, 40.0])
+    leadtimes = np.arange(0, 3600 * 3, 3600)
+    num_members = 3
+    field_shape = [2, 2]
+    pm = PredictMetadata(
+        variables, lats, lons, altitudes, leadtimes, num_members, field_shape
+    )
+
+    rng = np.random.default_rng(1)
+    pred = rng.random(pm.shape + [num_members]).astype(np.float32)
+    frt = 1672552800
+    times = frt + leadtimes
+
+    with tempfile.TemporaryDirectory() as temp_dir:
+        pattern = os.path.join(temp_dir, "test_%Y%m%dT%HZ.nc")
+        workdir = os.path.join(temp_dir, "work")
+        output = Netcdf(pm, workdir, pattern, variables=["10u", "tp"])
+
+        for member in [0, 2]:
+            output.add_forecast(times, member, pred[..., member])
+        output.finalize()
+
+        # Intermediate files are removed after writing
+        assert not os.path.exists(workdir)
+
+        output_filename = os.path.join(temp_dir, "test_20230101T06Z.nc")
+        with xr.open_dataset(output_filename) as file:
+            u = file["x_wind_10m"]
+            assert u.dims == ("time", "height", "ensemble_member", "y", "x")
+            assert u.shape == (3, 1, 3, 2, 2)
+            assert np.all(np.isnan(u.values[:, :, 1, ...]))
+            for member in [0, 2]:
+                expected = np.reshape(pred[:, :, 1, member], (3, 2, 2))
+                assert np.array_equal(u.values[:, 0, member, ...], expected)
+            assert u.attrs["units"] == "m/s"
+
+
 def test_domain_name():
     variables = ["u_800", "u_600", "2t", "v_500", "10u"]
     lats = np.array([1, 2])

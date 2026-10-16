@@ -1,8 +1,10 @@
 import datetime
 import time as pytime
+from collections.abc import Callable
 from functools import cached_property
 
 import gridpp
+import netCDF4
 import numpy as np
 import xarray as xr
 
@@ -159,15 +161,27 @@ class Netcdf(Output):
         """Function to easily convert from cf names to conventions"""
         return self.conventions.get_name(x)
 
-    def write(self, filename: str, times: list[np.datetime64], pred: np.ndarray):
+    def write(
+        self,
+        filename: str,
+        times: list[np.datetime64],
+        pred: np.ndarray | Callable[[int], np.ndarray | None],
+    ):
         """Write prediction to NetCDF
+
+        The file is written in two steps: the coordinates, grid definition and attributes
+        are written with xarray, then the prediction variables are created with netCDF4 and
+        filled one ensemble member and one variable at a time. Only one member's fields
+        are ever held in memory, so large ensembles can be written.
+
         Args:
             times: List of np.datetime64 objects that this forecast is for
-            pred: 4D numpy array with dimensions (leadtimes, points, variables, members)
+            pred: 4D numpy array with dimensions (leadtimes, points, variables, members), or
+                a callable taking an ensemble member index and returning that member's 3D
+                array (leadtimes, points, variables), or None if the member is missing.
         """
 
         coords = {}
-        self.nc_encoding: dict[str, dict[str, bool]] = {}
         x: np.ndarray | None = None
         y: np.ndarray | None = None
 
@@ -311,9 +325,15 @@ class Netcdf(Output):
                 self._not_gridded_not_masked(spatial_dims)
 
         self._set_projection_info()
-        self._setup_prediction_vars(spatial_dims, times, x, y, pred)
         self._set_attrs()
-        self._write_file(filename)
+        self._write_skeleton(filename)
+
+        def get_member(m: int, _pred=pred) -> np.ndarray | None:
+            return _pred[..., m]
+
+        if callable(pred):
+            get_member = pred
+        self._write_prediction_vars(filename, spatial_dims, times, x, y, get_member)
 
     def _not_gridded_masked(self, spatial_dims: tuple, x, y):
         t0 = pytime.perf_counter()
@@ -453,8 +473,16 @@ class Netcdf(Output):
         )
         return e_x, n_x, e_y, n_y
 
-    def _rotate_fields_to_proj(self, pred, x, y) -> np.ndarray:
+    def _rotate_fields(self, sub: np.ndarray, columns: dict[str, int]) -> None:
+        """Rotate wind components from east/north to projected coordinates, in place
+
+        Args:
+            sub: 3D array (leadtimes, points, columns) for one ensemble member
+            columns: anemoi variable name -> column index in sub
+        """
         for u_field, v_field in self.conventions.fields_to_rotate:
+            if u_field not in columns or v_field not in columns:
+                continue
             if (
                 u_field not in self.extract_variables
                 or v_field not in self.extract_variables
@@ -464,133 +492,187 @@ class Netcdf(Output):
             # Cached property so this will be computed only once
             e_x, n_x, e_y, n_y = self.get_projection_rotation_matrices
 
-            u_field_index = self.pm.variables.index(u_field)
-            v_field_index = self.pm.variables.index(v_field)
-            for leadtime in range(self.pm.num_leadtimes):
-                for member in range(self.pm.num_members):
-                    u_values = pred[leadtime, :, u_field_index, member]
-                    v_values = pred[leadtime, :, v_field_index, member]
+            u_values = sub[:, :, columns[u_field]]
+            v_values = sub[:, :, columns[v_field]]
+            x_values = e_x * u_values + n_x * v_values
+            y_values = e_y * u_values + n_y * v_values
+            sub[:, :, columns[u_field]] = x_values
+            sub[:, :, columns[v_field]] = y_values
 
-                    x_values = e_x * u_values + n_x * v_values
-                    y_values = e_y * u_values + n_y * v_values
+    def _source_variable(self, variable: str) -> str:
+        """The anemoi variable a (possibly accumulated) output variable is computed from"""
+        if variable in self.accumulated_variables:
+            return variable.removesuffix("_acc")
+        return variable
 
-                    pred[leadtime, :, u_field_index, member] = x_values
-                    pred[leadtime, :, v_field_index, member] = y_values
+    def _member_columns(self) -> dict[str, int]:
+        """Which model variables are needed, and their column in the per-member array"""
+        names = []
+        for variable in self.extract_variables:
+            name = self._source_variable(variable)
+            if name not in names:
+                names.append(name)
+        return {name: i for i, name in enumerate(names)}
 
-        return pred
+    def _extract_columns(
+        self, pred_m: np.ndarray, columns: dict[str, int]
+    ) -> np.ndarray:
+        """Reads the needed variables of one member into a 3D array (leadtimes, points, columns)
 
-    def _setup_prediction_vars(
+        pred_m may be a memory-mapped intermediate file; only the needed variables are read.
+        """
+        indices = [self.pm.variables.index(name) for name in columns]
+        sub = np.asarray(pred_m[:, :, indices], dtype=np.float32)
+        assert sub.shape == (self.pm.num_leadtimes, self.pm.num_points, len(indices)), (
+            sub.shape
+        )
+        return sub
+
+    def _prepare_variable(
         self,
+        variable: str,
+        sub: np.ndarray,
+        columns: dict[str, int],
+        spatial_shape: tuple,
+        interp: tuple | None,
+    ) -> np.ndarray:
+        """One output variable for one member: on the output grid, accumulated if needed, in
+        CF units. Returns an array with dimensions (time, y, x) or (time, location)."""
+        curr = sub[:, :, columns[self._source_variable(variable)]]
+
+        if self._interpolate:
+            ipoints, ogrid = interp
+            ar = np.asarray(gridpp.nearest(ipoints, ogrid, curr), dtype=np.float32)
+        elif self._is_masked:
+            ar = np.nan * np.zeros((len(curr),) + spatial_shape, np.float32)
+            # Reconstruct the 2D array (nans where no data)
+            ar[:, self.mask] = curr
+        else:
+            ar = np.reshape(curr, (len(curr),) + spatial_shape)
+
+        if variable in self.accumulated_variables:
+            # Accumulate over lead times
+            ar = np.cumsum(np.nan_to_num(ar, nan=0), axis=0)
+
+        # Unit conversion from anemoi to CF
+        cfname = cf.get_metadata(variable)["cfname"]
+        attrs = cf.get_attributes(cfname)
+        from_units = anemoi_conventions.get_units(variable)
+        if "units" in attrs:
+            to_units = attrs["units"]
+            ar, _ = bris.units.convert(ar, from_units, to_units, inplace=False)
+
+        return np.asarray(ar, dtype=np.float32)
+
+    def _variable_attrs(self, variable: str) -> dict:
+        cfname = cf.get_metadata(variable)["cfname"]
+        attrs = dict(cf.get_attributes(cfname))
+        attrs["grid_mapping"] = "projection"
+        attrs["coordinates"] = "latitude longitude"
+        return attrs
+
+    def _write_skeleton(self, filename: str) -> None:
+        """Write coordinates, grid definition and global attributes (no prediction data)"""
+        t0 = pytime.perf_counter()
+        utils.create_directory(filename)
+
+        utils.LOGGER.debug(f"netcdf._write_skeleton writing to {filename}")
+        self.ds.to_netcdf(
+            filename,
+            mode="w",
+            engine="netcdf4",
+            unlimited_dims=["time"],
+        )
+        utils.LOGGER.debug(
+            f"netcdf._write_skeleton done in {pytime.perf_counter() - t0:.1f}s"
+        )
+
+    def _write_prediction_vars(
+        self,
+        filename: str,
         spatial_dims: tuple,
         times: list,
         x: np.ndarray | None,
         y: np.ndarray | None,
-        pred: np.ndarray,
-    ):
-        """Set up all prediction variables"""
+        get_member: Callable[[int], np.ndarray | None],
+    ) -> None:
+        """Create the prediction variables in the file and fill them member by member"""
         t0 = pytime.perf_counter()
-        # Rotate winds if needed
-        if self.proj4_str is not None:
-            self._rotate_fields_to_proj(pred, x, y)
+        ensemble = self.pm.num_members > 1
+        time_dim = self.conv_name("time")
+        member_dim = self.conv_name("ensemble_member")
+        if self._is_gridded or self._is_masked:
+            spatial_shape = (len(y), len(x))
+        else:
+            spatial_shape = (len(y),)
 
-        for variable in self.extract_variables:
-            t1 = pytime.perf_counter()
-            if variable in self.accumulated_variables:
-                variable_index = self.pm.variables.index(variable.removesuffix("_acc"))
-            else:
-                variable_index = self.pm.variables.index(variable)
+        interp = None
+        if self._interpolate:
+            ipoints = gridpp.Points(self.pm.lats, self.pm.lons)
+            yy, xx = np.meshgrid(y, x)
+            ogrid = gridpp.Grid(yy.transpose(), xx.transpose())
+            interp = (ipoints, ogrid)
 
-            level_index = self.variable_list.get_level_index(variable)
-            ncname = self.variable_list.get_ncname_from_anemoi_name(variable)
-            if self.compression:
-                self.nc_encoding[ncname] = {"zlib": True}
+        columns = self._member_columns()
 
-            if ncname not in self.ds:
+        with netCDF4.Dataset(filename, "a") as nc:
+            # Define the variables. Chunks hold one (time, level, member) slice of the
+            # field, which is how the data is written.
+            for variable in self.extract_variables:
+                ncname = self.variable_list.get_ncname_from_anemoi_name(variable)
+                if ncname in nc.variables:
+                    continue
                 dim_name = self.variable_list.get_level_dimname(ncname)
+                dims = [time_dim]
+                chunks = [1]
                 if dim_name is not None:
-                    dims = [
-                        self.conv_name("time"),
-                        dim_name,
-                        *spatial_dims,
-                    ]
-                    if self._is_gridded or self._is_masked:
-                        shape = [len(times), len(self.ds[dim_name]), len(y), len(x)]
-                    else:
-                        shape = [len(times), len(self.ds[dim_name]), len(y)]
-                else:
-                    dims = [self.conv_name("time"), *spatial_dims]
-                    if self._is_gridded or self._is_masked:
-                        shape = [len(times), len(y), len(x)]
-                    else:
-                        shape = [len(times), len(y)]
-
-                if self.pm.num_members > 1:
-                    # We want the ensemble member dimension to be after height (if height exists)
-                    # I.e. we want (time, height, member, y, x) or (time, member, y, x)
-                    ens_dim_loc = 1 + (dim_name is not None)
-
-                    dims.insert(ens_dim_loc, self.conv_name("ensemble_member"))
-                    shape.insert(ens_dim_loc, self.pm.num_members)
-
-                ar = np.nan * np.zeros(shape, np.float32)
-                self.ds[ncname] = (dims, ar)
-
-            if self._is_gridded or self._is_masked:
-                shape = [len(times), len(y), len(x), self.pm.num_members]
-            else:
-                shape = [len(times), len(y), self.pm.num_members]
-
-            if self._interpolate:
-                ipoints = gridpp.Points(self.pm.lats, self.pm.lons)
-                yy, xx = np.meshgrid(y, x)
-                ogrid = gridpp.Grid(yy.transpose(), xx.transpose())
-
-                curr = pred[..., variable_index, :]
-                ar = np.nan * np.zeros(
-                    [len(times), len(y), len(x), self.pm.num_members], np.float32
+                    dims.append(dim_name)
+                    chunks.append(1)
+                if ensemble:
+                    dims.append(member_dim)
+                    chunks.append(1)
+                dims += list(spatial_dims)
+                chunks += list(spatial_shape)
+                var = nc.createVariable(
+                    ncname,
+                    "f4",
+                    dims,
+                    zlib=self.compression,
+                    fill_value=np.float32(np.nan),
+                    chunksizes=chunks,
                 )
-                for i in range(self.pm.num_members):
-                    ar[:, :, :, i] = gridpp.nearest(ipoints, ogrid, curr[:, :, i])
-            elif self._is_masked:
-                curr = pred[..., variable_index, :]
-                ar = np.nan * np.zeros(
-                    [len(times), len(y), len(x), self.pm.num_members], np.float32
+                var.setncatts(self._variable_attrs(variable))
+
+            for m in range(self.pm.num_members):
+                t1 = pytime.perf_counter()
+                pred_m = get_member(m)
+                if pred_m is None:
+                    utils.LOGGER.warning(
+                        f"netcdf: no data for ensemble member {m}, leaving it missing"
+                    )
+                    continue
+                sub = self._extract_columns(pred_m, columns)
+                del pred_m
+                if self.proj4_str is not None:
+                    self._rotate_fields(sub, columns)
+
+                for variable in self.extract_variables:
+                    ar = self._prepare_variable(
+                        variable, sub, columns, spatial_shape, interp
+                    )
+                    ncname = self.variable_list.get_ncname_from_anemoi_name(variable)
+                    level_index = self.variable_list.get_level_index(variable)
+                    index: list = [slice(None)]
+                    if level_index is not None:
+                        index.append(level_index)
+                    if ensemble:
+                        index.append(m)
+                    nc.variables[ncname][tuple(index)] = ar
+                utils.LOGGER.debug(
+                    f"netcdf._write_prediction_vars member {m} in {pytime.perf_counter() - t1:.1f}s"
                 )
-                # Reconstruct the 2D array (nans where no data)
-                ar[:, self.mask, :] = curr
-            else:
-                ar = np.reshape(pred[..., variable_index, :], shape)
-
-            if variable in self.accumulated_variables:
-                # Accumulate over lead times
-                ar = np.cumsum(np.nan_to_num(ar, nan=0), axis=0)
-
-            # Rearrange to (time, member, y, [x]) or (time, y, [x])
-            ar = np.moveaxis(ar, [-1], [1]) if self.pm.num_members > 1 else ar[..., 0]
-
-            cfname = cf.get_metadata(variable)["cfname"]
-            attrs = cf.get_attributes(cfname)
-
-            # Unit conversion from anemoi to CF
-            from_units = anemoi_conventions.get_units(variable)
-            if "units" in attrs:
-                to_units = attrs["units"]
-                ar, _ = bris.units.convert(ar, from_units, to_units, inplace=False)
-
-            if level_index is not None:
-                self.ds[ncname][:, level_index, ...] = ar
-            else:
-                self.ds[ncname][:] = ar
-
-            # Add variable attributes
-            attrs["grid_mapping"] = "projection"
-            attrs["coordinates"] = "latitude longitude"
-            self.ds[ncname].attrs = attrs
-            utils.LOGGER.debug(
-                f"netcdf._setup_prediction_vars variable <{variable}> in {pytime.perf_counter() - t1:.1f}s"
-            )
         utils.LOGGER.debug(
-            f"netcdf._setup_prediction_vars done in {pytime.perf_counter() - t0:.1f}s"
+            f"netcdf._write_prediction_vars done in {pytime.perf_counter() - t0:.1f}s"
         )
 
     def _set_attrs(self) -> None:
@@ -624,27 +706,23 @@ class Netcdf(Output):
         t0 = pytime.perf_counter()
 
         if self.pm.num_members > 1:
-            # Load data from the intermediate and write to disk
+            # Load data from the intermediate and write to disk, one member at a time
             forecast_reference_times = self.intermediate.get_forecast_reference_times()
             for forecast_reference_time in forecast_reference_times:
-                # Arange all ensemble members
-                t1 = pytime.perf_counter()
-                pred = np.zeros(self.pm.shape + [self.pm.num_members], np.float32)
-                for m in range(self.pm.num_members):
-                    curr = self.intermediate.get_forecast(forecast_reference_time, m)
-                    if curr is not None:
-                        pred[..., m] = curr
-                utils.LOGGER.debug(
-                    f"netcdf Arange all ensemble members (inc intermediate.get_forecast) in {pytime.perf_counter() - t1:.1f}s"
-                )
-
                 time = forecast_reference_time.astype("datetime64[s]").astype("int")
                 filename = self.get_filename(time)
                 lead_times = [
                     forecast_reference_time + lt
                     for lt in self.intermediate.pm.leadtimes
                 ]
-                self.write(filename, lead_times, pred)
+
+                def get_member(
+                    m: int, frt=forecast_reference_time
+                ) -> np.ndarray | None:
+                    # Memory-mapped, so only the variables written are read from disk
+                    return self.intermediate.get_forecast(frt, m, mmap_mode="r")
+
+                self.write(filename, lead_times, get_member)
 
             if self.remove_intermediate:
                 self.intermediate.cleanup()
