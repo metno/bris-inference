@@ -251,15 +251,13 @@
                     "type": "integer",
                     "minimum": 1
                 },
-                "static_forcings_dataset": {
-                    "description": "Anemoi datasets open_dataset recipe for dataset with static forcings (e.g. z, lsm). Not required if these forcings are in the main dataset"                  
-                },
                 "switch_graph":{
                     "description": "Optional, full path to graph file (.pt). Used to run inference for a different graph than the one used to train the model.",
                     "type": ["string", "null"]
                 }
             },
-            "required": ["checkpoint_path", "leadtimes"]
+            "required": ["checkpoint_path", "leadtimes"],
+            "additionalProperties": false
         },
 
         "Interpolator": {
