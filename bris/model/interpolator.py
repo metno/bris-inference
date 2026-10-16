@@ -6,6 +6,7 @@ from ..checkpoint import Checkpoint
 from ..data.datamodule import DataModule
 from .basepredictor import BasePredictor, ForecastOutputs
 from .model_utils import (
+    check_interpolator_geometry,
     get_interpolator_boundary_times,
     get_interpolator_interp_times,
     resolve_reforecast_last,
@@ -21,7 +22,8 @@ class Interpolator(BasePredictor):
     ``interpolation_length`` forecaster steps the interpolator fills in the lead times between
     the boundary states (the last forecaster states, in physical units). An interpolator that
     also outputs the right boundary provides that lead time instead of the forecaster, unless
-    the model option ``reforecast_last`` is False.
+    the model option ``reforecast_last`` is False; its output at the left boundary is never
+    written (that state is already provided, by the initial state or the previous interval).
 
     The checkpoints' properties (time steps, input/output steps, dataset names, indices,
     processors) live on ``self.forecaster`` and ``self.interpolator`` (ModelRunners); this
@@ -123,6 +125,9 @@ class Interpolator(BasePredictor):
             checkpoints_config["interpolator"]["static_forcings_dataset"]
         )
 
+        check_interpolator_geometry(
+            self.interpolator.input_steps, self.interpolator.output_steps
+        )
         # Whether the interpolator provides the right boundary of each interval (then the
         # forecaster's output at that time is not written)
         self.reforecast_last = resolve_reforecast_last(
@@ -191,7 +196,8 @@ class Interpolator(BasePredictor):
 
                 interpolated = forecast_step < self.interpolation_length
                 if interpolated:
-                    # The interpolator's output at the right boundary is dropped when the
+                    # The interpolator's output at the left boundary is always dropped (the
+                    # state is already written), the one at the right boundary when the
                     # forecaster provides it
                     outputs += [
                         (output_time, {ds: output})
@@ -201,7 +207,8 @@ class Interpolator(BasePredictor):
                             time,
                             model_comm_group=self.model_comm_group,
                         )
-                        if self.reforecast_last or output_time != next_time
+                        if output_time != time
+                        and (self.reforecast_last or output_time != next_time)
                     ]
                 if not (interpolated and self.reforecast_last):
                     outputs.append((next_time, {ds: builder.output(y_physical)}))

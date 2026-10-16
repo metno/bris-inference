@@ -83,15 +83,30 @@ def test_get_interpolator_boundary_timestep_seconds():
         bris.utils.get_interpolator_boundary_timestep_seconds(with_task, 3600) == 3600
     )
 
-    explicit_times = SimpleNamespace(config=SimpleNamespace(training=SimpleNamespace()))
+    # explicit input times are in units of the training data's time step ...
+    explicit_times = SimpleNamespace(
+        config=SimpleNamespace(
+            training=SimpleNamespace(explicit_times=SimpleNamespace(input=[0, 6])),
+            data=SimpleNamespace(timestep="1h", frequency="1h"),
+        )
+    )
+    assert (
+        bris.utils.get_interpolator_boundary_timestep_seconds(explicit_times) == 21600
+    )
+    # ... or of its frequency when there is no time step
+    explicit_times.config.data = SimpleNamespace(frequency="3h")
+    assert (
+        bris.utils.get_interpolator_boundary_timestep_seconds(explicit_times) == 64800
+    )
     assert (
         bris.utils.get_interpolator_boundary_timestep_seconds(explicit_times, 21600)
         == 21600
     )
     import pytest
 
+    no_times = SimpleNamespace(config=SimpleNamespace(training=SimpleNamespace()))
     with pytest.raises(ValueError, match="boundary_timestep_seconds"):
-        bris.utils.get_interpolator_boundary_timestep_seconds(explicit_times)
+        bris.utils.get_interpolator_boundary_timestep_seconds(no_times)
 
 
 def _checkpoint(**config):

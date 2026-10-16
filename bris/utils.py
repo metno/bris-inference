@@ -410,8 +410,10 @@ def get_interpolator_boundary_timestep_seconds(
     """
     The time between the boundary states an interpolator is run between when they are read
     from a dataset (bris.model.InterpolatorOnly): the configured value
-    (checkpoints.interpolator.boundary_timestep_seconds) or, for a checkpoint trained with an
-    input time step (checkpoint.config.task.input_timestep), that.
+    (checkpoints.interpolator.boundary_timestep_seconds) or the checkpoint's: the input time
+    step of a checkpoint trained with one (checkpoint.config.task.input_timestep), else the last
+    explicit input time (checkpoint.config.training.explicit_times.input, in units of the
+    training data's time step, data.timestep, or its frequency when there is no time step).
     """
     if configured is not None:
         return int(configured)
@@ -422,10 +424,19 @@ def get_interpolator_boundary_timestep_seconds(
     except AttributeError:
         pass
 
+    try:
+        last_input = checkpoint.config.training.explicit_times.input[-1]
+        data = checkpoint.config.data
+        step = getattr(data, "timestep", None) or data.frequency
+        return int(last_input * frequency_to_seconds(step))
+    except AttributeError:
+        pass
+
     raise ValueError(
         "Set checkpoints.interpolator.boundary_timestep_seconds, the time between the boundary "
-        "states read from the dataset (e.g. 21600 for 6 h): the checkpoint has no "
-        "task.input_timestep to take it from"
+        "states read from the dataset (e.g. 21600 for 6 h): the checkpoint has neither "
+        "task.input_timestep nor training.explicit_times with a data.timestep/frequency to "
+        "take it from"
     )
 
 

@@ -14,7 +14,7 @@ from test_model_inputs import (
 )
 
 from bris.model.interpolator import Interpolator
-from bris.model.model_utils import resolve_reforecast_last
+from bris.model.model_utils import check_interpolator_geometry, resolve_reforecast_last
 from bris.model.runner import ModelRunner
 
 POINTS = 3
@@ -150,6 +150,38 @@ def test_reforecast_last_off_writes_the_forecaster():
     assert list(values[7:12]) == [1001, 1002, 1003, 1004, 1005]
     assert values[12] == 101
     assert values[13] == 102
+
+
+def test_interpolator_outputs_both_boundaries():
+    """Output steps 0..6: the left-boundary output is dropped (lead time 0 is the input state,
+    later left boundaries the previous interval's right one), the right boundary is the
+    interpolator's by default and the forecaster's with reforecast_last False."""
+    times, values = run(make_interpolator([0, 1, 2, 3, 4, 5, 6]))
+    assert times == [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 18]
+    assert values[0] == 1
+    # the fake model numbers its outputs from 1, so step k is 1000 + k + 1
+    assert list(values[1:7]) == [1002, 1003, 1004, 1005, 1006, 1007]
+    assert list(values[7:13]) == [1002, 1003, 1004, 1005, 1006, 1007]
+    assert values[13] == 102
+
+    times, values = run(make_interpolator([0, 1, 2, 3, 4, 5, 6], reforecast_last=False))
+    assert times == [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 18]
+    assert values[0] == 1
+    assert list(values[1:6]) == [1002, 1003, 1004, 1005, 1006]
+    assert values[6] == 100
+    assert list(values[7:12]) == [1002, 1003, 1004, 1005, 1006]
+    assert values[12] == 101
+
+
+def test_check_interpolator_geometry():
+    check_interpolator_geometry([0, 6], [1, 2, 3, 4, 5])
+    check_interpolator_geometry([0, 6], [0, 1, 2, 3, 4, 5, 6])
+    with pytest.raises(ValueError, match="two input steps"):
+        check_interpolator_geometry([0, 6, 12], [1, 2, 3, 4, 5])
+    with pytest.raises(ValueError, match="two input steps"):
+        check_interpolator_geometry([-6, 0], [-5, -4, -3, -2, -1])
+    with pytest.raises(ValueError, match=r"\[7\] do not"):
+        check_interpolator_geometry([0, 6], [1, 2, 3, 4, 5, 6, 7])
 
 
 def test_interpolator_requires_static_forcings_dataset_variables():

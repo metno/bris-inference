@@ -6,6 +6,7 @@ from ..checkpoint import Checkpoint
 from ..data.datamodule import DataModule
 from .basepredictor import BasePredictor, ForecastOutputs
 from .model_utils import (
+    check_interpolator_geometry,
     get_interpolator_boundary_times,
     get_interpolator_interp_times,
     resolve_reforecast_last,
@@ -27,7 +28,8 @@ class InterpolatorOnly(BasePredictor):
     for the others); each interval then contributes the interpolator's outputs and, unless the
     interpolator re-forecasts the right boundary, that boundary state from the dataset. With the
     model option ``reforecast_last`` False the dataset state is written at the right boundary
-    even then, in place of the interpolator's re-forecast.
+    even then, in place of the interpolator's re-forecast. The interpolator's output at the left
+    boundary, if any, is never written: that state is already provided.
 
     Methods
     -------
@@ -123,15 +125,15 @@ class InterpolatorOnly(BasePredictor):
         )
 
     def _check_time_geometry(self) -> None:
-        """The interpolator's input times must be consecutive boundary states."""
-        input_times = [
-            step * self.interpolator.timestep for step in self.interpolator.input_steps
-        ]
-        boundary_times = [j * self.boundary_timestep for j in range(len(input_times))]
-        if input_times != boundary_times:
+        """The interpolator's input times must be two consecutive boundary states."""
+        check_interpolator_geometry(
+            self.interpolator.input_steps, self.interpolator.output_steps
+        )
+        right_boundary = self.interpolator.input_steps[-1] * self.interpolator.timestep
+        if right_boundary != self.boundary_timestep:
             raise ValueError(
-                f"The interpolator's input times {input_times} are not consecutive boundary "
-                f"states {self.boundary_timestep} apart; check boundary_timestep_seconds"
+                f"The interpolator's input times span {right_boundary}, not the boundary "
+                f"time step {self.boundary_timestep}; check boundary_timestep_seconds"
             )
 
     def boundary_output(self, state: torch.Tensor) -> torch.Tensor:
@@ -181,8 +183,8 @@ class InterpolatorOnly(BasePredictor):
             for interval in range(self.interpolation_length):
                 boundary_time = time + interval * self.boundary_timestep
                 right_boundary_time = boundary_time + self.boundary_timestep
-                # The interpolator's output at the right boundary is dropped when the dataset
-                # provides it
+                # The interpolator's output at the left boundary is always dropped (the state
+                # is already written), the one at the right boundary when the dataset provides it
                 outputs += [
                     (output_time, {ds: output})
                     for output_time, output in self.interpolator.predict_from_states(
@@ -191,7 +193,8 @@ class InterpolatorOnly(BasePredictor):
                         boundary_time,
                         model_comm_group=self.model_comm_group,
                     )
-                    if self.reforecast_last or output_time != right_boundary_time
+                    if output_time != boundary_time
+                    and (self.reforecast_last or output_time != right_boundary_time)
                 ]
                 if not self.reforecast_last:
                     outputs.append(

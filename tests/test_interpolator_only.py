@@ -112,6 +112,24 @@ def test_reforecast_last_off_writes_the_dataset():
     assert list(values[7:12, 0]) == [1001, 1002, 1003, 1004, 1005]
 
 
+def test_interpolator_outputs_both_boundaries():
+    """Output steps 0..6: the left-boundary output is dropped, the right boundary is the
+    interpolator's by default and the dataset's with reforecast_last False."""
+    times, values = run(make_predictor([0, 1, 2, 3, 4, 5, 6]), 3)
+    assert times == list(range(13))
+    assert list(values[0]) == [0, 0]
+    # the fake model numbers its outputs from 1, so step k is 1000 + k + 1
+    assert list(values[1:7, 0]) == [1002, 1003, 1004, 1005, 1006, 1007]
+    assert list(values[7:13, 0]) == [1002, 1003, 1004, 1005, 1006, 1007]
+
+    times, values = run(make_predictor([0, 1, 2, 3, 4, 5, 6], reforecast_last=False), 3)
+    assert times == list(range(13))
+    assert list(values[[0, 6, 12], 0]) == [0, 10, 20]
+    assert list(values[[0, 6, 12], 1]) == [0, 5, 10]
+    assert list(values[1:6, 0]) == [1002, 1003, 1004, 1005, 1006]
+    assert list(values[7:12, 0]) == [1002, 1003, 1004, 1005, 1006]
+
+
 def test_output_variable_missing_from_dataset_is_nan():
     predictor = make_predictor([1, 2, 3, 4, 5])
     predictor.boundary_output_positions = InterpolatorOnly._boundary_positions(

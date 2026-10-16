@@ -220,6 +220,31 @@ def get_internal_indices(data_indices) -> tuple[DataIndex, ModelIndex]:
     return data_indices.data, data_indices.model
 
 
+def check_interpolator_geometry(
+    input_steps: list[int], output_steps: list[int]
+) -> None:
+    """
+    Check that an interpolator has the geometry the predictors run it with: two input steps,
+    0 and the right boundary of one interval, and output steps within that interval. Outputs at
+    the boundaries are allowed: the one at the left boundary is dropped (that state is always
+    already provided), the one at the right boundary follows ``reforecast_last``.
+
+    Args:
+        input_steps, output_steps: The interpolator's input and output steps (ModelRunner).
+    """
+    if len(input_steps) != 2 or input_steps[0] != 0:
+        raise ValueError(
+            "The interpolator must have two input steps, 0 and the right boundary of the "
+            f"interval, but its input steps are {list(input_steps)}"
+        )
+    outside = [s for s in output_steps if not 0 <= s <= input_steps[-1]]
+    if outside:
+        raise ValueError(
+            f"The interpolator's output steps {list(output_steps)} must lie within its input "
+            f"steps {list(input_steps)}, but {outside} do not"
+        )
+
+
 def resolve_reforecast_last(
     input_steps: list[int], output_steps: list[int], override: bool | None = None
 ) -> bool:
