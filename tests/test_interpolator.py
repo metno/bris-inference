@@ -14,7 +14,11 @@ from test_model_inputs import (
 )
 
 from bris.model.interpolator import Interpolator
-from bris.model.model_utils import check_interpolator_geometry, resolve_reforecast_last
+from bris.model.model_utils import (
+    check_interpolator_geometry,
+    check_predictor_checkpoints,
+    resolve_reforecast_last,
+)
 from bris.model.runner import ModelRunner
 
 POINTS = 3
@@ -182,6 +186,35 @@ def test_check_interpolator_geometry():
         check_interpolator_geometry([-6, 0], [-5, -4, -3, -2, -1])
     with pytest.raises(ValueError, match=r"\[7\] do not"):
         check_interpolator_geometry([0, 6], [1, 2, 3, 4, 5, 6, 7])
+
+
+def test_check_predictor_checkpoints():
+    check_predictor_checkpoints(
+        {"forecaster": 1, "interpolator": 2},
+        ["forecaster", "interpolator"],
+        [],
+        "A",
+        "x",
+    )
+    check_predictor_checkpoints(
+        {"interpolator": 2}, ["interpolator"], ["forecaster"], "A", "x"
+    )
+    with pytest.raises(ValueError, match="needs the checkpoints.*use B instead"):
+        check_predictor_checkpoints(
+            {"interpolator": 2},
+            ["forecaster", "interpolator"],
+            [],
+            "A",
+            "use B instead",
+        )
+    with pytest.raises(ValueError, match=r"takes no \['forecaster'\] checkpoint"):
+        check_predictor_checkpoints(
+            {"forecaster": 1, "interpolator": 2},
+            ["interpolator"],
+            ["forecaster"],
+            "A",
+            "x",
+        )
 
 
 def test_interpolator_requires_static_forcings_dataset_variables():

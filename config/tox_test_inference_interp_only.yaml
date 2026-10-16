@@ -9,10 +9,7 @@ checkpoints:
     checkpoint_path: ./checkpoint_interp.ckpt
     leadtimes: 2    # boundary intervals interpolated per forecast
     # boundary_timestep_seconds: 21600    # time between the boundary states; default from the checkpoint
-    static_forcings_dataset:
-      dataset: ${datasets.data}
-      start: ${start_date}
-      end: ${end_date}
+    # static_forcings_dataset: ...        # default: the run's dataset
 
 datasets:
   data: ./bris_random_data.zarr

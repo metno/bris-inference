@@ -220,6 +220,37 @@ def get_internal_indices(data_indices) -> tuple[DataIndex, ModelIndex]:
     return data_indices.data, data_indices.model
 
 
+def check_predictor_checkpoints(
+    checkpoints: dict,
+    required: list[str],
+    forbidden: list[str],
+    predictor: str,
+    alternative: str,
+) -> None:
+    """
+    Check that config.checkpoints holds the checkpoints a predictor runs (and none it cannot
+    use), with a message naming the predictor to use otherwise.
+
+    Args:
+        checkpoints: The checkpoints of the run, by name.
+        required, forbidden: Checkpoint names the predictor needs / cannot take.
+        predictor: The predictor's name, for the message.
+        alternative: What to do instead, for the message.
+    """
+    missing = [name for name in required if name not in checkpoints]
+    unexpected = [name for name in forbidden if name in checkpoints]
+    if missing:
+        raise ValueError(
+            f"{predictor} needs the checkpoints {required} but config.checkpoints has "
+            f"{list(checkpoints)}; {alternative}"
+        )
+    if unexpected:
+        raise ValueError(
+            f"{predictor} takes no {unexpected} checkpoint but config.checkpoints has "
+            f"{list(checkpoints)}; {alternative}"
+        )
+
+
 def check_interpolator_geometry(
     input_steps: list[int], output_steps: list[int]
 ) -> None:

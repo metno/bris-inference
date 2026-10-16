@@ -7,6 +7,7 @@ from ..data.datamodule import DataModule
 from .basepredictor import BasePredictor, ForecastOutputs
 from .model_utils import (
     check_interpolator_geometry,
+    check_predictor_checkpoints,
     get_interpolator_boundary_times,
     get_interpolator_interp_times,
     resolve_reforecast_last,
@@ -60,12 +61,21 @@ class InterpolatorOnly(BasePredictor):
             datamodule: DataModule object for data handling.
             checkpoints_config: config.checkpoints; the interpolator needs "timestep_seconds",
                 "boundary_timestep_seconds", "leadtimes" (the number of boundary intervals
-                interpolated per forecast) and "static_forcings_dataset".
+                interpolated per forecast) and optionally "static_forcings_dataset" (default:
+                the run's dataset).
             required_variables: Variables the outputs require, per dataset.
             release_cache: Boolean flag to release cache (default: False).
             reforecast_last: Whether the interpolator provides the right boundary of each
                 interval (model_utils.resolve_reforecast_last); default: when it outputs it.
         """
+        check_predictor_checkpoints(
+            checkpoints,
+            required=["interpolator"],
+            forbidden=["forecaster"],
+            predictor="InterpolatorOnly",
+            alternative="to run the interpolator between forecaster states use "
+            "bris.model.Interpolator",
+        )
         super().__init__(
             *args, checkpoints=checkpoints, release_cache=release_cache, **kwargs
         )
@@ -101,9 +111,12 @@ class InterpolatorOnly(BasePredictor):
             output_variables, data_reader.variables
         )
 
-        # The static forcings come from their own dataset, the time step valid at the start of
-        # each forecast (as in Interpolator)
-        self.forcing_dataset = open_dataset(config["static_forcings_dataset"])
+        # The static forcings come from the time step valid at the start of each forecast of
+        # the static forcings dataset, by default the run's dataset (as in Interpolator)
+        forcings_config = config.get("static_forcings_dataset")
+        self.forcing_dataset = (
+            data_reader if forcings_config is None else open_dataset(forcings_config)
+        )
 
         # Whether the interpolator provides the right boundary of each interval (then the
         # dataset state is not written)

@@ -275,10 +275,10 @@
                     "type": "integer"
                 },
                 "static_forcings_dataset": {
-                    "description": "Anemoi datasets open_dataset recipe for dataset with static forcings (e.g. z, lsm). Not required if these forcings are in the main dataset"                  
+                    "description": "Anemoi datasets open_dataset recipe for a dataset with the interpolator's static forcings (e.g. z, lsm), read at the start of each forecast. Default: the run's dataset, when it holds them."
                 },
                 "boundary_timestep_seconds": {
-                    "description": "Interpolator run from the dataset only (no forecaster): time in seconds between the boundary states read from the dataset, e.g. 21600 for 6 h. Default: the checkpoint's task.input_timestep.",
+                    "description": "Interpolator run from the dataset only (no forecaster): time in seconds between the boundary states read from the dataset, e.g. 21600 for 6 h. Default: from the checkpoint (task.input_timestep, or the last explicit input time times the training data time step).",
                     "type": "integer",
                     "minimum": 1
                 },
@@ -287,7 +287,7 @@
                     "type": ["string", "null"]
                 }
             },
-            "required": ["checkpoint_path", "leadtimes", "static_forcings_dataset"]
+            "required": ["checkpoint_path", "leadtimes"]
         }
     },
     "properties": {

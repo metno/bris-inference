@@ -7,6 +7,7 @@ from ..data.datamodule import DataModule
 from .basepredictor import BasePredictor, ForecastOutputs
 from .model_utils import (
     check_interpolator_geometry,
+    check_predictor_checkpoints,
     get_interpolator_boundary_times,
     get_interpolator_interp_times,
     resolve_reforecast_last,
@@ -67,6 +68,14 @@ class Interpolator(BasePredictor):
                 interval (model_utils.resolve_reforecast_last); default: when it outputs it.
         """
 
+        check_predictor_checkpoints(
+            checkpoints,
+            required=["forecaster", "interpolator"],
+            forbidden=[],
+            predictor="Interpolator",
+            alternative="to run the interpolator between states read from the dataset, "
+            "without a forecaster, use bris.model.InterpolatorOnly",
+        )
         super().__init__(
             *args,
             checkpoints=checkpoints,
@@ -119,10 +128,14 @@ class Interpolator(BasePredictor):
             longitudes=data_reader.longitudes,
         )
 
-        # The interpolator's static forcings come from their own dataset, the time step valid at
-        # the start of each forecast (see update_static_forcings)
-        self.forcing_dataset_interp = open_dataset(
-            checkpoints_config["interpolator"]["static_forcings_dataset"]
+        # The interpolator's static forcings come from the time step valid at the start of each
+        # forecast of the static forcings dataset, by default the run's dataset (see
+        # update_static_forcings)
+        forcings_config = checkpoints_config["interpolator"].get(
+            "static_forcings_dataset"
+        )
+        self.forcing_dataset_interp = (
+            data_reader if forcings_config is None else open_dataset(forcings_config)
         )
 
         check_interpolator_geometry(
