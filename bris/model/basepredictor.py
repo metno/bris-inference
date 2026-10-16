@@ -56,7 +56,9 @@ class BasePredictor(pl.LightningModule):
         Set up the communication group variables (filled in by the DDP strategy) and the run options.
 
         Args:
-            checkpoints {"forecaster": checkpoint_object}
+            checkpoints {"forecaster": checkpoint_object, ...}: The checkpoints of the run; the
+                forecaster, or the first one when there is no forecaster, decides whether the
+                legacy communication-group handling (pre anemoi-training checkpoints) applies.
             hardware_config {"num_gpus_per_model": int, "num_gpus_per_node": int, "num_nodes": int}
             num_members_in_parallel: int
                 Number of ensemble members in parallel. Used to track ensemble_id of each model when running
@@ -75,7 +77,8 @@ class BasePredictor(pl.LightningModule):
         self.fcstep_const = fcstep_const
         self.batch_info = {}
 
-        if check_anemoi_training(checkpoints["forecaster"].metadata):
+        primary = checkpoints.get("forecaster", next(iter(checkpoints.values())))
+        if check_anemoi_training(primary.metadata):
             self.legacy = False
 
             self.model_comm_group = None

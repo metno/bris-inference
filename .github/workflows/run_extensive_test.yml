@@ -66,6 +66,14 @@ jobs:
         run: |
           tox -e inference_CI
 
+      - name: Run inference_interp_CI
+        run: |
+          tox -e inference_interp_CI
+
+      - name: Run inference_interp_only_CI
+        run: |
+          tox -e inference_interp_only_CI
+
       # Show disk usage
       - run: df -h
       - run: du -hsc .tox/* ~/.cache/pip

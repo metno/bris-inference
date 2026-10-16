@@ -38,6 +38,8 @@ class DataModule(pl.LightningDataModule):
         timestep: int,
         frequency: int,
         num_members_in_sequence: int = 1,
+        multistep: int | None = None,
+        rollout: int = 0,
     ) -> None:
         """
         DataModule instance and DataSets.
@@ -46,6 +48,22 @@ class DataModule(pl.LightningDataModule):
         correspond to the order (and data points) that will be read from each data
         source. If not specified, the dataset will be read full in the order that it is
         stored.
+
+        Each batch holds a window of ``multistep + rollout`` dataset states ``timestep``
+        apart, and is stamped with the time of the last of the first ``multistep`` states:
+        the forecaster's input states (``multistep`` defaults to the checkpoint's) and, for a
+        model that takes future boundary states from the dataset, ``rollout`` states after it.
+
+        Args:
+            config: The run configuration.
+            checkpoint_object: The checkpoint whose graph (grid indices) and, by default,
+                multistep define the batches.
+            timestep: Time between the states of a batch, e.g. "6h".
+            frequency: Time between forecast initialisations, e.g. "6h".
+            num_members_in_sequence: Number of ensemble members run in sequence.
+            multistep: Number of states up to and including the stamped time; default
+                the checkpoint's multistep.
+            rollout: Number of states after the stamped time.
         """
         super().__init__()
 
@@ -59,6 +77,12 @@ class DataModule(pl.LightningDataModule):
         self.timestep = timestep
         self.frequency = frequency
         self.num_members_in_sequence = num_members_in_sequence
+        self.multistep = (
+            get_model_multistep_input(checkpoint_object)
+            if multistep is None
+            else multistep
+        )
+        self.rollout = rollout
         self.dataset_names = list(self.data_readers.keys())
 
     def predict_dataloader(self) -> DataLoader:
@@ -104,8 +128,8 @@ class DataModule(pl.LightningDataModule):
         ds = instantiate(
             config=self.config.dataloader.datamodule,
             data_readers=data_readers,
-            rollout=0,
-            multistep=get_model_multistep_input(self.checkpoint_object),
+            rollout=self.rollout,
+            multistep=self.multistep,
             timeincrement=self.timeincrement,
             grid_indices=self.grid_indices,
             label="predict",

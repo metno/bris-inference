@@ -153,7 +153,8 @@ class InputBuilder:
         ]
         if len(missing) > 0:
             raise ValueError(
-                f"Missing the following static forcings in the static forcings dataset: {missing}"
+                f"Missing the following static forcings in the static forcings dataset: {missing} "
+                "(set checkpoints.interpolator.static_forcings_dataset to a dataset that holds them)"
             )
         LOGGER.info(
             "Static forcings from %s (time step %d of the static forcings dataset) for forecasts from %s",

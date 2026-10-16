@@ -6,7 +6,10 @@ from anemoi.models.data_indices.index import DataIndex, ModelIndex
 
 from ..checkpoint import Checkpoint
 from ..forcings import anemoi_dynamic_forcings
-from ..utils import timedelta64_from_timestep
+from ..utils import (  # noqa: F401  (re-exported for the predictors)
+    get_interpolator_boundary_times,
+    get_interpolator_interp_times,
+)
 
 
 def get_model_static_forcings(
@@ -217,50 +220,81 @@ def get_internal_indices(data_indices) -> tuple[DataIndex, ModelIndex]:
     return data_indices.data, data_indices.model
 
 
-def get_interpolator_interp_times(checkpoint: Checkpoint) -> list[int]:
-    try:
-        return checkpoint.config.training.explicit_times.target
-    except AttributeError:
-        pass
+def check_predictor_checkpoints(
+    checkpoints: dict,
+    required: list[str],
+    forbidden: list[str],
+    predictor: str,
+    alternative: str,
+) -> None:
+    """
+    Check that config.checkpoints holds the checkpoints a predictor runs (and none it cannot
+    use), with a message naming the predictor to use otherwise.
 
-    try:
-        input_td = timedelta64_from_timestep(checkpoint.config.task.input_timestep)
-        output_td = timedelta64_from_timestep(checkpoint.config.task.output_timestep)
-        input_seconds = input_td / np.timedelta64(1, "s")
-        output_seconds = output_td / np.timedelta64(1, "s")
+    Args:
+        checkpoints: The checkpoints of the run, by name.
+        required, forbidden: Checkpoint names the predictor needs / cannot take.
+        predictor: The predictor's name, for the message.
+        alternative: What to do instead, for the message.
+    """
+    missing = [name for name in required if name not in checkpoints]
+    unexpected = [name for name in forbidden if name in checkpoints]
+    if missing:
+        raise ValueError(
+            f"{predictor} needs the checkpoints {required} but config.checkpoints has "
+            f"{list(checkpoints)}; {alternative}"
+        )
+    if unexpected:
+        raise ValueError(
+            f"{predictor} takes no {unexpected} checkpoint but config.checkpoints has "
+            f"{list(checkpoints)}; {alternative}"
+        )
 
-        n = int(input_seconds // output_seconds)
 
-        indices = list(range(0, n + 1))
+def check_interpolator_geometry(
+    input_steps: list[int], output_steps: list[int]
+) -> None:
+    """
+    Check that an interpolator has the geometry the predictors run it with: two input steps,
+    0 and the right boundary of one interval, and output steps within that interval. Outputs at
+    the boundaries are allowed: the one at the left boundary is dropped (that state is always
+    already provided), the one at the right boundary follows ``reforecast_last``.
 
-        if not checkpoint.config.task.output_left_boundary:
-            indices = indices[1:]
-        if not checkpoint.config.task.output_right_boundary:
-            indices = indices[:-1]
-        return indices
-    except AttributeError:
-        pass
+    Args:
+        input_steps, output_steps: The interpolator's input and output steps (ModelRunner).
+    """
+    if len(input_steps) != 2 or input_steps[0] != 0:
+        raise ValueError(
+            "The interpolator must have two input steps, 0 and the right boundary of the "
+            f"interval, but its input steps are {list(input_steps)}"
+        )
+    outside = [s for s in output_steps if not 0 <= s <= input_steps[-1]]
+    if outside:
+        raise ValueError(
+            f"The interpolator's output steps {list(output_steps)} must lie within its input "
+            f"steps {list(input_steps)}, but {outside} do not"
+        )
 
-    raise AttributeError("Could not find interp_times in Interpolator checkpoint.")
 
+def resolve_reforecast_last(
+    input_steps: list[int], output_steps: list[int], override: bool | None = None
+) -> bool:
+    """
+    Whether an interpolator provides the right boundary of each interval: by default when it
+    outputs it (its last input and output steps coincide), which the model option
+    ``reforecast_last`` can switch off (the forecaster or the dataset provides the boundary) or
+    insist on.
 
-def get_interpolator_boundary_times(checkpoint: Checkpoint) -> list[int]:
-    try:
-        return checkpoint.config.training.explicit_times.input
-    except AttributeError:
-        pass
-
-    try:
-        input_td = timedelta64_from_timestep(checkpoint.config.task.input_timestep)
-        output_td = timedelta64_from_timestep(checkpoint.config.task.output_timestep)
-        input_seconds = input_td / np.timedelta64(1, "s")
-        output_seconds = output_td / np.timedelta64(1, "s")
-
-        n = int(input_seconds // output_seconds)
-
-        return [0, n]
-
-    except AttributeError:
-        pass
-
-    raise AttributeError("Could not find boundary_times in Interpolator checkpoint.")
+    Args:
+        input_steps, output_steps: The interpolator's input and output steps (ModelRunner).
+        override: The ``reforecast_last`` model option; None follows the checkpoint.
+    """
+    outputs_boundary = input_steps[-1] == output_steps[-1]
+    if override is None:
+        return outputs_boundary
+    if override and not outputs_boundary:
+        raise ValueError(
+            "reforecast_last=True requires an interpolator that outputs the right boundary, "
+            f"but its input steps are {list(input_steps)} and its output steps {list(output_steps)}"
+        )
+    return bool(override)

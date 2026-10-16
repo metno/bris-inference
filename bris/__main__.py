@@ -1,9 +1,7 @@
 import os
 import time
 from concurrent.futures import Future
-from datetime import datetime, timedelta
 
-from anemoi.utils.dates import frequency_to_seconds
 from hydra.utils import instantiate
 
 import bris.routes
@@ -14,13 +12,11 @@ from .inference import Inference
 from .utils import (
     LOGGER,
     create_config,
-    get_all_leadtimes,
     get_dataset_config,
-    get_interpolator_timestep_seconds,
-    get_model_multistep_input,
-    get_model_timestep,
+    get_run_window,
     parse_args,
     set_base_seed,
+    set_dataset_dates,
     set_encoder_decoder_num_chunks,
     setup_logging,
 )
@@ -50,21 +46,7 @@ def main(arg_list: list[str] | None = None):
 
     set_base_seed()
 
-    # Compute timestep_seconds for each checkpoint
-    config.checkpoints.forecaster.timestep = get_model_timestep(
-        checkpoints["forecaster"]
-    )
-    config.checkpoints.forecaster.timestep_seconds = frequency_to_seconds(
-        config.checkpoints.forecaster.timestep
-    )
-
-    if "interpolator" in checkpoints:
-        config.checkpoints.interpolator.timestep_seconds = (
-            get_interpolator_timestep_seconds(
-                checkpoints["interpolator"],
-                config.checkpoints.forecaster.timestep_seconds,
-            )
-        )
+    window = get_run_window(config, checkpoints)
 
     num_members = config["hardware"].get("num_members", 1)
 
@@ -85,57 +67,23 @@ def main(arg_list: list[str] | None = None):
         num_members_in_sequence = 1
         num_members_in_parallel = num_members
 
-    # Get multistep. A default of 2 to ignore multistep in start_date calculation if not set.
-    multistep = get_model_multistep_input(checkpoints["forecaster"])
-
-    # If no start_date given, calculate as end_date-((multistep-1)*timestep)
-    if "start_date" not in config or config.start_date is None:
-        config.start_date = datetime.strftime(
-            datetime.strptime(config.end_date, "%Y-%m-%dT%H:%M:%S")
-            - timedelta(
-                seconds=(multistep - 1) * config.checkpoints.forecaster.timestep_seconds
-            ),
-            "%Y-%m-%dT%H:%M:%S",
-        )
-        LOGGER.warning(
-            "No start_date given, setting %s based on end_date and timestep.",
-            config.start_date,
-        )
-    else:
-        config.start_date = datetime.strftime(
-            datetime.strptime(config.start_date, "%Y-%m-%dT%H:%M:%S")
-            - timedelta(
-                seconds=(multistep - 1) * config.checkpoints.forecaster.timestep_seconds
-            ),
-            "%Y-%m-%dT%H:%M:%S",
-        )
+    set_dataset_dates(config, window)
     # Get dataset config with backwards comapatibility for single dataset config setup
     config.datasets = get_dataset_config(config)
 
     datamodule = DataModule(
         config=config,
-        checkpoint_object=checkpoints["forecaster"],
-        timestep=config.checkpoints.forecaster.timestep,
+        checkpoint_object=window.checkpoint,
+        timestep=window.timestep,
         frequency=config.frequency,
         num_members_in_sequence=num_members_in_sequence,
+        multistep=window.multistep,
+        rollout=window.rollout,
     )
     # Get outputs and required_variables of each decoder
-    if hasattr(config.checkpoints, "interpolator"):
-        leadtimes = get_all_leadtimes(
-            config.checkpoints.forecaster.leadtimes,
-            config.checkpoints.forecaster.timestep_seconds,
-            config.checkpoints.interpolator.leadtimes,
-            config.checkpoints.interpolator.timestep_seconds,
-        )
-    else:
-        leadtimes = get_all_leadtimes(
-            config.checkpoints.forecaster.leadtimes,
-            config.checkpoints.forecaster.timestep_seconds,
-        )
-
     decoder_outputs = bris.routes.get(
         config["routing"],
-        leadtimes,
+        window.leadtimes,
         num_members,
         datamodule,
         checkpoints,

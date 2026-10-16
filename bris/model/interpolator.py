@@ -6,8 +6,11 @@ from ..checkpoint import Checkpoint
 from ..data.datamodule import DataModule
 from .basepredictor import BasePredictor, ForecastOutputs
 from .model_utils import (
+    check_interpolator_geometry,
+    check_predictor_checkpoints,
     get_interpolator_boundary_times,
     get_interpolator_interp_times,
+    resolve_reforecast_last,
 )
 from .runner import ModelRunner
 
@@ -18,7 +21,10 @@ class Interpolator(BasePredictor):
 
     The forecaster is rolled out as in BrisPredictor; after each of the first
     ``interpolation_length`` forecaster steps the interpolator fills in the lead times between
-    the boundary states (the last forecaster states, in physical units).
+    the boundary states (the last forecaster states, in physical units). An interpolator that
+    also outputs the right boundary provides that lead time instead of the forecaster, unless
+    the model option ``reforecast_last`` is False; its output at the left boundary is never
+    written (that state is already provided, by the initial state or the previous interval).
 
     The checkpoints' properties (time steps, input/output steps, dataset names, indices,
     processors) live on ``self.forecaster`` and ``self.interpolator`` (ModelRunners); this
@@ -44,6 +50,7 @@ class Interpolator(BasePredictor):
         required_variables: dict,
         release_cache: bool = False,
         fcstep_const: bool = False,
+        reforecast_last: bool | None = None,
         **kwargs,
     ) -> None:
         """
@@ -57,8 +64,18 @@ class Interpolator(BasePredictor):
             required_variables: Variables the outputs require, per dataset.
             release_cache: Boolean flag to release cache (default: False).
             fcstep_const: Boolean flag for constant forecast step (default: False).
+            reforecast_last: Whether the interpolator provides the right boundary of each
+                interval (model_utils.resolve_reforecast_last); default: when it outputs it.
         """
 
+        check_predictor_checkpoints(
+            checkpoints,
+            required=["forecaster", "interpolator"],
+            forbidden=[],
+            predictor="Interpolator",
+            alternative="to run the interpolator between states read from the dataset, "
+            "without a forecaster, use bris.model.InterpolatorOnly",
+        )
         super().__init__(
             *args,
             checkpoints=checkpoints,
@@ -111,16 +128,25 @@ class Interpolator(BasePredictor):
             longitudes=data_reader.longitudes,
         )
 
-        # The interpolator's static forcings come from their own dataset, the time step valid at
-        # the start of each forecast (see update_static_forcings)
-        self.forcing_dataset_interp = open_dataset(
-            checkpoints_config["interpolator"]["static_forcings_dataset"]
+        # The interpolator's static forcings come from the time step valid at the start of each
+        # forecast of the static forcings dataset, by default the run's dataset (see
+        # update_static_forcings)
+        forcings_config = checkpoints_config["interpolator"].get(
+            "static_forcings_dataset"
+        )
+        self.forcing_dataset_interp = (
+            data_reader if forcings_config is None else open_dataset(forcings_config)
         )
 
-        # Whether the interpolator also outputs the last boundary time (then the forecaster's
-        # output at that time is not written)
-        self.reforcast_last = (
-            self.interpolator.input_steps[-1] == self.interpolator.output_steps[-1]
+        check_interpolator_geometry(
+            self.interpolator.input_steps, self.interpolator.output_steps
+        )
+        # Whether the interpolator provides the right boundary of each interval (then the
+        # forecaster's output at that time is not written)
+        self.reforecast_last = resolve_reforecast_last(
+            self.interpolator.input_steps,
+            self.interpolator.output_steps,
+            reforecast_last,
         )
 
     def update_static_forcings(
@@ -183,6 +209,9 @@ class Interpolator(BasePredictor):
 
                 interpolated = forecast_step < self.interpolation_length
                 if interpolated:
+                    # The interpolator's output at the left boundary is always dropped (the
+                    # state is already written), the one at the right boundary when the
+                    # forecaster provides it
                     outputs += [
                         (output_time, {ds: output})
                         for output_time, output in self.interpolator.predict_from_states(
@@ -191,8 +220,10 @@ class Interpolator(BasePredictor):
                             time,
                             model_comm_group=self.model_comm_group,
                         )
+                        if output_time != time
+                        and (self.reforecast_last or output_time != next_time)
                     ]
-                if not (interpolated and self.reforcast_last):
+                if not (interpolated and self.reforecast_last):
                     outputs.append((next_time, {ds: builder.output(y_physical)}))
                 time = next_time
 

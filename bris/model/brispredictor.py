@@ -4,6 +4,7 @@ import torch
 from ..checkpoint import Checkpoint
 from ..data.datamodule import DataModule
 from .basepredictor import BasePredictor, ForecastOutputs
+from .model_utils import check_predictor_checkpoints
 from .runner import ModelRunner
 
 
@@ -66,6 +67,14 @@ class BrisPredictor(BasePredictor):
                 For inference on non-rollout trained ensemble models. Keep fcstep constant at 0 as in training if True.
         """
 
+        check_predictor_checkpoints(
+            checkpoints,
+            required=["forecaster"],
+            forbidden=[],
+            predictor="BrisPredictor",
+            alternative="an interpolator runs with bris.model.Interpolator (with a "
+            "forecaster) or bris.model.InterpolatorOnly (from the dataset)",
+        )
         super().__init__(
             *args,
             checkpoints=checkpoints,

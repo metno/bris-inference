@@ -14,6 +14,11 @@ from test_model_inputs import (
 )
 
 from bris.model.interpolator import Interpolator
+from bris.model.model_utils import (
+    check_interpolator_geometry,
+    check_predictor_checkpoints,
+    resolve_reforecast_last,
+)
 from bris.model.runner import ModelRunner
 
 POINTS = 3
@@ -52,7 +57,12 @@ def _fake_interpolator(runner):
     return forward
 
 
-def make_interpolator(interp_output_steps, forecast_length=4, interpolation_length=2):
+def make_interpolator(
+    interp_output_steps,
+    forecast_length=4,
+    interpolation_length=2,
+    reforecast_last=None,
+):
     """An Interpolator with fake 6 h forecaster and 1 h interpolator, built without checkpoints."""
     predictor = Interpolator.__new__(Interpolator)
     pl.LightningModule.__init__(predictor)
@@ -94,7 +104,9 @@ def make_interpolator(interp_output_steps, forecast_length=4, interpolation_leng
     predictor.forcing_dataset_interp = _Dataset(
         [T0 - np.timedelta64(1, "D")], ["lsm", "z", "cos_latitude"], POINTS
     )
-    predictor.reforcast_last = interp_output_steps[-1] == 6
+    predictor.reforecast_last = resolve_reforecast_last(
+        [0, 6], interp_output_steps, reforecast_last
+    )
     return predictor
 
 
@@ -132,8 +144,92 @@ def test_interpolator_reforecasts_last():
     assert values[13] == 102
 
 
+def test_reforecast_last_off_writes_the_forecaster():
+    """Output steps 1..6 with reforecast_last False: the forecaster provides the right
+    boundary, the interpolator's output there is dropped."""
+    times, values = run(make_interpolator([1, 2, 3, 4, 5, 6], reforecast_last=False))
+    assert times == [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 18]
+    assert list(values[1:6]) == [1001, 1002, 1003, 1004, 1005]
+    assert values[6] == 100
+    assert list(values[7:12]) == [1001, 1002, 1003, 1004, 1005]
+    assert values[12] == 101
+    assert values[13] == 102
+
+
+def test_interpolator_outputs_both_boundaries():
+    """Output steps 0..6: the left-boundary output is dropped (lead time 0 is the input state,
+    later left boundaries the previous interval's right one), the right boundary is the
+    interpolator's by default and the forecaster's with reforecast_last False."""
+    times, values = run(make_interpolator([0, 1, 2, 3, 4, 5, 6]))
+    assert times == [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 18]
+    assert values[0] == 1
+    # the fake model numbers its outputs from 1, so step k is 1000 + k + 1
+    assert list(values[1:7]) == [1002, 1003, 1004, 1005, 1006, 1007]
+    assert list(values[7:13]) == [1002, 1003, 1004, 1005, 1006, 1007]
+    assert values[13] == 102
+
+    times, values = run(make_interpolator([0, 1, 2, 3, 4, 5, 6], reforecast_last=False))
+    assert times == [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 18]
+    assert values[0] == 1
+    assert list(values[1:6]) == [1002, 1003, 1004, 1005, 1006]
+    assert values[6] == 100
+    assert list(values[7:12]) == [1002, 1003, 1004, 1005, 1006]
+    assert values[12] == 101
+
+
+def test_check_interpolator_geometry():
+    check_interpolator_geometry([0, 6], [1, 2, 3, 4, 5])
+    check_interpolator_geometry([0, 6], [0, 1, 2, 3, 4, 5, 6])
+    with pytest.raises(ValueError, match="two input steps"):
+        check_interpolator_geometry([0, 6, 12], [1, 2, 3, 4, 5])
+    with pytest.raises(ValueError, match="two input steps"):
+        check_interpolator_geometry([-6, 0], [-5, -4, -3, -2, -1])
+    with pytest.raises(ValueError, match=r"\[7\] do not"):
+        check_interpolator_geometry([0, 6], [1, 2, 3, 4, 5, 6, 7])
+
+
+def test_check_predictor_checkpoints():
+    check_predictor_checkpoints(
+        {"forecaster": 1, "interpolator": 2},
+        ["forecaster", "interpolator"],
+        [],
+        "A",
+        "x",
+    )
+    check_predictor_checkpoints(
+        {"interpolator": 2}, ["interpolator"], ["forecaster"], "A", "x"
+    )
+    with pytest.raises(ValueError, match="needs the checkpoints.*use B instead"):
+        check_predictor_checkpoints(
+            {"interpolator": 2},
+            ["forecaster", "interpolator"],
+            [],
+            "A",
+            "use B instead",
+        )
+    with pytest.raises(ValueError, match=r"takes no \['forecaster'\] checkpoint"):
+        check_predictor_checkpoints(
+            {"forecaster": 1, "interpolator": 2},
+            ["interpolator"],
+            ["forecaster"],
+            "A",
+            "x",
+        )
+
+
 def test_interpolator_requires_static_forcings_dataset_variables():
     predictor = make_interpolator([1, 2, 3, 4, 5])
     predictor.forcing_dataset_interp = _Dataset([T0], ["lsm", "z"], POINTS)
     with pytest.raises(ValueError, match="Missing the following static forcings"):
         run(predictor)
+
+
+def test_resolve_reforecast_last():
+    # default: whether the interpolator outputs the right boundary
+    assert resolve_reforecast_last([0, 6], [1, 2, 3, 4, 5, 6]) is True
+    assert resolve_reforecast_last([0, 6], [1, 2, 3, 4, 5]) is False
+    # the model option can switch it off, or insist on it when the interpolator outputs it
+    assert resolve_reforecast_last([0, 6], [1, 2, 3, 4, 5, 6], False) is False
+    assert resolve_reforecast_last([0, 6], [1, 2, 3, 4, 5, 6], True) is True
+    with pytest.raises(ValueError, match="reforecast_last=True"):
+        resolve_reforecast_last([0, 6], [1, 2, 3, 4, 5], True)
