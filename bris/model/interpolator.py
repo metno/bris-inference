@@ -8,6 +8,7 @@ from .basepredictor import BasePredictor, ForecastOutputs
 from .model_utils import (
     get_interpolator_boundary_times,
     get_interpolator_interp_times,
+    resolve_reforecast_last,
 )
 from .runner import ModelRunner
 
@@ -20,7 +21,7 @@ class Interpolator(BasePredictor):
     ``interpolation_length`` forecaster steps the interpolator fills in the lead times between
     the boundary states (the last forecaster states, in physical units). An interpolator that
     also outputs the right boundary provides that lead time instead of the forecaster, unless
-    ``reforecast_boundary`` is False in its config.
+    the model option ``reforecast_last`` is False.
 
     The checkpoints' properties (time steps, input/output steps, dataset names, indices,
     processors) live on ``self.forecaster`` and ``self.interpolator`` (ModelRunners); this
@@ -46,6 +47,7 @@ class Interpolator(BasePredictor):
         required_variables: dict,
         release_cache: bool = False,
         fcstep_const: bool = False,
+        reforecast_last: bool | None = None,
         **kwargs,
     ) -> None:
         """
@@ -55,11 +57,12 @@ class Interpolator(BasePredictor):
             checkpoints: Dictionary containing 'forecaster' and 'interpolator' Checkpoint objects.
             datamodule: DataModule object for data handling.
             checkpoints_config: config.checkpoints; both models need "timestep_seconds" and "leadtimes",
-                the interpolator also "static_forcings_dataset" and optionally "reforecast_boundary"
-                (default True, see the class docstring).
+                the interpolator also "static_forcings_dataset".
             required_variables: Variables the outputs require, per dataset.
             release_cache: Boolean flag to release cache (default: False).
             fcstep_const: Boolean flag for constant forecast step (default: False).
+            reforecast_last: Whether the interpolator provides the right boundary of each
+                interval (model_utils.resolve_reforecast_last); default: when it outputs it.
         """
 
         super().__init__(
@@ -120,12 +123,13 @@ class Interpolator(BasePredictor):
             checkpoints_config["interpolator"]["static_forcings_dataset"]
         )
 
-        # Whether the interpolator provides the right boundary of each interval: it outputs it
-        # and reforecast_boundary is not switched off (then the forecaster's output at that time
-        # is not written)
-        self.reforcast_last = (
-            self.interpolator.input_steps[-1] == self.interpolator.output_steps[-1]
-        ) and bool(checkpoints_config["interpolator"].get("reforecast_boundary", True))
+        # Whether the interpolator provides the right boundary of each interval (then the
+        # forecaster's output at that time is not written)
+        self.reforecast_last = resolve_reforecast_last(
+            self.interpolator.input_steps,
+            self.interpolator.output_steps,
+            reforecast_last,
+        )
 
     def update_static_forcings(
         self, time: np.datetime64, state_normalized: torch.Tensor
@@ -197,9 +201,9 @@ class Interpolator(BasePredictor):
                             time,
                             model_comm_group=self.model_comm_group,
                         )
-                        if self.reforcast_last or output_time != next_time
+                        if self.reforecast_last or output_time != next_time
                     ]
-                if not (interpolated and self.reforcast_last):
+                if not (interpolated and self.reforecast_last):
                     outputs.append((next_time, {ds: builder.output(y_physical)}))
                 time = next_time
 

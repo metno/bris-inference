@@ -14,6 +14,7 @@ from test_model_inputs import (
 )
 
 from bris.model.interpolator import Interpolator
+from bris.model.model_utils import resolve_reforecast_last
 from bris.model.runner import ModelRunner
 
 POINTS = 3
@@ -56,7 +57,7 @@ def make_interpolator(
     interp_output_steps,
     forecast_length=4,
     interpolation_length=2,
-    reforecast_boundary=True,
+    reforecast_last=None,
 ):
     """An Interpolator with fake 6 h forecaster and 1 h interpolator, built without checkpoints."""
     predictor = Interpolator.__new__(Interpolator)
@@ -99,7 +100,9 @@ def make_interpolator(
     predictor.forcing_dataset_interp = _Dataset(
         [T0 - np.timedelta64(1, "D")], ["lsm", "z", "cos_latitude"], POINTS
     )
-    predictor.reforcast_last = interp_output_steps[-1] == 6 and reforecast_boundary
+    predictor.reforecast_last = resolve_reforecast_last(
+        [0, 6], interp_output_steps, reforecast_last
+    )
     return predictor
 
 
@@ -137,12 +140,10 @@ def test_interpolator_reforecasts_last():
     assert values[13] == 102
 
 
-def test_reforecast_boundary_off_writes_the_forecaster():
-    """Output steps 1..6 with reforecast_boundary False: the forecaster provides the right
+def test_reforecast_last_off_writes_the_forecaster():
+    """Output steps 1..6 with reforecast_last False: the forecaster provides the right
     boundary, the interpolator's output there is dropped."""
-    times, values = run(
-        make_interpolator([1, 2, 3, 4, 5, 6], reforecast_boundary=False)
-    )
+    times, values = run(make_interpolator([1, 2, 3, 4, 5, 6], reforecast_last=False))
     assert times == [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 18]
     assert list(values[1:6]) == [1001, 1002, 1003, 1004, 1005]
     assert values[6] == 100
@@ -156,3 +157,14 @@ def test_interpolator_requires_static_forcings_dataset_variables():
     predictor.forcing_dataset_interp = _Dataset([T0], ["lsm", "z"], POINTS)
     with pytest.raises(ValueError, match="Missing the following static forcings"):
         run(predictor)
+
+
+def test_resolve_reforecast_last():
+    # default: whether the interpolator outputs the right boundary
+    assert resolve_reforecast_last([0, 6], [1, 2, 3, 4, 5, 6]) is True
+    assert resolve_reforecast_last([0, 6], [1, 2, 3, 4, 5]) is False
+    # the model option can switch it off, or insist on it when the interpolator outputs it
+    assert resolve_reforecast_last([0, 6], [1, 2, 3, 4, 5, 6], False) is False
+    assert resolve_reforecast_last([0, 6], [1, 2, 3, 4, 5, 6], True) is True
+    with pytest.raises(ValueError, match="reforecast_last=True"):
+        resolve_reforecast_last([0, 6], [1, 2, 3, 4, 5], True)

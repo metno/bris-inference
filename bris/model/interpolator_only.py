@@ -8,6 +8,7 @@ from .basepredictor import BasePredictor, ForecastOutputs
 from .model_utils import (
     get_interpolator_boundary_times,
     get_interpolator_interp_times,
+    resolve_reforecast_last,
 )
 from .runner import ModelRunner
 
@@ -24,9 +25,9 @@ class InterpolatorOnly(BasePredictor):
 
     Output: lead time 0 is the first boundary state (the output variables the dataset holds, NaN
     for the others); each interval then contributes the interpolator's outputs and, unless the
-    interpolator re-forecasts the right boundary, that boundary state from the dataset. With
-    ``reforecast_boundary`` False the dataset state is written at the right boundary even then,
-    in place of the interpolator's re-forecast.
+    interpolator re-forecasts the right boundary, that boundary state from the dataset. With the
+    model option ``reforecast_last`` False the dataset state is written at the right boundary
+    even then, in place of the interpolator's re-forecast.
 
     Methods
     -------
@@ -46,6 +47,7 @@ class InterpolatorOnly(BasePredictor):
         checkpoints_config: dict,
         required_variables: dict,
         release_cache: bool = False,
+        reforecast_last: bool | None = None,
         **kwargs,
     ) -> None:
         """
@@ -56,10 +58,11 @@ class InterpolatorOnly(BasePredictor):
             datamodule: DataModule object for data handling.
             checkpoints_config: config.checkpoints; the interpolator needs "timestep_seconds",
                 "boundary_timestep_seconds", "leadtimes" (the number of boundary intervals
-                interpolated per forecast) and "static_forcings_dataset"; optionally
-                "reforecast_boundary" (default True, see the class docstring).
+                interpolated per forecast) and "static_forcings_dataset".
             required_variables: Variables the outputs require, per dataset.
             release_cache: Boolean flag to release cache (default: False).
+            reforecast_last: Whether the interpolator provides the right boundary of each
+                interval (model_utils.resolve_reforecast_last); default: when it outputs it.
         """
         super().__init__(
             *args, checkpoints=checkpoints, release_cache=release_cache, **kwargs
@@ -100,11 +103,13 @@ class InterpolatorOnly(BasePredictor):
         # each forecast (as in Interpolator)
         self.forcing_dataset = open_dataset(config["static_forcings_dataset"])
 
-        # Whether the interpolator provides the right boundary of each interval: it outputs it
-        # and reforecast_boundary is not switched off (then the dataset state is not written)
-        self.reforcast_last = (
-            self.interpolator.input_steps[-1] == self.interpolator.output_steps[-1]
-        ) and bool(config.get("reforecast_boundary", True))
+        # Whether the interpolator provides the right boundary of each interval (then the
+        # dataset state is not written)
+        self.reforecast_last = resolve_reforecast_last(
+            self.interpolator.input_steps,
+            self.interpolator.output_steps,
+            reforecast_last,
+        )
 
     @staticmethod
     def _boundary_positions(
@@ -186,9 +191,9 @@ class InterpolatorOnly(BasePredictor):
                         boundary_time,
                         model_comm_group=self.model_comm_group,
                     )
-                    if self.reforcast_last or output_time != right_boundary_time
+                    if self.reforecast_last or output_time != right_boundary_time
                 ]
-                if not self.reforcast_last:
+                if not self.reforecast_last:
                     outputs.append(
                         (
                             right_boundary_time,

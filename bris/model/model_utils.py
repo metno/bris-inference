@@ -218,3 +218,27 @@ def get_internal_indices(data_indices) -> tuple[DataIndex, ModelIndex]:
     ):
         return data_indices.internal_data, data_indices.internal_model
     return data_indices.data, data_indices.model
+
+
+def resolve_reforecast_last(
+    input_steps: list[int], output_steps: list[int], override: bool | None = None
+) -> bool:
+    """
+    Whether an interpolator provides the right boundary of each interval: by default when it
+    outputs it (its last input and output steps coincide), which the model option
+    ``reforecast_last`` can switch off (the forecaster or the dataset provides the boundary) or
+    insist on.
+
+    Args:
+        input_steps, output_steps: The interpolator's input and output steps (ModelRunner).
+        override: The ``reforecast_last`` model option; None follows the checkpoint.
+    """
+    outputs_boundary = input_steps[-1] == output_steps[-1]
+    if override is None:
+        return outputs_boundary
+    if override and not outputs_boundary:
+        raise ValueError(
+            "reforecast_last=True requires an interpolator that outputs the right boundary, "
+            f"but its input steps are {list(input_steps)} and its output steps {list(output_steps)}"
+        )
+    return bool(override)
