@@ -76,8 +76,29 @@
                             "type": "string"
                         },
                         "domain_name": {
-                            "description": "Retrieve projection from this predefined domain name (e.g. meps)",
+                            "description": "Retrieve projection from this predefined domain name (e.g. meps, carra2)",
                             "type": "string"
+                        },
+                        "grid_indices_attribute": {
+                            "description": "Write the rectangle stored in this RegularGridIndices node attribute of the checkpoint graph (e.g. fft_grid_indices, the FFT-loss box) as a 2-D x/y field, dropping the points outside it. The projection is taken from the attribute's training config unless proj4_str/domain_name are set. Needs domain_index so that the output holds the attribute's node set (the LAM)",
+                            "type": "string"
+                        },
+                        "regular_grid": {
+                            "description": "Write the largest complete regular rectangle of the points in the projection (proj4_str/domain_name) as a 2-D x/y field, dropping the points outside it (the FFT-loss box of anemoi-training with the same projection, spacing and tolerances). true infers the spacing; an object sets x_spacing, y_spacing (projection units), relative_tolerance, absolute_tolerance",
+                            "oneOf": [
+                                {"type": "boolean"},
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "x_spacing": {"type": "number", "exclusiveMinimum": 0},
+                                        "y_spacing": {"type": "number", "exclusiveMinimum": 0},
+                                        "relative_tolerance": {"type": "number", "minimum": 0},
+                                        "absolute_tolerance": {"type": "number", "minimum": 0},
+                                        "maximum_grid_cells": {"type": "integer", "exclusiveMinimum": 0}
+                                    },
+                                    "additionalProperties": false
+                                }
+                            ]
                         },
                         "global_attributes": {
                             "description": "Dictionary of global attributes to write to each output file",
