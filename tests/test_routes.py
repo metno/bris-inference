@@ -147,3 +147,54 @@ def test_add_checkpoint_name_to_attrs():
     test_ckpts = {"testchk": Checkpoint("./tests/files/checkpoint_single.ckpt")}
     new_oc = bris.routes.add_checkpoint_name_to_attrs(test_oc, test_ckpts)
     assert "testchk" in new_oc["netcdf"]["global_attributes"]["source"]
+
+
+def test_resolve_grid_indices():
+    import numpy as np
+    import pytest
+    import torch
+    from torch_geometric.data import HeteroData
+
+    hetero = HeteroData()
+    indices = np.full((6, 2), -1, dtype=np.int64)
+    indices[2:6] = [[0, 0], [0, 1], [1, 0], [1, 1]]  # a 2 x 2 rectangle in points 2..5
+    hetero["data"].fft_grid_indices = torch.from_numpy(indices)
+
+    class FakeCheckpoint:
+        graph = hetero
+        config = DotDict(
+            {
+                "graph": {
+                    "nodes": {
+                        "data": {
+                            "attributes": {
+                                "fft_grid_indices": {
+                                    "proj4_string": "+proj=stere +lat_0=90"
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        )
+
+    checkpoints = {"forecaster": FakeCheckpoint()}
+    args = {"filename_pattern": "x.nc", "grid_indices_attribute": "fft_grid_indices"}
+    out = bris.routes.resolve_grid_indices(args, checkpoints, "data", 2, 6)
+    assert "grid_indices_attribute" not in out and "grid_indices_attribute" in args
+    np.testing.assert_array_equal(out["grid_indices"], indices[2:6])
+    assert out["proj4_str"] == "+proj=stere +lat_0=90"
+
+    # Explicit projection wins
+    out = bris.routes.resolve_grid_indices(
+        {**args, "domain_name": "meps"}, checkpoints, "data", 2, 6
+    )
+    assert "proj4_str" not in out and out["domain_name"] == "meps"
+
+    # The output points must hold the whole rectangle
+    with pytest.raises(ValueError, match="domain_index"):
+        bris.routes.resolve_grid_indices(args, checkpoints, "data", 0, 4)
+    with pytest.raises(ValueError, match="No checkpoint graph"):
+        bris.routes.resolve_grid_indices(
+            {**args, "grid_indices_attribute": "other"}, checkpoints, "data", 2, 6
+        )

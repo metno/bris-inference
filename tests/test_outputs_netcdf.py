@@ -2,6 +2,7 @@ import os
 import tempfile
 
 import numpy as np
+import pytest
 import xarray as xr
 
 from bris.outputs.netcdf import Netcdf
@@ -262,6 +263,139 @@ def test_domain_name():
         for member in range(num_members):
             output.add_forecast(times, member, pred)
             output.finalize()
+
+
+def test_regular_grid():
+    """Points of a lat-cropped (non-rectangular) projected grid, no 2-D field_shape: with
+    regular_grid the netcdf output is the largest complete x/y rectangle of the points"""
+    import pyproj
+
+    from bris import projections
+
+    proj4_str = projections.get_proj4_str("meps")
+    nx, ny, spacing = 10, 8, 2500.0
+    xx, yy = np.meshgrid(np.arange(nx) * spacing, np.arange(ny) * spacing)
+    xi, yi = np.meshgrid(np.arange(nx), np.arange(ny))
+    # Remove the two upper corners -> largest rectangle is the lower 6 rows x 10 columns
+    keep = ~((yi >= 6) & ((xi < 2) | (xi > 7))).ravel()
+    xx, yy = xx.ravel()[keep], yy.ravel()[keep]
+    to_lonlat = pyproj.Transformer.from_crs(
+        pyproj.CRS.from_user_input(proj4_str),
+        pyproj.CRS.from_epsg(4326),
+        always_xy=True,
+    )
+    lons, lats = to_lonlat.transform(xx, yy)
+
+    variables = ["2t", "10u", "10v"]
+    altitudes = np.random.rand(len(lats))
+    leadtimes = np.arange(0, 3600 * 3, 3600)
+    num_members = 1
+    pm = PredictMetadata(
+        variables,
+        lats,
+        lons,
+        altitudes,
+        leadtimes,
+        num_members,
+        field_shape=(len(lats),),
+    )
+    pred = np.random.rand(*pm.shape).astype(np.float32)
+    frt = 1672552800
+    times = frt + leadtimes
+
+    with tempfile.TemporaryDirectory() as temp_dir:
+        pattern = os.path.join(temp_dir, "test_%Y%m%dT%HZ.nc")
+        workdir = os.path.join(temp_dir, "test_regular_grid")
+        output = Netcdf(
+            pm,
+            workdir,
+            pattern,
+            proj4_str=proj4_str,
+            regular_grid={
+                "x_spacing": spacing,
+                "y_spacing": spacing,
+                "absolute_tolerance": 1.0,
+            },
+        )
+        assert output.grid_subset.shape == (6, nx)
+        output.add_forecast(times, 0, pred)
+        output.finalize()
+
+        with xr.open_dataset(
+            os.path.join(temp_dir, "test_20230101T06Z.nc"), decode_times=False
+        ) as file:
+            assert file["x"].shape == (nx,) and file["y"].shape == (6,)
+            np.testing.assert_allclose(np.diff(file["x"].values), spacing)
+            np.testing.assert_allclose(np.diff(file["y"].values), spacing)
+            np.testing.assert_allclose(
+                file["x"].values, np.arange(nx) * spacing, atol=1e-6
+            )
+            np.testing.assert_allclose(
+                file["y"].values, np.arange(6) * spacing, atol=1e-6
+            )
+            assert (
+                file["projection"].attrs["grid_mapping_name"]
+                == "lambert_conformal_conic"
+            )
+            # (time, height, y, x)
+            t2m = file["air_temperature_2m"]
+            assert t2m.shape == (3, 1, 6, nx)
+            # The written field is the rectangle subset of the points, in row-major x/y order
+            idx = output.grid_subset.node_indices
+            np.testing.assert_allclose(
+                t2m.values[:, 0], pred[:, idx, 0].reshape(3, 6, nx), rtol=1e-6
+            )
+            np.testing.assert_allclose(
+                file["latitude"].values, lats[idx].reshape(6, nx)
+            )
+            np.testing.assert_allclose(
+                file["longitude"].values, lons[idx].reshape(6, nx)
+            )
+            np.testing.assert_allclose(
+                file["altitude"].values, altitudes[idx].reshape(6, nx)
+            )
+            # The rotated wind rows are the same points
+            assert file["x_wind_10m"].shape == (3, 1, 6, nx)
+
+        # Inferred spacing (regular_grid: true) finds the same rectangle
+        output2 = Netcdf(
+            pm, workdir + "2", pattern, domain_name="meps", regular_grid=True
+        )
+        assert output2.grid_subset.shape == (6, nx)
+        np.testing.assert_array_equal(
+            output2.grid_subset.node_indices, output.grid_subset.node_indices
+        )
+
+        # The rectangle given as (row, column) indices (RegularGridIndices attribute of the
+        # checkpoint graph) instead of recomputed: same output
+        indices = np.full((len(lats), 2), -1, dtype=np.int64)
+        rows, cols = np.divmod(np.arange(6 * nx), nx)
+        indices[output.grid_subset.node_indices, 0] = rows
+        indices[output.grid_subset.node_indices, 1] = cols
+        output3 = Netcdf(
+            pm, workdir + "3", pattern, domain_name="meps", grid_indices=indices
+        )
+        assert output3.grid_subset.shape == (6, nx)
+        np.testing.assert_array_equal(
+            output3.grid_subset.node_indices, output.grid_subset.node_indices
+        )
+        np.testing.assert_allclose(
+            output3.grid_subset.x, output.grid_subset.x, atol=1e-6
+        )
+        np.testing.assert_allclose(
+            output3.grid_subset.y, output.grid_subset.y, atol=1e-6
+        )
+
+    with pytest.raises(ValueError, match="proj4_str"):
+        Netcdf(pm, workdir, pattern, regular_grid=True)
+    with pytest.raises(ValueError, match="proj4_str"):
+        Netcdf(pm, workdir, pattern, grid_indices=indices)
+    with pytest.raises(ValueError, match="shape"):
+        Netcdf(pm, workdir, pattern, domain_name="meps", grid_indices=indices[:5])
+    with pytest.raises(ValueError, match="interp_res"):
+        Netcdf(
+            pm, workdir, pattern, domain_name="meps", interp_res=0.1, regular_grid=True
+        )
 
 
 if __name__ == "__main__":
