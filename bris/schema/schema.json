@@ -310,7 +310,11 @@
             }
         },
         "frequency": {
-            "description": "How often to make forecast runs? E.g. 6h",
+            "description": "Input data frequency. E.g. 6h",
+            "type": "string"
+        },
+        "init_frequency": {
+            "description": "Interval between forecast initializations, e.g. 24h for daily forecasts. Must be a positive whole multiple of frequency; defaults to frequency.",
             "type": "string"
         },
         "workdir": {

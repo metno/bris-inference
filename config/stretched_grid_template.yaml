@@ -7,6 +7,7 @@ checkpoints:
     leadtimes: 12 #Number of leadtimes in each forecast
 
 frequency: 6h 
+init_frequency: ${frequency} # Use 24h for daily inference with 6h data
 
 datasets:
   data:

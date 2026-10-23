@@ -125,6 +125,14 @@ class DataModule(pl.LightningDataModule):
         self,
         data_readers,
     ) -> IterableDataset:
+        frequency_seconds = frequency_to_seconds(self.frequency)
+        init_seconds = frequency_to_seconds(
+            self.config.get("init_frequency", self.frequency)
+        )
+        if init_seconds <= 0 or init_seconds % frequency_seconds != 0:
+            raise ValueError(
+                "init_frequency must be a positive whole multiple of frequency"
+            )
         ds = instantiate(
             config=self.config.dataloader.datamodule,
             data_readers=data_readers,
@@ -134,6 +142,7 @@ class DataModule(pl.LightningDataModule):
             grid_indices=self.grid_indices,
             label="predict",
             num_members_in_sequence=self.num_members_in_sequence,
+            init_stride=init_seconds // frequency_seconds,
         )
 
         return ds
