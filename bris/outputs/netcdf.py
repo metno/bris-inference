@@ -311,9 +311,13 @@ class Netcdf(Output):
                 self._not_gridded_not_masked(spatial_dims)
 
         self._set_projection_info()
-        self._setup_prediction_vars(spatial_dims, times, x, y, pred)
-        self._set_attrs()
-        self._write_file(filename)
+        try:
+            self._setup_prediction_vars(spatial_dims, times, x, y, pred)
+            self._set_attrs()
+            self._write_file(filename)
+        finally:
+            self.ds.close()
+            del self.ds
 
     def _not_gridded_masked(self, spatial_dims: tuple, x, y):
         t0 = pytime.perf_counter()

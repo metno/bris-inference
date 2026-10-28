@@ -265,18 +265,19 @@ class Interpolator(BasePredictor):
         batch, time_stamp = batch
         time = np.datetime64(time_stamp[0])
         times = [time]
-        y_preds = torch.empty(
-            (
-                batch.shape[0],
-                len(self.leadtimes),
-                batch.shape[-2],
-                len(
-                    self.indices["forecaster"]["variables_output"]
-                ),  # TODO: Should be both output from forecaster and interp
-            ),
-            dtype=batch.dtype,
-            device="cpu",
-        )
+        # Other model ranks participate in inference but never write predictions.
+        y_preds = None
+        if self.model_comm_group_rank == 0:
+            y_preds = torch.empty(
+                (
+                    batch.shape[0],
+                    len(self.leadtimes),
+                    batch.shape[-2],
+                    len(self.indices["forecaster"]["variables_output"]),
+                ),
+                dtype=batch.dtype,
+                device="cpu",
+            )
 
         data_input = torch.zeros(
             batch.shape[:-1] + (len(self.variables["forecaster"]["all"]),),
@@ -321,9 +322,13 @@ class Interpolator(BasePredictor):
                         ].internal_data.input.name_to_index[forcing],
                     ] = value
 
-        y_preds[:, 0, ...] = data_input[
-            :, self.multistep - 1, ..., self.indices["forecaster"]["variables_input"]
-        ].cpu()
+        if y_preds is not None:
+            y_preds[:, 0, ...] = data_input[
+                :,
+                self.multistep - 1,
+                ...,
+                self.indices["forecaster"]["variables_input"],
+            ].cpu()
 
         x = self.forecaster.pre_processors(data_input, in_place=False)
         x = x[..., self.data_indices["forecaster"].internal_data.input.full]
@@ -431,23 +436,25 @@ class Interpolator(BasePredictor):
                         time_interp = time + interp_step * self.timestep_interpolator
 
                         y_pred_interp_step = y_pred_interp[:, interp_index]
-                        y_preds[:, fcast_index + interp_index] = (
-                            self.interpolator.post_processors(
-                                y_pred_interp_step, in_place=True
-                            )[
+                        processed = self.interpolator.post_processors(
+                            y_pred_interp_step, in_place=True
+                        )
+                        if y_preds is not None:
+                            y_preds[:, fcast_index + interp_index] = processed[
                                 :,
                                 0,
                                 :,
                                 self.indices["interpolator"]["variables_output"],
                             ].cpu()
-                        )
                         times.append(time_interp)
 
                     fcast_index += self.interpolator_steps
                 if not self.reforcast_last:
-                    y_preds[:, fcast_index] = self.forecaster.post_processors(
-                        y_pred, in_place=True
-                    )[:, 0, :, self.indices["forecaster"]["variables_output"]].cpu()
+                    processed = self.forecaster.post_processors(y_pred, in_place=True)
+                    if y_preds is not None:
+                        y_preds[:, fcast_index] = processed[
+                            :, 0, :, self.indices["forecaster"]["variables_output"]
+                        ].cpu()
                     time += self.timestep_forecaster
                     times.append(time)
                     fcast_index += 1
@@ -456,7 +463,9 @@ class Interpolator(BasePredictor):
 
         self.update_batch_info(time)
         return {
-            "pred": [y_preds.to(torch.float32).numpy()],
+            "pred": [
+                y_preds.to(torch.float32).numpy() if y_preds is not None else None
+            ],
             "times": times,
             "group_rank": self.model_comm_group_rank,
             "ensemble_member": self.member_id

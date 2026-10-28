@@ -42,6 +42,23 @@ class CustomWriter(BasePredictionWriter):
         self.pool = ThreadPoolExecutor(max_workers=max_processes)
         LOGGER.debug(f"CustomWriter max_processes set to {max_processes}")
 
+    def _wait_for_writes(self) -> None:
+        while self.process_list:
+            process = self.process_list.pop()
+            process.result()
+
+    def on_predict_batch_start(
+        self,
+        trainer: Trainer,
+        pl_module: LightningModule,
+        batch,
+        batch_idx: int,
+        dataloader_idx: int = 0,
+    ) -> None:
+        # Release the previous forecast before predict_step allocates the next one.
+        LOGGER.debug("CustomWriter waiting for pending writes before prediction.")
+        self._wait_for_writes()
+
     def write_on_batch_end(
         self,
         trainer: Trainer,  # Not used
@@ -56,16 +73,6 @@ class CustomWriter(BasePredictionWriter):
         Args:
             prediction: This comes from predict_step in forecaster
         """
-
-        # Wait for processes from the previous batch to finish
-        LOGGER.debug(f"CustomWriter process_list contains {self.process_list}")
-        while len(self.process_list) > 0:
-            LOGGER.debug(
-                "CustomWriter waiting for previous process to complete before writing new data."
-            )
-            process = self.process_list.pop()
-            process.result()
-            LOGGER.debug("CustomWriter previous process completed.")
 
         times = prediction["times"]
         ensemble_member = prediction["ensemble_member"]
@@ -105,10 +112,6 @@ class CustomWriter(BasePredictionWriter):
         LOGGER.debug(
             "CustomWriter on_predict_end called, waiting for all processes to finish."
         )
-        # Wait for all processes to finish
-        if self.process_list is not None:
-            while len(self.process_list) > 0:
-                process = self.process_list.pop()
-                process.result()
+        self._wait_for_writes()
         LOGGER.debug("CustomWriter all processes finished.")
         self.pool.shutdown(wait=True)
