@@ -41,6 +41,7 @@ class NativeGridDataset(IterableDataset):
         label: str = "generic",
         init_ensemble_size: bool = True,
         num_members_in_sequence: int = 1,
+        init_stride: int = 1,
     ) -> None:
         """Initialize (part of) the dataset state.
 
@@ -69,6 +70,10 @@ class NativeGridDataset(IterableDataset):
         num_members_in_sequence : int, default 1
             Number of ensemble members in the sequence. This is used to repeat the indices
             for each member in the sequence.
+
+        init_stride : int, default 1
+            Keep every init_stride-th valid forecast initialization, without changing
+            the spacing of historical input states within each sample.
         """
         self.label = label
         self.data = data_reader
@@ -77,6 +82,9 @@ class NativeGridDataset(IterableDataset):
         self.timeincrement = timeincrement
         self.grid_indices = grid_indices[0]  # Assume 1 input dataset
         self.num_members_in_sequence = num_members_in_sequence
+        self.init_stride = int(init_stride)
+        if self.init_stride < 1:
+            raise ValueError("init_stride must be >= 1")
 
         # Lazy init
         self.n_samples_per_epoch_total: int = 0
@@ -115,13 +123,14 @@ class NativeGridDataset(IterableDataset):
         dataset length minus rollout minus additional multistep inputs
         (if time_increment is 1).
         """
-        return get_usable_indices(
+        indices = get_usable_indices(
             self.data.missing,
             len(self.data),
             self.rollout,
             self.multi_step,
             self.timeincrement,
         )
+        return indices[:: self.init_stride]
 
     def set_comm_group_info(
         self,
