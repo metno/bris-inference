@@ -62,8 +62,8 @@ def get(
 
         outputs = []
         for oc in config["outputs"]:
-            # If outputing netcdf, add global_attributes with checkpoint name
-            if "netcdf" in oc:
+            # Add checkpoint provenance to outputs using MET Norway conventions.
+            if "netcdf" in oc or "polygon" in oc:
                 oc = add_checkpoint_name_to_attrs(oc, checkpoints)
 
             lats = data_module.latitudes[decoder_name][start_gridpoint:end_gridpoint]
@@ -160,17 +160,20 @@ def expand_variable(string: str, variable: str) -> str:
 
 
 def add_checkpoint_name_to_attrs(
-    oc: dict[Literal["netcdf"], dict[str, Any]], checkpoints: dict[str, Checkpoint]
-) -> dict[Literal["netcdf"], dict[str, Any]]:
+    oc: dict[Literal["netcdf", "polygon"], dict[str, Any]],
+    checkpoints: dict[str, Checkpoint],
+) -> dict[Literal["netcdf", "polygon"], dict[str, Any]]:
     """Add checkpoint name"""
     # oc {'netcdf': {'filename_pattern': './tox_test_inference.nc', 'variables': ['2t', '2d']}}
     ckpt_str = "Checkpoints used: "
-    if "global_attributes" not in oc["netcdf"]:
-        oc["netcdf"]["global_attributes"] = {}
-    if "source" in oc["netcdf"]["global_attributes"]:
-        ckpt_str = f"{oc['netcdf']['global_attributes']['source']} {ckpt_str}"
+    output_type = "netcdf" if "netcdf" in oc else "polygon"
+    args = oc[output_type]
+    if "global_attributes" not in args:
+        args["global_attributes"] = {}
+    if "source" in args["global_attributes"]:
+        ckpt_str = f"{args['global_attributes']['source']} {ckpt_str}"
     for type, checkpoint in checkpoints.items():
         ckpt_path = os.path.abspath(checkpoint.path)
         ckpt_str += f"{type}:{ckpt_path}, "
-    oc["netcdf"]["global_attributes"]["source"] = f"{ckpt_str}"
+    args["global_attributes"]["source"] = f"{ckpt_str}"
     return oc

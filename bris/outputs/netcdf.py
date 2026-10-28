@@ -1,6 +1,7 @@
 import datetime
 import time as pytime
 from collections.abc import Callable
+from contextlib import contextmanager
 from functools import cached_property
 
 import gridpp
@@ -150,7 +151,7 @@ class Netcdf(Output):
     @property
     def _is_gridded(self) -> bool:
         """Is the output gridded?"""
-        return len(self.pm.field_shape) == 2 or self.interp_res is not None
+        return self.pm.is_gridded or self.interp_res is not None
 
     @property
     def _interpolate(self) -> bool:
@@ -615,12 +616,14 @@ class Netcdf(Output):
 
         columns = self._member_columns()
 
-        with netCDF4.Dataset(filename, "a") as nc:
+        with self._prediction_store(filename) as nc:
             # Define the variables. Chunks hold one (time, level, member) slice of the
             # field, which is how the data is written.
+            # Retain array handles so backend-specific write settings are preserved.
+            created = {}
             for variable in self.extract_variables:
                 ncname = self.variable_list.get_ncname_from_anemoi_name(variable)
-                if ncname in nc.variables:
+                if ncname in created:
                     continue
                 dim_name = self.variable_list.get_level_dimname(ncname)
                 dims = [time_dim]
@@ -632,16 +635,10 @@ class Netcdf(Output):
                     dims.append(member_dim)
                     chunks.append(1)
                 dims += list(spatial_dims)
-                chunks += list(spatial_shape)
-                var = nc.createVariable(
-                    ncname,
-                    "f4",
-                    dims,
-                    zlib=self.compression,
-                    fill_value=np.float32(np.nan),
-                    chunksizes=chunks,
+                chunks += list(self._spatial_chunks(spatial_shape))
+                created[ncname] = self._create_prediction_variable(
+                    nc, ncname, dims, chunks, self._variable_attrs(variable)
                 )
-                var.setncatts(self._variable_attrs(variable))
 
             for m in range(self.pm.num_members):
                 t1 = pytime.perf_counter()
@@ -667,13 +664,33 @@ class Netcdf(Output):
                         index.append(level_index)
                     if ensemble:
                         index.append(m)
-                    nc.variables[ncname][tuple(index)] = ar
+                    created[ncname][tuple(index)] = ar
                 utils.LOGGER.debug(
                     f"netcdf._write_prediction_vars member {m} in {pytime.perf_counter() - t1:.1f}s"
                 )
         utils.LOGGER.debug(
             f"netcdf._write_prediction_vars done in {pytime.perf_counter() - t0:.1f}s"
         )
+
+    @contextmanager
+    def _prediction_store(self, filename):
+        with netCDF4.Dataset(filename, "a") as nc:
+            yield nc
+
+    def _spatial_chunks(self, spatial_shape):
+        return spatial_shape
+
+    def _create_prediction_variable(self, store, name, dims, chunks, attrs):
+        var = store.createVariable(
+            name,
+            "f4",
+            dims,
+            zlib=self.compression,
+            fill_value=np.float32(np.nan),
+            chunksizes=chunks,
+        )
+        var.setncatts(attrs)
+        return var
 
     def _set_attrs(self) -> None:
         """Add global attributes"""

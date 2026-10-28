@@ -90,6 +90,44 @@
             "required": ["netcdf"]
         },
 
+        "PolygonOutput": {
+            "description": "Forecasts restricted to polygons, stored as NetCDF or Zarr",
+            "type": "object",
+            "properties": {
+                "polygon": {
+                    "allOf": [
+                        {"$ref": "#/$defs/NetcdfOutput/properties/netcdf"},
+                        {
+                            "type": "object",
+                            "properties": {
+                                "polygon_files": {
+                                    "description": "Files containing polygons with declared CRS; all features are combined as a union",
+                                    "oneOf": [
+                                        {"type": "string"},
+                                        {"type": "array", "minItems": 1, "items": {"type": "string"}}
+                                    ]
+                                },
+                                "format": {
+                                    "type": "string",
+                                    "enum": ["netcdf", "zarr"],
+                                    "default": "netcdf"
+                                },
+                                "spatial_chunk_size": {
+                                    "description": "Maximum chunk length along each spatial dimension",
+                                    "type": "integer",
+                                    "minimum": 1,
+                                    "default": 256
+                                },
+                                "compression": {"type": "boolean", "default": true}
+                            },
+                            "required": ["polygon_files"]
+                        }
+                    ]
+                }
+            },
+            "required": ["polygon"]
+        },
+
         "GribOutput": {
             "description": "Grib output file",
             "type": "object",
@@ -346,6 +384,7 @@
                         "items": {
                             "oneOf": [
                                 {"$ref": "#/$defs/NetcdfOutput"},
+                                {"$ref": "#/$defs/PolygonOutput"},
                                 {"$ref": "#/$defs/VerifOutput"},
                                 {"$ref": "#/$defs/GribOutput"},
                                 {"$ref": "#/$defs/SHPowerSpectrumOutput"},

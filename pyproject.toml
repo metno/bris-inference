@@ -41,7 +41,7 @@ dependencies = [
     "torch_geometric>=2.3.1", # Same as anemoi-core
     "torchinfo>=1.8.0",
     "tqdm>=4.67.1",
-    "zarr<=2.18.7",
+    "zarr>=2.11,<=2.18.7",
     "numcodecs<0.16",
     "pyshtools>=4.13.0"
 ]
@@ -54,6 +54,13 @@ optional-dependencies.dev = [
 
 optional-dependencies.tests = [
     "tox", # For running tests
+]
+
+optional-dependencies.polygons = [
+    "geopandas>=1.0",
+    "pyarrow>=14",
+    "shapely>=2.0",
+    "xarray<2026.4", # Newer versions require zarr-python >=3; Bris uses Zarr v2
 ]
 
 dynamic = ["version"]

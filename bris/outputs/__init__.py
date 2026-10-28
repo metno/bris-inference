@@ -31,6 +31,9 @@ def instantiate(name: str, predict_metadata: PredictMetadata, workdir: str, init
     if name == "netcdf":
         return Netcdf(predict_metadata, workdir, **init_args)
 
+    if name == "polygon":
+        return Polygon(predict_metadata, workdir, **init_args)
+
     if name == "grib":
         return Grib(predict_metadata, workdir, **init_args)
 
@@ -48,7 +51,7 @@ def get_required_variables(name, init_args):
     provided
     """
 
-    if name == "netcdf":
+    if name in ["netcdf", "polygon"]:
         if "variables" in init_args:
             variables = list(init_args["variables"])
             variables += _required_inputs(init_args.get("extra_variables", []))
@@ -202,5 +205,6 @@ class Output:
 from .grib import Grib
 from .intermediate import Intermediate
 from .netcdf import Netcdf
+from .polygon import Polygon
 from .spatial import DCTPowerSpectrum, SHPowerSpectrum
 from .verif import Verif
