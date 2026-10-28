@@ -148,7 +148,7 @@ class Netcdf(Output):
     @property
     def _is_gridded(self) -> bool:
         """Is the output gridded?"""
-        return len(self.pm.field_shape) == 2 or self.interp_res is not None
+        return self.pm.is_gridded or self.interp_res is not None
 
     @property
     def _interpolate(self) -> bool:
@@ -315,7 +315,7 @@ class Netcdf(Output):
         self._set_attrs()
         self._write_file(filename)
 
-    def _not_gridded_masked(self, spatial_dims: tuple, y, x):
+    def _not_gridded_masked(self, spatial_dims: tuple, x, y):
         t0 = pytime.perf_counter()
         if hasattr(self.ds_mask, "lat") and hasattr(self.ds_mask, "lon"):
             lat = self.ds_mask.lat.values

@@ -42,7 +42,7 @@ dependencies = [
     "torchinfo~=1.8.0",
     "tqdm~=4.67.1",
     "verif~=1.3.0",
-    "zarr<=2.17", # https://github.com/metno/bris-inference/issues/64
+    "zarr>=2.11,<=2.17", # https://github.com/metno/bris-inference/issues/64
     "numcodecs<0.16.0", # related to zarr version
     "pyshtools~=4.13.0"
 ]
@@ -55,6 +55,13 @@ optional-dependencies.dev = [
 
 optional-dependencies.tests = [
     "tox", # For running tests
+]
+
+optional-dependencies.polygons = [
+    "geopandas>=1.0",
+    "pyarrow>=14,<26", # PyArrow 26 requires NumPy >=2; this branch uses NumPy 1.26
+    "shapely>=2.0",
+    "xarray<2026.4", # Newer versions require zarr-python >=3; Bris uses Zarr v2
 ]
 
 dynamic = ["version"]
