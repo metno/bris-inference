@@ -57,6 +57,14 @@ the grid resolution and polygon coverage. Zarr suits sparse gridded analysis;
 NetCDF provides a single file compatible with existing NetCDF workflows. Ensemble
 forecasts use the existing temporary per-member cache before final writing.
 
+For a projected `y, x` grid, configure its native CRS inside the `polygon` block
+using `domain_name` or `proj4_str`. For example, use `domain_name: meps` only for
+the MEPS grid. The writer derives projected `x` and `y` coordinates in metres from
+the grid's latitude/longitude arrays, including grids reconstructed with
+`mask_file`. Projection parameters and WKT are stored in the `projection` variable.
+The supplied CRS must match the native grid; this setting does not regrid data.
+Without a configured projection, `x` and `y` remain grid indices.
+
 ## Requirements
 
 - Running on ARM/MacOS requires some workarounds for now: https://github.com/metno/bris-inference/issues/85

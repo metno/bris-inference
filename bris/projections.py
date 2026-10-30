@@ -16,10 +16,7 @@ def get_proj4_str(name: str) -> str:
 def get_xy(lats, lons, proj_str):
     """Reverse engineer x and y vectors from lats and lons"""
 
-    proj_from = pyproj.Proj("proj+=longlat")
-    proj_to = pyproj.Proj(proj_str)
-
-    transformer = pyproj.transformer.Transformer.from_proj(proj_from, proj_to)
+    transformer = pyproj.Transformer.from_crs("EPSG:4326", proj_str, always_xy=True)
 
     xx, yy = transformer.transform(lons, lats)
     x = xx[0, :]
@@ -32,7 +29,6 @@ def get_proj_attributes(proj_str):
     crs = pyproj.CRS.from_proj4(proj_str)
     attrs = crs.to_cf()
 
-    del attrs["crs_wkt"]
     attrs = {k: v for k, v in attrs.items() if v != "unknown"}
 
     return attrs

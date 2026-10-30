@@ -212,17 +212,10 @@ class Netcdf(Output):
                         "Warning: latrange/lonrange not handled in gridded fields"
                     )
 
-                if self.proj4_str:
-                    lats = np.reshape(self.pm.lats, self.pm.field_shape).astype(
-                        np.double
-                    )
-                    lons = np.reshape(self.pm.lons, self.pm.field_shape).astype(
-                        np.double
-                    )
-                    x, y = projections.get_xy(lats, lons, self.proj4_str)
-                else:
-                    x = np.arange(self.pm.field_shape[1]).astype(np.float32)
-                    y = np.arange(self.pm.field_shape[0]).astype(np.float32)
+                # Coordinates are projected from the full latitude/longitude arrays
+                # in _set_projection_info, including reconstructed training grids.
+                x = np.arange(self.pm.field_shape[1]).astype(np.float32)
+                y = np.arange(self.pm.field_shape[0]).astype(np.float32)
                 x_dim_name = self.conv_name("projection_x_coordinate")
                 y_dim_name = self.conv_name("projection_y_coordinate")
                 utils.LOGGER.debug(
@@ -427,6 +420,20 @@ class Netcdf(Output):
         utils.LOGGER.debug("netcdf._set_coords_gridded_interpolate")
 
     def _set_projection_info(self) -> None:
+        projected = self.proj4_str is not None and not self._interpolate
+        if projected and (self._is_gridded or self._is_masked):
+            x, y = projections.get_xy(
+                self.ds[self.conv_name("latitude")].values,
+                self.ds[self.conv_name("longitude")].values,
+                self.proj4_str,
+            )
+            self.ds = self.ds.assign_coords(
+                {
+                    self.conv_name("projection_x_coordinate"): x,
+                    self.conv_name("projection_y_coordinate"): y,
+                }
+            )
+
         for cfname in [
             "forecast_reference_time",
             "time",
@@ -440,6 +447,15 @@ class Netcdf(Output):
             ncname = self.conv_name(cfname)
             if ncname in self.ds:
                 self.ds[ncname].attrs = cf.get_attributes(cfname)
+
+                if projected and cfname in (
+                    "projection_x_coordinate",
+                    "projection_y_coordinate",
+                ):
+                    self.ds[ncname].attrs.update(
+                        standard_name=cfname,
+                        axis="X" if cfname == "projection_x_coordinate" else "Y",
+                    )
 
                 if cfname == "surface_altitude":
                     self.ds[ncname].attrs["grid_mapping"] = "projection"
