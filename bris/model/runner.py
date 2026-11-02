@@ -150,12 +150,16 @@ class InputBuilder:
     def _check_inputs_finite(self, x: torch.Tensor, times: list) -> None:
         """Raise if a model-input column of a data-order state is not finite, naming the variables."""
         inputs = self.data_index.input.full
-        finite = torch.isfinite(x[..., inputs]).all(dim=(0, 2, 3))  # (time, input variables)
+        finite = torch.isfinite(x[..., inputs]).all(
+            dim=(0, 2, 3)
+        )  # (time, input variables)
         if bool(finite.all()):
             return
         names = [self.mapping.all[i] for i in inputs.tolist()]
         bad = {
-            str(times[t]): [names[v] for v in torch.nonzero(~finite[t]).flatten().tolist()]
+            str(times[t]): [
+                names[v] for v in torch.nonzero(~finite[t]).flatten().tolist()
+            ]
             for t in range(finite.shape[0])
             if not bool(finite[t].all())
         }
