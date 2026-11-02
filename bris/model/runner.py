@@ -127,12 +127,19 @@ class InputBuilder:
                 x, forcings, self.data_index.input.name_to_index, time_index
             )
         # Data order also holds the variables the model never reads (the diagnostics, e.g. tp/ssrd/strd:
-        # outputs that are not inputs). Nothing above fills them, and NaN there trips the NaN check of the
-        # pre-processors (anemoi-models runs it on the first call of a Processors instance, so a model
-        # rebuilt with switch_graph fails where a pickled one passes). They are dropped by to_model_order,
-        # so give them zeros. The model-input columns keep NaN as the marker of an unfilled variable (and
-        # of NaN in the data that an imputer may fill); they are checked after the pre-processors, see
-        # ModelRunner.pre_process.
+        # outputs that are not inputs). Nothing above fills them: they stay NaN, which is what the outputs
+        # get for the diagnostics at the initial time (initial_output). They are zero-filled right before
+        # the pre-processors (fill_non_inputs, called by ModelRunner.pre_process) because the processors
+        # run over the whole tensor and anemoi-models checks their output for NaNs. The model-input
+        # columns keep NaN as the marker of an unfilled variable (and of NaN in the data that an imputer
+        # may fill); they are checked after the pre-processors, see ModelRunner.pre_process.
+        return x
+
+    def fill_non_inputs(self, x: torch.Tensor) -> torch.Tensor:
+        """
+        Set the columns of a data-order state that are not model inputs (the diagnostics) to zero, in
+        place: a finite placeholder for the pre-processors, dropped by to_model_order.
+        """
         x[..., self._non_input_positions(x.device)] = 0.0
         return x
 
@@ -410,16 +417,24 @@ class ModelRunner(nn.Module):
         times: list | None = None,
     ) -> torch.Tensor:
         """
-        Run the model's pre-processors of a dataset on a state in data order, then check that the
-        model-input columns are finite (see InputBuilder.check_inputs_finite); ``times`` only labels
-        the time steps in the error message.
+        Run the model's pre-processors of a dataset on a state in data order: the columns that are not
+        model inputs are zero-filled first (see InputBuilder.fill_non_inputs; with ``in_place`` False the
+        caller's tensor is left as it is), and the model-input columns are checked for finite values
+        afterwards (see InputBuilder.check_inputs_finite); ``times`` only labels the time steps in the
+        error message.
         """
+        builder = self.input_builders.get(dataset_name)
+        if builder is not None:
+            if not in_place:
+                x = x.clone()
+                in_place = True
+            builder.fill_non_inputs(x)
         try:
             x = self.model.pre_processors[dataset_name](x, in_place=in_place)
         except TypeError:  # Single dataset models
             x = self.model.pre_processors(x, in_place=in_place)
-        if dataset_name in self.input_builders:
-            self.input_builders[dataset_name].check_inputs_finite(x, times)
+        if builder is not None:
+            builder.check_inputs_finite(x, times)
         return x
 
     def post_process(

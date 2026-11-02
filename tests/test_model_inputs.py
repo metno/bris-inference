@@ -167,10 +167,14 @@ def test_build_state_and_static_forcings(input_builder):
         state[0, 1, 0, :, NAMES.index("z")],
         source[0, 1, 0, :, DATASET_VARIABLES.index("z")],
     )
-    # diagnostic variables (never read by the model) are zero, not NaN: the pre-processors run over the
-    # whole data-order tensor and anemoi-models checks their output for NaNs
+    # diagnostic variables are NaN (the outputs get NaN for them at the initial time); fill_non_inputs
+    # zeroes them for the pre-processors and leaves the inputs alone
+    assert torch.all(torch.isnan(state[..., NAMES.index("tp")]))
+    before = state[..., NAMES.index("2t")].clone()
+    input_builder.fill_non_inputs(state)
     assert torch.all(state[..., NAMES.index("tp")] == 0.0)
     assert torch.isfinite(state).all()
+    assert torch.equal(state[..., NAMES.index("2t")], before)
     # dynamic forcings are computed per time step (insolation differs between 06 and 12 UTC)
     ins = state[0, :, 0, :, NAMES.index("insolation")]
     assert not torch.isnan(ins).any()
@@ -216,7 +220,7 @@ def test_check_inputs_finite(input_builder):
     # a NaN in a diagnostic column of the source is irrelevant: it is not an input
     source = torch.zeros((1, 2, 1, points, len(DATASET_VARIABLES)))
     source[..., DATASET_VARIABLES.index("tp")] = float("nan")
-    state = input_builder.build_state(source, times)
+    state = input_builder.fill_non_inputs(input_builder.build_state(source, times))
     assert torch.isfinite(state).all()
     input_builder.check_inputs_finite(state, times)
 
