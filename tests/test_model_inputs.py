@@ -199,20 +199,26 @@ def test_build_state_and_static_forcings(input_builder):
     assert torch.equal(out0[0, :, 0], source[0, 1, 0, :, DATASET_VARIABLES.index("2t")])
 
 
-def test_build_state_rejects_non_finite_inputs(input_builder):
-    """A NaN (or inf) in a model-input variable fails with the time and the variable named."""
+def test_check_inputs_finite(input_builder):
+    """build_state keeps NaN in an input as the marker (an imputer may fill it in pre-processing);
+    check_inputs_finite, run after the pre-processors, names the time and the variables."""
     points = 3
     source = torch.zeros((1, 2, 1, points, len(DATASET_VARIABLES)))
     times = [np.datetime64("2022-06-21T06"), np.datetime64("2022-06-21T12")]
     source[0, 1, 0, 1, DATASET_VARIABLES.index("10u")] = float("nan")
     source[0, 1, 0, 2, DATASET_VARIABLES.index("z")] = float("inf")
+    state = input_builder.build_state(source, times)
+    assert torch.isnan(state[0, 1, 0, 1, NAMES.index("10u")])
     with pytest.raises(ValueError, match=r"2022-06-21T12.*\['10u', 'z'\]"):
-        input_builder.build_state(source, times)
+        input_builder.check_inputs_finite(state, times)
+    with pytest.raises(ValueError, match=r"input step 1.*\['10u', 'z'\]"):
+        input_builder.check_inputs_finite(state)
     # a NaN in a diagnostic column of the source is irrelevant: it is not an input
     source = torch.zeros((1, 2, 1, points, len(DATASET_VARIABLES)))
-    if "tp" in DATASET_VARIABLES:
-        source[..., DATASET_VARIABLES.index("tp")] = float("nan")
-    assert torch.isfinite(input_builder.build_state(source, times)).all()
+    source[..., DATASET_VARIABLES.index("tp")] = float("nan")
+    state = input_builder.build_state(source, times)
+    assert torch.isfinite(state).all()
+    input_builder.check_inputs_finite(state, times)
 
 
 def test_build_state_requires_static_forcings(input_builder):

@@ -130,7 +130,9 @@ class BrisPredictor(BasePredictor):
             outputs[0][1][ds] = builder.initial_output(state, -1)
 
             # Possibly have to extend this to handle imputer, see _step in forecaster.
-            state = self.model.pre_process(state, ds, in_place=True)
+            state = self.model.pre_process(
+                state, ds, in_place=True, times=self.model.input_times(time)
+            )
             # Static forcings of this forecast (lsm, z, ...) from its starting state, like the
             # prognostic variables; only the dynamic forcings are computed on the fly.
             builder.set_static_forcings_from_state(state[:, -1])

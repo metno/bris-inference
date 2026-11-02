@@ -130,10 +130,10 @@ class InputBuilder:
         # outputs that are not inputs). Nothing above fills them, and NaN there trips the NaN check of the
         # pre-processors (anemoi-models runs it on the first call of a Processors instance, so a model
         # rebuilt with switch_graph fails where a pickled one passes). They are dropped by to_model_order,
-        # so give them zeros; the model-input columns keep NaN as the marker of an unfilled variable and
-        # are checked here, so a missing input fails with its name instead of a count of NaNs.
+        # so give them zeros. The model-input columns keep NaN as the marker of an unfilled variable (and
+        # of NaN in the data that an imputer may fill); they are checked after the pre-processors, see
+        # ModelRunner.pre_process.
         x[..., self._non_input_positions(x.device)] = 0.0
-        self._check_inputs_finite(x, times)
         return x
 
     def _non_input_positions(self, device) -> torch.Tensor:
@@ -147,8 +147,16 @@ class InputBuilder:
             )
         return self._non_input
 
-    def _check_inputs_finite(self, x: torch.Tensor, times: list) -> None:
-        """Raise if a model-input column of a data-order state is not finite, naming the variables."""
+    def check_inputs_finite(self, x: torch.Tensor, times: list | None = None) -> None:
+        """
+        Raise if a model-input column of a data-order state is not finite, naming the time steps and
+        the variables. Meant for the pre-processed state (after an imputer has filled the NaNs of the
+        data it knows about), where NaN or inf means an unimputed variable or bad data.
+
+        Args:
+            x (torch.Tensor): State in data order, shape (batch, time, ensemble, points, variables).
+            times (list | None): Valid time of each time step, for the message (else the step index).
+        """
         inputs = self.data_index.input.full
         finite = torch.isfinite(x[..., inputs]).all(
             dim=(0, 2, 3)
@@ -156,16 +164,19 @@ class InputBuilder:
         if bool(finite.all()):
             return
         names = [self.mapping.all[i] for i in inputs.tolist()]
+        labels = (
+            [str(t) for t in times]
+            if times is not None
+            else [f"input step {t}" for t in range(finite.shape[0])]
+        )
         bad = {
-            str(times[t]): [
-                names[v] for v in torch.nonzero(~finite[t]).flatten().tolist()
-            ]
+            labels[t]: [names[v] for v in torch.nonzero(~finite[t]).flatten().tolist()]
             for t in range(finite.shape[0])
             if not bool(finite[t].all())
         }
         raise ValueError(
-            f"Model input contains NaN or inf after building the state (time: variables): {bad}. "
-            "Check the dataset, the static forcings and the variable mapping."
+            f"Model input contains NaN or inf after pre-processing (time: variables): {bad}. "
+            "Check the dataset, the static forcings, the variable mapping and the model's imputer."
         )
 
     def set_static_forcings_from_state(self, state_normalized: torch.Tensor) -> None:
@@ -392,12 +403,24 @@ class ModelRunner(nn.Module):
         return self.input_builders[dataset_name]
 
     def pre_process(
-        self, x: torch.Tensor, dataset_name: str, in_place: bool = False
+        self,
+        x: torch.Tensor,
+        dataset_name: str,
+        in_place: bool = False,
+        times: list | None = None,
     ) -> torch.Tensor:
+        """
+        Run the model's pre-processors of a dataset on a state in data order, then check that the
+        model-input columns are finite (see InputBuilder.check_inputs_finite); ``times`` only labels
+        the time steps in the error message.
+        """
         try:
-            return self.model.pre_processors[dataset_name](x, in_place=in_place)
+            x = self.model.pre_processors[dataset_name](x, in_place=in_place)
         except TypeError:  # Single dataset models
-            return self.model.pre_processors(x, in_place=in_place)
+            x = self.model.pre_processors(x, in_place=in_place)
+        if dataset_name in self.input_builders:
+            self.input_builders[dataset_name].check_inputs_finite(x, times)
+        return x
 
     def post_process(
         self, x: torch.Tensor, dataset_name: str, in_place: bool = False
@@ -466,7 +489,9 @@ class ModelRunner(nn.Module):
             self.input_times(time),
             static_forcings_from_source=static_forcings_from_source,
         )
-        x = self.pre_process(x, dataset_name, in_place=True)
+        x = self.pre_process(
+            x, dataset_name, in_place=True, times=self.input_times(time)
+        )
         x = builder.to_model_order(x)
 
         y_pred = self(
