@@ -62,6 +62,7 @@ class InputBuilder:
         self.mapping = mapping
         self.data_index = data_index
         self.model_index = model_index
+        self._non_input = None
         self.latitudes = latitudes
         self.longitudes = longitudes
         # Static forcings (cos/sin lat/lon, lsm, z, ...) of the current forecast, name -> tensor.
@@ -125,7 +126,43 @@ class InputBuilder:
             insert_forcings(
                 x, forcings, self.data_index.input.name_to_index, time_index
             )
+        # Data order also holds the variables the model never reads (the diagnostics, e.g. tp/ssrd/strd:
+        # outputs that are not inputs). Nothing above fills them, and NaN there trips the NaN check of the
+        # pre-processors (anemoi-models runs it on the first call of a Processors instance, so a model
+        # rebuilt with switch_graph fails where a pickled one passes). They are dropped by to_model_order,
+        # so give them zeros; the model-input columns keep NaN as the marker of an unfilled variable and
+        # are checked here, so a missing input fails with its name instead of a count of NaNs.
+        x[..., self._non_input_positions(x.device)] = 0.0
+        self._check_inputs_finite(x, times)
         return x
+
+    def _non_input_positions(self, device) -> torch.Tensor:
+        """Positions in data order of the variables that are not model inputs (diagnostics)."""
+        if self._non_input is None or self._non_input.device != device:
+            inputs = set(self.data_index.input.full.tolist())
+            self._non_input = torch.tensor(
+                [i for i in range(len(self.mapping.all)) if i not in inputs],
+                dtype=torch.int64,
+                device=device,
+            )
+        return self._non_input
+
+    def _check_inputs_finite(self, x: torch.Tensor, times: list) -> None:
+        """Raise if a model-input column of a data-order state is not finite, naming the variables."""
+        inputs = self.data_index.input.full
+        finite = torch.isfinite(x[..., inputs]).all(dim=(0, 2, 3))  # (time, input variables)
+        if bool(finite.all()):
+            return
+        names = [self.mapping.all[i] for i in inputs.tolist()]
+        bad = {
+            str(times[t]): [names[v] for v in torch.nonzero(~finite[t]).flatten().tolist()]
+            for t in range(finite.shape[0])
+            if not bool(finite[t].all())
+        }
+        raise ValueError(
+            f"Model input contains NaN or inf after building the state (time: variables): {bad}. "
+            "Check the dataset, the static forcings and the variable mapping."
+        )
 
     def set_static_forcings_from_state(self, state_normalized: torch.Tensor) -> None:
         """
