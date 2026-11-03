@@ -409,7 +409,7 @@ class Verif(Output):
             self.ds["ensemble_crps"] = (["time", "leadtime", "location"], crps)
 
         self.ds.attrs["units"] = self.units
-        self.ds.attrs["verif_version"] = "1.0.0"
+        self.ds.attrs["verif_version"] = "1.5.0"
         self.ds.attrs["standard_name"] = cf.get_metadata(self.variable)["cfname"]
 
         utils.create_directory(self.filename)
