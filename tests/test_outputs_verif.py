@@ -102,13 +102,18 @@ def check_expected_variable(filename):
         "obs",
         "ensemble",
         "ensemble_mean",
-        "ensemble_variance",
+        "ensemble_sample_variance",
         "ensemble_crps",
     ]
 
     with xr.open_dataset(filename) as file:
         for variable in expected_variables:
             assert variable in file, variable
+        # the spread field is the sample variance (ddof=1) of the members, as verif >= 1.5 expects
+        expected = file["ensemble"].var(dim="ensemble_member", ddof=1)
+        assert np.allclose(
+            file["ensemble_sample_variance"].values, expected.values, equal_nan=True
+        )
 
 
 def test_2():
