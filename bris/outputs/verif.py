@@ -291,7 +291,9 @@ class Verif(Output):
             if self.num_members > 1:
                 ens[i, ...] = curr
                 ens_mean[i, ...] = curr.mean(axis=-1)
-                ens_var[i, ...] = curr.var(axis=-1)
+                if self.num_members > 1:
+                    # sample variance (ddof=1), the convention of verif >= 1.5 (ensemble_sample_variance)
+                    ens_var[i, ...] = curr.var(axis=-1, ddof=1)
 
         if self.variable_type in ["logit", "threshold_probability"]:
             cdf = np.copy(fcst)
@@ -313,7 +315,7 @@ class Verif(Output):
                     ens,
                 )
                 self.ds["ensemble_mean"] = (["time", "leadtime", "location"], ens_mean)
-                self.ds["ensemble_variance"] = (
+                self.ds["ensemble_sample_variance"] = (
                     ["time", "leadtime", "location"],
                     ens_var,
                 )
@@ -420,7 +422,7 @@ class Verif(Output):
             "fcst",
             "ensemble",
             "ensemble_mean",
-            "ensemble_variance",
+            "ensemble_sample_variance",
             "cdf",
             "x",
             "ensemble_crps",
