@@ -23,6 +23,31 @@ from .utils import (
 from .writer import CustomWriter
 
 
+def use_background_write(config, decoder_outputs: list, num_members: int) -> bool:
+    """
+    Whether the outputs are written from the writer's thread pool (True) or synchronously in the
+    main thread (False). An explicit ``background_write`` in the config wins. The default is True,
+    except for a single member with more than one output on a decoder: with one member the Netcdf
+    output writes its file directly from the writer thread (with more members it only fills the
+    intermediate store and the file is assembled at finalize), so two outputs on a decoder mean two
+    threads inside netCDF4/HDF5 at the same time, which segfaults with the usual non-thread-safe
+    HDF5 builds. Synchronous writing serializes them.
+    """
+    if "background_write" in config and config["background_write"] is not None:
+        return bool(config["background_write"])
+    multi_output_decoders = [
+        d["decoder_name"] for d in decoder_outputs if len(d["outputs"]) > 1
+    ]
+    if num_members == 1 and multi_output_decoders:
+        LOGGER.info(
+            "background_write defaults to False: one member and several outputs on decoder(s) %s "
+            "(the outputs are written synchronously; set background_write: True to override)",
+            ", ".join(multi_output_decoders),
+        )
+        return False
+    return True
+
+
 def main(arg_list: list[str] | None = None):
     t0 = time.perf_counter()
     args = parse_args(arg_list)
@@ -93,10 +118,9 @@ def main(arg_list: list[str] | None = None):
         config["routing"], checkpoints
     )
 
-    # List of background write processes
+    # List of background write processes (None: synchronous writes in the main thread)
     write_process_list: list[Future] | None = []
-
-    if "background_write" in config and not config["background_write"]:
+    if not use_background_write(config, decoder_outputs, num_members):
         write_process_list = None
 
     max_processes = os.cpu_count() - config["dataloader"].get("num_workers", 1) - 1

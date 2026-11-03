@@ -5,6 +5,7 @@ from queue import Queue
 import numpy as np
 import pytest
 
+from bris.__main__ import use_background_write
 from bris.writer import CustomWriter
 
 
@@ -56,6 +57,56 @@ def test_custom_writer_async(prediction):
     times, member, pred = calls.get()
     assert member == 0
     np.testing.assert_array_equal(pred, np.ones((2, 3)))
+
+
+def test_custom_writer_sync(prediction):
+    """background_write: False -> process_list is None and add_forecast is called in the calling thread
+    (write_on_batch_end used to fail on len(None) before writing anything)."""
+    calls = Queue()
+    output_dict = [
+        {
+            "decoder_name": "data",
+            "start_gridpoint": 0,
+            "end_gridpoint": 2,
+            "outputs": [DummyOutput(calls), DummyOutput(calls)],
+        }
+    ]
+    writer = CustomWriter(output_dict, None)
+    writer.write_on_batch_end(None, None, prediction, None, None, 0, 0)
+    assert calls.qsize() == 2
+    writer.on_predict_end(None, None)
+
+
+def _decoder_outputs(n_outputs: int):
+    return [
+        {
+            "decoder_name": "data",
+            "start_gridpoint": 0,
+            "end_gridpoint": 2,
+            "outputs": [object()] * n_outputs,
+        }
+    ]
+
+
+def test_use_background_write_default():
+    # one member and several outputs on a decoder: synchronous (concurrent netcdf writes segfault)
+    assert use_background_write({}, _decoder_outputs(2), num_members=1) is False
+    # one output, or several members (intermediate store, files assembled at finalize): background
+    assert use_background_write({}, _decoder_outputs(1), num_members=1) is True
+    assert use_background_write({}, _decoder_outputs(2), num_members=2) is True
+    # an explicit setting wins
+    assert (
+        use_background_write(
+            {"background_write": True}, _decoder_outputs(2), num_members=1
+        )
+        is True
+    )
+    assert (
+        use_background_write(
+            {"background_write": False}, _decoder_outputs(1), num_members=4
+        )
+        is False
+    )
 
 
 if __name__ == "__main__":
