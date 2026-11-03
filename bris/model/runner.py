@@ -62,6 +62,7 @@ class InputBuilder:
         self.mapping = mapping
         self.data_index = data_index
         self.model_index = model_index
+        self._non_input = None
         self.latitudes = latitudes
         self.longitudes = longitudes
         # Static forcings (cos/sin lat/lon, lsm, z, ...) of the current forecast, name -> tensor.
@@ -125,7 +126,65 @@ class InputBuilder:
             insert_forcings(
                 x, forcings, self.data_index.input.name_to_index, time_index
             )
+        # Data order also holds the variables the model never reads (the diagnostics, e.g. tp/ssrd/strd:
+        # outputs that are not inputs). Nothing above fills them: they stay NaN, which is what the outputs
+        # get for the diagnostics at the initial time (initial_output). They are zero-filled right before
+        # the pre-processors (fill_non_inputs, called by ModelRunner.pre_process) because the processors
+        # run over the whole tensor and anemoi-models checks their output for NaNs. The model-input
+        # columns keep NaN as the marker of an unfilled variable (and of NaN in the data that an imputer
+        # may fill); they are checked after the pre-processors, see ModelRunner.pre_process.
         return x
+
+    def fill_non_inputs(self, x: torch.Tensor) -> torch.Tensor:
+        """
+        Set the columns of a data-order state that are not model inputs (the diagnostics) to zero, in
+        place: a finite placeholder for the pre-processors, dropped by to_model_order.
+        """
+        x[..., self._non_input_positions(x.device)] = 0.0
+        return x
+
+    def _non_input_positions(self, device) -> torch.Tensor:
+        """Positions in data order of the variables that are not model inputs (diagnostics)."""
+        if self._non_input is None or self._non_input.device != device:
+            inputs = set(self.data_index.input.full.tolist())
+            self._non_input = torch.tensor(
+                [i for i in range(len(self.mapping.all)) if i not in inputs],
+                dtype=torch.int64,
+                device=device,
+            )
+        return self._non_input
+
+    def check_inputs_finite(self, x: torch.Tensor, times: list | None = None) -> None:
+        """
+        Raise if a model-input column of a data-order state is not finite, naming the time steps and
+        the variables. Meant for the pre-processed state (after an imputer has filled the NaNs of the
+        data it knows about), where NaN or inf means an unimputed variable or bad data.
+
+        Args:
+            x (torch.Tensor): State in data order, shape (batch, time, ensemble, points, variables).
+            times (list | None): Valid time of each time step, for the message (else the step index).
+        """
+        inputs = self.data_index.input.full
+        finite = torch.isfinite(x[..., inputs]).all(
+            dim=(0, 2, 3)
+        )  # (time, input variables)
+        if bool(finite.all()):
+            return
+        names = [self.mapping.all[i] for i in inputs.tolist()]
+        labels = (
+            [str(t) for t in times]
+            if times is not None
+            else [f"input step {t}" for t in range(finite.shape[0])]
+        )
+        bad = {
+            labels[t]: [names[v] for v in torch.nonzero(~finite[t]).flatten().tolist()]
+            for t in range(finite.shape[0])
+            if not bool(finite[t].all())
+        }
+        raise ValueError(
+            f"Model input contains NaN or inf after pre-processing (time: variables): {bad}. "
+            "Check the dataset, the static forcings, the variable mapping and the model's imputer."
+        )
 
     def set_static_forcings_from_state(self, state_normalized: torch.Tensor) -> None:
         """
@@ -351,12 +410,32 @@ class ModelRunner(nn.Module):
         return self.input_builders[dataset_name]
 
     def pre_process(
-        self, x: torch.Tensor, dataset_name: str, in_place: bool = False
+        self,
+        x: torch.Tensor,
+        dataset_name: str,
+        in_place: bool = False,
+        times: list | None = None,
     ) -> torch.Tensor:
+        """
+        Run the model's pre-processors of a dataset on a state in data order: the columns that are not
+        model inputs are zero-filled first (see InputBuilder.fill_non_inputs; with ``in_place`` False the
+        caller's tensor is left as it is), and the model-input columns are checked for finite values
+        afterwards (see InputBuilder.check_inputs_finite); ``times`` only labels the time steps in the
+        error message.
+        """
+        builder = self.input_builders.get(dataset_name)
+        if builder is not None:
+            if not in_place:
+                x = x.clone()
+                in_place = True
+            builder.fill_non_inputs(x)
         try:
-            return self.model.pre_processors[dataset_name](x, in_place=in_place)
+            x = self.model.pre_processors[dataset_name](x, in_place=in_place)
         except TypeError:  # Single dataset models
-            return self.model.pre_processors(x, in_place=in_place)
+            x = self.model.pre_processors(x, in_place=in_place)
+        if builder is not None:
+            builder.check_inputs_finite(x, times)
+        return x
 
     def post_process(
         self, x: torch.Tensor, dataset_name: str, in_place: bool = False
@@ -425,7 +504,9 @@ class ModelRunner(nn.Module):
             self.input_times(time),
             static_forcings_from_source=static_forcings_from_source,
         )
-        x = self.pre_process(x, dataset_name, in_place=True)
+        x = self.pre_process(
+            x, dataset_name, in_place=True, times=self.input_times(time)
+        )
         x = builder.to_model_order(x)
 
         y_pred = self(

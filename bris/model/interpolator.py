@@ -190,7 +190,9 @@ class Interpolator(BasePredictor):
         # Forecaster states in physical units: the boundary values of the interpolator
         x_physical = builder.to_model_order(state)
 
-        state = self.forecaster.pre_process(state, ds, in_place=True)
+        state = self.forecaster.pre_process(
+            state, ds, in_place=True, times=self.forecaster.input_times(time)
+        )
         self.update_static_forcings(time, state)
         x = builder.to_model_order(state)
 
