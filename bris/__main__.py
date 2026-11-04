@@ -163,6 +163,10 @@ def main(arg_list: list[str] | None = None):
             p.result()
             LOGGER.debug(f"Waited {time.perf_counter() - t2:.1f}s for {p} to complete.")
 
+    # Every rank's intermediates must be on disk before the main rank assembles the outputs
+    # (no-op outside a distributed run).
+    inference.trainer.strategy.barrier()
+
     # Finalize all outputs, so they can flush to disk if needed
     is_main_thread = ("SLURM_PROCID" not in os.environ) or (
         os.environ["SLURM_PROCID"] == "0"
