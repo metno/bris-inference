@@ -17,6 +17,11 @@ from bris.conventions.variable_list import VariableList
 from bris.outputs import Output
 from bris.outputs.intermediate import Intermediate
 from bris.predict_metadata import PredictMetadata
+from bris.regular_grid import (
+    RegularGridSubset,
+    find_largest_regular_grid,
+    subset_from_grid_indices,
+)
 
 
 class Netcdf(Output):
@@ -27,10 +32,16 @@ class Netcdf(Output):
     as soon as we get it. Otherwise write the data to disk in an intermediate format and then merge
     files on finalize. This comes at a penalty since the data is written to disk twice.
 
-    This output can write three types of outputs:
+    This output can write four types of outputs:
     1) Gridded regional projected data. This requires field_shape to be set in predict_metadata
     2) Irregular grids interpolated to a lat/lon grid. Use interp_res.
     3) Irregular grids. This means the output only has one location dimension.
+    4) Points that are a subset of a regular grid in a projection (e.g. a lat-cropped, non-rectangular
+       LAM domain without a 2-D field_shape), written as a projected x/y grid: the largest complete
+       rectangle of the points in the projection, the same box anemoi-training uses for the FFT losses.
+       Either grid_indices (the RegularGridIndices node attribute of the checkpoint graph, see the
+       grid_indices_attribute config option resolved in bris.routes) or regular_grid (recomputed from
+       the points), with proj4_str or domain_name.
     """
 
     def __init__(
@@ -51,6 +62,8 @@ class Netcdf(Output):
         global_attributes=None,
         remove_intermediate=True,
         compression=False,
+        regular_grid=None,
+        grid_indices=None,
     ):
         """
         Args:
@@ -59,6 +72,16 @@ class Netcdf(Output):
             variables: If None, predict all variables
             global_attributes (dict): Write these global attributes in the output file
             compression (bool): If true, write compressed output files
+            regular_grid: Write the largest complete regular rectangle of the points in the
+                projection (proj4_str/domain_name) as a 2-D x/y field, dropping the points outside
+                it. True infers the grid spacing; a dict passes x_spacing, y_spacing (projection
+                units), relative_tolerance and absolute_tolerance (see bris.regular_grid). With the
+                settings of the RegularGridIndices node attribute of the training graph this is the
+                FFT-loss rectangle.
+            grid_indices: (points, 2) array of (row, column) indices of the output rectangle per
+                point, -1 outside: the RegularGridIndices node attribute of the training graph, i.e.
+                the FFT-loss rectangle itself. Needs proj4_str/domain_name (the attribute's
+                projection) for the x/y coordinates and the wind rotation.
         """
         super().__init__(predict_metadata, extra_variables)
 
@@ -102,6 +125,29 @@ class Netcdf(Output):
             self.proj4_str = projections.get_proj4_str(domain_name)
         else:
             self.proj4_str = proj4_str
+
+        self.regular_grid = None
+        self.grid_indices = None
+        if regular_grid or grid_indices is not None:
+            if self.proj4_str is None:
+                raise ValueError(
+                    "netcdf: regular_grid/grid_indices needs proj4_str or domain_name"
+                )
+            if self.interp_res is not None or self._is_masked:
+                raise ValueError(
+                    "netcdf: regular_grid/grid_indices cannot be combined with interp_res or mask_file"
+                )
+            if grid_indices is not None:
+                self.grid_indices = np.asarray(grid_indices)
+                if self.grid_indices.shape != (self.pm.num_points, 2):
+                    raise ValueError(
+                        f"netcdf: grid_indices must have shape ({self.pm.num_points}, 2), "
+                        f"got {self.grid_indices.shape}"
+                    )
+            else:
+                self.regular_grid = (
+                    {} if isinstance(regular_grid, bool) else dict(regular_grid)
+                )
 
         if self._is_masked:
             # If a mask was used during training:
@@ -150,7 +196,46 @@ class Netcdf(Output):
     @property
     def _is_gridded(self) -> bool:
         """Is the output gridded?"""
-        return len(self.pm.field_shape) == 2 or self.interp_res is not None
+        return (
+            len(self.pm.field_shape) == 2
+            or self.interp_res is not None
+            or self._is_regular_grid
+        )
+
+    @property
+    def _is_regular_grid(self) -> bool:
+        """Should the largest regular projected rectangle of the points be written?"""
+        return self.regular_grid is not None or self.grid_indices is not None
+
+    @cached_property
+    def grid_subset(self) -> RegularGridSubset:
+        """The largest complete regular rectangle of the points in the projection"""
+        t0 = pytime.perf_counter()
+        xx, yy = projections.project(self.pm.lats, self.pm.lons, self.proj4_str)
+        if self.grid_indices is not None:
+            subset = subset_from_grid_indices(self.grid_indices, xx, yy)
+            source = "grid indices from the checkpoint graph"
+        else:
+            subset = find_largest_regular_grid(
+                np.column_stack((xx, yy)), **self.regular_grid
+            )
+            source = "largest regular grid"
+        utils.LOGGER.info(
+            f"netcdf: {source} in '{self.proj4_str}' has shape (y={subset.shape[0]}, "
+            f"x={subset.shape[1]}), spacing {subset.spacing[0]:g} x {subset.spacing[1]:g}: "
+            f"{len(subset.node_indices)} of {self.pm.num_points} points "
+            f"({pytime.perf_counter() - t0:.1f}s)"
+        )
+        return subset
+
+    def _to_grid(self, values: np.ndarray) -> np.ndarray:
+        """Reshape per-point values (..., points) to the output grid (..., y, x)"""
+        if self._is_regular_grid:
+            subset = self.grid_subset
+            return values[..., subset.node_indices].reshape(
+                values.shape[:-1] + subset.shape
+            )
+        return np.reshape(values, values.shape[:-1] + tuple(self.pm.field_shape))
 
     @property
     def _interpolate(self) -> bool:
@@ -226,7 +311,10 @@ class Netcdf(Output):
                         "Warning: latrange/lonrange not handled in gridded fields"
                     )
 
-                if self.proj4_str:
+                if self._is_regular_grid:
+                    x = self.grid_subset.x
+                    y = self.grid_subset.y
+                elif self.proj4_str:
                     lats = np.reshape(self.pm.lats, self.pm.field_shape).astype(
                         np.double
                     )
@@ -395,8 +483,8 @@ class Netcdf(Output):
 
     def _set_coords_gridded_not_interpolated(self, spatial_dims: tuple) -> None:
         t0 = pytime.perf_counter()
-        lats = self.pm.grid_lats.astype(np.double)
-        lons = self.pm.grid_lons.astype(np.double)
+        lats = self._to_grid(self.pm.lats).astype(np.double)
+        lons = self._to_grid(self.pm.lons).astype(np.double)
         self.ds[self.conv_name("latitude")] = (
             spatial_dims,
             lats,
@@ -407,7 +495,7 @@ class Netcdf(Output):
         )
 
         if self.pm.altitudes is not None:
-            altitudes = self.pm.grid_altitudes.astype(np.double)
+            altitudes = self._to_grid(np.asarray(self.pm.altitudes)).astype(np.double)
             self.ds[self.conv_name("surface_altitude")] = (
                 spatial_dims,
                 altitudes,
@@ -547,6 +635,8 @@ class Netcdf(Output):
             ar = np.nan * np.zeros((len(curr),) + spatial_shape, np.float32)
             # Reconstruct the 2D array (nans where no data)
             ar[:, self.mask] = curr
+        elif self._is_regular_grid:
+            ar = self._to_grid(curr)
         else:
             ar = np.reshape(curr, (len(curr),) + spatial_shape)
 

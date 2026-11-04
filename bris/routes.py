@@ -94,6 +94,10 @@ def get(
             for output_type, args in oc.items():
                 curr_workdir = utils.get_workdir(workdir) + "_" + str(count)
                 count += 1
+                if output_type == "netcdf" and "grid_indices_attribute" in args:
+                    args = resolve_grid_indices(
+                        args, checkpoints, decoder_name, start_gridpoint, end_gridpoint
+                    )
                 output = bris.outputs.instantiate(output_type, pm, curr_workdir, args)
                 outputs += [output]
 
@@ -174,3 +178,67 @@ def add_checkpoint_name_to_attrs(
         ckpt_str += f"{type}:{ckpt_path}, "
     oc["netcdf"]["global_attributes"]["source"] = f"{ckpt_str}"
     return oc
+
+
+def resolve_grid_indices(
+    args: dict[str, Any],
+    checkpoints: dict[str, Checkpoint],
+    decoder_name: str,
+    start_gridpoint: int,
+    end_gridpoint: int,
+) -> dict[str, Any]:
+    """Replace the netcdf option grid_indices_attribute (name of a RegularGridIndices node
+    attribute of the checkpoint graph, e.g. the FFT-loss rectangle fft_grid_indices) by the
+    attribute values of the output points (grid_indices), and take the attribute's projection
+    from the training config when proj4_str/domain_name are not given
+
+    Args:
+        args: The netcdf output options (not modified)
+        checkpoints: The first checkpoint whose graph has the attribute on the decoder_name
+            nodes is used
+        decoder_name: Node set of the graph (the decoder/dataset name)
+        start_gridpoint, end_gridpoint: The points of the output within the node set
+    """
+    args = dict(args)
+    attribute = args.pop("grid_indices_attribute")
+    for ckpt_name, checkpoint in checkpoints.items():
+        graph = checkpoint.graph
+        if graph is None or decoder_name not in graph.node_types:
+            continue
+        if attribute not in graph[decoder_name]:
+            continue
+        values = graph[decoder_name][attribute].detach().cpu().numpy()
+        if values.ndim != 2 or values.shape[1] != 2:
+            raise ValueError(
+                f"Node attribute '{attribute}' of checkpoint {ckpt_name} must have shape "
+                f"(nodes, 2) (a RegularGridIndices attribute), got {values.shape}"
+            )
+        selected = values[:, 0] >= 0
+        inside = selected[start_gridpoint:end_gridpoint].sum()
+        if inside != selected.sum():
+            raise ValueError(
+                f"Node attribute '{attribute}' selects {selected.sum()} points but only {inside} "
+                f"of them are in the output's points {start_gridpoint}:{end_gridpoint} of "
+                f"'{decoder_name}'; check domain_index"
+            )
+        args["grid_indices"] = values[start_gridpoint:end_gridpoint]
+        if args.get("proj4_str") is None and args.get("domain_name") is None:
+            try:
+                attribute_config = checkpoint.config.graph.nodes[
+                    decoder_name
+                ].attributes[attribute]
+                args["proj4_str"] = attribute_config["proj4_string"]
+            except (KeyError, AttributeError, TypeError) as e:
+                raise ValueError(
+                    f"No proj4_string for node attribute '{attribute}' in the training config of "
+                    f"checkpoint {ckpt_name}; set proj4_str or domain_name on the netcdf output"
+                ) from e
+        utils.LOGGER.info(
+            f"netcdf: grid indices from node attribute '{attribute}' of checkpoint {ckpt_name} "
+            f"({inside} points), projection '{args.get('proj4_str') or args.get('domain_name')}'"
+        )
+        return args
+    raise ValueError(
+        f"No checkpoint graph has the node attribute '{attribute}' on '{decoder_name}' "
+        f"(checkpoints: {list(checkpoints)})"
+    )
