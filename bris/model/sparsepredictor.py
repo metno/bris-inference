@@ -38,6 +38,28 @@ class SparseForecasterPredictor(BasePredictor):
             str(dataset_name): list(variables)
             for dataset_name, variables in required_variables.items()
         }
+        self.requested_variables = {name: list(variables) for name, variables in self.required_variables.items()}
+        self.lightning_motion_head = getattr(self.model, "lightning_motion_head", None)
+        self.apply_lightning_motion = (
+            self.lightning_motion_head is not None
+            and self.lightning_motion_head.output_variable
+            in self.required_variables.get(self.lightning_motion_head.lightning_dataset, [])
+        )
+        self.motion_output = (
+            (self.lightning_motion_head.lightning_dataset, self.lightning_motion_head.output_variable)
+            if self.apply_lightning_motion else None
+        )
+        if self.apply_lightning_motion:
+            head = self.lightning_motion_head
+            variables = self.required_variables[head.lightning_dataset]
+            if head.lightning_variable not in variables:
+                variables.append(head.lightning_variable)
+            head.set_grid(
+                radar_latitudes=datamodule.latitudes[head.radar_dataset],
+                radar_longitudes=datamodule.longitudes[head.radar_dataset],
+                lightning_latitudes=datamodule.latitudes[head.lightning_dataset],
+                lightning_longitudes=datamodule.longitudes[head.lightning_dataset],
+            )
         self.dataset_variables = {
             dataset_name: list(datamodule.data_readers[dataset_name].variables)
             for dataset_name in self.dataset_names
@@ -48,6 +70,13 @@ class SparseForecasterPredictor(BasePredictor):
         }
         self.output_dataset_names = set(datamodule.ds_predict.output_dataset_names)
         self.forecast_reference_offset = int(datamodule.ds_predict.forecast_reference_offset)
+        if self.apply_lightning_motion:
+            for name, count in ((head.radar_dataset, 7), (head.lightning_dataset, 5)):
+                expected = list(range(self.forecast_reference_offset - count + 1, self.forecast_reference_offset + 1))
+                if self.dataset_input_offsets[name][-count:] != expected:
+                    raise ValueError(f"Lightning motion requires {count} consecutive history frames ending at issue for {name}")
+            if self.timestep != np.timedelta64(head.timestep_minutes, "m"):
+                raise ValueError("Lightning motion timestep differs from the forecast timestep")
         self.output_pairs_by_dataset = {
             dataset_name: sorted(
                 (
@@ -172,7 +201,12 @@ class SparseForecasterPredictor(BasePredictor):
         output_names = self.required_variables[dataset_name]
         offset_index = self.dataset_input_offsets[dataset_name].index(self.forecast_reference_offset)
         frame = window[offset_index, 0]
-        columns = [frame[:, self.variable_index(source_names, name)] for name in output_names]
+        columns = []
+        for name in output_names:
+            if (dataset_name, name) == self.motion_output:
+                columns.append(torch.full_like(frame[:, 0], torch.nan))
+            else:
+                columns.append(frame[:, self.variable_index(source_names, name)])
         return torch.stack(columns, dim=-1)
 
     def ensemble_member_for_forecast(self, forecast_reference_time: np.datetime64) -> int:
@@ -316,19 +350,13 @@ class SparseForecasterPredictor(BasePredictor):
                     self.produced_steps = take if self.produced_steps is None else min(self.produced_steps, take)
 
                     if dataset_name in outputs:
-                        selected = torch.stack(
-                            [
-                                prediction[
-                                    :take,
-                                    0,
-                                    :,
-                                    self.variable_index(self.output_names_by_dataset[dataset_name], name),
-                                ]
-                                for name in self.required_variables[dataset_name]
-                            ],
-                            dim=-1,
-                        )
-                        outputs[dataset_name][0, self.steps_done + 1 : self.steps_done + 1 + take] = selected.cpu()
+                        for column, name in enumerate(self.required_variables[dataset_name]):
+                            target = outputs[dataset_name][0, self.steps_done + 1 : self.steps_done + 1 + take, :, column]
+                            if (dataset_name, name) == self.motion_output:
+                                target.fill_(torch.nan)
+                            else:
+                                index = self.variable_index(self.output_names_by_dataset[dataset_name], name)
+                                target.copy_(prediction[:take, 0, :, index].cpu())
 
                 if self.produced_steps is None or self.produced_steps < 1:
                     raise RuntimeError("Sparse forecaster produced no prediction frames.")
@@ -339,6 +367,24 @@ class SparseForecasterPredictor(BasePredictor):
                 self.rollout_iter += 1
                 if self.release_cache:
                     torch.cuda.empty_cache()
+
+        if self.apply_lightning_motion:
+            head = self.lightning_motion_head
+            variables = self.required_variables[head.lightning_dataset]
+            prediction = outputs[head.lightning_dataset]
+            raw = prediction[0, 1:, :, variables.index(head.lightning_variable)].unsqueeze(1)
+            radar_channel = self.variable_index(self.dataset_variables[head.radar_dataset], head.radar_variable)
+            lightning_channel = self.variable_index(self.dataset_variables[head.lightning_dataset], head.lightning_variable)
+            scores = head(
+                raw,
+                batch[head.radar_dataset][0, -7:, 0, :, radar_channel],
+                batch[head.lightning_dataset][0, -5:, 0, :, lightning_channel],
+                np.arange(1, self.forecast_length) * head.timestep_minutes,
+            )
+            prediction[0, 1:, :, variables.index(head.output_variable)] = scores[:, 0]
+            requested = self.requested_variables[head.lightning_dataset]
+            if requested != variables:
+                outputs[head.lightning_dataset] = prediction[..., [variables.index(name) for name in requested]]
 
         return {
             "pred": {dataset_name: prediction.to(torch.float32).numpy() for dataset_name, prediction in outputs.items()},
