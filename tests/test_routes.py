@@ -1,4 +1,5 @@
 import os
+from types import SimpleNamespace
 
 from anemoi.utils.config import DotDict
 
@@ -69,6 +70,16 @@ class FakeCheckpointObject:
         )
 
         return data_indices
+
+
+def test_motion_head_wildcard_output_does_not_change_decoder_indices():
+    checkpoint = FakeCheckpointObject()
+    checkpoint.model = SimpleNamespace(lightning_motion_head=SimpleNamespace(
+        lightning_dataset="data1", output_variable="lightning_probability_score"))
+    routing = [{"decoder_name": "data1", "outputs": [{"netcdf": {"filename_pattern": "unused.nc"}}]}]
+    variables = bris.routes.get_required_variables(routing, checkpoint)
+    assert variables["data1"] == ["10u", "10v", "2t", "lightning_probability_score"]
+    assert checkpoint.data_indices["data1"].model.output.includes == ["2t", "10u", "10v"]
 
 
 #    @property

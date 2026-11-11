@@ -38,6 +38,28 @@ class SparseForecasterPredictor(BasePredictor):
             str(dataset_name): list(variables)
             for dataset_name, variables in required_variables.items()
         }
+        self.requested_variables = {name: list(variables) for name, variables in self.required_variables.items()}
+        self.lightning_motion_head = getattr(self.model, "lightning_motion_head", None)
+        self.apply_lightning_motion = (
+            self.lightning_motion_head is not None
+            and self.lightning_motion_head.output_variable
+            in self.required_variables.get(self.lightning_motion_head.lightning_dataset, [])
+        )
+        self.motion_output = (
+            (self.lightning_motion_head.lightning_dataset, self.lightning_motion_head.output_variable)
+            if self.apply_lightning_motion else None
+        )
+        if self.apply_lightning_motion:
+            head = self.lightning_motion_head
+            variables = self.required_variables[head.lightning_dataset]
+            if head.lightning_variable not in variables:
+                variables.append(head.lightning_variable)
+            head.set_grid(
+                radar_latitudes=datamodule.latitudes[head.radar_dataset],
+                radar_longitudes=datamodule.longitudes[head.radar_dataset],
+                lightning_latitudes=datamodule.latitudes[head.lightning_dataset],
+                lightning_longitudes=datamodule.longitudes[head.lightning_dataset],
+            )
         self.dataset_variables = {
             dataset_name: list(datamodule.data_readers[dataset_name].variables)
             for dataset_name in self.dataset_names
@@ -48,6 +70,13 @@ class SparseForecasterPredictor(BasePredictor):
         }
         self.output_dataset_names = set(datamodule.ds_predict.output_dataset_names)
         self.forecast_reference_offset = int(datamodule.ds_predict.forecast_reference_offset)
+        if self.apply_lightning_motion:
+            for name, count in ((head.radar_dataset, 7), (head.lightning_dataset, 5)):
+                expected = list(range(self.forecast_reference_offset - count + 1, self.forecast_reference_offset + 1))
+                if self.dataset_input_offsets[name][-count:] != expected:
+                    raise ValueError(f"Lightning motion requires {count} consecutive history frames ending at issue for {name}")
+            if self.timestep != np.timedelta64(head.timestep_minutes, "m"):
+                raise ValueError("Lightning motion timestep differs from the forecast timestep")
         self.output_pairs_by_dataset = {
             dataset_name: sorted(
                 (
@@ -85,6 +114,24 @@ class SparseForecasterPredictor(BasePredictor):
                 )
             n_step_output = output_steps.pop()
         self.step_size = int(n_step_output)
+
+        self.precipitation_motion_head = getattr(self.model, "precipitation_motion_head", None)
+        rain_head = self.precipitation_motion_head
+        self.apply_precipitation_motion = (
+            rain_head is not None
+            and any(
+                name == rain_head.radar_variable or {name, rain_head.radar_variable} == {"rr", "lwe_precipitation_rate"}
+                for name in self.required_variables.get(rain_head.radar_dataset, [])
+            )
+        )
+        if self.apply_precipitation_motion:
+            expected = list(range(self.forecast_reference_offset - 3, self.forecast_reference_offset + 1))
+            if self.dataset_input_offsets[rain_head.radar_dataset][-4:] != expected:
+                raise ValueError("Precipitation motion requires four consecutive radar frames ending at issue")
+            if self.step_size < rain_head.minimum_forecast_steps:
+                raise ValueError("Precipitation motion reference must fit in the first output block")
+            if self.timestep != np.timedelta64(rain_head.timestep_minutes, "m"):
+                raise ValueError("Precipitation motion timestep differs from the forecast timestep")
 
         self.model.eval()
         self.release_cache = release_cache
@@ -172,7 +219,12 @@ class SparseForecasterPredictor(BasePredictor):
         output_names = self.required_variables[dataset_name]
         offset_index = self.dataset_input_offsets[dataset_name].index(self.forecast_reference_offset)
         frame = window[offset_index, 0]
-        columns = [frame[:, self.variable_index(source_names, name)] for name in output_names]
+        columns = []
+        for name in output_names:
+            if (dataset_name, name) == self.motion_output:
+                columns.append(torch.full_like(frame[:, 0], torch.nan))
+            else:
+                columns.append(frame[:, self.variable_index(source_names, name)])
         return torch.stack(columns, dim=-1)
 
     def ensemble_member_for_forecast(self, forecast_reference_time: np.datetime64) -> int:
@@ -297,10 +349,44 @@ class SparseForecasterPredictor(BasePredictor):
         self.steps_done = 0
         self.rollout_iter = 0
         horizon_steps = self.forecast_length - 1
+        lightning_steps = (
+            self.lightning_motion_head.max_lead_minutes // self.lightning_motion_head.timestep_minutes
+            if self.apply_lightning_motion else 0
+        )
+        required_steps = max(lightning_steps, self.step_size if self.apply_precipitation_motion else 0)
+        model_horizon = max(horizon_steps, required_steps) if horizon_steps else 0
+        rain_context, lightning_context = [], []
+        reference_rain = None
+        noise_processes = getattr(self.model.model, "absolute_lead_noise_process", {})
         cuda_devices = list(range(torch.cuda.device_count())) if torch.cuda.is_available() else []
         with torch.random.fork_rng(devices=cuda_devices):
+            if self.apply_precipitation_motion and horizon_steps and ensemble_member != 0:
+                # Imputers replace these masks; preserve their state across the control forecast.
+                imputer_state = [
+                    (module, name, getattr(module, name))
+                    for module in self.model.pre_processors.modules()
+                    for name in ("nan_locations", "loss_mask_training")
+                    if hasattr(module, name)
+                ]
+                torch.manual_seed(self.seed_for_forecast_member(self.forecast_reference_time, 0))
+                for process in noise_processes.values():
+                    process._noise_generator = None
+                    process._noise_generator_device = None
+                control = self({name: value.unsqueeze(0) for name, value in current.items()}, fcstep=0)
+                head = self.precipitation_motion_head
+                values = self.prediction_as_time_ensemble_cell_variable(control[head.radar_dataset])
+                column = self.variable_index(self.output_names_by_dataset[head.radar_dataset], head.radar_variable)
+                reference_rain = values[:, 0, :, column].float().cpu()
+                for module, name, value in imputer_state:
+                    setattr(module, name, value)
+                del control, values, imputer_state
             torch.manual_seed(seed)
-            while self.steps_done < horizon_steps:
+            if self.precipitation_motion_head is not None:
+                # Private decoder noise must follow the forecast member seed as well.
+                for process in noise_processes.values():
+                    process._noise_generator = None
+                    process._noise_generator_device = None
+            while self.steps_done < model_horizon:
                 model_batch = {
                     dataset_name: dataset_current.unsqueeze(0)
                     for dataset_name, dataset_current in current.items()
@@ -312,23 +398,27 @@ class SparseForecasterPredictor(BasePredictor):
                 for dataset_name, prediction in raw_prediction.items():
                     prediction = self.prediction_as_time_ensemble_cell_variable(prediction)
                     y_pred[dataset_name] = prediction
-                    take = min(horizon_steps - self.steps_done, prediction.shape[0])
+                    take = min(model_horizon - self.steps_done, prediction.shape[0])
                     self.produced_steps = take if self.produced_steps is None else min(self.produced_steps, take)
 
+                    if self.apply_precipitation_motion and dataset_name == self.precipitation_motion_head.radar_dataset:
+                        head = self.precipitation_motion_head
+                        column = self.variable_index(self.output_names_by_dataset[dataset_name], head.radar_variable)
+                        rain_context.append(prediction[:take, :1, :, column].float().cpu())
+                    if self.apply_lightning_motion and self.steps_done < lightning_steps and dataset_name == self.lightning_motion_head.lightning_dataset:
+                        head = self.lightning_motion_head
+                        column = self.variable_index(self.output_names_by_dataset[dataset_name], head.lightning_variable)
+                        lightning_context.append(prediction[:take, :1, :, column].float().cpu())
+
                     if dataset_name in outputs:
-                        selected = torch.stack(
-                            [
-                                prediction[
-                                    :take,
-                                    0,
-                                    :,
-                                    self.variable_index(self.output_names_by_dataset[dataset_name], name),
-                                ]
-                                for name in self.required_variables[dataset_name]
-                            ],
-                            dim=-1,
-                        )
-                        outputs[dataset_name][0, self.steps_done + 1 : self.steps_done + 1 + take] = selected.cpu()
+                        output_take = min(take, max(horizon_steps - self.steps_done, 0))
+                        for column, name in enumerate(self.required_variables[dataset_name]):
+                            target = outputs[dataset_name][0, self.steps_done + 1 : self.steps_done + 1 + output_take, :, column]
+                            if (dataset_name, name) == self.motion_output:
+                                target.fill_(torch.nan)
+                            else:
+                                index = self.variable_index(self.output_names_by_dataset[dataset_name], name)
+                                target.copy_(prediction[:output_take, 0, :, index].cpu())
 
                 if self.produced_steps is None or self.produced_steps < 1:
                     raise RuntimeError("Sparse forecaster produced no prediction frames.")
@@ -339,6 +429,45 @@ class SparseForecasterPredictor(BasePredictor):
                 self.rollout_iter += 1
                 if self.release_cache:
                     torch.cuda.empty_cache()
+
+        if self.apply_precipitation_motion and horizon_steps:
+            head = self.precipitation_motion_head
+            column = self.variable_index(self.dataset_variables[head.radar_dataset], head.radar_variable)
+            radar_history = batch[head.radar_dataset][0, -4:, 0, :, column].float().cpu()
+            raw_rain = torch.cat(rain_context, dim=0)
+            rain_context.clear()
+            if reference_rain is None:
+                reference_rain = raw_rain[:self.step_size, 0]
+            corrected = head(raw_rain, radar_history,
+                np.arange(1, len(raw_rain) + 1) * head.timestep_minutes,
+                reference_prediction=reference_rain)
+            column = self.variable_index(self.required_variables[head.radar_dataset], head.radar_variable)
+            outputs[head.radar_dataset][0, 1:, :, column] = corrected[:horizon_steps, 0]
+            del raw_rain, corrected, reference_rain
+
+        if self.apply_lightning_motion and horizon_steps:
+            head = self.lightning_motion_head
+            variables = self.required_variables[head.lightning_dataset]
+            prediction = outputs[head.lightning_dataset]
+            raw = torch.cat(lightning_context, dim=0)[:lightning_steps]
+            lightning_context.clear()
+            radar_channel = self.variable_index(self.dataset_variables[head.radar_dataset], head.radar_variable)
+            lightning_channel = self.variable_index(self.dataset_variables[head.lightning_dataset], head.lightning_variable)
+            scores = head(
+                raw,
+                batch[head.radar_dataset][0, -7:, 0, :, radar_channel],
+                batch[head.lightning_dataset][0, -5:, 0, :, lightning_channel],
+                np.arange(1, len(raw) + 1) * head.timestep_minutes,
+            )
+            count = min(horizon_steps, len(scores))
+            prediction[0, 1:count + 1, :, variables.index(head.output_variable)] = scores[:count, 0]
+        if self.apply_lightning_motion:
+            head = self.lightning_motion_head
+            variables = self.required_variables[head.lightning_dataset]
+            prediction = outputs[head.lightning_dataset]
+            requested = self.requested_variables[head.lightning_dataset]
+            if requested != variables:
+                outputs[head.lightning_dataset] = prediction[..., [variables.index(name) for name in requested]]
 
         return {
             "pred": {dataset_name: prediction.to(torch.float32).numpy() for dataset_name, prediction in outputs.items()},
