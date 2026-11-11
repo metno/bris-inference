@@ -66,10 +66,6 @@ routing:
           variables: [thunder_count]
           global_attributes:
             title: BRIS multisource ensemble lightning logits
-      # Enable for checkpoints containing LightningMotionHead.
-      # - netcdf:
-      #     filename_pattern: ${oc.env:BRIS_NOWCAST_OUTPUT,/tmp/bris-nowcasting-output}/lightning_probability_%Y%m%dT%H%MZ.nc
-      #     variables: [lightning_probability_score]
 
 background_write: false
 loglevel: info

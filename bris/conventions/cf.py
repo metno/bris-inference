@@ -137,10 +137,6 @@ def get_attributes(cfname: str) -> dict[str, str] | dict:
             "standard_name": "thunderstorm_probability",
             "units": "1",
         },
-        "lightning_probability_score": {
-            "units": "1",
-            "long_name": "Uncalibrated five-minute lightning probability score with motion correction",
-        },
         "realization": {},
         # Data variables
         "x_wind": {"units": "m/s"},

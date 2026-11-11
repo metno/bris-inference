@@ -149,10 +149,6 @@ def get_required_variables(
             model_output = checkpoint_object.data_indices[
                 decoder_name
             ].model.output.includes
-            model_output = list(model_output)
-            head = getattr(getattr(checkpoint_object, "model", None), "lightning_motion_head", None)
-            if head is not None and decoder_name == head.lightning_dataset:
-                model_output.append(head.output_variable)
             required_variables[decoder_name] = sorted(model_output)
         else:
             required_variables[decoder_name] = sorted(list(set(v)))
