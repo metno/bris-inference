@@ -58,5 +58,31 @@ def test_custom_writer_async(prediction):
     np.testing.assert_array_equal(pred, np.ones((2, 3)))
 
 
+def test_custom_writer_accepts_prediction_future(prediction):
+    calls = Queue()
+    output_dict = [
+        {
+            "decoder_name": "data",
+            "start_gridpoint": 0,
+            "end_gridpoint": 2,
+            "outputs": [DummyOutput(calls)],
+        }
+    ]
+    writer = CustomWriter(output_dict, [])
+    prediction_future = Future()
+
+    writer.write_on_batch_end(None, None, prediction_future, None, None, 0, 0)
+    assert calls.empty()
+
+    prediction_future.set_result(prediction)
+    writer.on_predict_end(None, None)
+
+    assert calls.qsize() == 1
+    times, member, pred = calls.get()
+    assert times == prediction["times"]
+    assert member == 0
+    np.testing.assert_array_equal(pred, np.ones((2, 3)))
+
+
 if __name__ == "__main__":
     _ = pytest.main([__file__])

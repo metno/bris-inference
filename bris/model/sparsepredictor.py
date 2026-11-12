@@ -1,3 +1,6 @@
+import os
+import time
+from concurrent.futures import ThreadPoolExecutor
 from typing import Any
 
 import numpy as np
@@ -25,6 +28,8 @@ class SparseForecasterPredictor(BasePredictor):
         ensemble_seed: int | None = None,
         **kwargs: Any,
     ) -> None:
+        hardware_config = kwargs.get("hardware_config", {})
+        self.num_members = int(hardware_config.get("num_members", 1))
         super().__init__(*args, checkpoints=checkpoints, **kwargs)
 
         checkpoint = checkpoints["forecaster"]
@@ -132,6 +137,17 @@ class SparseForecasterPredictor(BasePredictor):
                 raise ValueError("Precipitation motion reference must fit in the first output block")
             if self.timestep != np.timedelta64(rain_head.timestep_minutes, "m"):
                 raise ValueError("Precipitation motion timestep differs from the forecast timestep")
+            rain_head.prepare_grid()
+
+        self._precipitation_references: dict[np.datetime64, torch.Tensor] = {}
+        self._precipitation_corrections: dict[np.datetime64, dict] = {}
+        self._motion_pool: ThreadPoolExecutor | None = None
+        if self.apply_precipitation_motion:
+            allocated_cpus = int(os.environ.get("SLURM_CPUS_PER_TASK", os.cpu_count() or 1))
+            default_workers = min(self.num_members, 4, max(1, allocated_cpus - 1))
+            motion_workers = int(os.environ.get("BRIS_PRECIPITATION_MOTION_WORKERS", default_workers))
+            self._motion_pool = ThreadPoolExecutor(max_workers=max(1, motion_workers))
+            LOGGER.info("Precipitation motion correction workers=%s", max(1, motion_workers))
 
         self.model.eval()
         self.release_cache = release_cache
@@ -242,6 +258,45 @@ class SparseForecasterPredictor(BasePredictor):
             (forecast_reference_time.astype("datetime64[m]") - epoch) / np.timedelta64(1, "m")
         )
         return int((self.ensemble_seed + forecast_minutes * 1000 + int(ensemble_member)) % (2**63 - 1))
+
+    def _complete_precipitation_prediction(
+        self,
+        *,
+        outputs: dict[str, torch.Tensor],
+        raw_rain: torch.Tensor,
+        radar_history: torch.Tensor,
+        reference_rain: torch.Tensor,
+        prepared_correction: dict,
+        times: list[np.datetime64],
+        ensemble_member: int,
+    ) -> dict:
+        started = time.perf_counter()
+        head = self.precipitation_motion_head
+        corrected = head(
+            raw_rain,
+            radar_history,
+            np.arange(1, len(raw_rain) + 1) * head.timestep_minutes,
+            reference_prediction=reference_rain,
+            prepared_correction=prepared_correction,
+        )
+        column = self.variable_index(self.required_variables[head.radar_dataset], head.radar_variable)
+        outputs[head.radar_dataset][0, 1:, :, column] = corrected[: self.forecast_length - 1, 0]
+        LOGGER.info(
+            "Precipitation motion correction member=%s completed in %.1fs",
+            ensemble_member,
+            time.perf_counter() - started,
+        )
+        return {
+            "pred": {dataset_name: prediction.to(torch.float32).numpy() for dataset_name, prediction in outputs.items()},
+            "times": times,
+            "group_rank": self.model_comm_group_rank,
+            "ensemble_member": ensemble_member,
+        }
+
+    def on_predict_end(self) -> None:
+        if self._motion_pool is not None:
+            self._motion_pool.shutdown(wait=True)
+            self._motion_pool = None
 
     def advance_input_predict(
         self,
@@ -356,11 +411,16 @@ class SparseForecasterPredictor(BasePredictor):
         required_steps = max(lightning_steps, self.step_size if self.apply_precipitation_motion else 0)
         model_horizon = max(horizon_steps, required_steps) if horizon_steps else 0
         rain_context, lightning_context = [], []
-        reference_rain = None
+        reference_rain = self._precipitation_references.get(self.forecast_reference_time)
         noise_processes = getattr(self.model.model, "absolute_lead_noise_process", {})
         cuda_devices = list(range(torch.cuda.device_count())) if torch.cuda.is_available() else []
         with torch.random.fork_rng(devices=cuda_devices):
-            if self.apply_precipitation_motion and horizon_steps and ensemble_member != 0:
+            if (
+                self.apply_precipitation_motion
+                and horizon_steps
+                and ensemble_member != 0
+                and reference_rain is None
+            ):
                 # Imputers replace these masks; preserve their state across the control forecast.
                 imputer_state = [
                     (module, name, getattr(module, name))
@@ -438,12 +498,13 @@ class SparseForecasterPredictor(BasePredictor):
             rain_context.clear()
             if reference_rain is None:
                 reference_rain = raw_rain[:self.step_size, 0]
-            corrected = head(raw_rain, radar_history,
-                np.arange(1, len(raw_rain) + 1) * head.timestep_minutes,
-                reference_prediction=reference_rain)
-            column = self.variable_index(self.required_variables[head.radar_dataset], head.radar_variable)
-            outputs[head.radar_dataset][0, 1:, :, column] = corrected[:horizon_steps, 0]
-            del raw_rain, corrected, reference_rain
+            if ensemble_member == 0:
+                reference_rain = reference_rain.clone()
+                self._precipitation_references[self.forecast_reference_time] = reference_rain
+            prepared_correction = self._precipitation_corrections.get(self.forecast_reference_time)
+            if prepared_correction is None:
+                prepared_correction = head.prepare_correction(radar_history, reference_rain)
+                self._precipitation_corrections[self.forecast_reference_time] = prepared_correction
 
         if self.apply_lightning_motion and horizon_steps:
             head = self.lightning_motion_head
@@ -468,6 +529,23 @@ class SparseForecasterPredictor(BasePredictor):
             requested = self.requested_variables[head.lightning_dataset]
             if requested != variables:
                 outputs[head.lightning_dataset] = prediction[..., [variables.index(name) for name in requested]]
+
+        if self.apply_precipitation_motion and horizon_steps:
+            if ensemble_member == self.num_members - 1:
+                self._precipitation_references.pop(self.forecast_reference_time, None)
+                self._precipitation_corrections.pop(self.forecast_reference_time, None)
+            if self._motion_pool is None:
+                raise RuntimeError("Precipitation motion worker pool is not available")
+            return self._motion_pool.submit(
+                self._complete_precipitation_prediction,
+                outputs=outputs,
+                raw_rain=raw_rain,
+                radar_history=radar_history,
+                reference_rain=reference_rain,
+                prepared_correction=prepared_correction,
+                times=times,
+                ensemble_member=ensemble_member,
+            )
 
         return {
             "pred": {dataset_name: prediction.to(torch.float32).numpy() for dataset_name, prediction in outputs.items()},
