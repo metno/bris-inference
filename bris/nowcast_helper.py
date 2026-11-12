@@ -26,6 +26,7 @@ def parse_config_datetime(value: str | None) -> datetime:
         return datetime.now(UTC)
     text = str(value).strip().removesuffix("Z")
     for fmt in (
+        "%Y%m%dT%H%M",
         "%Y%m%dT%H%M%S",
         "%Y%m%dT%H:%M:%S",
         "%Y%m%dT%H:%M",
@@ -43,7 +44,7 @@ def parse_config_datetime(value: str | None) -> datetime:
 
 def _looks_like_timestamp(value: str) -> bool:
     return bool(
-        re.match(r"^[0-9]{8}T[0-9]{6}Z?$", value)
+        re.match(r"^[0-9]{8}T([0-9]{4}|[0-9]{6})Z?$", value)
         or re.match(r"^[0-9]{8}T[0-9]{2}:[0-9]{2}(:[0-9]{2})?Z?$", value)
         or re.match(
             r"^[0-9]{4}-[0-9]{2}-[0-9]{2}(T[0-9]{2}:[0-9]{2}(:[0-9]{2})?Z?)?$",

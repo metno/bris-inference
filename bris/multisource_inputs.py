@@ -371,7 +371,6 @@ def prepare_netatmo(args: argparse.Namespace) -> None:
         dataset = netatmo_to_xarray_parallel(requested.tz_localize("UTC"), NETATMO_VARIABLES)
         if dataset is None or not dataset.data_vars:
             raise FileNotFoundError(f"Weathermart returned no production Netatmo data from {args.root}.")
-        dataset = expand_to_full_netatmo_grid(dataset)
     else:
         raise FileNotFoundError(f"No Weathermart Netatmo daily Zarr found in {args.root}.")
     dataset = _normalise_time(dataset)

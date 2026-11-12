@@ -1,5 +1,4 @@
 import os
-import time
 from concurrent.futures import ThreadPoolExecutor
 from typing import Any
 
@@ -259,6 +258,7 @@ class SparseForecasterPredictor(BasePredictor):
         )
         return int((self.ensemble_seed + forecast_minutes * 1000 + int(ensemble_member)) % (2**63 - 1))
 
+    @torch.inference_mode()
     def _complete_precipitation_prediction(
         self,
         *,
@@ -270,7 +270,6 @@ class SparseForecasterPredictor(BasePredictor):
         times: list[np.datetime64],
         ensemble_member: int,
     ) -> dict:
-        started = time.perf_counter()
         head = self.precipitation_motion_head
         corrected = head(
             raw_rain,
@@ -281,11 +280,6 @@ class SparseForecasterPredictor(BasePredictor):
         )
         column = self.variable_index(self.required_variables[head.radar_dataset], head.radar_variable)
         outputs[head.radar_dataset][0, 1:, :, column] = corrected[: self.forecast_length - 1, 0]
-        LOGGER.info(
-            "Precipitation motion correction member=%s completed in %.1fs",
-            ensemble_member,
-            time.perf_counter() - started,
-        )
         return {
             "pred": {dataset_name: prediction.to(torch.float32).numpy() for dataset_name, prediction in outputs.items()},
             "times": times,
