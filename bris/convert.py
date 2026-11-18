@@ -190,6 +190,9 @@ GRIB_LEVEL_TYPES = {
     "height": 103,  # Specified height level above ground (m)
 }
 
+# Stands in for the points without a value when a field is encoded with a bitmap
+GRIB_MISSING_VALUE = 9999.0
+
 GRIB_GRID_TEMPLATES = {
     "latlon": 0,
     "latitude_longitude": 0,
@@ -235,6 +238,8 @@ GRIB_PARAMETERS = {
 
 def to_grib(path: str, filename: str, grib_keys: dict | None = None) -> None:
     """Write the forecast in the store at path to a Grib file (edition 2)
+
+    Points without a value (NaN) are encoded as missing, with a bitmap.
 
     Args:
         grib_keys: Set these keys in every message
@@ -368,9 +373,16 @@ def to_grib(path: str, filename: str, grib_keys: dict | None = None) -> None:
                         )
                         ecc.codes_set(grib, "bitsPerValue", 24)
                         ecc.codes_set(grib, "packingType", "grid_ccsds")
-                        ecc.codes_set_values(
-                            grib, np.asarray(values, dtype=np.float64).ravel()
-                        )
+                        values = np.asarray(values, dtype=np.float64).ravel()
+                        missing = np.isnan(values)
+                        if missing.any():
+                            # Points without a value (e.g. a diagnostic variable at lead
+                            # time 0, or an ensemble member that never arrived) are marked
+                            # as missing in a bitmap
+                            ecc.codes_set(grib, "bitmapPresent", 1)
+                            ecc.codes_set(grib, "missingValue", GRIB_MISSING_VALUE)
+                            values = np.where(missing, GRIB_MISSING_VALUE, values)
+                        ecc.codes_set_values(grib, values)
 
                         if num_members > 1 and pdtn in [1, 2, 11]:
                             ecc.codes_set(grib, "typeOfEnsembleForecast", 1)
