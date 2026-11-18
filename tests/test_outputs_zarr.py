@@ -191,6 +191,67 @@ def test_layout(tmp_path, monkeypatch):
         assert output._time_chunk() == expected
 
 
+@pytest.mark.parametrize("num_members", [1, 2])
+@pytest.mark.parametrize(
+    "gridded,options,chunks,expected",
+    [
+        (True, "projected", {"time": 3, "y": 2, "x": 3}, (3, 2, 3)),
+        # Only one dimension set, and more than there is
+        (True, "all", {"x": 100, "y": 1}, (4, 1, 4)),
+        # latitude and longitude of the interpolated grid
+        (False, "interpolated", {"time": 1, "y": 2, "x": 2}, (1, 2, 2)),
+        (False, "all", {"location": 5}, (4, 5)),
+    ],
+)
+def test_spatial_chunks(tmp_path, num_members, gridded, options, chunks, expected):
+    """The fields can be chunked along the spatial dimensions, with the same content"""
+    pm = get_pm(num_members, gridded=gridded)
+    pred = get_pred(pm)
+    kwargs = OPTIONS[options]
+
+    chunked = Zarr(pm, "", str(tmp_path / "chunked.zarr"), chunks=chunks, **kwargs)
+    whole = Zarr(pm, "", str(tmp_path / "whole.zarr"), **kwargs)
+    netcdf = Netcdf(pm, str(tmp_path / "work"), str(tmp_path / "netcdf.nc"), **kwargs)
+    for output in [chunked, whole, netcdf]:
+        # The members take turns, as they would in different processes
+        add_members(output, pm, pred, members=reversed(range(num_members)))
+        output.finalize()
+
+    root = zarr.open_group(str(tmp_path / "chunked.zarr"), mode="r")
+    array = root["air_temperature_2m"]
+    num_lead = array.ndim - len(expected) + 1
+    assert array.chunks == (expected[0],) + (1,) * (num_lead - 1) + expected[1:]
+    # The coordinates are small and not chunked
+    assert root["latitude"].chunks == root["latitude"].shape
+
+    assert_same(
+        open_zarr(tmp_path / "chunked.zarr"), open_zarr(tmp_path / "whole.zarr")
+    )
+    assert_same(
+        open_zarr(tmp_path / "chunked.zarr"), open_netcdf(tmp_path / "netcdf.nc")
+    )
+
+    # ... and it converts to the same NetCDF file
+    bris.convert.to_netcdf(
+        str(tmp_path / "chunked.zarr"), str(tmp_path / "converted.nc")
+    )
+    assert_same(
+        open_netcdf(tmp_path / "converted.nc"), open_netcdf(tmp_path / "netcdf.nc")
+    )
+
+
+def test_chunks_of_other_layout(tmp_path):
+    """Chunk sizes for dimensions that the output does not have are refused"""
+    with pytest.raises(ValueError, match="location"):
+        Zarr(get_pm(gridded=True), "", "x.zarr", chunks={"location": 4})
+    with pytest.raises(ValueError, match="x"):
+        Zarr(get_pm(gridded=False), "", "x.zarr", chunks={"x": 4})
+    with pytest.raises(ValueError, match="member"):
+        Zarr(get_pm(), "", "x.zarr", chunks={"member": 2})
+    # An irregular grid interpolated to lat/lon is gridded
+    Zarr(get_pm(gridded=False), "", "x.zarr", interp_res=0.25, chunks={"x": 4})
+
+
 def test_blocks(tmp_path):
     """Writing a member in blocks of lead times gives the same as writing it at once, also
     for the variables accumulated over lead time"""

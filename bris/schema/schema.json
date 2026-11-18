@@ -142,11 +142,26 @@
                             "type": "boolean"
                         },
                         "chunks": {
-                            "description": "Chunk sizes. A chunk always holds one level and one ensemble member of the whole field",
+                            "description": "Chunk sizes. A chunk always holds one level and one ensemble member",
                             "type": "object",
                             "properties": {
                                 "time": {
                                     "description": "Number of lead times in a chunk (default: as many as give chunks of about 100 MB)",
+                                    "type": "integer",
+                                    "minimum": 1
+                                },
+                                "y": {
+                                    "description": "Gridded output: number of points in a chunk along y, or latitude with interp_res (default: all)",
+                                    "type": "integer",
+                                    "minimum": 1
+                                },
+                                "x": {
+                                    "description": "Gridded output: number of points in a chunk along x, or longitude with interp_res (default: all)",
+                                    "type": "integer",
+                                    "minimum": 1
+                                },
+                                "location": {
+                                    "description": "Output on an irregular grid: number of points in a chunk (default: all)",
                                     "type": "integer",
                                     "minimum": 1
                                 }

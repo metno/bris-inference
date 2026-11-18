@@ -175,6 +175,12 @@ class Layout:
         return self._grid[0]
 
     @property
+    def num_spatial_dims(self) -> int:
+        """Number of spatial dimensions of the variables: 2 for a grid (y, x), 1 for an
+        irregular grid (location)"""
+        return 2 if self._is_gridded or self._is_masked else 1
+
+    @property
     def spatial_shape(self) -> tuple:
         _, x, y = self._grid
         if x is None:

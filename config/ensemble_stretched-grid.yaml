@@ -62,6 +62,7 @@ routing:
       # - zarr:
       #     filename_pattern: ${output}/pred_%Y-%m-%dT%H.zarr
       #     variables: [2t, msl, tp]
+      #     chunks: {time: 24, y: 256, x: 256} # optional; default: whole fields, about 100 MB per chunk
       # Verification against observations (stored in a verif netcdf file)
       - verif:
           filename: ${output}/verif/t2m/VERIF_FILENAME.nc

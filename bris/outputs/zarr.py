@@ -18,6 +18,10 @@ from bris.predict_metadata import PredictMetadata
 # Aim for chunks of about this size when the number of lead times in a chunk is not given
 CHUNK_BYTES = 100e6
 
+# The chunk sizes that can be set for the spatial dimensions (whatever these are named in the
+# store, e.g. latitude and longitude for y and x), by the number of spatial dimensions
+SPATIAL_CHUNKS = {2: ["y", "x"], 1: ["location"]}
+
 
 class Zarr(Output):
     """Write predictions to Zarr (version 2), using CF-standards and local conventions
@@ -65,8 +69,9 @@ class Zarr(Output):
             global_attributes (dict): Write these global attributes in the store
             compression (bool): If true, compress the chunks
             chunks (dict): Chunk sizes. time: the number of lead times in a chunk (default:
-                as many as give chunks of about 100 MB). A chunk always holds one level and
-                one ensemble member of the whole field.
+                as many as give chunks of about 100 MB). y and x, or location for an irregular
+                grid: the number of points in a chunk along the spatial dimensions (default:
+                the whole field). A chunk always holds one level and one ensemble member.
             convert (list): Other formats to convert the store to, as in the configuration:
                 [{netcdf: {filename_pattern: ..., compression: ...}},
                  {grib: {filename_pattern: ..., grib_keys: ...}}]
@@ -107,7 +112,22 @@ class Zarr(Output):
             global_attributes=global_attributes,
         )
         self.compression = compression
-        self.chunks = dict(chunks) if chunks is not None else {}
+        self.chunks = _plain(chunks) if chunks is not None else {}
+        spatial_keys = [key for keys in SPATIAL_CHUNKS.values() for key in keys]
+        unknown = [key for key in self.chunks if key not in ["time"] + spatial_keys]
+        if unknown:
+            raise ValueError(
+                f"chunks: unknown dimensions {unknown}; expected some of "
+                f"{['time'] + spatial_keys}"
+            )
+        if any(key in spatial_keys for key in self.chunks):
+            allowed = SPATIAL_CHUNKS[self.layout.num_spatial_dims]
+            unknown = [key for key in self.chunks if key not in ["time"] + allowed]
+            if unknown:
+                raise ValueError(
+                    f"chunks: {unknown} cannot be set for this output, whose spatial "
+                    f"dimensions are {allowed}"
+                )
         self.convert_targets = [_plain(target) for target in convert or []]
         for target in self.convert_targets:
             unknown = set(target) - set(bris.convert.WRITERS)
@@ -152,11 +172,23 @@ class Zarr(Output):
     def _time_chunk(self) -> int:
         if self.chunks.get("time") is not None:
             return max(1, min(int(self.chunks["time"]), self.pm.num_leadtimes))
-        field_bytes = 4 * int(np.prod(self.layout.spatial_shape))
+        field_bytes = 4 * int(np.prod(self._spatial_chunks()))
         largest = max(1, int(CHUNK_BYTES // field_bytes))
         # Chunks of about the same size: the last chunk takes up the space of a whole one
         num_chunks = -(-self.pm.num_leadtimes // largest)
         return -(-self.pm.num_leadtimes // num_chunks)
+
+    def _spatial_chunks(self) -> list[int]:
+        """Chunk sizes along the spatial dimensions: as configured, else the whole field"""
+        spatial_shape = self.layout.spatial_shape
+        return [
+            size
+            if self.chunks.get(key) is None
+            else max(1, min(int(self.chunks[key]), size))
+            for key, size in zip(
+                SPATIAL_CHUNKS[len(spatial_shape)], spatial_shape, strict=True
+            )
+        ]
 
     def _add_forecast(
         self, times: list, ensemble_member: int, pred: np.ndarray
@@ -214,9 +246,13 @@ class Zarr(Output):
         time_chunk = self._time_chunk()
         num_spatial = len(self.layout.spatial_dims)
 
+        spatial_chunks = self._spatial_chunks()
+
         def chunks(shape: list) -> list:
+            # One level and one ensemble member per chunk: the members are written by
+            # different processes, which must not write the same chunk
             lead = len(shape) - num_spatial
-            return [time_chunk] + [1] * (lead - 1) + list(shape[lead:])
+            return [time_chunk] + [1] * (lead - 1) + spatial_chunks
 
         times_ut = [int(t) for t in utils.datetime_to_unixtime(times)]
         layout = {
