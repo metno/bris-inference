@@ -390,9 +390,9 @@ def test_remove_after_convert(tmp_path):
     assert os.listdir(tmp_path) == ["20230101T06Z.nc"]
 
 
-def test_convert_interrupted(tmp_path):
-    """The stores of a run that ended before its files were written (here: no finalize) are
-    converted by bris-convert, to the same files as the run would have written"""
+def test_convert_recorded_targets(tmp_path):
+    """Without --netcdf or --grib, bris-convert converts a store to what its output asked for
+    (here: the stores of a netcdf output that was not finalized), with the same result"""
     pm = get_pm(num_members=2)
     pred = get_pred(pm)
     kwargs = {"domain_name": "meps", "accumulated_variables": ["tp"]}
@@ -456,7 +456,8 @@ def test_convert_command(tmp_path):
     assert zarrstore.read_info(stores[0]) is not None
 
     assert (
-        bris.convert.main([stores[0], "--netcdf", pattern + "_b.nc", "--remove"]) == 0
+        bris.convert.main([stores[0], "--netcdf", pattern + "_b.nc", "--remove_zarr"])
+        == 0
     )
     assert not os.path.exists(stores[0])
     assert os.path.exists(stores[1])

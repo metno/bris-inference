@@ -7,15 +7,10 @@ each field with the metadata found in the store.
 The conversion runs when the predictions end (the NetCDF and Grib outputs, and the Zarr
 output with `convert`), or later in a job of its own, on the stores of a Zarr output:
 
-    bris-convert <store> [<store> ...] --netcdf <filename> [--grib <filename>]
+    bris-convert out/pred_20230319T00Z.zarr --netcdf out/pred_20230319T00Z.nc
+    bris-convert out/pred_*.zarr --netcdf "out/pred_%Y%m%dT%HZ.nc" -w 4
 
-Time tokens in the filenames (e.g. %Y%m%dT%HZ) are expanded with the forecast reference time
-of each store. Without --netcdf or --grib,
-
-    bris-convert <store> [<store> ...]
-
-converts each store to what the configuration of its run asked for (recorded in the store),
-e.g. the stores left in the work directory by a run that ended before its files were written.
+Time tokens in the filenames are expanded with the forecast reference time of each store.
 
 This module must stay cheap to import (no torch).
 """
@@ -491,14 +486,15 @@ def main(arg_list: list[str] | None = None) -> int:
     )
     group = parser.add_mutually_exclusive_group()
     group.add_argument(
-        "--remove",
+        "--remove_zarr",
+        dest="remove",
         action="store_const",
         const=True,
         default=None,
         help="Remove each store after converting it",
     )
     group.add_argument(
-        "--keep",
+        "--keep_zarr",
         dest="remove",
         action="store_const",
         const=False,
