@@ -17,6 +17,13 @@ from bris.conventions.variable_list import VariableList
 from bris.outputs import Output
 from bris.outputs.intermediate import Intermediate
 from bris.predict_metadata import PredictMetadata
+from bris.regular_grid import (
+    BoundingGridSubset,
+    RegularGridSubset,
+    bounding_grid_subset,
+    find_largest_regular_grid,
+    subset_from_grid_indices,
+)
 
 
 class Netcdf(Output):
@@ -27,10 +34,21 @@ class Netcdf(Output):
     as soon as we get it. Otherwise write the data to disk in an intermediate format and then merge
     files on finalize. This comes at a penalty since the data is written to disk twice.
 
-    This output can write three types of outputs:
+    This output can write four types of outputs:
     1) Gridded regional projected data. This requires field_shape to be set in predict_metadata
     2) Irregular grids interpolated to a lat/lon grid. Use interp_res.
     3) Irregular grids. This means the output only has one location dimension.
+    4) Points that are a subset of a regular grid in a projection (e.g. a lat-cropped, non-rectangular
+       LAM domain without a 2-D field_shape), written as a projected x/y grid: the largest complete
+       rectangle of the points in the projection, the same box anemoi-training uses for the FFT losses.
+       Either grid_indices (the RegularGridIndices node attribute of the checkpoint graph, see the
+       grid_indices_attribute config option resolved in bris.routes) or regular_grid (recomputed from
+       the points), with proj4_str or domain_name.
+    5) As 4), but the smallest projected x/y rectangle that CONTAINS all the LAM points (bounding_grid),
+       with proj4_str or domain_name. The cells of the rectangle without a LAM point are NaN
+       (fill: nan) or take the nearest point of the global part of the stretched grid (fill: global;
+       the output must then hold the whole grid, i.e. no domain_index, and bris.routes passes the
+       domain sizes so that the LAM points are known).
     """
 
     def __init__(
@@ -51,6 +69,11 @@ class Netcdf(Output):
         global_attributes=None,
         remove_intermediate=True,
         compression=False,
+        regular_grid=None,
+        grid_indices=None,
+        bounding_grid=None,
+        domain_sizes=None,
+        domain_index=None,
     ):
         """
         Args:
@@ -59,6 +82,27 @@ class Netcdf(Output):
             variables: If None, predict all variables
             global_attributes (dict): Write these global attributes in the output file
             compression (bool): If true, write compressed output files
+            regular_grid: Write the largest complete regular rectangle of the points in the
+                projection (proj4_str/domain_name) as a 2-D x/y field, dropping the points outside
+                it. True infers the grid spacing; a dict passes x_spacing, y_spacing (projection
+                units), relative_tolerance and absolute_tolerance (see bris.regular_grid). With the
+                settings of the RegularGridIndices node attribute of the training graph this is the
+                FFT-loss rectangle.
+            grid_indices: (points, 2) array of (row, column) indices of the output rectangle per
+                point, -1 outside: the RegularGridIndices node attribute of the training graph, i.e.
+                the FFT-loss rectangle itself. Needs proj4_str/domain_name (the attribute's
+                projection) for the x/y coordinates and the wind rotation.
+            bounding_grid: Write the smallest regular x/y rectangle in the projection
+                (proj4_str/domain_name) that contains all the LAM points, as a 2-D field. True
+                infers the grid spacing and leaves the cells without a LAM point NaN; a dict
+                passes x_spacing, y_spacing, relative_tolerance, absolute_tolerance (see
+                bris.regular_grid.bounding_grid_subset) and fill: "nan" (default) or "global"
+                (those cells take the nearest point of the global part of the stretched grid).
+            domain_sizes: Number of points of each domain of the output's node set (LAM first),
+                set by bris.routes for bounding_grid. With domain_index None the output holds all
+                domains and the first domain_sizes[0] points are the LAM.
+            domain_index: The domain the output points belong to (None = all), set by bris.routes
+                for bounding_grid.
         """
         super().__init__(predict_metadata, extra_variables)
 
@@ -102,6 +146,72 @@ class Netcdf(Output):
             self.proj4_str = projections.get_proj4_str(domain_name)
         else:
             self.proj4_str = proj4_str
+
+        self.regular_grid = None
+        self.grid_indices = None
+        self.bounding_grid = None
+        self.domain_sizes = (
+            None if domain_sizes is None else [int(n) for n in domain_sizes]
+        )
+        self.domain_index = domain_index
+        if regular_grid or grid_indices is not None or bounding_grid:
+            if self.proj4_str is None:
+                raise ValueError(
+                    "netcdf: regular_grid/grid_indices/bounding_grid needs proj4_str or domain_name"
+                )
+            if self.interp_res is not None or self._is_masked:
+                raise ValueError(
+                    "netcdf: regular_grid/grid_indices/bounding_grid cannot be combined with "
+                    "interp_res or mask_file"
+                )
+            if (
+                sum([bool(regular_grid), grid_indices is not None, bool(bounding_grid)])
+                > 1
+            ):
+                raise ValueError(
+                    "netcdf: regular_grid, grid_indices and bounding_grid are mutually exclusive"
+                )
+            if bounding_grid:
+                self.bounding_grid = (
+                    {} if isinstance(bounding_grid, bool) else dict(bounding_grid)
+                )
+                fill = self.bounding_grid.get("fill", "nan")
+                if fill not in ("nan", "global"):
+                    raise ValueError(
+                        f"netcdf: bounding_grid fill must be 'nan' or 'global', got {fill!r}"
+                    )
+                if fill == "global" and self.domain_index is not None:
+                    raise ValueError(
+                        "netcdf: bounding_grid fill 'global' needs the whole stretched grid: "
+                        "remove domain_index from the route"
+                    )
+                if self.domain_index is None and self.domain_sizes is None:
+                    raise ValueError(
+                        "netcdf: bounding_grid without domain_index needs domain_sizes "
+                        "(set by bris.routes) to tell the LAM points from the global ones"
+                    )
+                if self.domain_sizes is not None:
+                    expected = (
+                        sum(self.domain_sizes)
+                        if self.domain_index is None
+                        else self.domain_sizes[self.domain_index]
+                    )
+                    if expected != self.pm.num_points:
+                        raise ValueError(
+                            f"netcdf: domain_sizes {self.domain_sizes} (domain_index "
+                            f"{self.domain_index}) do not match the {self.pm.num_points} output points"
+                        )
+            elif grid_indices is not None:
+                self.grid_indices = np.asarray(grid_indices)
+                if self.grid_indices.shape != (self.pm.num_points, 2):
+                    raise ValueError(
+                        f"netcdf: grid_indices must have shape ({self.pm.num_points}, 2), "
+                        f"got {self.grid_indices.shape}"
+                    )
+            else:
+                self.regular_grid = (
+                    {} if isinstance(regular_grid, bool) else dict(regular_grid)
+                )
 
         if self._is_masked:
             # If a mask was used during training:
@@ -150,7 +260,75 @@ class Netcdf(Output):
     @property
     def _is_gridded(self) -> bool:
         """Is the output gridded?"""
-        return len(self.pm.field_shape) == 2 or self.interp_res is not None
+        return (
+            len(self.pm.field_shape) == 2
+            or self.interp_res is not None
+            or self._is_regular_grid
+        )
+
+    @property
+    def _is_regular_grid(self) -> bool:
+        """Should a regular projected rectangle of the points be written (the largest complete
+        one, or the bounding one)?"""
+        return (
+            self.regular_grid is not None
+            or self.grid_indices is not None
+            or self.bounding_grid is not None
+        )
+
+    @cached_property
+    def grid_subset(self) -> RegularGridSubset | BoundingGridSubset:
+        """The regular rectangle of the points in the projection: the largest complete one
+        (regular_grid / grid_indices) or the bounding one (bounding_grid)"""
+        t0 = pytime.perf_counter()
+        xx, yy = projections.project(self.pm.lats, self.pm.lons, self.proj4_str)
+        if self.bounding_grid is not None:
+            if self.domain_index is None:
+                lam_points = self.domain_sizes[0]
+            else:
+                lam_points = self.pm.num_points
+            grid_mask = np.zeros(self.pm.num_points, dtype=bool)
+            grid_mask[:lam_points] = True
+            subset = bounding_grid_subset(
+                np.column_stack((xx, yy)), grid_mask, **self.bounding_grid
+            )
+            utils.LOGGER.info(
+                f"netcdf: bounding grid of the {lam_points} LAM points in '{self.proj4_str}' has "
+                f"shape (y={subset.shape[0]}, x={subset.shape[1]}), spacing "
+                f"{subset.spacing[0]:g} x {subset.spacing[1]:g}: "
+                f"{int((subset.cell_source < 0).sum())} empty cells, {subset.num_filled} filled "
+                f"from the global points ({pytime.perf_counter() - t0:.1f}s)"
+            )
+            return subset
+        if self.grid_indices is not None:
+            subset = subset_from_grid_indices(self.grid_indices, xx, yy)
+            source = "grid indices from the checkpoint graph"
+        else:
+            subset = find_largest_regular_grid(
+                np.column_stack((xx, yy)), **self.regular_grid
+            )
+            source = "largest regular grid"
+        utils.LOGGER.info(
+            f"netcdf: {source} in '{self.proj4_str}' has shape (y={subset.shape[0]}, "
+            f"x={subset.shape[1]}), spacing {subset.spacing[0]:g} x {subset.spacing[1]:g}: "
+            f"{len(subset.node_indices)} of {self.pm.num_points} points "
+            f"({pytime.perf_counter() - t0:.1f}s)"
+        )
+        return subset
+
+    def _to_grid(self, values: np.ndarray) -> np.ndarray:
+        """Reshape per-point values (..., points) to the output grid (..., y, x)"""
+        if self._is_regular_grid:
+            subset = self.grid_subset
+            if isinstance(subset, BoundingGridSubset):
+                source = subset.cell_source
+                out = values[..., np.where(source >= 0, source, 0)].astype(np.float64)
+                out[..., source < 0] = np.nan
+                return out.reshape(values.shape[:-1] + subset.shape)
+            return values[..., subset.node_indices].reshape(
+                values.shape[:-1] + subset.shape
+            )
+        return np.reshape(values, values.shape[:-1] + tuple(self.pm.field_shape))
 
     @property
     def _interpolate(self) -> bool:
@@ -226,7 +404,10 @@ class Netcdf(Output):
                         "Warning: latrange/lonrange not handled in gridded fields"
                     )
 
-                if self.proj4_str:
+                if self._is_regular_grid:
+                    x = self.grid_subset.x
+                    y = self.grid_subset.y
+                elif self.proj4_str:
                     lats = np.reshape(self.pm.lats, self.pm.field_shape).astype(
                         np.double
                     )
@@ -395,8 +576,15 @@ class Netcdf(Output):
 
     def _set_coords_gridded_not_interpolated(self, spatial_dims: tuple) -> None:
         t0 = pytime.perf_counter()
-        lats = self.pm.grid_lats.astype(np.double)
-        lons = self.pm.grid_lons.astype(np.double)
+        if self.bounding_grid is not None:
+            # Every cell of the rectangle has a position, also the empty/filled ones
+            subset = self.grid_subset
+            xx, yy = np.meshgrid(subset.x, subset.y)
+            lats, lons = projections.unproject(xx, yy, self.proj4_str)
+            lats, lons = lats.astype(np.double), lons.astype(np.double)
+        else:
+            lats = self._to_grid(self.pm.lats).astype(np.double)
+            lons = self._to_grid(self.pm.lons).astype(np.double)
         self.ds[self.conv_name("latitude")] = (
             spatial_dims,
             lats,
@@ -407,7 +595,7 @@ class Netcdf(Output):
         )
 
         if self.pm.altitudes is not None:
-            altitudes = self.pm.grid_altitudes.astype(np.double)
+            altitudes = self._to_grid(np.asarray(self.pm.altitudes)).astype(np.double)
             self.ds[self.conv_name("surface_altitude")] = (
                 spatial_dims,
                 altitudes,
@@ -547,6 +735,8 @@ class Netcdf(Output):
             ar = np.nan * np.zeros((len(curr),) + spatial_shape, np.float32)
             # Reconstruct the 2D array (nans where no data)
             ar[:, self.mask] = curr
+        elif self._is_regular_grid:
+            ar = self._to_grid(curr)
         else:
             ar = np.reshape(curr, (len(curr),) + spatial_shape)
 

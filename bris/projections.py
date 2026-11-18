@@ -10,7 +10,19 @@ def get_proj4_str(name: str) -> str:
         "arome_arctic": "+proj=lcc +lat_0=77.5 +lon_0=-25 +lat_1=77.5 +lat_2=77.5 +x_0=0 +y_0=0 +R=6371000 +units=m +no_defs +type=crs",
         "norkyst_v3": "+proj=stere +lat_0=90 +lat_ts=60 +lon_0=70 +x_0=3369600 +y_0=1844800 +a=6378137 +b=6356752.3142 +units=m +no_defs +type=crs",
         "nordic_analysis": "+proj=lcc +lat_0=63.0 +lon_0=15 +lat_1=63.0 +lat_2=63.0 +x_0=0 +y_0=0 +R=6371000 +units=m +no_defs +type=crs",
+        # CARRA2 2.5 km polar stereographic (the FFT-loss projection of the CARRA2 stretched-grid training configs)
+        "carra2": "+proj=stere +lat_0=90 +lat_ts=90 +lon_0=-30 +x_0=172840.374543307 +y_0=645049.059394855 +R=6371229 +units=m +no_defs +type=crs",
     }[name]
+
+
+def project(lats, lons, proj_str):
+    """Project lats/lons (degrees, any shape) to x/y in the projection (same shape)"""
+    transformer = pyproj.Transformer.from_crs(
+        pyproj.CRS.from_epsg(4326), pyproj.CRS.from_user_input(proj_str), always_xy=True
+    )
+    return transformer.transform(
+        np.asarray(lons, dtype=np.float64), np.asarray(lats, dtype=np.float64)
+    )
 
 
 def get_xy(lats, lons, proj_str):
@@ -34,6 +46,19 @@ def get_proj_attributes(proj_str):
 
     del attrs["crs_wkt"]
     attrs = {k: v for k, v in attrs.items() if v != "unknown"}
+
+    # CF requires latitude_of_projection_origin (+90 or -90) for polar_stereographic, and readers such
+    # as DIANA rely on it, but pyproj omits it when the projection is given with lat_ts (carra2,
+    # norkyst_v3). Take the sign from lat_0 of the proj string.
+    if (
+        attrs.get("grid_mapping_name") == "polar_stereographic"
+        and "latitude_of_projection_origin" not in attrs
+    ):
+        lat_0 = crs.to_dict().get("lat_0")
+        if lat_0 is not None:
+            attrs["latitude_of_projection_origin"] = (
+                90.0 if float(lat_0) >= 0 else -90.0
+            )
 
     return attrs
 
@@ -131,3 +156,14 @@ def compute_local_mapping_from_lonlat(
         return M
 
     return e_x, n_x, e_y, n_y
+
+
+def unproject(x, y, proj_str):
+    """Projected x/y (any shape) to lats/lons in degrees (same shape); the inverse of project"""
+    transformer = pyproj.Transformer.from_crs(
+        pyproj.CRS.from_user_input(proj_str), pyproj.CRS.from_epsg(4326), always_xy=True
+    )
+    lons, lats = transformer.transform(
+        np.asarray(x, dtype=np.float64), np.asarray(y, dtype=np.float64)
+    )
+    return lats, lons
