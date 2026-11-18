@@ -66,6 +66,7 @@ urls.Repository = "https://github.com/metno/bris-inference/"
 [project.scripts]
 bris = "bris:main"
 bris-inspect = "bris.inspect:main"
+bris-convert = "bris.convert:main"
 
 [tool.setuptools]
 include-package-data = true

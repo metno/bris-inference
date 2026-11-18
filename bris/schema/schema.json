@@ -82,12 +82,139 @@
                         "global_attributes": {
                             "description": "Dictionary of global attributes to write to each output file",
                             "type": "object"
+                        },
+                        "convert_at_end": {
+                            "description": "Write the files when the predictions end (default: the top-level convert_at_end). If false, the Zarr stores that the predictions are first written to are left in the work directory, to be converted with bris-convert",
+                            "type": "boolean"
                         }
                     },
                     "required": ["filename_pattern"]
                 }
             },
             "required": ["netcdf"]
+        },
+
+        "ZarrOutput": {
+            "description": "Zarr (version 2) output store with MET Norway conventions: the same variables, dimensions and attributes as the Netcdf output. One store per forecast, written directly by every ensemble member",
+            "type": "object",
+            "properties": {
+                "zarr": {
+                    "type": "object",
+                    "properties": {
+                        "filename_pattern": {
+                            "description": "Where to write the output store. Time tokens allowed (e.g. %Y%m%d)",
+                            "type": "string"
+                        },
+                        "variables": {
+                            "description": "What variables to output? Leave empty to write all",
+                            "type": "array",
+                            "items": {"type": "string"}
+                        },
+                        "extra_variables": {
+                            "description": "Derive these extra variables from the model output: ws (10 m wind speed from 10u/10v) or wz_<level> (geometric vertical velocity in m/s on pressure level <level> hPa, from omega w_<level>, t_<level> and q_<level>), e.g. [ws, wz_500]",
+                            "type": "array",
+                            "items": {"type": "string"}
+                        },
+                        "accumulated_variables": {
+                            "description": "Also write these variables accumulated over lead time",
+                            "type": "array",
+                            "items": {"type": "string"}
+                        },
+                        "proj4_str": {
+                            "description": "Assume this projection string when computing x/y coordinates",
+                            "type": "string"
+                        },
+                        "domain_name": {
+                            "description": "Retrieve projection from this predefined domain name (e.g. meps)",
+                            "type": "string"
+                        },
+                        "interp_res": {
+                            "description": "Interpolate to this resolution [degrees] on a lat/lon grid",
+                            "type": "number",
+                            "exclusiveMinimum": 0
+                        },
+                        "global_attributes": {
+                            "description": "Dictionary of global attributes to write to each output store",
+                            "type": "object"
+                        },
+                        "compression": {
+                            "description": "Compress the chunks (default false)",
+                            "type": "boolean"
+                        },
+                        "chunks": {
+                            "description": "Chunk sizes. A chunk always holds one level and one ensemble member of the whole field",
+                            "type": "object",
+                            "properties": {
+                                "time": {
+                                    "description": "Number of lead times in a chunk (default: as many as give chunks of about 100 MB)",
+                                    "type": "integer",
+                                    "minimum": 1
+                                }
+                            },
+                            "additionalProperties": false
+                        },
+                        "convert": {
+                            "description": "Also convert each store to these formats, when the predictions end or later with bris-convert (see convert_at_end)",
+                            "type": "array",
+                            "items": {
+                                "oneOf": [
+                                    {
+                                        "type": "object",
+                                        "properties": {
+                                            "netcdf": {
+                                                "type": "object",
+                                                "properties": {
+                                                    "filename_pattern": {
+                                                        "description": "Where to write the Netcdf file. Time tokens allowed (e.g. %Y%m%d)",
+                                                        "type": "string"
+                                                    },
+                                                    "compression": {"type": "boolean"}
+                                                },
+                                                "required": ["filename_pattern"],
+                                                "additionalProperties": false
+                                            }
+                                        },
+                                        "required": ["netcdf"],
+                                        "additionalProperties": false
+                                    },
+                                    {
+                                        "type": "object",
+                                        "properties": {
+                                            "grib": {
+                                                "type": "object",
+                                                "properties": {
+                                                    "filename_pattern": {
+                                                        "description": "Where to write the Grib file. Time tokens allowed (e.g. %Y%m%d)",
+                                                        "type": "string"
+                                                    },
+                                                    "grib_keys": {
+                                                        "description": "Set these keys in every message",
+                                                        "type": "object"
+                                                    }
+                                                },
+                                                "required": ["filename_pattern"],
+                                                "additionalProperties": false
+                                            }
+                                        },
+                                        "required": ["grib"],
+                                        "additionalProperties": false
+                                    }
+                                ]
+                            }
+                        },
+                        "remove_after_convert": {
+                            "description": "Remove each store when it has been converted (default false)",
+                            "type": "boolean"
+                        },
+                        "convert_at_end": {
+                            "description": "Convert the stores when the predictions end (default: the top-level convert_at_end). If false, they are left to be converted with bris-convert",
+                            "type": "boolean"
+                        }
+                    },
+                    "required": ["filename_pattern"]
+                }
+            },
+            "required": ["zarr"]
         },
 
         "GribOutput": {
@@ -114,6 +241,10 @@
                         "proj4_str": {
                             "description": "Assume this projection string when computing x/y coordinates",
                             "type": "string"
+                        },
+                        "convert_at_end": {
+                            "description": "Write the files when the predictions end (default: the top-level convert_at_end). If false, the Zarr stores that the predictions are first written to are left in the work directory, to be converted with bris-convert",
+                            "type": "boolean"
                         }
                     },
                     "required": ["filename_pattern"]
@@ -317,6 +448,10 @@
             "description": "Path to work directory",
             "type": "string"
         },
+        "convert_at_end": {
+            "description": "The zarr, netcdf and grib outputs first write each forecast to a Zarr store (for netcdf and grib in the work directory). If true (default), the stores are converted to the other formats asked for when the predictions end. If false, they are left to be converted in a job of its own with bris-convert",
+            "type": "boolean"
+        },
         "dataset": {
             "description": "Input dataset. Can be a single path, or two datasets merged by cutout. Example dataset.cutout = ['/path/dataset1', '/path/dataset2' ]",
             "min_distance_km": {"type": "int", "minimum": 0},
@@ -346,6 +481,7 @@
                         "items": {
                             "oneOf": [
                                 {"$ref": "#/$defs/NetcdfOutput"},
+                                {"$ref": "#/$defs/ZarrOutput"},
                                 {"$ref": "#/$defs/VerifOutput"},
                                 {"$ref": "#/$defs/GribOutput"},
                                 {"$ref": "#/$defs/SHPowerSpectrumOutput"},

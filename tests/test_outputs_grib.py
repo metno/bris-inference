@@ -39,7 +39,7 @@ def test_file_exists():
 
     lons, lats = get_meps_lats_lons()
 
-    altitudes = np.array([100, 200])
+    altitudes = np.zeros(len(lats))
     leadtimes = np.arange(0, 3600 * 4, 3600)
     num_members = 1
     field_shape = [268, 238]  # NOTE: Hard-coded to MEPS domain for now
@@ -70,7 +70,7 @@ def test_file_exists():
 def test_grib_attrs():
     variables = ["u_800", "u_600", "2t", "v_500", "10u"]
     lons, lats = get_meps_lats_lons()
-    altitudes = np.array([100, 200])
+    altitudes = np.zeros(len(lats))
     leadtimes = np.arange(0, 3600 * 4, 3600)
     num_members = 1
     field_shape = [268, 238]  # NOTE: Hard-coded to MEPS domain for now

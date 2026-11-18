@@ -9,6 +9,7 @@ the [Anemoi framework](https://github.com/ecmwf/anemoi-training).
 - Multi encoder/decoder
 - Time interpolation
 - Ensembles
+- Output as Zarr, NetCDF, Grib and Verif files (`bris-convert` converts Zarr to NetCDF or Grib)
 
 ## Documentation
 

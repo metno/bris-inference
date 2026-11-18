@@ -28,8 +28,8 @@ def use_background_write(config, decoder_outputs: list, num_members: int) -> boo
     Whether the outputs are written from the writer's thread pool (True) or synchronously in the
     main thread (False). An explicit ``background_write`` in the config wins. The default is True,
     except for a single member with more than one output on a decoder: with one member the Netcdf
-    output writes its file directly from the writer thread (with more members it only fills the
-    intermediate store and the file is assembled at finalize), so two outputs on a decoder mean two
+    output writes its file from the writer thread, as soon as the forecast is in its Zarr store
+    (with more members the file is written at finalize), so two outputs on a decoder mean two
     threads inside netCDF4/HDF5 at the same time, which segfaults with the usual non-thread-safe
     HDF5 builds. Synchronous writing serializes them.
     """
@@ -113,6 +113,7 @@ def main(arg_list: list[str] | None = None):
         datamodule,
         checkpoints,
         config.workdir,
+        convert_at_end=config.get("convert_at_end", True),
     )
     required_variables = bris.routes.get_required_variables_all_checkpoints(
         config["routing"], checkpoints

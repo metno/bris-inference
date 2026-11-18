@@ -10,6 +10,9 @@ from bris.checkpoint import Checkpoint
 from bris.data.datamodule import DataModule
 from bris.predict_metadata import PredictMetadata
 
+# The outputs that are written through a Zarr store (see bris.outputs.zarr)
+STORE_OUTPUTS = ["zarr", "netcdf", "grib"]
+
 
 def get(
     routing_config: dict,
@@ -18,6 +21,7 @@ def get(
     data_module: DataModule,
     checkpoints: dict[str, Checkpoint],
     workdir: str,
+    convert_at_end: bool = True,
 ):
     """Returns outputs for each decoder and domain
 
@@ -28,6 +32,8 @@ def get(
         leadtimes: Which leadtimes that the model will produce
         data_module: Data module
         checkpoints: Dictionary with checkpoints
+        convert_at_end: Default of the convert_at_end option of the outputs that are written
+            through a Zarr store (zarr, netcdf, grib)
     Returns:
         list of dicts:
             decoder_name (str)
@@ -62,9 +68,10 @@ def get(
 
         outputs = []
         for oc in config["outputs"]:
-            # If outputing netcdf, add global_attributes with checkpoint name
-            if "netcdf" in oc:
-                oc = add_checkpoint_name_to_attrs(oc, checkpoints)
+            # If outputing netcdf or zarr, add global_attributes with checkpoint name
+            for output_type in ["netcdf", "zarr"]:
+                if output_type in oc:
+                    oc = add_checkpoint_name_to_attrs(oc, checkpoints, output_type)
 
             lats = data_module.latitudes[decoder_name][start_gridpoint:end_gridpoint]
             lons = data_module.longitudes[decoder_name][start_gridpoint:end_gridpoint]
@@ -94,6 +101,8 @@ def get(
             for output_type, args in oc.items():
                 curr_workdir = utils.get_workdir(workdir) + "_" + str(count)
                 count += 1
+                if output_type in STORE_OUTPUTS and "convert_at_end" not in args:
+                    args = {**args, "convert_at_end": convert_at_end}
                 output = bris.outputs.instantiate(output_type, pm, curr_workdir, args)
                 outputs += [output]
 
@@ -160,17 +169,19 @@ def expand_variable(string: str, variable: str) -> str:
 
 
 def add_checkpoint_name_to_attrs(
-    oc: dict[Literal["netcdf"], dict[str, Any]], checkpoints: dict[str, Checkpoint]
-) -> dict[Literal["netcdf"], dict[str, Any]]:
+    oc: dict[Literal["netcdf", "zarr"], dict[str, Any]],
+    checkpoints: dict[str, Checkpoint],
+    output_type: Literal["netcdf", "zarr"] = "netcdf",
+) -> dict[Literal["netcdf", "zarr"], dict[str, Any]]:
     """Add checkpoint name"""
     # oc {'netcdf': {'filename_pattern': './tox_test_inference.nc', 'variables': ['2t', '2d']}}
     ckpt_str = "Checkpoints used: "
-    if "global_attributes" not in oc["netcdf"]:
-        oc["netcdf"]["global_attributes"] = {}
-    if "source" in oc["netcdf"]["global_attributes"]:
-        ckpt_str = f"{oc['netcdf']['global_attributes']['source']} {ckpt_str}"
+    if "global_attributes" not in oc[output_type]:
+        oc[output_type]["global_attributes"] = {}
+    if "source" in oc[output_type]["global_attributes"]:
+        ckpt_str = f"{oc[output_type]['global_attributes']['source']} {ckpt_str}"
     for type, checkpoint in checkpoints.items():
         ckpt_path = os.path.abspath(checkpoint.path)
         ckpt_str += f"{type}:{ckpt_path}, "
-    oc["netcdf"]["global_attributes"]["source"] = f"{ckpt_str}"
+    oc[output_type]["global_attributes"]["source"] = f"{ckpt_str}"
     return oc
