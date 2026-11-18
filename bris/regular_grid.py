@@ -265,3 +265,157 @@ def subset_from_grid_indices(
         y=y_axis,
         spacing=(spacing_x, spacing_y),
     )
+
+
+@dataclass(frozen=True)
+class BoundingGridSubset:
+    """The regular projected grid that contains all the grid (LAM) points, with the cells
+    that hold no grid point either empty or filled from the nearest other (global) point
+
+    Attributes:
+        cell_source: (ny * nx,) index into the input points of the point written in each
+            cell, row-major (rows of increasing y, columns of increasing x); -1 for an empty
+            cell. values[..., cell_source] with -1 -> NaN, reshaped to shape, is the field.
+        shape: (ny, nx)
+        x: Projected x coordinate of the nx columns
+        y: Projected y coordinate of the ny rows
+        spacing: (x_spacing, y_spacing) in projected units
+        num_filled: Number of cells filled from the other points
+    """
+
+    cell_source: np.ndarray
+    shape: tuple[int, int]
+    x: np.ndarray
+    y: np.ndarray
+    spacing: tuple[float, float]
+    num_filled: int
+
+
+def bounding_grid_subset(
+    projected_coordinates: np.ndarray,
+    grid_mask: np.ndarray,
+    *,
+    x_spacing: float | None = None,
+    y_spacing: float | None = None,
+    fill: str = "nan",
+    relative_tolerance: float = 1.0e-4,
+    absolute_tolerance: float = 1.0e-6,
+    fill_margin_cells: int = 50,
+    maximum_grid_cells: int = 100_000_000,
+) -> BoundingGridSubset:
+    """The axis-aligned regular rectangle that contains all the grid points
+
+    The grid points (grid_mask True) must lie on one regular lattice in the projection (a
+    cropped, non-rectangular subset of a projected grid, e.g. a lat-cropped LAM domain). The
+    output is the smallest rectangle of that lattice holding all of them. Cells without a
+    grid point are empty (fill="nan") or take the nearest other point (fill="global": the
+    points with grid_mask False, e.g. the global part of a stretched grid, nearest neighbour
+    in the projection).
+
+    Args:
+        projected_coordinates: Projected (x, y) coordinates of all points, shape (N, 2)
+        grid_mask: (N,) boolean, True for the points that define the grid
+        x_spacing, y_spacing: Lattice spacing in projected units; inferred from the grid
+            points when None
+        fill: "nan" or "global"
+        relative_tolerance, absolute_tolerance: Maximum residual of a grid point from the
+            lattice, as a fraction of the spacing and in projected units (the larger applies)
+        fill_margin_cells: Other points further than this many cells outside the rectangle
+            are not used for filling
+        maximum_grid_cells: Safety limit for the rectangle size
+    """
+    coordinates = np.asarray(projected_coordinates, dtype=np.float64)
+    grid_mask = np.asarray(grid_mask, dtype=bool)
+    if coordinates.ndim != 2 or coordinates.shape[1] != 2:
+        raise ValueError(
+            f"projected_coordinates must have shape (N, 2), got {coordinates.shape}."
+        )
+    if grid_mask.shape != (len(coordinates),):
+        raise ValueError(
+            f"grid_mask must have shape ({len(coordinates)},), got {grid_mask.shape}."
+        )
+    if fill not in ("nan", "global"):
+        raise ValueError(f"fill must be 'nan' or 'global', got {fill!r}.")
+    if relative_tolerance < 0 or absolute_tolerance < 0:
+        raise ValueError("Grid tolerances must be non-negative.")
+    grid_indices = np.flatnonzero(grid_mask)
+    grid_points = coordinates[grid_indices]
+    if len(grid_points) < 4:
+        raise ValueError("At least four grid points are required.")
+    if not np.isfinite(grid_points).all():
+        raise ValueError("Projected grid point coordinates must be finite.")
+
+    spacing_x = (
+        _infer_axis_spacing(grid_points, 0, relative_tolerance, absolute_tolerance)
+        if x_spacing is None
+        else float(x_spacing)
+    )
+    spacing_y = (
+        _infer_axis_spacing(grid_points, 1, relative_tolerance, absolute_tolerance)
+        if y_spacing is None
+        else float(y_spacing)
+    )
+    spacing = np.array([spacing_x, spacing_y])
+    if not np.isfinite(spacing).all() or np.any(spacing <= 0):
+        raise ValueError("Projected grid spacing must be finite and positive.")
+
+    origin = grid_points.min(axis=0)
+    lattice = np.rint((grid_points - origin) / spacing).astype(np.int64)
+    tolerance = np.maximum(absolute_tolerance, relative_tolerance * spacing)
+    residual = np.abs(grid_points - (origin + lattice * spacing))
+    if np.any(residual > tolerance):
+        worst = np.unravel_index(np.argmax(residual / tolerance), residual.shape)
+        raise ValueError(
+            "Projected grid points do not lie on one regular lattice within tolerance: "
+            f"point {grid_indices[worst[0]]}, axis {worst[1]}, residual {residual[worst]:.6g}."
+        )
+    n_columns = int(lattice[:, 0].max()) + 1
+    n_rows = int(lattice[:, 1].max()) + 1
+    if n_rows * n_columns > maximum_grid_cells:
+        raise ValueError(
+            f"The bounding grid has {n_rows * n_columns} cells, exceeding "
+            f"maximum_grid_cells={maximum_grid_cells}. Check the spacing and tolerance settings."
+        )
+    cells = lattice[:, 1] * n_columns + lattice[:, 0]
+    if len(np.unique(cells)) != len(cells):
+        raise ValueError("Multiple projected grid points occupy the same lattice cell.")
+    cell_source = np.full(n_rows * n_columns, -1, dtype=np.int64)
+    cell_source[cells] = grid_indices
+
+    num_filled = 0
+    empty = np.flatnonzero(cell_source < 0)
+    if fill == "global" and len(empty) > 0:
+        others = np.flatnonzero(~grid_mask)
+        if len(others) == 0:
+            raise ValueError(
+                "fill='global' needs points outside the grid (the output must hold the whole "
+                "stretched grid, not only the LAM domain)."
+            )
+        other_xy = coordinates[others]
+        margin = fill_margin_cells * spacing
+        lower = origin - margin
+        upper = origin + (np.array([n_columns, n_rows]) - 1) * spacing + margin
+        usable = (
+            np.isfinite(other_xy).all(axis=1)
+            & (other_xy >= lower).all(axis=1)
+            & (other_xy <= upper).all(axis=1)
+        )
+        if not usable.any():
+            raise ValueError(
+                "fill='global': no points outside the grid project into the bounding rectangle "
+                f"(plus a margin of {fill_margin_cells} cells)."
+            )
+        rows, columns = np.divmod(empty, n_columns)
+        centres = origin + np.column_stack((columns, rows)) * spacing
+        _, nearest = cKDTree(other_xy[usable]).query(centres)
+        cell_source[empty] = others[usable][nearest]
+        num_filled = len(empty)
+
+    return BoundingGridSubset(
+        cell_source=cell_source,
+        shape=(n_rows, n_columns),
+        x=origin[0] + np.arange(n_columns) * spacing_x,
+        y=origin[1] + np.arange(n_rows) * spacing_y,
+        spacing=(spacing_x, spacing_y),
+        num_filled=num_filled,
+    )

@@ -47,6 +47,19 @@ def get_proj_attributes(proj_str):
     del attrs["crs_wkt"]
     attrs = {k: v for k, v in attrs.items() if v != "unknown"}
 
+    # CF requires latitude_of_projection_origin (+90 or -90) for polar_stereographic, and readers such
+    # as DIANA rely on it, but pyproj omits it when the projection is given with lat_ts (carra2,
+    # norkyst_v3). Take the sign from lat_0 of the proj string.
+    if (
+        attrs.get("grid_mapping_name") == "polar_stereographic"
+        and "latitude_of_projection_origin" not in attrs
+    ):
+        lat_0 = crs.to_dict().get("lat_0")
+        if lat_0 is not None:
+            attrs["latitude_of_projection_origin"] = (
+                90.0 if float(lat_0) >= 0 else -90.0
+            )
+
     return attrs
 
 
@@ -143,3 +156,14 @@ def compute_local_mapping_from_lonlat(
         return M
 
     return e_x, n_x, e_y, n_y
+
+
+def unproject(x, y, proj_str):
+    """Projected x/y (any shape) to lats/lons in degrees (same shape); the inverse of project"""
+    transformer = pyproj.Transformer.from_crs(
+        pyproj.CRS.from_user_input(proj_str), pyproj.CRS.from_epsg(4326), always_xy=True
+    )
+    lons, lats = transformer.transform(
+        np.asarray(x, dtype=np.float64), np.asarray(y, dtype=np.float64)
+    )
+    return lats, lons

@@ -402,3 +402,148 @@ if __name__ == "__main__":
     test_domain_name()
     test_deterministic()
     test_ensemble()
+
+
+def _bounding_grid_points():
+    """A lat-cropped 10 x 8 LAM lattice (two upper corners removed) plus coarse 'global' points"""
+    import pyproj
+
+    from bris import projections
+
+    proj4_str = projections.get_proj4_str("meps")
+    nx, ny, spacing = 10, 8, 2500.0
+    xx, yy = np.meshgrid(np.arange(nx) * spacing, np.arange(ny) * spacing)
+    xi, yi = np.meshgrid(np.arange(nx), np.arange(ny))
+    keep = ~((yi >= 6) & ((xi < 2) | (xi > 7))).ravel()
+    lam_x, lam_y = xx.ravel()[keep], yy.ravel()[keep]
+    # global points: a coarse 4 x 4 lattice over a larger area, offset so that none coincides
+    gx, gy = np.meshgrid(
+        np.arange(-1, 3) * 10000.0 + 1300.0, np.arange(-1, 3) * 10000.0 - 700.0
+    )
+    to_lonlat = pyproj.Transformer.from_crs(
+        pyproj.CRS.from_user_input(proj4_str),
+        pyproj.CRS.from_epsg(4326),
+        always_xy=True,
+    )
+    lam_lon, lam_lat = to_lonlat.transform(lam_x, lam_y)
+    glob_lon, glob_lat = to_lonlat.transform(gx.ravel(), gy.ravel())
+    return (
+        proj4_str,
+        spacing,
+        (nx, ny),
+        keep,
+        (lam_x, lam_y),
+        (gx.ravel(), gy.ravel()),
+        (lam_lat, lam_lon),
+        (glob_lat, glob_lon),
+    )
+
+
+def test_bounding_grid():
+    """bounding_grid writes the rectangle that contains all LAM points; the cells without a LAM
+    point are NaN (fill nan) or the nearest global point (fill global)"""
+    from scipy.spatial import cKDTree
+
+    (
+        proj4_str,
+        spacing,
+        (nx, ny),
+        keep,
+        (lam_x, lam_y),
+        (gx, gy),
+        (lam_lat, lam_lon),
+        (glob_lat, glob_lon),
+    ) = _bounding_grid_points()
+    lats = np.concatenate([lam_lat, glob_lat])
+    lons = np.concatenate([lam_lon, glob_lon])
+    n_lam, n_glob = len(lam_lat), len(glob_lat)
+    variables = ["2t", "10u", "10v"]
+    leadtimes = np.arange(0, 3600 * 2, 3600)
+    pm = PredictMetadata(
+        variables, lats, lons, None, leadtimes, 1, field_shape=(len(lats),)
+    )
+    pred = np.random.rand(*pm.shape).astype(np.float32)
+    frt = 1672552800
+    times = frt + leadtimes
+    missing = ~keep.reshape(ny, nx)  # the 8 removed corner cells (2 rows x 4 columns)
+
+    for fill in ("nan", "global"):
+        with tempfile.TemporaryDirectory() as temp_dir:
+            pattern = os.path.join(temp_dir, "test_%Y%m%dT%HZ.nc")
+            output = Netcdf(
+                pm,
+                os.path.join(temp_dir, "wd"),
+                pattern,
+                proj4_str=proj4_str,
+                bounding_grid={
+                    "x_spacing": spacing,
+                    "y_spacing": spacing,
+                    "fill": fill,
+                    "absolute_tolerance": 1.0,
+                },
+                domain_sizes=[n_lam, n_glob],
+                domain_index=None,
+            )
+            assert output.grid_subset.shape == (ny, nx)
+            assert output.grid_subset.num_filled == (8 if fill == "global" else 0)
+            output.add_forecast(times, 0, pred)
+            output.finalize()
+            with xr.open_dataset(
+                os.path.join(temp_dir, "test_20230101T06Z.nc"), decode_times=False
+            ) as file:
+                np.testing.assert_allclose(
+                    file["x"].values, np.arange(nx) * spacing, atol=1e-6
+                )
+                np.testing.assert_allclose(
+                    file["y"].values, np.arange(ny) * spacing, atol=1e-6
+                )
+                t2m = file["air_temperature_2m"].values[:, 0]  # (time, y, x)
+                assert t2m.shape == (2, ny, nx)
+                # LAM cells hold the LAM points (row-major)
+                expected = np.full((2, ny, nx), np.nan, np.float32)
+                expected[:, keep.reshape(ny, nx)] = pred[:, :n_lam, 0]
+                np.testing.assert_allclose(
+                    t2m[:, ~missing], expected[:, ~missing], rtol=1e-6
+                )
+                if fill == "nan":
+                    assert np.isnan(t2m[:, missing]).all()
+                else:
+                    ry, rx = np.where(missing)
+                    _, nearest = cKDTree(np.c_[gx, gy]).query(
+                        np.c_[rx * spacing, ry * spacing]
+                    )
+                    np.testing.assert_allclose(
+                        t2m[:, missing], pred[:, n_lam + nearest, 0], rtol=1e-6
+                    )
+                # Every cell has a position, also the empty ones
+                assert np.isfinite(file["latitude"].values).all()
+                np.testing.assert_allclose(
+                    file["latitude"].values[keep.reshape(ny, nx)], lam_lat, atol=1e-6
+                )
+
+    # fill global needs the whole grid (no domain_index); nan works on the LAM alone
+    pm_lam = PredictMetadata(
+        variables, lam_lat, lam_lon, None, leadtimes, 1, field_shape=(n_lam,)
+    )
+    with tempfile.TemporaryDirectory() as temp_dir:
+        with pytest.raises(ValueError, match="domain_index"):
+            Netcdf(
+                pm_lam,
+                temp_dir,
+                "x.nc",
+                proj4_str=proj4_str,
+                bounding_grid={"fill": "global"},
+                domain_index=0,
+            )
+        output = Netcdf(
+            pm_lam,
+            temp_dir,
+            "x.nc",
+            proj4_str=proj4_str,
+            bounding_grid=True,
+            domain_index=0,
+        )
+        assert (
+            output.grid_subset.shape == (ny, nx)
+            and (output.grid_subset.cell_source < 0).sum() == 8
+        )

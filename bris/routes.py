@@ -98,6 +98,13 @@ def get(
                     args = resolve_grid_indices(
                         args, checkpoints, decoder_name, start_gridpoint, end_gridpoint
                     )
+                if output_type == "netcdf" and "bounding_grid" in args:
+                    # The writer needs to know which of its points are the LAM (first domain)
+                    args = {
+                        **args,
+                        "domain_sizes": [int(g) for g in curr_grids],
+                        "domain_index": domain_index,
+                    }
                 output = bris.outputs.instantiate(output_type, pm, curr_workdir, args)
                 outputs += [output]
 
