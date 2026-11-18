@@ -113,7 +113,6 @@ def main(arg_list: list[str] | None = None):
         datamodule,
         checkpoints,
         config.workdir,
-        convert_at_end=config.get("convert_at_end", True),
     )
     required_variables = bris.routes.get_required_variables_all_checkpoints(
         config["routing"], checkpoints

@@ -39,7 +39,6 @@ class Netcdf(Zarr):
         global_attributes=None,
         remove_intermediate=True,
         compression=False,
-        convert_at_end=True,
     ):
         """
         Args:
@@ -49,8 +48,6 @@ class Netcdf(Zarr):
             global_attributes (dict): Write these global attributes in the output file
             remove_intermediate (bool): Remove the Zarr store when the file has been written
             compression (bool): If true, write compressed output files
-            convert_at_end (bool): Write the files when the predictions end. Otherwise the Zarr
-                stores are left in the work directory for bris-convert.
         """
         super().__init__(
             predict_metadata,
@@ -70,7 +67,6 @@ class Netcdf(Zarr):
             # One field per chunk, as in the file
             chunks={"time": 1},
             remove_after_convert=remove_intermediate,
-            convert_at_end=convert_at_end,
         )
         self.netcdf_compression = compression
 

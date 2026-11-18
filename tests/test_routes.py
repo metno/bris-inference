@@ -138,8 +138,7 @@ def test_get():
 
 
 def test_get_zarr():
-    """The zarr output gets the checkpoint name in its attributes like netcdf, and the outputs
-    written through a Zarr store get the default of convert_at_end"""
+    """The zarr output gets the checkpoint name in its attributes, like netcdf"""
     config = [
         {
             "decoder_name": "data1",
@@ -147,32 +146,19 @@ def test_get_zarr():
             "outputs": [
                 {"zarr": {"filename_pattern": "%Y%m%d.zarr", "variables": ["2t"]}},
                 {"netcdf": {"filename_pattern": "%Y%m%d.nc", "variables": ["2t"]}},
-                {
-                    "grib": {
-                        "filename_pattern": "%Y%m%d.grib",
-                        "variables": ["2t"],
-                        "convert_at_end": True,
-                    }
-                },
+                {"grib": {"filename_pattern": "%Y%m%d.grib", "variables": ["2t"]}},
             ],
         },
     ]
     checkpoints = {"forecaster": FakeCheckpointObject()}
     routes = bris.routes.get(
-        config,
-        range(3),
-        2,
-        FakeDataModule(),
-        checkpoints,
-        "testdir",
-        convert_at_end=False,
+        config, range(3), 2, FakeDataModule(), checkpoints, "testdir"
     )
     zarr_output, netcdf_output, grib_output = routes[0]["outputs"]
     assert isinstance(zarr_output, bris.outputs.Zarr)
+    assert isinstance(netcdf_output, bris.outputs.Netcdf)
+    assert isinstance(grib_output, bris.outputs.Grib)
     assert "Checkpoints used" in zarr_output.layout.global_attributes["source"]
-    assert zarr_output.convert_at_end is False
-    assert netcdf_output.convert_at_end is False
-    assert grib_output.convert_at_end is True
     assert bris.routes.get_required_variables(config, checkpoints["forecaster"]) == {
         "data1": ["2t"]
     }

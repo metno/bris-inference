@@ -390,29 +390,24 @@ def test_remove_after_convert(tmp_path):
     assert os.listdir(tmp_path) == ["20230101T06Z.nc"]
 
 
-@pytest.mark.parametrize("num_members", [1, 2])
-def test_convert_later(tmp_path, num_members):
-    """With convert_at_end False the stores are left for bris-convert, which writes the same
-    file as the run would have"""
-    pm = get_pm(num_members)
+def test_convert_interrupted(tmp_path):
+    """The stores of a run that ended before its files were written (here: no finalize) are
+    converted by bris-convert, to the same files as the run would have written"""
+    pm = get_pm(num_members=2)
     pred = get_pred(pm)
     kwargs = {"domain_name": "meps", "accumulated_variables": ["tp"]}
     frts = [FRT, FRT + 6 * 3600]
 
-    direct = Netcdf(
-        pm, str(tmp_path / "work1"), str(tmp_path / "direct_%Y%m%dT%HZ.nc"), **kwargs
+    complete = Netcdf(
+        pm, str(tmp_path / "work1"), str(tmp_path / "complete_%Y%m%dT%HZ.nc"), **kwargs
     )
-    later = Netcdf(
-        pm,
-        str(tmp_path / "work2"),
-        str(tmp_path / "later_%Y%m%dT%HZ.nc"),
-        convert_at_end=False,
-        **kwargs,
+    interrupted = Netcdf(
+        pm, str(tmp_path / "work2"), str(tmp_path / "later_%Y%m%dT%HZ.nc"), **kwargs
     )
-    for output in [direct, later]:
+    for output in [complete, interrupted]:
         for frt in frts:
             add_members(output, pm, pred, frt=frt)
-        output.finalize()
+    complete.finalize()
 
     stores = sorted(
         str(tmp_path / "work2" / name) for name in os.listdir(tmp_path / "work2")
@@ -425,7 +420,7 @@ def test_convert_later(tmp_path, num_members):
     assert os.listdir(tmp_path / "work2") == []
     for name in ["20230101T06Z.nc", "20230101T12Z.nc"]:
         assert_same(
-            open_netcdf(tmp_path / f"direct_{name}"),
+            open_netcdf(tmp_path / f"complete_{name}"),
             open_netcdf(tmp_path / f"later_{name}"),
         )
 

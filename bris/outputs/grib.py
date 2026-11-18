@@ -26,7 +26,6 @@ class Grib(Zarr):
         domain_name=None,
         extra_variables=None,
         remove_intermediate: bool = True,
-        convert_at_end=True,
     ):
         """
         Args:
@@ -34,8 +33,6 @@ class Grib(Zarr):
             variables: If None, predict all variables
             grib_keys (dict): Set these keys in every message
             remove_intermediate (bool): Remove the Zarr store when the file has been written
-            convert_at_end (bool): Write the files when the predictions end. Otherwise the Zarr
-                stores are left in the work directory for bris-convert.
         """
         if interp_res is not None:
             utils.LOGGER.warning("grib: interp_res is not supported and is ignored")
@@ -50,7 +47,6 @@ class Grib(Zarr):
             # One field per chunk, as the messages in the file
             chunks={"time": 1},
             remove_after_convert=remove_intermediate,
-            convert_at_end=convert_at_end,
         )
         self.grib_keys = _plain(grib_keys or {})
 

@@ -4,17 +4,18 @@ A store holds one forecast in the layout of the NetCDF output: the same variable
 and attributes. Converting it to NetCDF is therefore a copy, and converting it to Grib encodes
 each field with the metadata found in the store.
 
-The conversion runs at the end of the predictions (the NetCDF and Grib outputs, and the Zarr
-output with `convert`), or later in a job of its own:
+The conversion runs when the predictions end (the NetCDF and Grib outputs, and the Zarr
+output with `convert`), or later in a job of its own, on the stores of a Zarr output:
+
+    bris-convert <store> [<store> ...] --netcdf <filename> [--grib <filename>]
+
+Time tokens in the filenames (e.g. %Y%m%dT%HZ) are expanded with the forecast reference time
+of each store. Without --netcdf or --grib,
 
     bris-convert <store> [<store> ...]
 
-converts each store to what the configuration of the run asked for (recorded in the store), and
-
-    bris-convert <store> --netcdf <filename> [--grib <filename>]
-
-converts to the given files. Time tokens in the filenames (e.g. %Y%m%dT%HZ) are expanded with
-the forecast reference time of the store.
+converts each store to what the configuration of its run asked for (recorded in the store),
+e.g. the stores left in the work directory by a run that ended before its files were written.
 
 This module must stay cheap to import (no torch).
 """

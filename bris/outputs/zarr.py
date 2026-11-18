@@ -1,6 +1,5 @@
 import hashlib
 import json
-import os
 import time as pytime
 from collections.abc import Mapping, Sequence
 
@@ -59,7 +58,6 @@ class Zarr(Output):
         chunks=None,
         convert=None,
         remove_after_convert=False,
-        convert_at_end=True,
     ):
         """
         Args:
@@ -76,8 +74,6 @@ class Zarr(Output):
                 [{netcdf: {filename_pattern: ..., compression: ...}},
                  {grib: {filename_pattern: ..., grib_keys: ...}}]
             remove_after_convert (bool): Remove the store when it has been converted
-            convert_at_end (bool): Convert when the predictions end. Otherwise the stores are
-                left for bris-convert.
         """
         super().__init__(predict_metadata, extra_variables)
 
@@ -136,7 +132,6 @@ class Zarr(Output):
                     f"convert: expected one of {list(bris.convert.WRITERS)}, got {list(target)}"
                 )
         self.remove_after_convert = remove_after_convert
-        self.convert_at_end = convert_at_end
 
         # Stores written to by this process: forecast reference time -> path
         self.stores: dict[int, str] = {}
@@ -232,7 +227,7 @@ class Zarr(Output):
 
         if start + len(pred) >= len(times):
             del self._accumulated[key]
-            if not ensemble and self.convert_at_end:
+            if not ensemble:
                 # Nothing more will be written to the store
                 self._convert(path)
         utils.LOGGER.debug(
@@ -317,16 +312,7 @@ class Zarr(Output):
         finalizing: it is complete when its last member has been written."""
         t0 = pytime.perf_counter()
         paths = [self.stores[frt] for frt in sorted(self.stores)]
-        if self.has_targets and not self.convert_at_end and paths:
-            utils.LOGGER.info(
-                f"{len(paths)} store(s) left to be converted, e.g. with: bris-convert "
-                + (
-                    " ".join(paths)
-                    if len(paths) <= 3
-                    else f"{os.path.dirname(paths[0])}/*.zarr"
-                )
-            )
-        elif self.has_targets and self.pm.num_members > 1:
+        if self.has_targets and self.pm.num_members > 1:
             # Single-member stores were converted when they were written
             for path in paths:
                 self._convert(path)

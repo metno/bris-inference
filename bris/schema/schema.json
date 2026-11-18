@@ -82,10 +82,6 @@
                         "global_attributes": {
                             "description": "Dictionary of global attributes to write to each output file",
                             "type": "object"
-                        },
-                        "convert_at_end": {
-                            "description": "Write the files when the predictions end (default: the top-level convert_at_end). If false, the Zarr stores that the predictions are first written to are left in the work directory, to be converted with bris-convert",
-                            "type": "boolean"
                         }
                     },
                     "required": ["filename_pattern"]
@@ -169,7 +165,7 @@
                             "additionalProperties": false
                         },
                         "convert": {
-                            "description": "Also convert each store to these formats, when the predictions end or later with bris-convert (see convert_at_end)",
+                            "description": "Also convert each store to these formats when the predictions end. Without it, the stores can be converted later with bris-convert",
                             "type": "array",
                             "items": {
                                 "oneOf": [
@@ -220,10 +216,6 @@
                         "remove_after_convert": {
                             "description": "Remove each store when it has been converted (default false)",
                             "type": "boolean"
-                        },
-                        "convert_at_end": {
-                            "description": "Convert the stores when the predictions end (default: the top-level convert_at_end). If false, they are left to be converted with bris-convert",
-                            "type": "boolean"
                         }
                     },
                     "required": ["filename_pattern"]
@@ -256,10 +248,6 @@
                         "proj4_str": {
                             "description": "Assume this projection string when computing x/y coordinates",
                             "type": "string"
-                        },
-                        "convert_at_end": {
-                            "description": "Write the files when the predictions end (default: the top-level convert_at_end). If false, the Zarr stores that the predictions are first written to are left in the work directory, to be converted with bris-convert",
-                            "type": "boolean"
                         }
                     },
                     "required": ["filename_pattern"]
@@ -462,10 +450,6 @@
         "workdir": {
             "description": "Path to work directory",
             "type": "string"
-        },
-        "convert_at_end": {
-            "description": "The zarr, netcdf and grib outputs first write each forecast to a Zarr store (for netcdf and grib in the work directory). If true (default), the stores are converted to the other formats asked for when the predictions end. If false, they are left to be converted in a job of its own with bris-convert",
-            "type": "boolean"
         },
         "dataset": {
             "description": "Input dataset. Can be a single path, or two datasets merged by cutout. Example dataset.cutout = ['/path/dataset1', '/path/dataset2' ]",

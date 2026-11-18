@@ -18,11 +18,6 @@ datasets:
 
 workdir: PATH_TO_WORK_DIRECTORY # Used to store temporary files for ensemble members and verif output
 
-# The netcdf and grib outputs first write each forecast to a Zarr store in workdir, and convert
-# it when the predictions end. Set this to False to leave the stores for a job of its own
-# (bris-convert WORKDIR/*/*.zarr), e.g. to release the GPUs earlier.
-# convert_at_end: True
-
 dataloader:
   datamodule:
     _target_: bris.data.dataset.NativeGridDataset
@@ -58,7 +53,8 @@ routing:
           extra_variables: [ws]
       # Zarr store with the same content as the netcdf file. The members write into it directly,
       # so that nothing is left to do when the predictions end. It can be converted to netcdf or
-      # grib with bris-convert, or here with convert: [{netcdf: {filename_pattern: ...}}]
+      # grib in a job of its own (bris-convert STORE --netcdf FILE), e.g. to release the GPUs
+      # earlier, or when the predictions end with convert: [{netcdf: {filename_pattern: ...}}]
       # - zarr:
       #     filename_pattern: ${output}/pred_%Y-%m-%dT%H.zarr
       #     variables: [2t, msl, tp]
