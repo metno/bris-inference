@@ -30,6 +30,7 @@ import numpy as np
 import zarr
 
 from bris import zarrstore
+from bris.conventions import grib as grib_conventions
 
 LOGGER = logging.getLogger("bris")
 
@@ -177,61 +178,6 @@ def to_netcdf(path: str, filename: str, compression: bool = False) -> None:
     )
 
 
-# Map level type name to code
-# https://codes.ecmwf.int/grib/format/grib2/ctables/4/5/
-GRIB_LEVEL_TYPES = {
-    "surface": 1,
-    "air_pressure": 100,  # Isobaric surface (Pa)
-    "height_above_msl": 102,  # Specific altitude above mean sea level (m)
-    "height": 103,  # Specified height level above ground (m)
-}
-
-# Stands in for the points without a value when a field is encoded with a bitmap
-GRIB_MISSING_VALUE = 9999.0
-
-GRIB_GRID_TEMPLATES = {
-    "latlon": 0,
-    "latitude_longitude": 0,
-    "rotated_ll": 1,
-    "mercator": 10,
-    "polar_stereographic": 20,
-    "lambert_conformal_conic": 30,
-    "gaussian": 40,
-    "rotated_gaussian": 41,
-    "spherical_harmonic": 50,
-}
-
-# Map parameter name to:
-# (discipline, parameter category, parameter number, type of statistical processing,
-#  product definition template number, product definition template number in an ensemble)
-# https://www.nco.ncep.noaa.gov/pmb/docs/grib2/grib2_doc/grib2_table4-0.shtml
-GRIB_PARAMETERS = {
-    "air_temperature_0m": (0, 0, 0, None, 0, 11),
-    "air_temperature_2m": (0, 0, 0, None, 0, 11),
-    "air_temperature_pl": (0, 0, 0, None, 0, 11),
-    "geopotential_pl": (0, 3, 4, None, 0, 11),
-    "relative_humidity_2m": (0, 1, 192, None, 0, 11),
-    "relative_humidity_pl": (0, 1, 192, None, 0, 11),
-    "x_wind_10m": (0, 2, 2, None, 0, 11),
-    "x_wind_pl": (0, 2, 2, None, 0, 11),
-    "y_wind_10m": (0, 2, 3, None, 0, 11),
-    "y_wind_pl": (0, 2, 3, None, 0, 11),
-    "wind_speed_10m": (0, 2, 1, None, 0, 11),
-    "atmosphere_boundary_layer_thickness": (0, 19, 3, None, 0, 11),
-    "wind_speed_of_gust": (0, 2, 22, 2, 8, 11),
-    "air_pressure_at_sea_level": (0, 3, 0, None, 0, 1),
-    "surface_air_pressure": (0, 3, 0, None, 0, 11),
-    "specific_humidity_pl": (0, 1, 0, None, 0, 11),
-    "upward_air_velocity_pl": (0, 2, 9, None, 0, 11),
-    "dew_point_temperature_2m": (0, 0, 6, None, 0, 11),
-    "lagrangian_tendency_of_air_pressure_pl": (0, 2, 8, None, 0, 11),
-    "tcw": (0, 1, 3, None, 0, 11),
-    "skt": (0, 0, 17, None, 0, 11),
-    "precipitation_amount": (0, 1, 49, None, 8, 11),
-    "cp": (0, 1, 10, None, 0, 11),
-}
-
-
 def to_grib(path: str, filename: str, grib_keys: dict | None = None) -> None:
     """Write the forecast in the store at path to a Grib file (edition 2)
 
@@ -248,7 +194,7 @@ def to_grib(path: str, filename: str, grib_keys: dict | None = None) -> None:
     num_spatial = len(store.spatial_dims)
     num_members = store.num_members
 
-    unknown = [name for name in store.fields if name not in GRIB_PARAMETERS]
+    unknown = [name for name in store.fields if name not in grib_conventions.PARAMETERS]
     if unknown:
         raise ValueError(f"grib: no parameter definition for {unknown}")
 
@@ -263,7 +209,7 @@ def to_grib(path: str, filename: str, grib_keys: dict | None = None) -> None:
     # set geometry from proj attributes
     proj_attrs = store.attrs("projection") if "projection" in root else {}
     geometry = {
-        "gridDefinitionTemplateNumber": GRIB_GRID_TEMPLATES.get(
+        "gridDefinitionTemplateNumber": grib_conventions.GRID_TEMPLATES.get(
             proj_attrs.get("grid_mapping_name"), 30
         ),
         "latitudeOfSouthernPole": -90000000,
@@ -328,7 +274,7 @@ def to_grib(path: str, filename: str, grib_keys: dict | None = None) -> None:
         for time_index, validtime in enumerate(validtimes):
             leadtime = validtime - origintime
             for name in store.fields:
-                dis, cat, num, tosp, pdtn, pdtn_ens = GRIB_PARAMETERS[name]
+                dis, cat, num, tosp, pdtn, pdtn_ens = grib_conventions.PARAMETERS[name]
                 if num_members > 1:
                     pdtn = pdtn_ens
                 for level_index, level_value, level_type in levels[name]:
@@ -355,7 +301,7 @@ def to_grib(path: str, filename: str, grib_keys: dict | None = None) -> None:
                         ecc.codes_set(
                             grib,
                             "typeOfFirstFixedSurface",
-                            GRIB_LEVEL_TYPES.get(level_type, 103),
+                            grib_conventions.LEVEL_TYPES.get(level_type, 103),
                         )
                         ecc.codes_set(grib, "level", level_value)
                         ecc.codes_set(
@@ -376,8 +322,12 @@ def to_grib(path: str, filename: str, grib_keys: dict | None = None) -> None:
                             # time 0, or an ensemble member that never arrived) are marked
                             # as missing in a bitmap
                             ecc.codes_set(grib, "bitmapPresent", 1)
-                            ecc.codes_set(grib, "missingValue", GRIB_MISSING_VALUE)
-                            values = np.where(missing, GRIB_MISSING_VALUE, values)
+                            ecc.codes_set(
+                                grib, "missingValue", grib_conventions.MISSING_VALUE
+                            )
+                            values = np.where(
+                                missing, grib_conventions.MISSING_VALUE, values
+                            )
                         ecc.codes_set_values(grib, values)
 
                         if num_members > 1 and pdtn in [1, 2, 11]:
