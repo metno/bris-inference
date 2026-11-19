@@ -53,21 +53,27 @@ def test_ensure_replaces_other_runs(tmp_path, monkeypatch):
     assert sorted(os.listdir(tmp_path)) == ["dir.zarr", "store.zarr"]
 
 
-def test_only_main_rank_replaces(tmp_path, monkeypatch):
+def test_only_one_process_replaces(tmp_path, monkeypatch):
     path = str(tmp_path / "store.zarr")
     monkeypatch.setenv("BRIS_RUN_ID", "run1")
     zarrstore.ensure(path, build(1))
 
+    # A process that is not the one to replace waits for it
     monkeypatch.setenv("BRIS_RUN_ID", "run2")
-    monkeypatch.setenv("SLURM_PROCID", "1")
-    assert not zarrstore.is_main_rank()
+    assert not zarrstore.is_from_this_run(path)
     with pytest.raises(TimeoutError):
-        zarrstore.ensure(path, build(2), timeout=1)
+        zarrstore.ensure(path, build(2), replace=False, timeout=1)
     assert value(path) == 1
 
-    # ... but any rank creates a store that is not there
-    zarrstore.ensure(str(tmp_path / "new.zarr"), build(2))
+    # ... but any process creates a store that is not there
+    zarrstore.ensure(str(tmp_path / "new.zarr"), build(2), replace=False)
     assert value(str(tmp_path / "new.zarr")) == 2
+
+    # The one that replaces need not be the main rank of the run
+    monkeypatch.setenv("SLURM_PROCID", "3")
+    zarrstore.ensure(path, build(3), replace=True)
+    assert value(path) == 3
+    assert zarrstore.is_from_this_run(path)
 
 
 def test_run_id(monkeypatch):

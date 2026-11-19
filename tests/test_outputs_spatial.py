@@ -30,8 +30,9 @@ def test_SHPowerSpectrum():
         variable = "z_500"
         delta_degrees = 10
 
-        out1 = SHPowerSpectrum(pm, workdir, filename, variable)
-        out2 = SHPowerSpectrum(pm, workdir, filename, variable, delta_degrees)
+        # Each output has its own work directory, as in a run (see bris.routes)
+        out1 = SHPowerSpectrum(pm, workdir + "_1", filename, variable)
+        out2 = SHPowerSpectrum(pm, workdir + "_2", filename, variable, delta_degrees)
 
         for member in range(num_members):
             out1.add_forecast(times, member, pred)
@@ -119,11 +120,17 @@ def test_DCTPowerSpectrum():
         domain_name = "meps"
         n_bins = 5
 
+        # Each output has its own work directory, as in a run (see bris.routes)
         out1 = DCTPowerSpectrum(
-            pm, workdir, filename, variable, domain_name=domain_name
+            pm, workdir + "_1", filename, variable, domain_name=domain_name
         )
         out2 = DCTPowerSpectrum(
-            pm, workdir, filename, variable, domain_name=domain_name, n_bins=n_bins
+            pm,
+            workdir + "_2",
+            filename,
+            variable,
+            domain_name=domain_name,
+            n_bins=n_bins,
         )
 
         for member in range(num_members):

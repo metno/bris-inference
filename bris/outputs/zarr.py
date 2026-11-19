@@ -1,5 +1,8 @@
+import glob
 import hashlib
 import json
+import os
+import re
 import time as pytime
 from collections.abc import Mapping, Sequence
 
@@ -133,8 +136,6 @@ class Zarr(Output):
                 )
         self.remove_after_convert = remove_after_convert
 
-        # Stores written to by this process: forecast reference time -> path
-        self.stores: dict[int, str] = {}
         # Accumulated variables at the end of the last block written, per store and member
         self._accumulated: dict[tuple[int, int], dict[str, np.ndarray]] = {}
 
@@ -145,6 +146,24 @@ class Zarr(Output):
     def get_store(self, forecast_reference_time: int) -> str:
         """Where the store of this forecast reference time is written"""
         return self.get_filename(forecast_reference_time)
+
+    def get_stores(self) -> list[str]:
+        """The stores that the processes of this run have written for this output
+
+        The forecasts can be divided between groups of processes, so this is more than the
+        stores that this process has written to.
+        """
+        # get_store with the time tokens as wildcards
+        parts = re.split(r"(%.)", self.filename_pattern)
+        pattern = "".join(
+            ("%" if part == "%%" else "*") if i % 2 else glob.escape(part)
+            for i, part in enumerate(parts)
+        )
+        return sorted(
+            path
+            for path in glob.glob(os.path.abspath(pattern))
+            if zarrstore.is_from_this_run(path)
+        )
 
     @property
     def has_targets(self) -> bool:
@@ -210,9 +229,8 @@ class Zarr(Output):
         path = self.get_store(frt)
         key = (frt, ensemble_member)
         if start == 0:
-            self._ensure_store(path, frt, times)
+            self._ensure_store(path, frt, times, ensemble_member)
             self._accumulated[key] = {}
-        self.stores[frt] = path
         root = zarr.open_group(path, mode="r+")
         ensemble = self.pm.num_members > 1
         for name, level_index, values in self.layout.transform(
@@ -234,7 +252,9 @@ class Zarr(Output):
             f"Zarr.write_block member {ensemble_member} to {path} in {pytime.perf_counter() - t0:.1f}s"
         )
 
-    def _ensure_store(self, path: str, frt: int, times: list) -> None:
+    def _ensure_store(
+        self, path: str, frt: int, times: list, ensemble_member: int
+    ) -> None:
         """Create the store with its coordinates, attributes and (empty) variables, unless a
         process of this run already has"""
         fields = self.layout.fields
@@ -297,7 +317,9 @@ class Zarr(Output):
             "convert": self.get_targets(frt),
             "remove_after_convert": self.remove_after_convert,
         }
-        zarrstore.ensure(path, build, fingerprint, info)
+        # A store left by an earlier run is replaced by the process that writes the first
+        # member: exactly one of the processes that write to this store
+        zarrstore.ensure(path, build, fingerprint, info, replace=ensemble_member == 0)
 
     def _convert(self, path: str) -> None:
         t0 = pytime.perf_counter()
@@ -311,10 +333,9 @@ class Zarr(Output):
         """Convert the stores, if asked for. A store that is not converted needs no
         finalizing: it is complete when its last member has been written."""
         t0 = pytime.perf_counter()
-        paths = [self.stores[frt] for frt in sorted(self.stores)]
         if self.has_targets and self.pm.num_members > 1:
             # Single-member stores were converted when they were written
-            for path in paths:
+            for path in self.get_stores():
                 self._convert(path)
         self._cleanup()
         utils.LOGGER.debug(

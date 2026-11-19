@@ -47,7 +47,9 @@ class Intermediate(Output):
                 compressor=None,
             )
 
-        zarrstore.ensure(filename, build, fingerprint=str(shape))
+        zarrstore.ensure(
+            filename, build, fingerprint=str(shape), replace=ensemble_member == 0
+        )
         zarr.open_group(filename, mode="r+")["data"][..., ensemble_member] = pred
         utils.LOGGER.debug(
             f"Intermediate._add_forecast for {filename} in {time.perf_counter() - t0:.1f}s"

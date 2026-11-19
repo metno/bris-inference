@@ -44,11 +44,6 @@ def run_id() -> str:
     return _PROCESS_RUN_ID
 
 
-def is_main_rank() -> bool:
-    """Is this the rank that finalizes the outputs (the only rank outside a distributed run)?"""
-    return os.environ.get("SLURM_PROCID", "0") == "0"
-
-
 def read_info(path: str) -> dict | None:
     """The sidecar of the store at path, or None if there is no store with a sidecar"""
     try:
@@ -75,6 +70,12 @@ def remove(path: str) -> None:
             os.remove(path)
 
 
+def is_from_this_run(path: str) -> bool:
+    """Is there a store made by a process of this run at path?"""
+    info = read_info(path)
+    return info is not None and info.get("run_id") == run_id()
+
+
 def is_current(path: str, fingerprint: str | None = None) -> bool:
     """Is there a store of this run, with this layout, at path?"""
     info = read_info(path)
@@ -90,15 +91,17 @@ def ensure(
     build: Callable[[str], None],
     fingerprint: str | None = None,
     info: dict | None = None,
-    timeout: float = 3600.0,
+    replace: bool = True,
+    timeout: float = 600.0,
 ) -> None:
     """Make sure that the store of this run exists at path, creating it if needed
 
     Safe to call from all ranks at the same time: exactly one of them creates the store.
 
     Something else at path (a store of an earlier run, or of this run with another layout) is
-    replaced. Only the main rank does that; the other ranks wait for it, since a rank cannot
-    otherwise tell a store that is about to be replaced from one that it should write into.
+    replaced. Exactly one of the processes that write to the store must do that (replace), and
+    the others wait for it, since a process cannot otherwise tell a store that is about to be
+    replaced from one that it should write into.
 
     Args:
         path: Where the store should be
@@ -108,8 +111,10 @@ def ensure(
             not this run's store, even when made by a run with the same identifier (e.g. two
             runs in the same interactive job step).
         info: Stored in the sidecar, with the run identifier and the fingerprint
-        timeout: How long a rank that is not the main rank waits for the main rank to replace
-            what is at path [s]
+        replace: Is this the process that replaces what another run left at path? True for
+            exactly one of the processes that write to the store (e.g. the one that writes
+            the first ensemble member).
+        timeout: How long a process that does not replace waits for the one that does [s]
     """
     identity = {"run_id": run_id(), "fingerprint": fingerprint}
     t0 = time.perf_counter()
@@ -119,16 +124,18 @@ def ensure(
             return
 
         if os.path.lexists(path):
-            if not is_main_rank():
+            if not replace:
                 if not warned:
                     LOGGER.info(
-                        f"Waiting for the main rank to replace {path}, left by another run"
+                        f"Waiting for {path}, left by another run, to be replaced"
                     )
                     warned = True
                 if time.perf_counter() - t0 > timeout:
                     raise TimeoutError(
-                        f"{path} exists and is not a store of this run, and the main rank did "
-                        f"not replace it within {timeout:.0f} s"
+                        f"{path} exists and is not the store that this process should write "
+                        f"to, and it was not replaced within {timeout:.0f} s. Do two outputs "
+                        "write to the same path, or is the path the same for several "
+                        "forecasts (no time tokens)?"
                     )
                 time.sleep(0.5)
                 continue

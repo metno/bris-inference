@@ -280,7 +280,6 @@ def test_blocks(tmp_path):
 
 def _write_member(path, member, num_members, barrier):
     os.environ["BRIS_RUN_ID"] = "test_processes"
-    os.environ["SLURM_PROCID"] = str(member)
     pm = get_pm(num_members)
     output = Zarr(pm, "", path, domain_name="meps")
     barrier.wait()
@@ -374,6 +373,49 @@ def test_convert(tmp_path):
 
     with pytest.raises(ValueError):
         Zarr(pm, "", "x.zarr", convert=[{"csv": {"filename_pattern": "x.csv"}}])
+
+
+@pytest.mark.parametrize("kind", ["netcdf", "zarr"])
+def test_forecasts_in_groups(tmp_path, monkeypatch, kind):
+    """The forecasts can be divided between groups of processes. The main process converts
+    the stores of all of them on finalize, also the ones it did not write to, and the stores
+    of an earlier run are replaced whichever group writes to them."""
+    monkeypatch.setenv("BRIS_RUN_ID", "earlier")
+    pm = get_pm(num_members=2)
+    pred = get_pred(pm)
+    frts = [FRT, FRT + 6 * 3600]
+
+    def get_output():
+        if kind == "netcdf":
+            return Netcdf(pm, str(tmp_path / "work"), str(tmp_path / "%Y%m%dT%HZ.nc"))
+        return Zarr(
+            pm,
+            "",
+            str(tmp_path / "[x]_%Y%m%dT%HZ.zarr"),
+            convert=[{"netcdf": {"filename_pattern": str(tmp_path / "%Y%m%dT%HZ.nc")}}],
+        )
+
+    # An earlier run leaves its stores behind
+    earlier = get_output()
+    for frt in frts:
+        add_members(earlier, pm, pred * 0, frt=frt)
+
+    monkeypatch.setenv("BRIS_RUN_ID", "this")
+    # One output object per process: the first group has the main process
+    groups = [get_output(), get_output()]
+    for output, frt in zip(groups, frts, strict=True):
+        add_members(output, pm, pred, frt=frt)
+    groups[0].finalize()
+
+    for name in ["20230101T06Z.nc", "20230101T12Z.nc"]:
+        ds = open_netcdf(tmp_path / name)
+        expected = pred[:, :, pm.variables.index("2t"), :].reshape(4, 3, 4, 2)
+        values = np.moveaxis(ds["air_temperature_2m"].values[:, 0], 1, -1)
+        assert np.array_equal(values, expected)
+    if kind == "netcdf":
+        assert not os.path.exists(tmp_path / "work")
+    else:
+        assert len(groups[0].get_stores()) == 2
 
 
 def test_remove_after_convert(tmp_path):

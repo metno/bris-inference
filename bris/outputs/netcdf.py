@@ -1,6 +1,8 @@
 import contextlib
+import glob
 import os
 
+from bris import zarrstore
 from bris.outputs.zarr import Zarr
 from bris.predict_metadata import PredictMetadata
 
@@ -72,6 +74,13 @@ class Netcdf(Zarr):
 
     def get_store(self, forecast_reference_time: int) -> str:
         return f"{self.workdir}/{forecast_reference_time:.0f}.zarr"
+
+    def get_stores(self) -> list[str]:
+        return sorted(
+            path
+            for path in glob.glob(f"{glob.escape(self.workdir)}/*.zarr")
+            if zarrstore.is_from_this_run(path)
+        )
 
     @property
     def has_targets(self) -> bool:
