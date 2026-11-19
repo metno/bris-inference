@@ -1,5 +1,5 @@
 import datetime
-from collections.abc import Iterator
+from collections.abc import Callable, Iterator
 from functools import cached_property
 
 import gridpp
@@ -425,38 +425,61 @@ class Layout:
             pred[:, :, self.pm.variables.index(variable)], dtype=np.float32
         )
 
-    def rotated_winds(self, pred: np.ndarray) -> dict[str, np.ndarray]:
+    @property
+    def _winds_to_rotate(self) -> list[tuple[str, str]]:
+        """The pairs of wind components (anemoi names) that are written and rotated"""
+        if self.proj4_str is None:
+            return []
+        return [
+            (u_field, v_field)
+            for u_field, v_field in self.conventions.fields_to_rotate
+            if u_field in self.extract_variables and v_field in self.extract_variables
+        ]
+
+    def prepare(self) -> None:
+        """Compute what rotated_winds and field_values share between the variables, which is
+        otherwise computed when it is first needed. Call it before using these from several
+        threads, so that this is done once."""
+        _ = self._grid
+        if self._interpolate:
+            _ = self._interpolation_index
+        if self._winds_to_rotate:
+            _ = self.get_projection_rotation_matrices
+
+    def rotated_winds(
+        self, pred: np.ndarray, mapper: Callable = map
+    ) -> dict[str, np.ndarray]:
         """The wind components that are written, rotated from east/north to projected
         coordinates
 
         Args:
             pred: 3D array (leadtimes, points, variables) for one ensemble member
+            mapper: Applies a function to the pairs of wind components, as map does, e.g. the
+                map of a pool of threads
 
         Returns:
             anemoi variable name -> rotated values (leadtimes, points). Empty without a
             projection.
         """
-        rotated = {}
-        if self.proj4_str is None:
-            return rotated
-        for u_field, v_field in self.conventions.fields_to_rotate:
-            if (
-                u_field not in self.extract_variables
-                or v_field not in self.extract_variables
-            ):
-                continue
+        pairs = self._winds_to_rotate
+        if not pairs:
+            return {}
 
-            # Cached property so this will be computed only once
-            e_x, n_x, e_y, n_y = self.get_projection_rotation_matrices
+        # Cached property so this will be computed only once
+        e_x, n_x, e_y, n_y = self.get_projection_rotation_matrices
 
+        def rotate(pair: tuple[str, str]) -> dict[str, np.ndarray]:
+            u_field, v_field = pair
             u_values = self._values(pred, u_field)
             v_values = self._values(pred, v_field)
-            rotated[u_field] = np.asarray(
-                e_x * u_values + n_x * v_values, dtype=np.float32
-            )
-            rotated[v_field] = np.asarray(
-                e_y * u_values + n_y * v_values, dtype=np.float32
-            )
+            return {
+                u_field: np.asarray(e_x * u_values + n_x * v_values, dtype=np.float32),
+                v_field: np.asarray(e_y * u_values + n_y * v_values, dtype=np.float32),
+            }
+
+        rotated = {}
+        for winds in mapper(rotate, pairs):
+            rotated.update(winds)
         return rotated
 
     def field_values(

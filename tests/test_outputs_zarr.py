@@ -252,6 +252,25 @@ def test_chunks_of_other_layout(tmp_path):
     Zarr(get_pm(gridded=False), "", "x.zarr", interp_res=0.25, chunks={"x": 4})
 
 
+@pytest.mark.parametrize("options", ["projected", "interpolated"])
+def test_threads(tmp_path, monkeypatch, options):
+    """The variables of a member are written by several threads, with the same result as by
+    one, and what goes wrong in a thread is raised"""
+    pm = get_pm(num_members=2)
+    pred = get_pred(pm)
+    for num_threads in [1, 4]:
+        monkeypatch.setattr(bris.outputs.zarr, "WRITE_THREADS", num_threads)
+        assert bris.outputs.zarr.get_num_threads() in [1, num_threads]
+        output = Zarr(pm, "", str(tmp_path / f"{num_threads}.zarr"), **OPTIONS[options])
+        add_members(output, pm, pred)
+    assert_same(open_zarr(tmp_path / "1.zarr"), open_zarr(tmp_path / "4.zarr"))
+
+    output = Zarr(pm, "", str(tmp_path / "fails.zarr"), **OPTIONS[options])
+    with pytest.raises(IndexError):
+        # Predictions without most of the variables
+        output.write_block(get_times(pm), 0, pred[:, :, :2, 0])
+
+
 def test_blocks(tmp_path):
     """Writing a member in blocks of lead times gives the same as writing it at once, also
     for the variables accumulated over lead time"""

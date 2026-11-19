@@ -5,6 +5,7 @@ import os
 import re
 import time as pytime
 from collections.abc import Mapping, Sequence
+from concurrent.futures import ThreadPoolExecutor
 
 import numcodecs
 import numpy as np
@@ -19,6 +20,10 @@ from bris.predict_metadata import PredictMetadata
 
 # Aim for chunks of about this size when the number of lead times in a chunk is not given
 CHUNK_BYTES = 100e6
+
+# The number of threads that write the variables of a member to a store. More than this gains
+# little: the threads share the memory bandwidth and the file system.
+WRITE_THREADS = 4
 
 # The chunk sizes that can be set for the spatial dimensions (whatever these are named in the
 # store, e.g. latitude and longitude for y and x), by the number of spatial dimensions
@@ -233,15 +238,27 @@ class Zarr(Output):
             self._accumulated[key] = {}
         root = zarr.open_group(path, mode="r+")
         ensemble = self.pm.num_members > 1
-        for name, level_index, values in self.layout.transform(
-            pred, self._accumulated[key]
-        ):
+        accumulated = self._accumulated[key]
+
+        def write(variable: str) -> None:
+            name, level_index, values = self.layout.field_values(
+                variable, pred, rotated, accumulated
+            )
             index: list = [slice(start, start + len(values))]
             if level_index is not None:
                 index.append(level_index)
             if ensemble:
                 index.append(ensemble_member)
             root[name][tuple(index)] = values
+
+        # The variables are prepared and written by a few threads: each variable (and level)
+        # has chunks of its own, and most of the work is done without Python's global
+        # interpreter lock
+        self.layout.prepare()
+        with ThreadPoolExecutor(max_workers=get_num_threads()) as pool:
+            rotated = self.layout.rotated_winds(pred, pool.map)
+            # list: raise what a thread raised
+            list(pool.map(write, self.layout.extract_variables))
 
         if start + len(pred) >= len(times):
             del self._accumulated[key]
@@ -344,6 +361,16 @@ class Zarr(Output):
 
     def _cleanup(self) -> None:
         """Nothing to clean up: the stores are the output"""
+
+
+def get_num_threads() -> int:
+    """The number of threads that write the variables of a member: WRITE_THREADS, or the
+    number of CPUs that this process may use if that is less"""
+    try:
+        num_cpus = len(os.sched_getaffinity(0))
+    except AttributeError:
+        num_cpus = os.cpu_count() or 1
+    return max(1, min(WRITE_THREADS, num_cpus))
 
 
 def write_skeleton(root: zarr.Group, ds: xr.Dataset, compressor=None) -> None:
