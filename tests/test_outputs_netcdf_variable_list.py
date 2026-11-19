@@ -1,21 +1,21 @@
 from bris.conventions.metno import Metno
-from bris.outputs import netcdf
+from bris.conventions.variable_list import VariableList
 
 
 def test_empty():
-    vl = netcdf.VariableList([])
+    vl = VariableList([])
     assert len(vl.dimensions) == 0
 
 
 def test_1():
-    vl = netcdf.VariableList(["u_800"])
+    vl = VariableList(["u_800"])
     assert vl.dimensions == {"pressure": ("air_pressure", [800])}
     assert vl.get_level_dimname("x_wind_pl") == "pressure"
     assert vl.get_level_index("u_800") == 0
 
 
 def test_2():
-    vl = netcdf.VariableList(["u_800", "u_700", "v_700", "2t", "10u"])
+    vl = VariableList(["u_800", "u_700", "v_700", "2t", "10u"])
     assert len(vl.dimensions) == 4
     dimname = vl.get_level_dimname("x_wind_pl")
     assert vl.dimensions[dimname] == ("air_pressure", [700, 800])
@@ -37,19 +37,19 @@ def test_2():
 
 def test_3():
     # This checks that with repeated variables, we get the right matching of dimensions
-    vl = netcdf.VariableList(["10u", "10v", "2t", "2d"])
+    vl = VariableList(["10u", "10v", "2t", "2d"])
     assert vl.dimensions == {"height": ("height", [10]), "height1": ("height", [2])}
 
 
 def test_4():
-    vl = netcdf.VariableList(["cos_julian_day"])
+    vl = VariableList(["cos_julian_day"])
     assert vl.dimensions == {}
     assert vl.get_level_dimname("cos_julian_day") is None
     assert vl.get_level_index("cos_julian_day") is None
 
 
 def test_single_level_height():
-    vl = netcdf.VariableList(["2t", "skt", "u_600", "u_800"], Metno())
+    vl = VariableList(["2t", "skt", "u_600", "u_800"], Metno())
     # Check that air_temperature 0m/2m have separate dimensions
     dim2 = vl.get_level_dimname("air_temperature_0m")
     assert vl.dimensions[dim2] == ("height", [0])

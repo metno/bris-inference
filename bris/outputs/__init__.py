@@ -34,6 +34,9 @@ def instantiate(name: str, predict_metadata: PredictMetadata, workdir: str, init
     if name == "grib":
         return Grib(predict_metadata, workdir, **init_args)
 
+    if name == "zarr":
+        return Zarr(predict_metadata, workdir, **init_args)
+
     if name == "powerspectrum_global":
         return SHPowerSpectrum(predict_metadata, workdir, **init_args)
 
@@ -48,7 +51,7 @@ def get_required_variables(name, init_args):
     provided
     """
 
-    if name == "netcdf":
+    if name in ["netcdf", "zarr"]:
         if "variables" in init_args:
             variables = list(init_args["variables"])
             variables += _required_inputs(init_args.get("extra_variables", []))
@@ -204,3 +207,4 @@ from .intermediate import Intermediate
 from .netcdf import Netcdf
 from .spatial import DCTPowerSpectrum, SHPowerSpectrum
 from .verif import Verif
+from .zarr import Zarr
