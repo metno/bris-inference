@@ -337,10 +337,9 @@ class Layout:
         ds[self.conv_name("projection")] = ([], 0, proj_attrs, {"dtype": "int32"})
 
         if self.pm.altitudes is not None:
-            ipoints, ogrid = self._interpolation
-            altitudes = gridpp.nearest(ipoints, ogrid, self.pm.altitudes).astype(
-                np.double
-            )
+            altitudes = np.asarray(self.pm.altitudes, dtype=np.float32)[
+                self._interpolation_index
+            ].astype(np.double)
             ds[self.conv_name("surface_altitude")] = (
                 spatial_dims,
                 altitudes,
@@ -385,6 +384,24 @@ class Layout:
         return ipoints, ogrid
 
     @cached_property
+    def _interpolation_index(self) -> np.ndarray:
+        """For each point of the lat/lon grid (y, x), the index of the nearest of the points
+        that are interpolated
+
+        The search for the nearest points takes much longer than taking their values, and holds
+        Python's global interpreter lock, so it is done once and not for every variable. The
+        values are those of gridpp.nearest.
+        """
+        ipoints, ogrid = self._interpolation
+        indices = np.arange(self.pm.num_points)
+        # gridpp works with single precision, which holds integers up to 2^24 exactly: the
+        # indices are passed through in two parts that are small enough
+        part = 4096
+        high = gridpp.nearest(ipoints, ogrid, (indices // part).astype(np.float32))
+        low = gridpp.nearest(ipoints, ogrid, (indices % part).astype(np.float32))
+        return np.asarray(high).astype(np.intp) * part + np.asarray(low).astype(np.intp)
+
+    @cached_property
     def get_projection_rotation_matrices(self) -> tuple[np.ndarray]:
         """Precompute rotation matrices for field rotation from east/north to projected coordinates"""
         if self.proj4_str is None:
@@ -395,16 +412,34 @@ class Layout:
         )
         return e_x, n_x, e_y, n_y
 
-    def _rotate_fields(self, sub: np.ndarray, columns: dict[str, int]) -> None:
-        """Rotate wind components from east/north to projected coordinates, in place
+    def _source_variable(self, variable: str) -> str:
+        """The anemoi variable a (possibly accumulated) output variable is computed from"""
+        if variable in self.accumulated_variables:
+            return variable.removesuffix("_acc")
+        return variable
+
+    def _values(self, pred: np.ndarray, variable: str) -> np.ndarray:
+        """One model variable of the predictions (leadtimes, points), without copying it"""
+        assert pred.shape[1] == self.pm.num_points, pred.shape
+        return np.asarray(
+            pred[:, :, self.pm.variables.index(variable)], dtype=np.float32
+        )
+
+    def rotated_winds(self, pred: np.ndarray) -> dict[str, np.ndarray]:
+        """The wind components that are written, rotated from east/north to projected
+        coordinates
 
         Args:
-            sub: 3D array (leadtimes, points, columns) for one ensemble member
-            columns: anemoi variable name -> column index in sub
+            pred: 3D array (leadtimes, points, variables) for one ensemble member
+
+        Returns:
+            anemoi variable name -> rotated values (leadtimes, points). Empty without a
+            projection.
         """
+        rotated = {}
+        if self.proj4_str is None:
+            return rotated
         for u_field, v_field in self.conventions.fields_to_rotate:
-            if u_field not in columns or v_field not in columns:
-                continue
             if (
                 u_field not in self.extract_variables
                 or v_field not in self.extract_variables
@@ -414,51 +449,45 @@ class Layout:
             # Cached property so this will be computed only once
             e_x, n_x, e_y, n_y = self.get_projection_rotation_matrices
 
-            u_values = sub[:, :, columns[u_field]]
-            v_values = sub[:, :, columns[v_field]]
-            x_values = e_x * u_values + n_x * v_values
-            y_values = e_y * u_values + n_y * v_values
-            sub[:, :, columns[u_field]] = x_values
-            sub[:, :, columns[v_field]] = y_values
+            u_values = self._values(pred, u_field)
+            v_values = self._values(pred, v_field)
+            rotated[u_field] = np.asarray(
+                e_x * u_values + n_x * v_values, dtype=np.float32
+            )
+            rotated[v_field] = np.asarray(
+                e_y * u_values + n_y * v_values, dtype=np.float32
+            )
+        return rotated
 
-    def _source_variable(self, variable: str) -> str:
-        """The anemoi variable a (possibly accumulated) output variable is computed from"""
-        if variable in self.accumulated_variables:
-            return variable.removesuffix("_acc")
-        return variable
-
-    def _member_columns(self) -> dict[str, int]:
-        """Which model variables are needed, and their column in the per-member array"""
-        names = []
-        for variable in self.extract_variables:
-            name = self._source_variable(variable)
-            if name not in names:
-                names.append(name)
-        return {name: i for i, name in enumerate(names)}
-
-    def _extract_columns(
-        self, pred_m: np.ndarray, columns: dict[str, int]
-    ) -> np.ndarray:
-        """Reads the needed variables of one member into a 3D array (leadtimes, points, columns)"""
-        indices = [self.pm.variables.index(name) for name in columns]
-        sub = np.asarray(pred_m[:, :, indices], dtype=np.float32)
-        assert sub.shape[1:] == (self.pm.num_points, len(indices)), sub.shape
-        return sub
-
-    def _prepare_variable(
+    def field_values(
         self,
         variable: str,
-        sub: np.ndarray,
-        columns: dict[str, int],
-        accumulated: dict[str, np.ndarray] | None,
-    ) -> np.ndarray:
+        pred: np.ndarray,
+        rotated: dict[str, np.ndarray],
+        accumulated: dict[str, np.ndarray] | None = None,
+    ) -> tuple[str, int | None, np.ndarray]:
         """One output variable for one member: on the output grid, accumulated if needed, in
-        CF units. Returns an array with dimensions (time, y, x) or (time, location)."""
-        curr = sub[:, :, columns[self._source_variable(variable)]]
+        CF units
+
+        Args:
+            variable: One of extract_variables
+            pred: 3D array (leadtimes, points, variables) with a block of consecutive lead
+                times of one member
+            rotated: The rotated wind components of pred (see rotated_winds)
+            accumulated: The accumulated variables at the end of the previous block, as left
+                here by the call for that block (updated in place). None or empty for the
+                first block.
+
+        Returns:
+            The name of the variable in the file, its index in the level dimension (None if the
+            variable has no level dimension) and its values (time, y, x) or (time, location)
+        """
+        source = self._source_variable(variable)
+        curr = rotated[source] if source in rotated else self._values(pred, source)
 
         if self._interpolate:
-            ipoints, ogrid = self._interpolation
-            ar = np.asarray(gridpp.nearest(ipoints, ogrid, curr), dtype=np.float32)
+            # The nearest point, as gridpp.nearest
+            ar = curr[:, self._interpolation_index]
         elif self._is_masked:
             ar = np.nan * np.zeros((len(curr),) + self.spatial_shape, np.float32)
             # Reconstruct the 2D array (nans where no data)
@@ -483,7 +512,9 @@ class Layout:
             to_units = attrs["units"]
             ar, _ = bris.units.convert(ar, from_units, to_units, inplace=False)
 
-        return np.asarray(ar, dtype=np.float32)
+        ncname = self.variable_list.get_ncname_from_anemoi_name(variable)
+        level_index = self.variable_list.get_level_index(variable)
+        return ncname, level_index, np.asarray(ar, dtype=np.float32)
 
     def _variable_attrs(self, variable: str) -> dict:
         cfname = cf.get_metadata(variable)["cfname"]
@@ -540,15 +571,9 @@ class Layout:
             The name of the variable in the file, its index in the level dimension (None if the
             variable has no level dimension) and its values (time, y, x) or (time, location)
         """
-        columns = self._member_columns()
-        sub = self._extract_columns(pred, columns)
-        if self.proj4_str is not None:
-            self._rotate_fields(sub, columns)
-
+        rotated = self.rotated_winds(pred)
         for variable in self.extract_variables:
-            ar = self._prepare_variable(variable, sub, columns, accumulated)
-            ncname = self.variable_list.get_ncname_from_anemoi_name(variable)
-            yield ncname, self.variable_list.get_level_index(variable), ar
+            yield self.field_values(variable, pred, rotated, accumulated)
 
     def get_lower(self, array):
         m = np.min(array)
