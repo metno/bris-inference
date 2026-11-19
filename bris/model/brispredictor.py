@@ -92,9 +92,23 @@ class BrisPredictor(BasePredictor):
         )
         self.forecast_length = checkpoints_config["forecaster"]["leadtimes"]
 
-        assert self.model.dataset_names == datamodule.dataset_names, (
-            f" Dataset names of the input data {datamodule.dataset_names} do not match expected dataset names {self.model.dataset_names} of the model."
+        msg = (
+            f"Dataset names of the input data {datamodule.dataset_names}"
+            f"does not match expected dataset names {self.model.dataset_names} of the model."
         )
+        if isinstance(self.model.dataset_names, list):
+            # required to run multi-domain model
+            # remember to enable switch graph since multi-domain model
+            # comes without domain graphs and metadata.
+
+            self.model.dataset_names = [
+                name
+                for name in self.model.dataset_names
+                if name in datamodule.dataset_names
+            ]
+            assert len(self.model.dataset_names) > 0, msg
+        else:
+            assert self.model.dataset_names == datamodule.dataset_names, msg
 
         for ds in self.model.dataset_names:
             self.model.add_dataset(
