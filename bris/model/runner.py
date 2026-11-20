@@ -7,10 +7,10 @@ from ..forcings import get_dynamic_forcings
 from ..utils import LOGGER, get_model_multistep_input
 from .model_utils import (
     VariableMapping,
-    get_dataset_names,
     get_internal_indices,
     get_model_static_forcings,
     insert_forcings,
+    select_dataset_names,
     static_forcing_time_index,
 )
 
@@ -344,6 +344,7 @@ class ModelRunner(nn.Module):
         timestep: np.timedelta64,
         input_steps: list[int] | None = None,
         output_steps: list[int] | None = None,
+        datasets: list[str] | str | None = None,
     ) -> None:
         """
         Args:
@@ -351,11 +352,13 @@ class ModelRunner(nn.Module):
             timestep (np.timedelta64): The model's time step.
             input_steps (list | None): See the class docstring; default from the checkpoint's multistep.
             output_steps (list | None): See the class docstring; default [1].
+            datasets (list | str | None): The datasets of the model to run on (the checkpoint's
+                ``datasets`` option), for a model trained on several domains; default all.
         """
         super().__init__()
         self.model = checkpoint.model
         self.model.eval()
-        self.dataset_names = get_dataset_names(checkpoint)
+        self.dataset_names = select_dataset_names(checkpoint, datasets)
         self.multistep = get_model_multistep_input(checkpoint)
         self.timestep = timestep
         self.input_steps = (

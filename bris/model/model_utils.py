@@ -207,6 +207,59 @@ def get_dataset_names(checkpoint: Checkpoint) -> list[str]:
     return ["data"]  # Legacy compatibility
 
 
+def select_dataset_names(
+    checkpoint: Checkpoint, datasets: list[str] | str | None = None
+) -> list[str]:
+    """Names of the datasets of a checkpoint's model that a run uses.
+
+    A run uses all the datasets of the model, unless the checkpoint's ``datasets`` option lists
+    some of them. That is how a model trained on several domains (a dataset per domain) runs on
+    one of them, while a model with several encoders/decoders still requires all its datasets.
+
+    Args:
+        checkpoint (Checkpoint): The checkpoint.
+        datasets (list | str | None): The ``datasets`` option of the checkpoint; None: all.
+    Returns:
+        list: The names, in the order of the model.
+    """
+    model_names = get_dataset_names(checkpoint)
+    if datasets is None:
+        return model_names
+    datasets = [datasets] if isinstance(datasets, str) else list(datasets)
+    if len(datasets) == 0:
+        raise ValueError(
+            f"The datasets option of a checkpoint must list at least one of the datasets "
+            f"of the model {model_names}."
+        )
+    unknown = [name for name in datasets if name not in model_names]
+    if unknown:
+        raise ValueError(
+            f"The datasets option of a checkpoint lists {unknown}, which are not datasets "
+            f"of the model {model_names}."
+        )
+    return [name for name in model_names if name in datasets]
+
+
+def check_run_datasets(
+    predictor: str, model: str, dataset_names: list[str], data_names: list[str]
+) -> None:
+    """Check that the input data of a run holds exactly the datasets its model runs on.
+
+    Args:
+        predictor (str): Name of the predictor, for the message.
+        model (str): Name of the checkpoint in the config (e.g. "forecaster"), for the message.
+        dataset_names (list): The datasets the model runs on, see select_dataset_names.
+        data_names (list): The datasets of the input data.
+    """
+    if set(dataset_names) != set(data_names):
+        raise ValueError(
+            f"{predictor}: the datasets of the input data {list(data_names)} do not match "
+            f"the datasets the {model} runs on {list(dataset_names)}. A model trained on "
+            f"several domains runs on some of its datasets when they are listed in "
+            f"checkpoints.{model}.datasets."
+        )
+
+
 def get_internal_indices(data_indices) -> tuple[DataIndex, ModelIndex]:
     """The (data, model) index objects of one dataset of a checkpoint.
 

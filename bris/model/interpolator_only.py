@@ -86,9 +86,12 @@ class InterpolatorOnly(BasePredictor):
             timestep=np.timedelta64(config["timestep_seconds"], "s"),
             input_steps=get_interpolator_boundary_times(checkpoint),
             output_steps=get_interpolator_interp_times(checkpoint),
+            datasets=config.get("datasets"),
         )
         assert len(self.interpolator.dataset_names) == 1, (
-            "InterpolatorOnly is currently only compatible with single dataset checkpoints"
+            f"InterpolatorOnly currently runs on a single dataset, the interpolator has "
+            f"{self.interpolator.dataset_names}. For a model trained on several domains, give "
+            f"the one to run on in checkpoints.interpolator.datasets."
         )
         self.ds_name = self.interpolator.dataset_names[0]
         self.boundary_timestep = np.timedelta64(

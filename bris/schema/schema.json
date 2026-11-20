@@ -254,6 +254,13 @@
                 "switch_graph":{
                     "description": "Optional, full path to graph file (.pt). Used to run inference for a different graph than the one used to train the model.",
                     "type": ["string", "null"]
+                },
+                "datasets": {
+                    "description": "Optional, the datasets of the model to run on, for a model trained on several domains (a dataset per domain) that runs on one of them. The input data must then hold exactly these datasets. Default: all the datasets of the model, as a model with several encoders/decoders requires.",
+                    "type": ["array", "string", "null"],
+                    "items": {"type": "string"},
+                    "minItems": 1,
+                    "uniqueItems": true
                 }
             },
             "required": ["checkpoint_path", "leadtimes"],
@@ -283,6 +290,13 @@
                 "switch_graph":{
                     "description": "Optional, full path to graph file (.pt). Used to run inference for a different graph than the one used to train the model.",
                     "type": ["string", "null"]
+                },
+                "datasets": {
+                    "description": "Optional, the datasets of the model to run on, for a model trained on several domains (a dataset per domain) that runs on one of them. The input data must then hold exactly these datasets. Default: all the datasets of the model, as a model with several encoders/decoders requires.",
+                    "type": ["array", "string", "null"],
+                    "items": {"type": "string"},
+                    "minItems": 1,
+                    "uniqueItems": true
                 }
             },
             "required": ["checkpoint_path", "leadtimes"]

@@ -4,7 +4,7 @@ import torch
 from ..checkpoint import Checkpoint
 from ..data.datamodule import DataModule
 from .basepredictor import BasePredictor, ForecastOutputs
-from .model_utils import check_predictor_checkpoints
+from .model_utils import check_predictor_checkpoints, check_run_datasets
 from .runner import ModelRunner
 
 
@@ -54,6 +54,8 @@ class BrisPredictor(BasePredictor):
 
             checkpoints_config
                 config.checkpoints; "forecaster" needs "timestep_seconds" and "leadtimes" (the forecast length).
+                Its optional "datasets" lists the datasets of the model to run on, for a model trained
+                on several domains; by default the input data must hold all the datasets of the model.
 
             required_variables
                 The variables the configured outputs require, per dataset (see bris.routes). Example:
@@ -89,11 +91,15 @@ class BrisPredictor(BasePredictor):
             timestep=np.timedelta64(
                 checkpoints_config["forecaster"]["timestep_seconds"], "s"
             ),
+            datasets=checkpoints_config["forecaster"].get("datasets"),
         )
         self.forecast_length = checkpoints_config["forecaster"]["leadtimes"]
 
-        assert self.model.dataset_names == datamodule.dataset_names, (
-            f" Dataset names of the input data {datamodule.dataset_names} do not match expected dataset names {self.model.dataset_names} of the model."
+        check_run_datasets(
+            "BrisPredictor",
+            "forecaster",
+            self.model.dataset_names,
+            datamodule.dataset_names,
         )
 
         for ds in self.model.dataset_names:

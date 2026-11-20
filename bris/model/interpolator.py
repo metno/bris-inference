@@ -88,6 +88,7 @@ class Interpolator(BasePredictor):
             timestep=np.timedelta64(
                 checkpoints_config["forecaster"]["timestep_seconds"], "s"
             ),
+            datasets=checkpoints_config["forecaster"].get("datasets"),
         )
         self.interpolator = ModelRunner(
             checkpoints["interpolator"],
@@ -96,13 +97,17 @@ class Interpolator(BasePredictor):
             ),
             input_steps=get_interpolator_boundary_times(checkpoints["interpolator"]),
             output_steps=get_interpolator_interp_times(checkpoints["interpolator"]),
+            datasets=checkpoints_config["interpolator"].get("datasets"),
         )
-        assert len(self.forecaster.dataset_names) == 1, (
-            "Interpolator is currently only compatible with single dataset checkpoints"
-        )
-        assert len(self.interpolator.dataset_names) == 1, (
-            "Interpolator is currently only compatible with single dataset checkpoints"
-        )
+        for name, runner in [
+            ("forecaster", self.forecaster),
+            ("interpolator", self.interpolator),
+        ]:
+            assert len(runner.dataset_names) == 1, (
+                f"Interpolator currently runs each model on a single dataset, the {name} has "
+                f"{runner.dataset_names}. For a model trained on several domains, give the one "
+                f"to run on in checkpoints.{name}.datasets."
+            )
         self.ds_name_fc = self.forecaster.dataset_names[0]
         self.ds_name_interp = self.interpolator.dataset_names[0]
 
