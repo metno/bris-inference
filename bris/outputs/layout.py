@@ -128,10 +128,12 @@ class Layout:
                 x_dim_name = self.conv_name("longitude")
                 y_dim_name = self.conv_name("latitude")
             else:
-                # TODO: Handle self.latrange and self.lonrange
-                if None not in [self.latrange, self.lonrange]:
+                # The whole grid is written: latrange and lonrange only select the area of an
+                # interpolated lat/lon grid
+                if self.latrange is not None or self.lonrange is not None:
                     utils.LOGGER.warning(
-                        "Warning: latrange/lonrange not handled in gridded fields"
+                        "latrange and lonrange are only used with interp_res: they are "
+                        "ignored, and the whole grid is written"
                     )
 
                 if self.proj4_str:
@@ -197,7 +199,7 @@ class Layout:
         coords = {}
         spatial_dims, x, y = self._grid
 
-        # TODO: Seconds or hours for leadtimes?
+        # Times are in seconds since 1970 (see bris.conventions.cf)
         times_ut = utils.datetime_to_unixtime(times)
         frt_ut = times_ut[0]
         coords[self.conv_name("time")] = np.array(times_ut).astype(np.double)
