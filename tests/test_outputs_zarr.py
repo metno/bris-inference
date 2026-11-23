@@ -541,3 +541,12 @@ def test_convert_without_consolidated_metadata(tmp_path, caplog):
         bris.convert.to_netcdf(store, str(tmp_path / "without.nc"))
     assert "no consolidated metadata" in caplog.text
     assert_same(open_netcdf(tmp_path / "with.nc"), open_netcdf(tmp_path / "without.nc"))
+
+    # Consolidated metadata that cannot be read is an error, not a reason to read the rest
+    with open(os.path.join(store, ".zmetadata"), "w") as file:
+        file.write('{"zarr_consolidated_format": 1}')
+    with pytest.raises(KeyError):
+        bris.convert.Store(store)
+
+    with pytest.raises(FileNotFoundError, match="no such directory"):
+        bris.convert.Store(str(tmp_path / "missing.zarr"))

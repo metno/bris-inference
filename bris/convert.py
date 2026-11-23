@@ -38,6 +38,9 @@ LOGGER = logging.getLogger("bris")
 _NETCDF_LOCK = threading.Lock()
 
 DIMENSIONS = "_ARRAY_DIMENSIONS"
+CONSOLIDATED = (
+    ".zmetadata"  # where zarr.consolidate_metadata puts the metadata of a store
+)
 TIME = "time"
 MEMBER = "ensemble_member"
 
@@ -48,11 +51,13 @@ class Store:
     def __init__(self, path: str):
         self.path = path
         self.info = zarrstore.read_info(path) or {}
-        try:
+        if not os.path.isdir(path):
+            raise FileNotFoundError(f"{path} is not a Zarr store: no such directory")
+        if os.path.isfile(os.path.join(path, CONSOLIDATED)):
             self.root = zarr.open_consolidated(path, mode="r")
-        except KeyError:
+        else:
             LOGGER.warning(
-                f"{path} has no consolidated metadata (.zmetadata), which bris writes when "
+                f"{path} has no consolidated metadata ({CONSOLIDATED}), which bris writes when "
                 "it creates a store. Reading the metadata of each variable instead; the "
                 "store may be incomplete or changed by another tool."
             )
