@@ -199,7 +199,6 @@ class Layout:
         coords = {}
         spatial_dims, x, y = self._grid
 
-        # Times are in seconds since 1970 (see bris.conventions.cf)
         times_ut = utils.datetime_to_unixtime(times)
         frt_ut = times_ut[0]
         coords[self.conv_name("time")] = np.array(times_ut).astype(np.double)
