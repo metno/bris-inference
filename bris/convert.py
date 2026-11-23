@@ -51,6 +51,11 @@ class Store:
         try:
             self.root = zarr.open_consolidated(path, mode="r")
         except KeyError:
+            LOGGER.warning(
+                f"{path} has no consolidated metadata (.zmetadata), which bris writes when "
+                "it creates a store. Reading the metadata of each variable instead; the "
+                "store may be incomplete or changed by another tool."
+            )
             self.root = zarr.open_group(path, mode="r")
 
     def dims(self, name: str) -> list[str]:

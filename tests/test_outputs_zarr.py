@@ -1,3 +1,4 @@
+import logging
 import multiprocessing
 import os
 
@@ -522,3 +523,21 @@ def test_convert_command(tmp_path):
     )
     assert not os.path.exists(stores[0])
     assert os.path.exists(stores[1])
+
+
+def test_convert_without_consolidated_metadata(tmp_path, caplog):
+    """A store that lost its consolidated metadata still converts, with a warning"""
+    pm = get_pm()
+    output = Zarr(pm, "", str(tmp_path / "%Y%m%dT%HZ.zarr"), variables=["2t", "msl"])
+    add_members(output, pm, get_pred(pm))
+    store = str(tmp_path / "20230101T06Z.zarr")
+
+    with caplog.at_level(logging.WARNING, logger="bris"):
+        bris.convert.to_netcdf(store, str(tmp_path / "with.nc"))
+    assert "consolidated metadata" not in caplog.text
+
+    os.remove(os.path.join(store, ".zmetadata"))
+    with caplog.at_level(logging.WARNING, logger="bris"):
+        bris.convert.to_netcdf(store, str(tmp_path / "without.nc"))
+    assert "no consolidated metadata" in caplog.text
+    assert_same(open_netcdf(tmp_path / "with.nc"), open_netcdf(tmp_path / "without.nc"))
