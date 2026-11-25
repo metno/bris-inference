@@ -550,3 +550,27 @@ def test_convert_without_consolidated_metadata(tmp_path, caplog):
 
     with pytest.raises(FileNotFoundError, match="no such directory"):
         bris.convert.Store(str(tmp_path / "missing.zarr"))
+
+
+def test_read_ahead():
+    """The results come in the order of the tasks, a few are read ahead, and an error in a
+    read reaches the caller"""
+    started = []
+
+    def read(task):
+        started.append(task)
+        return task * 10
+
+    results = bris.convert.read_ahead(iter(range(20)), read, num_threads=3)
+    assert next(results) == (0, 0)
+    assert len(started) <= 4  # the three ahead, and one more when the first was taken
+    assert list(results) == [(i, i * 10) for i in range(1, 20)]
+    assert list(bris.convert.read_ahead([], read)) == []
+
+    def fail(task):
+        if task == 2:
+            raise OSError("no chunk")
+        return task
+
+    with pytest.raises(OSError, match="no chunk"):
+        list(bris.convert.read_ahead(range(5), fail))

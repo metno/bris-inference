@@ -21,7 +21,9 @@ import sys
 import threading
 import time
 from argparse import ArgumentParser
-from concurrent.futures import ProcessPoolExecutor
+from collections import deque
+from collections.abc import Callable, Iterable, Iterator
+from concurrent.futures import ProcessPoolExecutor, ThreadPoolExecutor
 from datetime import UTC, datetime
 from multiprocessing import get_context
 
@@ -36,6 +38,10 @@ LOGGER = logging.getLogger("bris")
 
 # HDF5 is usually not built thread-safe, and the outputs convert from the writer's threads
 _NETCDF_LOCK = threading.Lock()
+
+# The number of threads that read a store ahead of the thread that writes the file. Reading the
+# store takes longer than writing the file; with a few readers the write sets the pace.
+READ_THREADS = 4
 
 DIMENSIONS = "_ARRAY_DIMENSIONS"
 CONSOLIDATED = (
@@ -126,11 +132,43 @@ class Store:
             return True
 
 
+def read_ahead(
+    tasks: Iterable, read: Callable, num_threads: int = READ_THREADS
+) -> Iterator[tuple]:
+    """Yield (task, read(task)) for each task, in the order of the tasks
+
+    The reads are done by a few threads, ahead of whoever uses the results: at most
+    num_threads results are read or waiting at any time. The tasks are taken from their
+    iterable in the calling thread.
+    """
+    tasks = iter(tasks)
+    with ThreadPoolExecutor(max_workers=num_threads) as pool:
+        pending: deque = deque()
+
+        def refill() -> None:
+            while len(pending) < num_threads:
+                try:
+                    task = next(tasks)
+                except StopIteration:
+                    return
+                pending.append((task, pool.submit(read, task)))
+
+        try:
+            refill()
+            while pending:
+                task, future = pending.popleft()
+                yield task, future.result()
+                refill()
+        finally:
+            for _, future in pending:
+                future.cancel()
+
+
 def to_netcdf(path: str, filename: str, compression: bool = False) -> None:
     """Write the forecast in the store at path to a NetCDF file
 
-    The fields are copied one chunk at a time, so that the memory use does not depend on the
-    size of the forecast.
+    The fields are copied a few chunks at a time (see read_ahead), so that the memory use does
+    not depend on the size of the forecast.
 
     Args:
         compression: If true, write compressed fields
@@ -166,19 +204,27 @@ def to_netcdf(path: str, filename: str, compression: bool = False) -> None:
                 var[...] = array[...]
 
         missing_members = set()
-        for name in fields:
-            array = store.root[name]
-            var = nc.variables[name]
-            dims = store.dims(name)
-            num_times, time_chunk = array.shape[0], array.chunks[0]
-            for index in np.ndindex(*array.shape[1 : array.ndim - num_spatial]):
-                if not store.has_data(name, index):
-                    if MEMBER in dims:
-                        missing_members.add(index[dims.index(MEMBER) - 1])
-                    continue
-                for start in range(0, num_times, time_chunk):
-                    block = (slice(start, min(start + time_chunk, num_times)),) + index
-                    var[block] = array[block]
+        arrays = {name: store.root[name] for name in fields}
+
+        def blocks() -> Iterator[tuple]:
+            """The parts of the fields to copy: a chunk in time of one level and member"""
+            for name, array in arrays.items():
+                dims = store.dims(name)
+                num_times, time_chunk = array.shape[0], array.chunks[0]
+                for index in np.ndindex(*array.shape[1 : array.ndim - num_spatial]):
+                    if not store.has_data(name, index):
+                        if MEMBER in dims:
+                            missing_members.add(index[dims.index(MEMBER) - 1])
+                        continue
+                    for start in range(0, num_times, time_chunk):
+                        stop = min(start + time_chunk, num_times)
+                        yield name, (slice(start, stop),) + index
+
+        # Only this thread writes to the file (HDF5); the store is read ahead of it
+        for (name, block), values in read_ahead(
+            blocks(), lambda task: arrays[task[0]][task[1]]
+        ):
+            nc.variables[name][block] = values
         for member in sorted(missing_members):
             LOGGER.warning(
                 f"netcdf: no data for ensemble member {member}, leaving it missing"
