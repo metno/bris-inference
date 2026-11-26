@@ -30,6 +30,10 @@ WRITE_THREADS = 4
 # store, e.g. latitude and longitude for y and x), by the number of spatial dimensions
 SPATIAL_CHUNKS = {2: ["y", "x"], 1: ["location"]}
 
+# A time token in a filename pattern (strftime), with its flag and modifier if it has any: %H,
+# %-H, %Ey
+TIME_TOKEN = r"(%[-_0^#]?[EO]?.)"
+
 
 class Zarr(Output):
     """Write predictions to Zarr (version 2), using CF-standards and local conventions
@@ -153,6 +157,8 @@ class Zarr(Output):
 
         # Accumulated variables at the end of the last block written, per store and member
         self._accumulated: dict[tuple[int, int], dict[str, np.ndarray]] = {}
+        # The stores that this process has written to
+        self._written: set[str] = set()
 
     def get_filename(self, forecast_reference_time: int) -> str:
         """Get the filename for this forecast reference time"""
@@ -169,13 +175,15 @@ class Zarr(Output):
         stores that this process has written to.
         """
         # get_store with the time tokens as wildcards
-        parts = re.split(r"(%.)", self.filename_pattern)
+        parts = re.split(TIME_TOKEN, self.filename_pattern)
         pattern = "".join(
             ("%" if part == "%%" else "*") if i % 2 else glob.escape(part)
             for i, part in enumerate(parts)
         )
+        # ... and absolute, as get_store is
+        pattern = os.path.abspath(os.path.join(glob.escape(os.getcwd()), pattern))
         stores = []
-        for path in glob.glob(os.path.abspath(pattern)):
+        for path in glob.glob(pattern):
             info = zarrstore.read_info(path)
             if info is None or info.get("run_id") != zarrstore.run_id():
                 continue
@@ -257,6 +265,7 @@ class Zarr(Output):
         if start == 0:
             self._ensure_store(path, frt, times, ensemble_member)
             self._accumulated[key] = {}
+            self._written.add(path)
         root = zarr.open_group(path, mode="r+")
         ensemble = self.pm.num_members > 1
         accumulated = self._accumulated[key]
@@ -390,7 +399,18 @@ class Zarr(Output):
         t0 = pytime.perf_counter()
         if self.has_targets and self.pm.num_members > 1:
             # Single-member stores were converted when they were written
-            for path in self.get_stores():
+            stores = {os.path.abspath(path) for path in self.get_stores()}
+            written = {os.path.abspath(path) for path in self._written}
+            unseen = sorted(written - stores)
+            if unseen:
+                # The stores are looked up by name: this must not fail without a word
+                utils.LOGGER.warning(
+                    f"{type(self).__name__}: {unseen} were written but not found among "
+                    "the stores of this run. They are converted, but stores written by "
+                    "other processes may have been missed: check the output, and convert "
+                    "what is missing with bris-convert."
+                )
+            for path in sorted(stores | written):
                 self._convert(path)
         self._cleanup()
         utils.LOGGER.debug(

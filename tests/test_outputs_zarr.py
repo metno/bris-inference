@@ -842,6 +842,42 @@ def test_grib_refuses_grids_it_cannot_describe(tmp_path):
     assert not os.path.exists(tmp_path / "out.grib")
 
 
+@pytest.mark.parametrize(
+    "directory,name", [("run[1]", "f_%Y%m%dT%HZ"), ("run", "f_%Y%m%dT%-HZ_100%%")]
+)
+def test_stores_are_found(tmp_path, monkeypatch, directory, name):
+    """The stores of an ensemble are looked up by name when the predictions end: also below
+    a current directory with wildcard characters in its name, and with time tokens that
+    have a flag"""
+    os.makedirs(tmp_path / directory)
+    monkeypatch.chdir(tmp_path / directory)
+    pm = get_pm(num_members=2)
+    convert = [{"netcdf": {"filename_pattern": f"out/{name}.nc"}}]
+    output = Zarr(pm, "", f"out/./{name}.zarr", convert=convert)
+    add_members(output, pm, get_pred(pm))
+    assert len(output.get_stores()) == 1
+    output.finalize()
+    hour = "6Z_100%" if "%-H" in name else "06Z"
+    assert sorted(os.listdir("out")) == [
+        f"f_20230101T{hour}.nc",
+        f"f_20230101T{hour}.zarr",
+    ]
+
+
+def test_stores_that_are_not_found(tmp_path, monkeypatch, caplog):
+    """Should the lookup miss the stores that this process wrote, they are converted all the
+    same, and it says so: the stores of other processes may be missing"""
+    pm = get_pm(num_members=2)
+    convert = [{"netcdf": {"filename_pattern": str(tmp_path / "%Y%m%dT%HZ.nc")}}]
+    output = Zarr(pm, "", str(tmp_path / "%Y%m%dT%HZ.zarr"), convert=convert)
+    add_members(output, pm, get_pred(pm))
+    monkeypatch.setattr(output, "get_stores", lambda: [])
+    with caplog.at_level(logging.WARNING, logger="bris"):
+        output.finalize()
+    assert "were written but not found" in caplog.text
+    assert os.path.exists(tmp_path / "20230101T06Z.nc")
+
+
 def test_grib_refuses_variables_it_cannot_describe(tmp_path):
     """... when the output is created as well"""
     pm = get_pm()
