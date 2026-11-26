@@ -21,6 +21,15 @@ def get_pm(variables, num_points=60, gridded=False):
     return PredictMetadata(variables, lats, lons, altitudes, leadtimes, 1, field_shape)
 
 
+def get_fields(layout, pred):
+    """The variables in the file for one member, as the Zarr output gets them"""
+    rotated = layout.rotated_winds(pred)
+    return [
+        layout.field_values(variable, pred, rotated)
+        for variable in layout.extract_variables
+    ]
+
+
 def test_interpolation_is_gridpp_nearest():
     """The nearest points are looked up once, and the values are those of gridpp.nearest for
     every variable, as is the altitude"""
@@ -31,7 +40,7 @@ def test_interpolation_is_gridpp_nearest():
     pred = rng.random(pm.shape).astype(np.float32)
 
     ipoints, ogrid = layout._interpolation
-    for i, (_, _, values) in enumerate(layout.transform(pred)):
+    for i, (_, _, values) in enumerate(get_fields(layout, pred)):
         expected = np.asarray(gridpp.nearest(ipoints, ogrid, pred[:, :, i]))
         if variables[i] == "tp":
             expected = expected * 1000  # written in kg/m^2
@@ -48,7 +57,7 @@ def test_interpolation_is_gridpp_nearest():
     assert index.min() >= 0 and index.max() < pm.num_points
 
 
-def test_transform_leaves_the_predictions():
+def test_field_values_leave_the_predictions():
     """The variables are taken from the predictions without a copy of them all, and the
     predictions are left as they were: other outputs get the same array"""
     variables = ["10u", "10v", "2t", "tp", "u_850", "v_850"]
@@ -64,7 +73,7 @@ def test_transform_leaves_the_predictions():
     pred[0, :, variables.index("tp")] = np.nan
     before = pred.copy()
 
-    fields = {(name, level): values for name, level, values in layout.transform(pred)}
+    fields = {(name, level): values for name, level, values in get_fields(layout, pred)}
     np.testing.assert_array_equal(pred, before)
 
     # The winds are rotated, in pairs

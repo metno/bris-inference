@@ -1,5 +1,5 @@
 import datetime
-from collections.abc import Callable, Iterator
+from collections.abc import Callable
 from functools import cached_property
 
 import gridpp
@@ -588,26 +588,6 @@ class Layout:
                 "attrs": self._variable_attrs(variable),
             }
         return fields
-
-    def transform(
-        self, pred: np.ndarray, accumulated: dict[str, np.ndarray] | None = None
-    ) -> Iterator[tuple[str, int | None, np.ndarray]]:
-        """Turns the predictions of one ensemble member into the variables in the file
-
-        Args:
-            pred: 3D array (leadtimes, points, variables) with a block of consecutive lead
-                times of one member
-            accumulated: The accumulated variables at the end of the previous block, as left
-                here by the call for that block (updated in place). None or empty for the
-                first block.
-
-        Yields:
-            The name of the variable in the file, its index in the level dimension (None if the
-            variable has no level dimension) and its values (time, y, x) or (time, location)
-        """
-        rotated = self.rotated_winds(pred)
-        for variable in self.extract_variables:
-            yield self.field_values(variable, pred, rotated, accumulated)
 
     def get_lower(self, array):
         m = np.min(array)
