@@ -15,9 +15,12 @@ Time tokens in the filenames are expanded with the forecast reference time of ea
 This module must stay cheap to import (no torch).
 """
 
+import contextlib
 import logging
 import os
+import shutil
 import sys
+import tempfile
 import threading
 import time
 from argparse import ArgumentParser
@@ -38,6 +41,9 @@ LOGGER = logging.getLogger("bris")
 
 # HDF5 is usually not built thread-safe, and the outputs convert from the writer's threads
 _NETCDF_LOCK = threading.Lock()
+
+# The Grib conversion handles at most this many time steps at a time (one temporary file each)
+GRIB_TIME_GROUP = 64
 
 # The number of threads that read a store ahead of the thread that writes the file. Reading the
 # store takes longer than writing the file; with a few readers the write sets the pace.
@@ -310,122 +316,126 @@ def to_grib(path: str, filename: str, grib_keys: dict | None = None) -> None:
         else:
             levels[name] = [((), 0, "surface")]
 
-    # The fields are read one chunk at a time and kept until the next chunk in time is needed
-    cache: dict = {}
+    # The messages of a time step are in the order of items
+    items = [
+        (name, level_index, level_value, level_type, member)
+        for name in store.fields
+        for level_index, level_value, level_type in levels[name]
+        for member in range(num_members)
+    ]
 
-    def get_values(name: str, time_index: int, index: tuple) -> np.ndarray:
-        array = root[name]
-        time_chunk = array.chunks[0]
-        start = time_index - time_index % time_chunk
-        if cache.get("start") != start:
-            cache.clear()
-            cache["start"] = start
-        key = (name, index)
-        if key not in cache:
-            cache[key] = array[(slice(start, start + time_chunk),) + index]
-        return cache[key][time_index - start]
+    def write_message(
+        file_handle, values, validtime, name, level_value, level_type, member
+    ):
+        dis, cat, num, tosp, pdtn, pdtn_ens = grib_conventions.PARAMETERS[name]
+        if num_members > 1:
+            pdtn = pdtn_ens
+        leadtime = validtime - origintime
 
-    os.makedirs(os.path.dirname(os.path.abspath(filename)), exist_ok=True)
+        grib = ecc.codes_grib_new_from_samples("GRIB2")
+        for key, value in geometry.items():
+            ecc.codes_set(grib, key, value)
+
+        ecc.codes_set(grib, "tablesVersion", 21)
+        ecc.codes_set(grib, "resolutionAndComponentFlags", 56)
+        ecc.codes_set(grib, "discipline", dis)
+        ecc.codes_set(grib, "parameterCategory", cat)
+        ecc.codes_set(grib, "parameterNumber", num)
+        ecc.codes_set(grib, "significanceOfReferenceTime", 1)
+        ecc.codes_set(grib, "typeOfProcessedData", 2)
+        ecc.codes_set(grib, "productionStatusOfProcessedData", 0)
+        ecc.codes_set(grib, "productDefinitionTemplateNumber", pdtn)
+        ecc.codes_set(grib, "scanningMode", 64)
+        ecc.codes_set(grib, "typeOfGeneratingProcess", 2)
+        ecc.codes_set(grib, "indicatorOfUnitOfTimeRange", 1)
+        ecc.codes_set(
+            grib,
+            "typeOfFirstFixedSurface",
+            grib_conventions.LEVEL_TYPES.get(level_type, 103),
+        )
+        ecc.codes_set(grib, "level", level_value)
+        ecc.codes_set(grib, "dataDate", int(origintime.strftime("%Y%m%d")))
+        ecc.codes_set(grib, "dataTime", int(origintime.strftime("%H%M")))
+        ecc.codes_set(grib, "forecastTime", int(leadtime.total_seconds() / 3600))
+        ecc.codes_set(grib, "bitsPerValue", 24)
+        ecc.codes_set(grib, "packingType", "grid_ccsds")
+        values = np.asarray(values, dtype=np.float64).ravel()
+        missing = np.isnan(values)
+        if missing.any():
+            # Points without a value (e.g. a diagnostic variable at lead
+            # time 0, or an ensemble member that never arrived) are marked
+            # as missing in a bitmap
+            ecc.codes_set(grib, "bitmapPresent", 1)
+            ecc.codes_set(grib, "missingValue", grib_conventions.MISSING_VALUE)
+            values = np.where(missing, grib_conventions.MISSING_VALUE, values)
+        ecc.codes_set_values(grib, values)
+
+        if num_members > 1 and pdtn in [1, 2, 11]:
+            ecc.codes_set(grib, "typeOfEnsembleForecast", 1)
+            ecc.codes_set(grib, "perturbationNumber", member + 1)
+            ecc.codes_set(grib, "numberOfForecastsInEnsemble", num_members)
+
+        if tosp == 1:
+            ecc.codes_set(grib, "typeOfStatisticalProcessing", tosp)
+            ecc.codes_set(grib, "yearOfEndOfOverallTimeInterval", validtime.year)
+            ecc.codes_set(grib, "monthOfEndOfOverallTimeInterval", validtime.month)
+            ecc.codes_set(grib, "dayOfEndOfOverallTimeInterval", validtime.day)
+            ecc.codes_set(grib, "hourOfEndOfOverallTimeInterval", validtime.hour)
+
+            # forecastTime is start of time interval
+            # hard code to 6h
+            length_of_time_range = 6
+            ecc.codes_set(
+                grib,
+                "forecastTime",
+                int(leadtime.total_seconds() / 3600) - length_of_time_range,
+            )
+            ecc.codes_set(grib, "lengthOfTimeRange", length_of_time_range)
+
+        for key, value in (grib_keys or {}).items():
+            ecc.codes_set(grib, key, value)
+
+        ecc.codes_write(grib, file_handle)
+        ecc.codes_release(grib)
+
+    # The file has the messages of the first time step, then those of the next one, while a
+    # chunk of the store has several time steps of one field. The time steps are therefore
+    # taken a group at a time: each field (level, member) of the group is read once, and
+    # its messages are spread over one temporary file per time step, which are put together
+    # at the end of the group. This keeps one field of the group in memory, not all of them.
+    num_times = len(validtimes)
+    time_chunks = [root[name].chunks[0] for name in store.fields]
+    group = max(1, min(time_chunks + [GRIB_TIME_GROUP]))
+    folder = os.path.dirname(os.path.abspath(filename))
+    os.makedirs(folder, exist_ok=True)
     with open(filename, "wb") as file_handle:
-        for time_index, validtime in enumerate(validtimes):
-            leadtime = validtime - origintime
-            for name in store.fields:
-                dis, cat, num, tosp, pdtn, pdtn_ens = grib_conventions.PARAMETERS[name]
-                if num_members > 1:
-                    pdtn = pdtn_ens
-                for level_index, level_value, level_type in levels[name]:
-                    for member in range(num_members):
-                        index = level_index + ((member,) if num_members > 1 else ())
-                        values = get_values(name, time_index, index)
-
-                        grib = ecc.codes_grib_new_from_samples("GRIB2")
-                        for key, value in geometry.items():
-                            ecc.codes_set(grib, key, value)
-
-                        ecc.codes_set(grib, "tablesVersion", 21)
-                        ecc.codes_set(grib, "resolutionAndComponentFlags", 56)
-                        ecc.codes_set(grib, "discipline", dis)
-                        ecc.codes_set(grib, "parameterCategory", cat)
-                        ecc.codes_set(grib, "parameterNumber", num)
-                        ecc.codes_set(grib, "significanceOfReferenceTime", 1)
-                        ecc.codes_set(grib, "typeOfProcessedData", 2)
-                        ecc.codes_set(grib, "productionStatusOfProcessedData", 0)
-                        ecc.codes_set(grib, "productDefinitionTemplateNumber", pdtn)
-                        ecc.codes_set(grib, "scanningMode", 64)
-                        ecc.codes_set(grib, "typeOfGeneratingProcess", 2)
-                        ecc.codes_set(grib, "indicatorOfUnitOfTimeRange", 1)
-                        ecc.codes_set(
-                            grib,
-                            "typeOfFirstFixedSurface",
-                            grib_conventions.LEVEL_TYPES.get(level_type, 103),
+        for start in range(0, num_times, group):
+            stop = min(start + group, num_times)
+            with contextlib.ExitStack() as stack:
+                # One time step is written straight to the file
+                parts = [file_handle]
+                if stop - start > 1:
+                    parts = [
+                        stack.enter_context(tempfile.TemporaryFile(dir=folder))
+                        for _ in range(start, stop)
+                    ]
+                for name, level_index, level_value, level_type, member in items:
+                    index = level_index + ((member,) if num_members > 1 else ())
+                    block = root[name][(slice(start, stop),) + index]
+                    for i, part in enumerate(parts):
+                        write_message(
+                            part,
+                            block[i],
+                            validtimes[start + i],
+                            name,
+                            level_value,
+                            level_type,
+                            member,
                         )
-                        ecc.codes_set(grib, "level", level_value)
-                        ecc.codes_set(
-                            grib, "dataDate", int(origintime.strftime("%Y%m%d"))
-                        )
-                        ecc.codes_set(
-                            grib, "dataTime", int(origintime.strftime("%H%M"))
-                        )
-                        ecc.codes_set(
-                            grib, "forecastTime", int(leadtime.total_seconds() / 3600)
-                        )
-                        ecc.codes_set(grib, "bitsPerValue", 24)
-                        ecc.codes_set(grib, "packingType", "grid_ccsds")
-                        values = np.asarray(values, dtype=np.float64).ravel()
-                        missing = np.isnan(values)
-                        if missing.any():
-                            # Points without a value (e.g. a diagnostic variable at lead
-                            # time 0, or an ensemble member that never arrived) are marked
-                            # as missing in a bitmap
-                            ecc.codes_set(grib, "bitmapPresent", 1)
-                            ecc.codes_set(
-                                grib, "missingValue", grib_conventions.MISSING_VALUE
-                            )
-                            values = np.where(
-                                missing, grib_conventions.MISSING_VALUE, values
-                            )
-                        ecc.codes_set_values(grib, values)
-
-                        if num_members > 1 and pdtn in [1, 2, 11]:
-                            ecc.codes_set(grib, "typeOfEnsembleForecast", 1)
-                            ecc.codes_set(grib, "perturbationNumber", member + 1)
-                            ecc.codes_set(
-                                grib, "numberOfForecastsInEnsemble", num_members
-                            )
-
-                        if tosp == 1:
-                            ecc.codes_set(grib, "typeOfStatisticalProcessing", tosp)
-                            ecc.codes_set(
-                                grib, "yearOfEndOfOverallTimeInterval", validtime.year
-                            )
-                            ecc.codes_set(
-                                grib, "monthOfEndOfOverallTimeInterval", validtime.month
-                            )
-                            ecc.codes_set(
-                                grib, "dayOfEndOfOverallTimeInterval", validtime.day
-                            )
-                            ecc.codes_set(
-                                grib, "hourOfEndOfOverallTimeInterval", validtime.hour
-                            )
-
-                            # forecastTime is start of time interval
-                            # hard code to 6h
-                            length_of_time_range = 6
-                            ecc.codes_set(
-                                grib,
-                                "forecastTime",
-                                int(leadtime.total_seconds() / 3600)
-                                - length_of_time_range,
-                            )
-                            ecc.codes_set(
-                                grib, "lengthOfTimeRange", length_of_time_range
-                            )
-
-                        for key, value in (grib_keys or {}).items():
-                            ecc.codes_set(grib, key, value)
-
-                        ecc.codes_write(grib, file_handle)
-                        ecc.codes_release(grib)
+                if stop - start > 1:
+                    for part in parts:
+                        part.seek(0)
+                        shutil.copyfileobj(part, file_handle, 16 * 1024 * 1024)
     LOGGER.debug(
         f"convert.to_grib {path} -> {filename} in {time.perf_counter() - t0:.1f}s"
     )

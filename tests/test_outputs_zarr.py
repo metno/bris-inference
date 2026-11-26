@@ -598,3 +598,32 @@ def test_read_ahead():
 
     with pytest.raises(OSError, match="no chunk"):
         list(bris.convert.read_ahead(range(5), fail))
+
+
+@pytest.mark.parametrize("num_members", [1, 2])
+def test_grib_from_chunks_in_time(tmp_path, monkeypatch, num_members):
+    """The Grib file does not depend on how the store is chunked in time, nor on how many
+    time steps the conversion handles at a time"""
+    pm = get_pm(num_members)
+    pred = np.nan_to_num(get_pred(pm))[..., list(range(num_members))]
+    files = []
+    for time_chunk, group in [(1, 64), (3, 64), (4, 64), (4, 3)]:
+        folder = tmp_path / f"{time_chunk}_{group}"
+        output = Zarr(
+            pm,
+            "",
+            str(folder / "%Y%m%dT%HZ.zarr"),
+            variables=["2t", "10u", "10v"],
+            domain_name="meps",
+            chunks={"time": time_chunk},
+        )
+        add_members(output, pm, pred)
+        monkeypatch.setattr(bris.convert, "GRIB_TIME_GROUP", group)
+        bris.convert.to_grib(
+            str(folder / "20230101T06Z.zarr"), str(folder / "out.grib")
+        )
+        # No temporary files are left
+        assert sorted(os.listdir(folder)) == ["20230101T06Z.zarr", "out.grib"]
+        files.append((folder / "out.grib").read_bytes())
+    assert len(files[0]) > 0
+    assert all(content == files[0] for content in files[1:])
