@@ -432,9 +432,7 @@ def to_grib(path: str, filename: str, grib_keys: dict | None = None) -> None:
     num_spatial = len(store.spatial_dims)
     num_members = store.num_members
 
-    unknown = [name for name in store.fields if name not in grib_conventions.PARAMETERS]
-    if unknown:
-        raise ValueError(f"grib: no parameter definition for {unknown}")
+    grib_conventions.check_parameters(store.fields)
     store.report_missing("grib", filename)
 
     lats, lons = root["latitude"][...], root["longitude"][...]

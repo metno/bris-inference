@@ -842,6 +842,27 @@ def test_grib_refuses_grids_it_cannot_describe(tmp_path):
     assert not os.path.exists(tmp_path / "out.grib")
 
 
+def test_grib_refuses_variables_it_cannot_describe(tmp_path):
+    """... when the output is created as well"""
+    pm = get_pm()
+    pattern = str(tmp_path / "%Y%m%dT%HZ")
+    targets = [{"grib": {"filename_pattern": pattern + ".grib"}}]
+    kwargs = {"variables": ["2t", "tp"], "accumulated_variables": ["tp"]}
+    with pytest.raises(ValueError, match="precipitation_amount_acc"):
+        Zarr(pm, "", pattern + ".zarr", convert=targets, **kwargs)
+    # The other formats take them
+    netcdf = [{"netcdf": {"filename_pattern": pattern + ".nc"}}]
+    output = Zarr(pm, "", pattern + ".zarr", convert=netcdf, **kwargs)
+
+    # The conversion of a store that was written without the target refuses too
+    add_members(output, pm, get_pred(pm))
+    with pytest.raises(ValueError, match="precipitation_amount_acc"):
+        bris.convert.to_grib(
+            str(tmp_path / "20230101T06Z.zarr"), str(tmp_path / "out.grib")
+        )
+    assert not os.path.exists(tmp_path / "out.grib")
+
+
 def test_incomplete_store(tmp_path, caplog):
     """What a run that was killed leaves: a member that never arrived and a field that was
     written in part. The file is written, with warnings, and because of the field written in

@@ -42,6 +42,16 @@ def check_grid(grid_mapping_name: str | None) -> None:
         )
 
 
+def check_parameters(names: list[str]) -> None:
+    """Raise a ValueError for variables (as named in the file) that have no parameter
+    definition in Grib here"""
+    unknown = [name for name in names if name not in PARAMETERS]
+    if unknown:
+        raise ValueError(
+            f"grib: no parameter definition for {unknown} (see bris.conventions.grib)"
+        )
+
+
 # Map parameter name to:
 # (discipline, parameter category, parameter number, type of statistical processing,
 #  product definition template number, product definition template number in an ensemble)

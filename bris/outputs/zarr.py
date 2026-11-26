@@ -141,7 +141,9 @@ class Zarr(Output):
                     f"convert: expected one of {list(bris.convert.WRITERS)}, got {list(target)}"
                 )
         if self._converts_to_grib:
+            # Now, and not when the forecasts have been made
             grib_conventions.check_grid(self.layout.grid_mapping_name)
+            grib_conventions.check_parameters(list(self.layout.fields))
         self.remove_after_convert = remove_after_convert
         if self.remove_after_convert and not self.has_targets:
             raise ValueError(
