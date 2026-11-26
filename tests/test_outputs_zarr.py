@@ -478,6 +478,42 @@ def test_store_that_is_not_converted_is_kept(tmp_path):
     assert os.path.isdir(store)
 
 
+def test_store_of_an_earlier_bris_with_the_same_run_id(tmp_path):
+    """A store that an earlier bris left under the same run identifier (e.g. in the same
+    interactive job step) is not taken for this one's when it was to be converted to something
+    else: the forecast would end up in the file that the earlier one asked for"""
+    pm = get_pm(num_members=2)
+    work = str(tmp_path / "work")
+    earlier = Netcdf(
+        pm, work, str(tmp_path / "earlier_%Y%m%dT%HZ.nc"), remove_intermediate=False
+    )
+    add_members(earlier, pm, get_pred(pm, seed=0))
+    # ... and it never got to finalize
+
+    pred = get_pred(pm, seed=1)
+    output = Netcdf(pm, work, str(tmp_path / "this_%Y%m%dT%HZ.nc"))
+    add_members(output, pm, pred)
+    output.finalize()
+    assert os.listdir(tmp_path) == ["this_20230101T06Z.nc"]
+    ds = open_netcdf(tmp_path / "this_20230101T06Z.nc")
+    # (time, points, member) -> (time, member, y, x)
+    expected = pred[:, :, pm.variables.index("msl"), :].transpose(0, 2, 1)
+    np.testing.assert_array_equal(
+        ds["air_pressure_at_sea_level"].values.squeeze(),
+        expected.reshape(4, 2, 3, 4),
+    )
+
+    # The same for a store that was not to be converted, and other global attributes
+    pattern = str(tmp_path / "%Y%m%dT%HZ.zarr")
+    add_members(Zarr(pm, "", pattern, global_attributes={"source": "a"}), pm, pred)
+    convert = [{"netcdf": {"filename_pattern": str(tmp_path / "%Y%m%dT%HZ.nc")}}]
+    output = Zarr(pm, "", pattern, convert=convert, global_attributes={"source": "b"})
+    add_members(output, pm, pred)
+    output.finalize()
+    assert os.path.exists(tmp_path / "20230101T06Z.nc")
+    assert open_zarr(tmp_path / "20230101T06Z.zarr").attrs["source"] == "b"
+
+
 def test_format_version(tmp_path):
     """A store records the version of its format, and a store of a later version is refused
     instead of being read as something it is not"""

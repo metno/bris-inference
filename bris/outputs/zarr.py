@@ -309,8 +309,23 @@ class Zarr(Output):
         layout = {
             k: [v["dims"], v["shape"], chunks(v["shape"])] for k, v in fields.items()
         }
+        # What the store holds and what is to be done with it. A store with another
+        # fingerprint is not this run's store, also when made under the same run identifier
+        # (e.g. by an earlier bris in the same interactive job step): it would otherwise be
+        # converted to what that one asked for.
+        targets = self.get_targets(frt)
         fingerprint = hashlib.sha256(
-            json.dumps([times_ut, layout, bool(self.compression)]).encode()
+            json.dumps(
+                [
+                    times_ut,
+                    layout,
+                    bool(self.compression),
+                    targets,
+                    bool(self.remove_after_convert),
+                    _plain(self.layout.global_attributes),
+                ],
+                default=str,
+            ).encode()
         ).hexdigest()
         if zarrstore.is_current(path, fingerprint):
             return
@@ -352,7 +367,7 @@ class Zarr(Output):
             "variables": list(ds.variables) + list(fields),
             "attribute_order": attribute_order,
             "forecast_reference_time": frt,
-            "convert": self.get_targets(frt),
+            "convert": targets,
             "remove_after_convert": self.remove_after_convert,
         }
         # A store left by an earlier run is replaced by the process that writes the first
