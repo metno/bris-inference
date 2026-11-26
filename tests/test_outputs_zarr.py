@@ -682,3 +682,58 @@ def test_grib_refuses_grids_it_cannot_describe(tmp_path):
             str(tmp_path / "20230101T06Z.zarr"), str(tmp_path / "out.grib")
         )
     assert not os.path.exists(tmp_path / "out.grib")
+
+
+def test_incomplete_store(tmp_path, caplog):
+    """What a run that was killed leaves: a member that never arrived and a field that was
+    written in part. The file is written, with warnings, and because of the field written in
+    part the store is kept."""
+    pm = get_pm(num_members=3)
+    pred = get_pred(pm)
+    output = Netcdf(
+        pm,
+        str(tmp_path / "work"),
+        str(tmp_path / "%Y%m%dT%HZ.nc"),
+        variables=["2t", "msl"],
+    )
+    add_members(output, pm, pred, members=[0, 2])
+    (path,) = output.get_stores()
+    store = bris.convert.Store(path)
+    assert store.missing() == ([1], [])
+    assert store.chunks_written("air_temperature_2m") == {
+        (0, 0): (4, 4),
+        (0, 1): (0, 4),
+        (0, 2): (4, 4),
+    }
+
+    # Member 2 lost the last two time steps of one field
+    name = "air_pressure_at_sea_level"
+    for time_index in [2, 3]:
+        os.remove(os.path.join(path, name, f"{time_index}.0.2.0.0"))
+    assert store.chunks_written(name)[(0, 2)] == (2, 4)
+    assert store.missing() == ([1], [name])
+
+    with caplog.at_level(logging.WARNING, logger="bris"):
+        output.finalize()
+    assert "no data for ensemble member 1" in caplog.text
+    assert "no data for ensemble member 0" not in caplog.text
+    assert f"incomplete data for ['{name}']" in caplog.text
+    assert "is kept" in caplog.text
+    assert os.path.isdir(path)
+
+    ds = open_netcdf(tmp_path / "20230101T06Z.nc")
+    msl = ds[name].values[:, 0]
+    expected = pred[:, :, pm.variables.index("msl"), :].reshape(4, 3, 4, 3)
+    assert np.array_equal(msl[:, 0], expected[..., 0])
+    assert np.all(np.isnan(msl[:, 1]))
+    assert np.array_equal(msl[:2, 2], expected[:2, ..., 2])
+    assert np.all(np.isnan(msl[2:, 2]))
+
+    # A complete store is removed as before
+    output = Netcdf(pm, str(tmp_path / "work2"), str(tmp_path / "b_%Y%m%dT%HZ.nc"))
+    add_members(output, pm, pred)
+    caplog.clear()
+    with caplog.at_level(logging.WARNING, logger="bris"):
+        output.finalize()
+    assert caplog.text == ""
+    assert not os.path.exists(tmp_path / "work2")

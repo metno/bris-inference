@@ -18,13 +18,14 @@ This module must stay cheap to import (no torch).
 import contextlib
 import logging
 import os
+import re
 import shutil
 import sys
 import tempfile
 import threading
 import time
 from argparse import ArgumentParser
-from collections import deque
+from collections import Counter, deque
 from collections.abc import Callable, Iterable, Iterator
 from concurrent.futures import ProcessPoolExecutor, ThreadPoolExecutor
 from datetime import UTC, datetime
@@ -124,18 +125,84 @@ class Store:
     def forecast_reference_time(self) -> float:
         return float(self.root["forecast_reference_time"][()])
 
-    def has_data(self, name: str, index: tuple) -> bool:
-        """Has anything been written to the field at this (level, member) index? False for
-        an ensemble member that never arrived."""
+    def chunks_written(self, name: str) -> dict[tuple, tuple[int, int]]:
+        """For each (level, member) index of a field: how many of its chunks have been
+        written, and how many it has
+
+        A chunk that was never written reads as missing values: none of them for an ensemble
+        member that never arrived, some of them for a field that a run did not finish.
+        """
         array = self.root[name]
         lead = array.ndim - len(self.spatial_dims)
-        if any(c != 1 for c in array.chunks[1:lead]):
-            return True
-        coords = (0,) + tuple(index) + (0,) * len(self.spatial_dims)
-        try:
-            return array._chunk_key(coords) in array.chunk_store
-        except AttributeError:
-            return True
+        counts = [
+            -(-size // chunk)
+            for size, chunk in zip(array.shape, array.chunks, strict=True)
+        ]
+        total = counts[0] * int(np.prod(counts[lead:]))
+        written: Counter = Counter()
+        with contextlib.suppress(OSError):
+            for entry in os.listdir(os.path.join(self.path, name)):
+                if re.fullmatch(r"\d+(\.\d+)*", entry):
+                    key = tuple(int(i) for i in entry.split("."))
+                    if len(key) == array.ndim:
+                        written[key[1:lead]] += 1
+        result = {}
+        for index in np.ndindex(*array.shape[1:lead]):
+            chunk = tuple(
+                i // c for i, c in zip(index, array.chunks[1:lead], strict=True)
+            )
+            result[index] = (written[chunk], total)
+        return result
+
+    def missing(self, written: dict | None = None) -> tuple[list[int], list[str]]:
+        """What the store lacks (see chunks_written)
+
+        Args:
+            written: chunks_written of each field, if already known
+
+        Returns:
+            The ensemble members without any data: members that never arrived
+            The fields that lack data for other members (or for the only member): what a
+                run that was killed while it wrote leaves behind
+        """
+        if written is None:
+            written = {name: self.chunks_written(name) for name in self.fields}
+        position = {
+            name: self.dims(name).index(MEMBER) - 1
+            for name in written
+            if MEMBER in self.dims(name)
+        }
+        absent = set(range(self.num_members)) if position else set()
+        for name, indices in written.items():
+            for index, (n, _) in indices.items():
+                if n > 0 and name in position:
+                    absent.discard(index[position[name]])
+        gaps = []
+        for name, indices in written.items():
+            for index, (n, total) in indices.items():
+                member = index[position[name]] if name in position else None
+                if n < total and member not in absent and name not in gaps:
+                    gaps.append(name)
+        return sorted(absent), gaps
+
+    def report_missing(self, label: str, filename: str) -> dict:
+        """Warn about the data that the store lacks, before it is converted to filename
+
+        Returns:
+            chunks_written of each field
+        """
+        written = {name: self.chunks_written(name) for name in self.fields}
+        absent, gaps = self.missing(written)
+        for member in absent:
+            LOGGER.warning(
+                f"{label}: no data for ensemble member {member}, leaving it missing"
+            )
+        if gaps:
+            LOGGER.warning(
+                f"{label}: {self.path} has no or incomplete data for {gaps}; the values "
+                f"are missing in {filename}"
+            )
+        return written
 
 
 def read_ahead(
@@ -209,18 +276,16 @@ def to_netcdf(path: str, filename: str, compression: bool = False) -> None:
             if name not in fields:
                 var[...] = array[...]
 
-        missing_members = set()
+        written = store.report_missing("netcdf", filename)
         arrays = {name: store.root[name] for name in fields}
 
         def blocks() -> Iterator[tuple]:
             """The parts of the fields to copy: a chunk in time of one level and member"""
             for name, array in arrays.items():
-                dims = store.dims(name)
                 num_times, time_chunk = array.shape[0], array.chunks[0]
                 for index in np.ndindex(*array.shape[1 : array.ndim - num_spatial]):
-                    if not store.has_data(name, index):
-                        if MEMBER in dims:
-                            missing_members.add(index[dims.index(MEMBER) - 1])
+                    if written[name][index][0] == 0:
+                        # Nothing to copy: the variable keeps its fill value
                         continue
                     for start in range(0, num_times, time_chunk):
                         stop = min(start + time_chunk, num_times)
@@ -231,10 +296,6 @@ def to_netcdf(path: str, filename: str, compression: bool = False) -> None:
             blocks(), lambda task: arrays[task[0]][task[1]]
         ):
             nc.variables[name][block] = values
-        for member in sorted(missing_members):
-            LOGGER.warning(
-                f"netcdf: no data for ensemble member {member}, leaving it missing"
-            )
     LOGGER.debug(
         f"convert.to_netcdf {path} -> {filename} in {time.perf_counter() - t0:.1f}s"
     )
@@ -259,6 +320,7 @@ def to_grib(path: str, filename: str, grib_keys: dict | None = None) -> None:
     unknown = [name for name in store.fields if name not in grib_conventions.PARAMETERS]
     if unknown:
         raise ValueError(f"grib: no parameter definition for {unknown}")
+    store.report_missing("grib", filename)
 
     lats, lons = root["latitude"][...], root["longitude"][...]
     if num_spatial == 2:
@@ -472,7 +534,9 @@ def convert(
             options of that format's writer. Default: what the configuration of the run
             asked for (recorded in the store).
         remove: Remove the store afterwards? Default: as the configuration of the run asked
-            for (recorded in the store). A store that was not converted to anything is kept.
+            for (recorded in the store). A store that was not converted to anything is kept,
+            and so is a store with fields written in part (what a run that was killed left
+            behind; see Store.missing).
 
     Returns:
         The files written
@@ -489,7 +553,14 @@ def convert(
         WRITERS[target["format"]](path, target["filename"], **options)
         filenames.append(target["filename"])
     if remove and filenames:
-        zarrstore.remove(path)
+        _, gaps = Store(path).missing()
+        if gaps:
+            LOGGER.warning(
+                f"{path} lacks data for {gaps} and is kept; remove it when it is no "
+                "longer needed"
+            )
+        else:
+            zarrstore.remove(path)
     return filenames
 
 
