@@ -1,6 +1,7 @@
 import logging
 import multiprocessing
 import os
+import re
 
 import numpy as np
 import pytest
@@ -508,6 +509,94 @@ def test_format_version(tmp_path):
     del info["format_version"]
     zarrstore.write_info(store, info)
     assert to_netcdf("before.nc") == [str(tmp_path / "before.nc")]
+
+
+@pytest.mark.parametrize("num_members", [1, 3])
+@pytest.mark.parametrize("gridded", [True, False])
+@pytest.mark.parametrize("options", ["all", "projected", "interpolated"])
+def test_written_store_is_valid(tmp_path, num_members, gridded, options):
+    """What the output writes is what the conversion takes for a store of bris: the two are
+    separate programs, and this is what they agree on"""
+    if options == "projected" and not gridded:
+        return
+    pm = get_pm(num_members, gridded=gridded)
+    output = Zarr(pm, "", str(tmp_path / "%Y%m%dT%HZ.zarr"), **OPTIONS[options])
+    # The store is valid from the first member on
+    add_members(output, pm, get_pred(pm), members=[0])
+    store = bris.convert.Store(str(tmp_path / "20230101T06Z.zarr"))
+    assert store.problems() == []
+    assert store.fields
+
+
+def _drop_dimension_names(root, info):
+    del root["air_temperature_2m"].attrs["_ARRAY_DIMENSIONS"]
+
+
+def _drop_reference_time(root, info):
+    del root["forecast_reference_time"]
+
+
+def _swap_dimensions(root, info):
+    dims = root["air_temperature_2m"].attrs["_ARRAY_DIMENSIONS"]
+    root["air_temperature_2m"].attrs["_ARRAY_DIMENSIONS"] = dims[:1] + dims[:0:-1]
+
+
+def _other_length(root, info):
+    array = root.zeros("other", shape=(7,), dtype="f4")
+    array.attrs["_ARRAY_DIMENSIONS"] = ["time"]
+
+
+def _double_precision(root, info):
+    field = root["air_temperature_2m"]
+    array = root.zeros("double", shape=field.shape, dtype="f8")
+    array.attrs["_ARRAY_DIMENSIONS"] = field.attrs["_ARRAY_DIMENSIONS"]
+    info["fields"].append("double")
+
+
+def _drop_members(root, info):
+    del root["ensemble_member"]
+
+
+def _field_not_in_store(root, info):
+    info["fields"].append("air_pressure_at_sea_level_2")
+
+
+def _unknown_conversion(root, info):
+    info["convert"] = [{"format": "feather", "filename": "a.feather"}]
+
+
+@pytest.mark.parametrize(
+    "change,problem",
+    [
+        (_drop_dimension_names, "air_temperature_2m lacks the names of its 5 dim"),
+        (_drop_reference_time, "no variable forecast_reference_time"),
+        (_swap_dimensions, "air_temperature_2m has the dimensions"),
+        (_other_length, "dimension time has length"),
+        (_double_precision, "double is float64, not float32"),
+        (_drop_members, "values of the dimension ensemble_member"),
+        (_field_not_in_store, "air_pressure_at_sea_level_2.* are not in the store"),
+        (_unknown_conversion, "feather.* is not a conversion"),
+    ],
+)
+def test_invalid_store(tmp_path, change, problem):
+    """A store that is not as bris writes it is refused with what is wrong with it, before
+    anything is converted"""
+    pm = get_pm(num_members=2)
+    output = Zarr(pm, "", str(tmp_path / "%Y%m%dT%HZ.zarr"))
+    add_members(output, pm, get_pred(pm))
+    output.finalize()
+    store = str(tmp_path / "20230101T06Z.zarr")
+
+    info = zarrstore.read_info(store)
+    change(zarr.open_group(store, mode="r+"), info)
+    zarr.consolidate_metadata(store)
+    zarrstore.write_info(store, info)
+
+    target = {"format": "netcdf", "filename": str(tmp_path / "a.nc")}
+    with pytest.raises(ValueError, match="not a forecast as bris stores it") as error:
+        bris.convert.convert(store, [target])
+    assert re.search(problem, str(error.value))
+    assert not os.path.exists(tmp_path / "a.nc")
 
 
 def test_convert_recorded_targets(tmp_path):

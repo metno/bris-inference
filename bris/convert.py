@@ -102,6 +102,94 @@ class Store:
                 "store may be incomplete or changed by another tool."
             )
             self.root = zarr.open_group(path, mode="r")
+        problems = self.problems()
+        if problems:
+            raise ValueError(
+                f"{path} is not a forecast as bris stores it, and cannot be converted: "
+                + "; ".join(problems)
+            )
+
+    def problems(self) -> list[str]:
+        """What is wrong with the store as a forecast written by bris.outputs.zarr: what the
+        conversions rely on. Empty for a store that they can convert.
+
+        Only the metadata is looked at, not the data. Which of the data has been written is
+        another matter (see missing).
+        """
+        arrays = dict(self.root.arrays())
+        problems = []
+        for name, array in arrays.items():
+            dims = array.attrs.get(DIMENSIONS)
+            if not isinstance(dims, list) or len(dims) != array.ndim:
+                problems.append(
+                    f"{name} lacks the names of its {array.ndim} dimensions ({DIMENSIONS})"
+                )
+        for name in [TIME, "forecast_reference_time", "latitude", "longitude"]:
+            if name not in arrays:
+                problems.append(f"there is no variable {name}")
+        for key in ["fields", "spatial_dims", "variables"]:
+            value = self.info.get(key, [])
+            if not isinstance(value, list) or not all(
+                isinstance(item, str) for item in value
+            ):
+                problems.append(f"{key} in {zarrstore.SIDECAR} is not a list of names")
+        for target in self.info.get("convert", []):
+            if (
+                not isinstance(target, dict)
+                or target.get("format") not in WRITERS
+                or not isinstance(target.get("filename"), str)
+            ):
+                problems.append(
+                    f"{target} in {zarrstore.SIDECAR} is not a conversion (a format, "
+                    f"{' or '.join(WRITERS)}, and a filename)"
+                )
+        if problems:
+            # The rest cannot be told
+            return problems
+
+        sizes: dict[str, int] = {}
+        for name, array in arrays.items():
+            for dim, size in zip(self.dims(name), array.shape, strict=True):
+                if sizes.setdefault(dim, size) != size:
+                    problems.append(
+                        f"the dimension {dim} has length {size} in {name}, and "
+                        f"{sizes[dim]} in another variable"
+                    )
+        if self.dims(TIME) != [TIME]:
+            problems.append(f"{TIME} has the dimensions {self.dims(TIME)}")
+        if arrays["forecast_reference_time"].ndim != 0:
+            problems.append("forecast_reference_time is not a single value")
+        absent = [name for name in self.info.get("fields", []) if name not in arrays]
+        if absent:
+            problems.append(
+                f"the fields {absent} in {zarrstore.SIDECAR} are not in the store"
+            )
+
+        spatial = self.spatial_dims
+        for name in self.fields:
+            array, dims = arrays[name], self.dims(name)
+            middle = dims[1 : max(1, array.ndim - len(spatial))]
+            levels = [dim for dim in middle if dim != MEMBER]
+            if (
+                dims[0] != TIME
+                or dims[len(dims) - len(spatial) :] != spatial
+                or len(levels) > 1
+                or middle != levels + [MEMBER] * (MEMBER in middle)
+            ):
+                problems.append(
+                    f"{name} has the dimensions {dims}, which are not {TIME}, a level "
+                    f"dimension if it has levels, {MEMBER} if there are several members, "
+                    f"and {spatial}"
+                )
+            else:
+                problems += [
+                    f"there is no variable with the values of the dimension {dim} of {name}"
+                    for dim in middle
+                    if dim not in arrays or self.dims(dim) != [dim]
+                ]
+            if array.dtype != np.float32:
+                problems.append(f"{name} is {array.dtype}, not float32")
+        return problems
 
     def dims(self, name: str) -> list[str]:
         return list(self.root[name].attrs[DIMENSIONS])
