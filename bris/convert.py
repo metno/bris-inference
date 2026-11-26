@@ -444,7 +444,7 @@ def convert(
             options of that format's writer. Default: what the configuration of the run
             asked for (recorded in the store).
         remove: Remove the store afterwards? Default: as the configuration of the run asked
-            for (recorded in the store).
+            for (recorded in the store). A store that was not converted to anything is kept.
 
     Returns:
         The files written
@@ -460,7 +460,7 @@ def convert(
         options = {k: v for k, v in target.items() if k not in ["format", "filename"]}
         WRITERS[target["format"]](path, target["filename"], **options)
         filenames.append(target["filename"])
-    if remove:
+    if remove and filenames:
         zarrstore.remove(path)
     return filenames
 

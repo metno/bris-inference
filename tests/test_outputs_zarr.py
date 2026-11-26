@@ -453,6 +453,29 @@ def test_remove_after_convert(tmp_path):
     assert os.listdir(tmp_path) == ["20230101T06Z.nc"]
 
 
+def test_store_that_is_not_converted_is_kept(tmp_path):
+    """Removing the store is for after a conversion: without one the store is the output"""
+    pm = get_pm()
+    pattern = str(tmp_path / "%Y%m%dT%HZ.zarr")
+    with pytest.raises(ValueError, match="remove_after_convert"):
+        Zarr(pm, "", pattern, remove_after_convert=True)
+
+    output = Zarr(pm, "", pattern)
+    add_members(output, pm, get_pred(pm))
+    output.finalize()
+    store = str(tmp_path / "20230101T06Z.zarr")
+    assert os.path.isdir(store)
+
+    assert bris.convert.convert(store, targets=[], remove=True) == []
+    assert os.path.isdir(store)
+    # ... also when the store itself says that it is to be removed
+    zarrstore.write_info(
+        store, {**zarrstore.read_info(store), "remove_after_convert": True}
+    )
+    assert bris.convert.convert(store) == []
+    assert os.path.isdir(store)
+
+
 def test_convert_recorded_targets(tmp_path):
     """Without --netcdf or --grib, bris-convert converts a store to what its output asked for
     (here: the stores of a netcdf output that was not finalized), with the same result"""

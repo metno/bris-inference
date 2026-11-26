@@ -140,6 +140,11 @@ class Zarr(Output):
                     f"convert: expected one of {list(bris.convert.WRITERS)}, got {list(target)}"
                 )
         self.remove_after_convert = remove_after_convert
+        if self.remove_after_convert and not self.has_targets:
+            raise ValueError(
+                "remove_after_convert: the output is not converted to anything (no convert), "
+                "so nothing would be left of it"
+            )
 
         # Accumulated variables at the end of the last block written, per store and member
         self._accumulated: dict[tuple[int, int], dict[str, np.ndarray]] = {}
@@ -262,7 +267,7 @@ class Zarr(Output):
 
         if start + len(pred) >= len(times):
             del self._accumulated[key]
-            if not ensemble:
+            if not ensemble and self.has_targets:
                 # Nothing more will be written to the store
                 self._convert(path)
         utils.LOGGER.debug(
