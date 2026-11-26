@@ -32,7 +32,7 @@ SPATIAL_CHUNKS = {2: ["y", "x"], 1: ["location"]}
 
 # A time token in a filename pattern (strftime), with its flag and modifier if it has any: %H,
 # %-H, %Ey
-TIME_TOKEN = r"(%[-_0^#]?[EO]?.)"
+STRFTIME_CODE = r"(%[-_0^#]?[EO]?.)"
 
 
 class Zarr(Output):
@@ -175,7 +175,7 @@ class Zarr(Output):
         stores that this process has written to.
         """
         # get_store with the time tokens as wildcards
-        parts = re.split(TIME_TOKEN, self.filename_pattern)
+        parts = re.split(STRFTIME_CODE, self.filename_pattern)
         pattern = "".join(
             ("%" if part == "%%" else "*") if i % 2 else glob.escape(part)
             for i, part in enumerate(parts)
