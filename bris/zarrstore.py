@@ -46,11 +46,15 @@ def run_id() -> str:
 
 def read_info(path: str) -> dict | None:
     """The sidecar of the store at path, or None if there is no store with a sidecar"""
+    filename = os.path.join(path, SIDECAR)
     try:
-        with open(os.path.join(path, SIDECAR), encoding="utf-8") as file:
-            return json.load(file)
+        with open(filename, encoding="utf-8") as file:
+            info = json.load(file)
     except (FileNotFoundError, NotADirectoryError):
         return None
+    if not isinstance(info, dict):
+        raise ValueError(f"{filename} is not a sidecar written by bris")
+    return info
 
 
 def write_info(path: str, info: dict) -> None:

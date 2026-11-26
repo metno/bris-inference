@@ -536,8 +536,13 @@ def test_format_version(tmp_path):
         zarrstore.write_info(store, {**info, "format_version": later})
         with pytest.raises(ValueError, match=f"format version {later}"):
             to_netcdf("later.nc")
-    zarrstore.write_info(store, {**info, "format_version": "latest"})
-    with pytest.raises(ValueError, match="not a format version"):
+    for other in ["latest", "-1.5", 1]:
+        zarrstore.write_info(store, {**info, "format_version": other})
+        with pytest.raises(ValueError, match="not a format version"):
+            to_netcdf("later.nc")
+    # ... nor a sidecar that is not one
+    zarrstore.write_info(store, [info])
+    with pytest.raises(ValueError, match="not a sidecar written by bris"):
         to_netcdf("later.nc")
     assert not os.path.exists(tmp_path / "later.nc")
 
@@ -601,6 +606,33 @@ def _unknown_conversion(root, info):
     info["convert"] = [{"format": "feather", "filename": "a.feather"}]
 
 
+def _numbers_for_dimension_names(root, info):
+    root["air_temperature_2m"].attrs["_ARRAY_DIMENSIONS"] = [0, 1, 2, 3, 4]
+
+
+def _time_as_text(root, info):
+    del root["time"]
+    array = root.array("time", np.array(["06", "07", "08", "09"]))
+    array.attrs["_ARRAY_DIMENSIONS"] = ["time"]
+
+
+def _group_for_a_field(root, info):
+    root.create_group("group")
+    info["fields"].append("group")
+
+
+def _no_conversions(root, info):
+    info["convert"] = None
+
+
+def _formats_for_a_format(root, info):
+    info["convert"] = [{"format": ["netcdf"], "filename": "a.nc"}]
+
+
+def _attribute_order_as_list(root, info):
+    info["attribute_order"] = ["units"]
+
+
 @pytest.mark.parametrize(
     "change,problem",
     [
@@ -612,6 +644,12 @@ def _unknown_conversion(root, info):
         (_drop_members, "values of the dimension ensemble_member"),
         (_field_not_in_store, "air_pressure_at_sea_level_2.* are not in the store"),
         (_unknown_conversion, "feather.* is not a conversion"),
+        (_numbers_for_dimension_names, "air_temperature_2m lacks the names"),
+        (_time_as_text, "time is .*, not a number"),
+        (_group_for_a_field, "group.* are not in the store"),
+        (_no_conversions, "None in .bris.json is not a conversion"),
+        (_formats_for_a_format, "netcdf.* is not a conversion"),
+        (_attribute_order_as_list, "attribute_order in .bris.json"),
     ],
 )
 def test_invalid_store(tmp_path, change, problem):

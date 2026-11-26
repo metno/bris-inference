@@ -67,13 +67,16 @@ MEMBER = "ensemble_member"
 
 def _version(version) -> tuple[int, int]:
     """A format version (major.minor) as numbers, to compare versions"""
-    try:
-        major, minor = str(version).split(".")
-        return int(major), int(minor)
-    except ValueError:
+    if not re.fullmatch(r"\d+\.\d+", str(version)):
         raise ValueError(
             f"{version!r} is not a format version of a bris store (as {FORMAT_VERSION})"
-        ) from None
+        )
+    major, minor = str(version).split(".")
+    return int(major), int(minor)
+
+
+def _is_names(value) -> bool:
+    return isinstance(value, list) and all(isinstance(item, str) for item in value)
 
 
 class Store:
@@ -120,23 +123,32 @@ class Store:
         problems = []
         for name, array in arrays.items():
             dims = array.attrs.get(DIMENSIONS)
-            if not isinstance(dims, list) or len(dims) != array.ndim:
+            if not _is_names(dims) or len(dims) != array.ndim:
                 problems.append(
                     f"{name} lacks the names of its {array.ndim} dimensions ({DIMENSIONS})"
                 )
         for name in [TIME, "forecast_reference_time", "latitude", "longitude"]:
             if name not in arrays:
                 problems.append(f"there is no variable {name}")
+        for name in [TIME, "forecast_reference_time"]:
+            if name in arrays and arrays[name].dtype.kind not in "iuf":
+                problems.append(f"{name} is {arrays[name].dtype}, not a number")
         for key in ["fields", "spatial_dims", "variables"]:
-            value = self.info.get(key, [])
-            if not isinstance(value, list) or not all(
-                isinstance(item, str) for item in value
-            ):
+            if not _is_names(self.info.get(key, [])):
                 problems.append(f"{key} in {zarrstore.SIDECAR} is not a list of names")
-        for target in self.info.get("convert", []):
+        order = self.info.get("attribute_order", {})
+        if not isinstance(order, dict) or not all(map(_is_names, order.values())):
+            problems.append(
+                f"attribute_order in {zarrstore.SIDECAR} does not list the names of the "
+                "attributes of each variable"
+            )
+        targets = self.info.get("convert", [])
+        for target in targets if isinstance(targets, list) else [targets]:
             if (
-                not isinstance(target, dict)
-                or target.get("format") not in WRITERS
+                not isinstance(targets, list)
+                or not isinstance(target, dict)
+                or not isinstance(target.get("format"), str)
+                or target["format"] not in WRITERS
                 or not isinstance(target.get("filename"), str)
             ):
                 problems.append(
@@ -167,6 +179,9 @@ class Store:
 
         spatial = self.spatial_dims
         for name in self.fields:
+            if name not in arrays:
+                # Not a variable (reported above)
+                continue
             array, dims = arrays[name], self.dims(name)
             middle = dims[1 : max(1, array.ndim - len(spatial))]
             levels = [dim for dim in middle if dim != MEMBER]
@@ -654,7 +669,8 @@ def convert(
     Returns:
         The files written
     """
-    info = zarrstore.read_info(path) or {}
+    # Opening the store checks it, and what its sidecar says
+    info = Store(path).info
     if targets is None:
         targets = info.get("convert", [])
     if remove is None:
