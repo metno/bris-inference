@@ -165,6 +165,9 @@ def test_missing_values():
     pred = rng.random(pm.shape).astype(np.float32) + 1
     pred[0, :, 1] = np.nan  # tp at lead time 0
     pred[1, [2, 7], 0] = np.nan  # two points of 2t at lead time 1
+    pred[1, 3, 0] = (
+        9999.0  # eccodes' default for a missing value is a value like any other
+    )
     times = (1672552800 + leadtimes).astype("datetime64[s]")
 
     with tempfile.TemporaryDirectory() as temp_dir:
@@ -198,6 +201,7 @@ def test_missing_values():
     assert missing[("tp", 0, 1)] == (1, 12)
     assert missing[("2t", 1, 1)] == (1, 2)
     assert np.array_equal(np.where(values[("2t", 1, 1)] == 1e30)[0], [2, 7])
+    assert abs(values[("2t", 1, 1)][3] - 9999.0) < 0.01
     for key in [("2t", 0, 1), ("2t", 2, 1), ("tp", 1, 1), ("tp", 2, 1)]:
         assert missing[key] == (0, 0), key
     np.testing.assert_allclose(values[("2t", 2, 1)], pred[2, :, 0], rtol=1e-5)

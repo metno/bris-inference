@@ -13,8 +13,9 @@ LEVEL_TYPES = {
     "height": 103,  # Specified height level above ground (m)
 }
 
-# Stands in for the points without a value when a field is encoded with a bitmap
-MISSING_VALUE = 9999.0
+# Stands in for the points without a value when a field is encoded with a bitmap. No field has
+# this value: a point with it would be taken for a missing one.
+MISSING_VALUE = 9.999e20
 
 GRID_TEMPLATES = {
     "latlon": 0,
