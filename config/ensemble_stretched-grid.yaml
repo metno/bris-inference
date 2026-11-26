@@ -51,6 +51,16 @@ routing:
           filename_pattern: ${output}/pred_%Y-%m-%dT%H.nc
           variables: [2t, msl, tp]
           extra_variables: [ws]
+      # Zarr store with the same content, converted to netcdf when the predictions end
+      # - zarr:
+      #     filename_pattern: ${output}/pred_%Y-%m-%dT%H.zarr
+      #     variables: [2t, msl, tp]
+      #     extra_variables: [ws]
+      #     chunks: {time: 24, y: 256, x: 256} # optional; default: whole fields, about 100 MB per chunk
+      #     convert:
+      #       - netcdf:
+      #           filename_pattern: ${output}/pred_from_zarr_%Y-%m-%dT%H.nc
+      #     remove_after_convert: False # True removes the store when it has been converted
       # Verification against observations (stored in a verif netcdf file)
       - verif:
           filename: ${output}/verif/t2m/VERIF_FILENAME.nc

@@ -91,7 +91,7 @@ def _decoder_outputs(n_outputs: int):
 def test_use_background_write_default():
     # one member and several outputs on a decoder: synchronous (concurrent netcdf writes segfault)
     assert use_background_write({}, _decoder_outputs(2), num_members=1) is False
-    # one output, or several members (intermediate store, files assembled at finalize): background
+    # one output, or several members (the files are written at finalize): background
     assert use_background_write({}, _decoder_outputs(1), num_members=1) is True
     assert use_background_write({}, _decoder_outputs(2), num_members=2) is True
     # an explicit setting wins

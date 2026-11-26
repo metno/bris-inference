@@ -137,6 +137,33 @@ def test_get():
     )
 
 
+def test_get_zarr():
+    """The zarr output gets the checkpoint name in its attributes, like netcdf"""
+    config = [
+        {
+            "decoder_name": "data1",
+            "domain_index": 0,
+            "outputs": [
+                {"zarr": {"filename_pattern": "%Y%m%d.zarr", "variables": ["2t"]}},
+                {"netcdf": {"filename_pattern": "%Y%m%d.nc", "variables": ["2t"]}},
+                {"grib": {"filename_pattern": "%Y%m%d.grib", "variables": ["2t"]}},
+            ],
+        },
+    ]
+    checkpoints = {"forecaster": FakeCheckpointObject()}
+    routes = bris.routes.get(
+        config, range(3), 2, FakeDataModule(), checkpoints, "testdir"
+    )
+    zarr_output, netcdf_output, grib_output = routes[0]["outputs"]
+    assert isinstance(zarr_output, bris.outputs.Zarr)
+    assert isinstance(netcdf_output, bris.outputs.Netcdf)
+    assert isinstance(grib_output, bris.outputs.Grib)
+    assert "Checkpoints used" in zarr_output.layout.global_attributes["source"]
+    assert bris.routes.get_required_variables(config, checkpoints["forecaster"]) == {
+        "data1": ["2t"]
+    }
+
+
 def test_add_checkpoint_name_to_attrs():
     test_oc = {
         "netcdf": {
