@@ -50,12 +50,30 @@ GRIB_TIME_GROUP = 64
 # store takes longer than writing the file; with a few readers the write sets the pace.
 READ_THREADS = 4
 
+# The version of the format of a store (major.minor): its variables, dimensions and attributes,
+# and its sidecar (bris.zarrstore). Recorded in the sidecar as format_version. A store with a
+# later version than this is refused, so raise it with a change that the code reading the
+# version before would get wrong (e.g. other dimensions, or another meaning of a key in the
+# sidecar), not with an addition that such code can ignore.
+FORMAT_VERSION = "0.1"
+
 DIMENSIONS = "_ARRAY_DIMENSIONS"
 CONSOLIDATED = (
     ".zmetadata"  # where zarr.consolidate_metadata puts the metadata of a store
 )
 TIME = "time"
 MEMBER = "ensemble_member"
+
+
+def _version(version) -> tuple[int, int]:
+    """A format version (major.minor) as numbers, to compare versions"""
+    try:
+        major, minor = str(version).split(".")
+        return int(major), int(minor)
+    except ValueError:
+        raise ValueError(
+            f"{version!r} is not a format version of a bris store (as {FORMAT_VERSION})"
+        ) from None
 
 
 class Store:
@@ -66,6 +84,15 @@ class Store:
         self.info = zarrstore.read_info(path) or {}
         if not os.path.isdir(path):
             raise FileNotFoundError(f"{path} is not a Zarr store: no such directory")
+        # A store without a version (written before it was recorded, or without a sidecar)
+        # is read as the first version
+        version = self.info.get("format_version", "0.1")
+        if _version(version) > _version(FORMAT_VERSION):
+            raise ValueError(
+                f"{path} has format version {version}, and this bris reads stores up to "
+                f"version {FORMAT_VERSION}: it was written by a later bris. Convert it with "
+                "that one."
+            )
         if os.path.isfile(os.path.join(path, CONSOLIDATED)):
             self.root = zarr.open_consolidated(path, mode="r")
         else:

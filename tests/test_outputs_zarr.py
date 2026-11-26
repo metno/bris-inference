@@ -477,6 +477,39 @@ def test_store_that_is_not_converted_is_kept(tmp_path):
     assert os.path.isdir(store)
 
 
+def test_format_version(tmp_path):
+    """A store records the version of its format, and a store of a later version is refused
+    instead of being read as something it is not"""
+    pm = get_pm()
+    output = Zarr(pm, "", str(tmp_path / "%Y%m%dT%HZ.zarr"))
+    add_members(output, pm, get_pred(pm))
+    output.finalize()
+    store = str(tmp_path / "20230101T06Z.zarr")
+    info = zarrstore.read_info(store)
+    assert info["format_version"] == bris.convert.FORMAT_VERSION
+
+    def to_netcdf(name):
+        target = {"format": "netcdf", "filename": str(tmp_path / name)}
+        return bris.convert.convert(store, [target])
+
+    assert info["format_version"] == "0.1"
+
+    # 0.10 is later than 0.9: the parts are numbers
+    for later in ["0.2", "0.10", "1.0"]:
+        zarrstore.write_info(store, {**info, "format_version": later})
+        with pytest.raises(ValueError, match=f"format version {later}"):
+            to_netcdf("later.nc")
+    zarrstore.write_info(store, {**info, "format_version": "latest"})
+    with pytest.raises(ValueError, match="not a format version"):
+        to_netcdf("later.nc")
+    assert not os.path.exists(tmp_path / "later.nc")
+
+    # A store from before the version was recorded has the first version
+    del info["format_version"]
+    zarrstore.write_info(store, info)
+    assert to_netcdf("before.nc") == [str(tmp_path / "before.nc")]
+
+
 def test_convert_recorded_targets(tmp_path):
     """Without --netcdf or --grib, bris-convert converts a store to what its output asked for
     (here: the stores of a netcdf output that was not finalized), with the same result"""

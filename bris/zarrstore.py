@@ -7,8 +7,8 @@ store is built in a temporary directory and renamed into place, so that it appea
 not at all, whichever rank gets there first.
 
 Next to the zarr metadata each store has a small sidecar file (SIDECAR) with what bris needs to
-know about it: which run made it and how it should be converted to other formats (see
-bris.convert). It is kept out of the zarr attributes so that these hold the same metadata as a
+know about it: which run made it, the version of its format and how it should be converted to
+other formats (see bris.convert). It is kept out of the zarr attributes so that these hold the same metadata as a
 NetCDF file of the same forecast.
 
 This module must stay cheap to import (no torch), since bris.convert uses it.

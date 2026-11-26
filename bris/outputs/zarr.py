@@ -346,6 +346,7 @@ class Zarr(Output):
             name: list(field["attrs"]) for name, field in fields.items()
         }
         info = {
+            "format_version": bris.convert.FORMAT_VERSION,
             "fields": list(fields),
             "spatial_dims": list(self.layout.spatial_dims),
             "variables": list(ds.variables) + list(fields),
