@@ -46,11 +46,34 @@ def test_ensure_replaces_other_runs(tmp_path, monkeypatch):
     zarrstore.ensure(path, build(3), "b")
     assert value(path) == 3
 
-    # Something that is not a store
-    os.makedirs(tmp_path / "dir.zarr" / "sub")
+    # An empty directory
+    os.makedirs(tmp_path / "dir.zarr")
     zarrstore.ensure(str(tmp_path / "dir.zarr"), build(4))
     assert value(str(tmp_path / "dir.zarr")) == 4
     assert sorted(os.listdir(tmp_path)) == ["dir.zarr", "store.zarr"]
+
+
+@pytest.mark.parametrize("replace", [True, False])
+def test_ensure_keeps_what_bris_did_not_write(tmp_path, replace):
+    """A directory with other data, a store of another tool and a file are not replaced, by
+    any rank and without waiting"""
+    os.makedirs(tmp_path / "results" / "sub")
+    zarr.open_group(str(tmp_path / "other.zarr"), mode="w").attrs["value"] = 0
+    (tmp_path / "file.zarr").write_text("data")
+
+    for name in ["results", "other.zarr", "file.zarr"]:
+        assert zarrstore.is_foreign(str(tmp_path / name))
+        with pytest.raises(FileExistsError, match="not written by bris"):
+            zarrstore.ensure(str(tmp_path / name), build(1), replace=replace)
+
+    assert os.path.isdir(tmp_path / "results" / "sub")
+    assert value(str(tmp_path / "other.zarr")) == 0
+    assert (tmp_path / "file.zarr").read_text() == "data"
+    assert sorted(os.listdir(tmp_path)) == ["file.zarr", "other.zarr", "results"]
+
+    assert not zarrstore.is_foreign(str(tmp_path / "missing.zarr"))
+    zarrstore.ensure(str(tmp_path / "store.zarr"), build(1))
+    assert not zarrstore.is_foreign(str(tmp_path / "store.zarr"))
 
 
 def test_only_one_process_replaces(tmp_path, monkeypatch):

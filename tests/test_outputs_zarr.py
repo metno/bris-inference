@@ -315,6 +315,7 @@ def test_processes(tmp_path):
     path = str(tmp_path / "%Y%m%dT%HZ.zarr")
     stale = tmp_path / "20230101T06Z.zarr"
     os.makedirs(stale / "air_temperature_2m")
+    zarrstore.write_info(str(stale), {"run_id": "an earlier run"})
 
     context = multiprocessing.get_context("spawn")
     barrier = context.Barrier(num_members)

@@ -86,6 +86,26 @@ def is_current(path: str, fingerprint: str | None = None) -> bool:
     )
 
 
+def is_foreign(path: str) -> bool:
+    """Is there something at path that bris did not write, other than an empty directory?
+
+    That is anything without a sidecar. Such content does not change during a run, while a
+    store can be replaced at any moment, between the looks at its sidecar and at its path:
+    what is found must therefore be found twice.
+    """
+
+    def look() -> bool:
+        if read_info(path) is not None or not os.path.lexists(path):
+            return False
+        try:
+            is_directory = os.path.isdir(path) and not os.path.islink(path)
+            return not (is_directory and not os.listdir(path))
+        except OSError:
+            return False
+
+    return look() and look()
+
+
 def ensure(
     path: str,
     build: Callable[[str], None],
@@ -98,10 +118,13 @@ def ensure(
 
     Safe to call from all ranks at the same time: exactly one of them creates the store.
 
-    Something else at path (a store of an earlier run, or of this run with another layout) is
-    replaced. Exactly one of the processes that write to the store must do that (replace), and
-    the others wait for it, since a process cannot otherwise tell a store that is about to be
-    replaced from one that it should write into.
+    Another store written by bris at path (by an earlier run, or by this run with another
+    layout) is replaced, and so is an empty directory. Exactly one of the processes that write
+    to the store must do that (replace), and the others wait for it, since a process cannot
+    otherwise tell a store that is about to be replaced from one that it should write into.
+
+    Anything else at path is left alone: the path comes from the configuration, and may by
+    mistake be a directory with other data.
 
     Args:
         path: Where the store should be
@@ -115,6 +138,9 @@ def ensure(
             exactly one of the processes that write to the store (e.g. the one that writes
             the first ensemble member).
         timeout: How long a process that does not replace waits for the one that does [s]
+
+    Raises:
+        FileExistsError: There is something at path that bris did not write
     """
     identity = {"run_id": run_id(), "fingerprint": fingerprint}
     t0 = time.perf_counter()
@@ -129,6 +155,12 @@ def ensure(
             return
 
         if exists:
+            if is_foreign(path):
+                raise FileExistsError(
+                    f"{path} exists and was not written by bris (it has no {SIDECAR}), so "
+                    "it is not replaced. Remove it, or write to another path (is the file "
+                    "name missing from the filename pattern?)."
+                )
             if not replace:
                 if not warned:
                     LOGGER.info(
