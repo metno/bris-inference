@@ -120,10 +120,15 @@ def ensure(
     t0 = time.perf_counter()
     warned = False
     while True:
+        # Look at the path before reading the sidecar. A store appears complete, with its
+        # sidecar, and only the replacing process removes one, so what was already there and
+        # is not this run's store is stale. In the other order, a store that another rank
+        # creates between the two looks would be taken for a stale one and removed.
+        exists = os.path.lexists(path)
         if is_current(path, fingerprint):
             return
 
-        if os.path.lexists(path):
+        if exists:
             if not replace:
                 if not warned:
                     LOGGER.info(

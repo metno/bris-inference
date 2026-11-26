@@ -76,6 +76,28 @@ def test_only_one_process_replaces(tmp_path, monkeypatch):
     assert zarrstore.is_from_this_run(path)
 
 
+def test_store_created_meanwhile_is_kept(tmp_path, monkeypatch):
+    """A store that another rank creates while the replacing rank looks at the path is this
+    run's store, not a stale one"""
+    path = str(tmp_path / "store.zarr")
+    read_info = zarrstore.read_info
+    landed = []
+
+    def read_info_then_other_rank(store):
+        info = read_info(store)
+        if not landed:
+            # The other rank creates the store right after this look at the sidecar
+            landed.append(store)
+            zarrstore.ensure(path, build(1), "a", replace=False)
+        return info
+
+    monkeypatch.setattr(zarrstore, "read_info", read_info_then_other_rank)
+    zarrstore.ensure(path, build(2), "a", replace=True)
+    assert landed == [path]
+    assert value(path) == 1
+    assert os.listdir(tmp_path) == ["store.zarr"]
+
+
 def test_run_id(monkeypatch):
     for name in ["BRIS_RUN_ID", "SLURM_JOB_ID", "SLURM_STEP_ID"]:
         monkeypatch.delenv(name, raising=False)
