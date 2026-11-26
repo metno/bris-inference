@@ -10,6 +10,23 @@ def test_expand_time_tokens():
     assert time.strftime("test_file%Y-%m-%d") in t, f"Time tokens not found in {t}."
 
 
+def test_get_workdir(monkeypatch):
+    """The ranks of a run share a work directory, two job steps do not"""
+    for name in ["BRIS_RUN_ID", "SLURM_JOB_ID", "SLURM_STEP_ID"]:
+        monkeypatch.delenv(name, raising=False)
+    workdir = bris.utils.get_workdir("work")
+    assert os.path.dirname(workdir) == "work"
+    assert bris.utils.get_workdir("work") == workdir
+
+    monkeypatch.setenv("SLURM_JOB_ID", "12")
+    monkeypatch.setenv("SLURM_STEP_ID", "0")
+    assert bris.utils.get_workdir("work") == "work/12.0"
+    monkeypatch.setenv("SLURM_STEP_ID", "1")
+    assert bris.utils.get_workdir("work") == "work/12.1"
+    monkeypatch.setenv("BRIS_RUN_ID", "x")
+    assert bris.utils.get_workdir("work") == "work/x"
+
+
 def test_get_base_seed():
     # Set up test vars
     os.environ["AIFS_BASE_SEED"] = "1234"

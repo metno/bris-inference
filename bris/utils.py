@@ -4,7 +4,6 @@ import numbers
 import os
 import sys
 import time
-import uuid
 from argparse import ArgumentParser
 from collections.abc import Iterable
 from datetime import datetime, timedelta
@@ -19,6 +18,7 @@ from anemoi.utils.config import DotDict
 from anemoi.utils.dates import frequency_to_seconds
 from omegaconf import DictConfig, ListConfig, OmegaConf
 
+from . import zarrstore
 from .checkpoint import Checkpoint
 from .forcings import anemoi_dynamic_forcings, get_dynamic_forcings
 
@@ -46,10 +46,13 @@ def is_number(value):
 
 
 def get_workdir(path: str) -> str:
-    """If SLURM_PROCID is set, return path/SLURM_JOB_ID, else return path/<a uuid>."""
-    if "SLURM_PROCID" in os.environ:
-        return f"{path}/{os.environ['SLURM_JOB_ID']}"
-    return f"{path}/{uuid.uuid4()}"
+    """The work directory of this run under path, the same for all its ranks
+
+    It is named after the run (see zarrstore.run_id): the job and the step of a run launched
+    by srun, so that two steps of a job that run at the same time do not write to the same
+    directory.
+    """
+    return f"{path}/{zarrstore.run_id()}"
 
 
 def check_anemoi_training(metadata: DotDict) -> bool:
