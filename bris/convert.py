@@ -270,9 +270,11 @@ def to_grib(path: str, filename: str, grib_keys: dict | None = None) -> None:
 
     # set geometry from proj attributes
     proj_attrs = store.attrs("projection") if "projection" in root else {}
+    grid_mapping_name = proj_attrs.get("grid_mapping_name")
+    grib_conventions.check_grid(grid_mapping_name)
     geometry = {
         "gridDefinitionTemplateNumber": grib_conventions.GRID_TEMPLATES.get(
-            proj_attrs.get("grid_mapping_name"), 30
+            grid_mapping_name, 30
         ),
         "latitudeOfSouthernPole": -90000000,
         "longitudeOfSouthernPole": 0,
@@ -298,6 +300,22 @@ def to_grib(path: str, filename: str, grib_keys: dict | None = None) -> None:
         "Latin2": 63300000,
         "shapeOfTheEarth": 6,
     }
+    if grid_mapping_name == "latitude_longitude" and num_spatial == 2:
+        # A regular grid of latitudes (increasing, as the scanning mode says) and longitudes
+        geometry = {
+            "gridDefinitionTemplateNumber": grib_conventions.GRID_TEMPLATES[
+                grid_mapping_name
+            ],
+            "Ni": nx,
+            "Nj": ny,
+            "latitudeOfFirstGridPointInDegrees": float(lats[0]),
+            "longitudeOfFirstGridPointInDegrees": float(lons[0]) % 360,
+            "latitudeOfLastGridPointInDegrees": float(lats[-1]),
+            "longitudeOfLastGridPointInDegrees": float(lons[-1]) % 360,
+            "iDirectionIncrementInDegrees": float(lons[1] - lons[0]) if nx > 1 else 0,
+            "jDirectionIncrementInDegrees": float(lats[1] - lats[0]) if ny > 1 else 0,
+            "shapeOfTheEarth": 6,
+        }
 
     origintime = datetime.fromtimestamp(store.forecast_reference_time, UTC)
     validtimes = [datetime.fromtimestamp(t, UTC) for t in root[TIME][...]]

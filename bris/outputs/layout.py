@@ -87,7 +87,7 @@ class Layout:
     @property
     def _is_gridded(self) -> bool:
         """Is the output gridded?"""
-        return len(self.pm.field_shape) == 2 or self.interp_res is not None
+        return self.pm.is_gridded or self.interp_res is not None
 
     @property
     def _interpolate(self) -> bool:
@@ -170,6 +170,16 @@ class Layout:
 
         y = np.arange(len(self.pm.lats)).astype(np.int32)
         return ("location",), None, y
+
+    @property
+    def grid_mapping_name(self) -> str | None:
+        """The CF grid mapping name of the grid of the variables, if it has a grid mapping"""
+        if self._is_gridded and self._interpolate:
+            return "latitude_longitude"
+        if (self._is_gridded or self._is_masked) and self.proj4_str:
+            attrs = projections.get_proj_attributes(self.proj4_str)
+            return attrs.get("grid_mapping_name")
+        return None
 
     @property
     def spatial_dims(self) -> tuple:

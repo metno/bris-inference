@@ -28,6 +28,20 @@ GRID_TEMPLATES = {
     "spherical_harmonic": 50,
 }
 
+# The grids that bris.convert.to_grib describes, by grid mapping name. A grid without a grid
+# mapping (None) is described as the Lambert grid of MEPS.
+SUPPORTED_GRIDS = [None, "lambert_conformal_conic", "latitude_longitude"]
+
+
+def check_grid(grid_mapping_name: str | None) -> None:
+    """Raise a ValueError for a grid that cannot be described in Grib by bris"""
+    if grid_mapping_name not in SUPPORTED_GRIDS:
+        raise ValueError(
+            f"grib: a grid with the grid mapping '{grid_mapping_name}' cannot be written; "
+            f"expected one of {[name for name in SUPPORTED_GRIDS if name]}"
+        )
+
+
 # Map parameter name to:
 # (discipline, parameter category, parameter number, type of statistical processing,
 #  product definition template number, product definition template number in an ensemble)

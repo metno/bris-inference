@@ -62,6 +62,10 @@ class Grib(Zarr):
         )
 
     @property
+    def _converts_to_grib(self) -> bool:
+        return True
+
+    @property
     def has_targets(self) -> bool:
         return True
 

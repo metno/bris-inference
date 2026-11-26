@@ -10,6 +10,7 @@ import zarr
 import bris.convert
 import bris.outputs.zarr
 from bris import outputs, zarrstore
+from bris.outputs.grib import Grib
 from bris.outputs.netcdf import Netcdf
 from bris.outputs.zarr import Zarr
 from bris.predict_metadata import PredictMetadata
@@ -627,3 +628,57 @@ def test_grib_from_chunks_in_time(tmp_path, monkeypatch, num_members):
         files.append((folder / "out.grib").read_bytes())
     assert len(files[0]) > 0
     assert all(content == files[0] for content in files[1:])
+
+
+def test_grib_of_a_latlon_grid(tmp_path):
+    """A store on a regular lat/lon grid is converted to Grib with that grid"""
+    import eccodes as ecc
+
+    pm = get_pm(gridded=False)
+    output = Zarr(
+        pm,
+        "",
+        str(tmp_path / "%Y%m%dT%HZ.zarr"),
+        variables=["2t"],
+        interp_res=0.5,
+        convert=[{"grib": {"filename_pattern": str(tmp_path / "%Y%m%dT%HZ.grib")}}],
+    )
+    add_members(output, pm, np.nan_to_num(get_pred(pm)))
+    output.finalize()
+
+    ds = open_zarr(tmp_path / "20230101T06Z.zarr")
+    lats, lons = np.meshgrid(
+        ds["latitude"].values, ds["longitude"].values, indexing="ij"
+    )
+    with open(tmp_path / "20230101T06Z.grib", "rb") as file:
+        grib = ecc.codes_grib_new_from_file(file)
+        assert ecc.codes_get(grib, "gridType") == "regular_ll"
+        grib_lats = ecc.codes_get_array(grib, "latitudes")
+        grib_lons = ecc.codes_get_array(grib, "longitudes")
+        values = ecc.codes_get_values(grib)
+        ecc.codes_release(grib)
+    np.testing.assert_allclose(grib_lats, lats.ravel(), atol=1e-6)
+    np.testing.assert_allclose(grib_lons % 360, lons.ravel() % 360, atol=1e-6)
+    expected = ds["air_temperature_2m"].values[0, 0].ravel()
+    np.testing.assert_allclose(values, expected, atol=1e-4)
+
+
+def test_grib_refuses_grids_it_cannot_describe(tmp_path):
+    """... when the output is created, not after the forecast has been made"""
+    polar = "+proj=stere +lat_0=90 +lat_ts=90 +lon_0=-30 +R=6371000"
+    pm = get_pm()
+    pattern = str(tmp_path / "%Y%m%dT%HZ")
+    targets = [{"grib": {"filename_pattern": pattern + ".grib"}}]
+    with pytest.raises(ValueError, match="polar_stereographic"):
+        Zarr(pm, "", pattern + ".zarr", proj4_str=polar, convert=targets)
+    with pytest.raises(ValueError, match="polar_stereographic"):
+        Grib(pm, str(tmp_path / "work"), pattern + ".grib", proj4_str=polar)
+
+    # The conversion of a store that was written without the target refuses too
+    output = Zarr(pm, "", pattern + ".zarr", proj4_str=polar, variables=["2t"])
+    add_members(output, pm, get_pred(pm))
+    with pytest.raises(ValueError, match="polar_stereographic"):
+        bris.convert.to_grib(
+            str(tmp_path / "20230101T06Z.zarr"), str(tmp_path / "out.grib")
+        )
+    assert not os.path.exists(tmp_path / "out.grib")

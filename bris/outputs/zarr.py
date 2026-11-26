@@ -14,6 +14,7 @@ import zarr
 
 import bris.convert
 from bris import projections, utils, zarrstore
+from bris.conventions import grib as grib_conventions
 from bris.outputs import Output
 from bris.outputs.layout import Layout
 from bris.predict_metadata import PredictMetadata
@@ -139,6 +140,8 @@ class Zarr(Output):
                 raise ValueError(
                     f"convert: expected one of {list(bris.convert.WRITERS)}, got {list(target)}"
                 )
+        if self._converts_to_grib:
+            grib_conventions.check_grid(self.layout.grid_mapping_name)
         self.remove_after_convert = remove_after_convert
         if self.remove_after_convert and not self.has_targets:
             raise ValueError(
@@ -174,6 +177,10 @@ class Zarr(Output):
             for path in glob.glob(os.path.abspath(pattern))
             if zarrstore.is_from_this_run(path)
         )
+
+    @property
+    def _converts_to_grib(self) -> bool:
+        return any("grib" in target for target in self.convert_targets)
 
     @property
     def has_targets(self) -> bool:
