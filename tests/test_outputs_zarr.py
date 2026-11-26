@@ -737,3 +737,20 @@ def test_incomplete_store(tmp_path, caplog):
         output.finalize()
     assert caplog.text == ""
     assert not os.path.exists(tmp_path / "work2")
+
+
+def test_stores_of_outputs_with_similar_names(tmp_path):
+    """An output only takes the stores with its own name for its own"""
+    pm = get_pm(num_members=2)
+    pred = get_pred(pm)
+    names = ["%Y%m%dT%HZ.zarr", "lam_%Y%m%dT%HZ.zarr", "%Y%m%dT%HZ_lam.zarr"]
+    outputs = [Zarr(pm, "", str(tmp_path / name), variables=["2t"]) for name in names]
+    for output in outputs:
+        for frt in [FRT, FRT + 6 * 3600]:
+            add_members(output, pm, pred, frt=frt)
+    for output, name in zip(outputs, names, strict=True):
+        stores = [os.path.basename(path) for path in output.get_stores()]
+        assert stores == [
+            name.replace("%Y%m%dT%HZ", time)
+            for time in ["20230101T06Z", "20230101T12Z"]
+        ]

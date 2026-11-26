@@ -172,11 +172,18 @@ class Zarr(Output):
             ("%" if part == "%%" else "*") if i % 2 else glob.escape(part)
             for i, part in enumerate(parts)
         )
-        return sorted(
-            path
-            for path in glob.glob(os.path.abspath(pattern))
-            if zarrstore.is_from_this_run(path)
-        )
+        stores = []
+        for path in glob.glob(os.path.abspath(pattern)):
+            info = zarrstore.read_info(path)
+            if info is None or info.get("run_id") != zarrstore.run_id():
+                continue
+            # The wildcards also match the stores of an output with a longer name
+            # (lam_%Y%m%d.zarr for %Y%m%d.zarr): keep the ones that have this output's name
+            frt = info.get("forecast_reference_time")
+            if frt is not None and self.get_store(frt) != path:
+                continue
+            stores.append(path)
+        return sorted(stores)
 
     @property
     def _converts_to_grib(self) -> bool:
@@ -343,6 +350,7 @@ class Zarr(Output):
             "spatial_dims": list(self.layout.spatial_dims),
             "variables": list(ds.variables) + list(fields),
             "attribute_order": attribute_order,
+            "forecast_reference_time": frt,
             "convert": self.get_targets(frt),
             "remove_after_convert": self.remove_after_convert,
         }
